@@ -35,3 +35,35 @@ def test_system_prompt_manager_delete():
 def test_system_prompt_manager_read_nonexistent():
     mgr = SystemPromptManager()
     assert mgr.read_section("nonexistent") is None
+
+
+def test_mail_send_passes_attachments():
+    """Mail handler should pass attachments to mail service."""
+    from stoai.agent import BaseAgent
+    from unittest.mock import MagicMock
+    from pathlib import Path
+
+    svc = MagicMock()
+    svc.get_adapter.return_value = MagicMock()
+    svc.provider = "gemini"
+    svc.model = "gemini-test"
+
+    mail_svc = MagicMock()
+    mail_svc.address = "127.0.0.1:9999"
+    mail_svc.send.return_value = True
+
+    agent = BaseAgent(agent_id="test", service=svc, mail_service=mail_svc)
+
+    # Call the mail handler directly
+    result = agent._intrinsics["mail"]({
+        "action": "send",
+        "address": "127.0.0.1:8888",
+        "message": "here is a file",
+        "attachments": ["/path/to/file.png"],
+    })
+    assert result["status"] == "delivered"
+    # Verify attachments were passed through
+    call_args = mail_svc.send.call_args
+    sent_message = call_args[0][1]  # second positional arg is the message dict
+    assert "attachments" in sent_message
+    assert sent_message["attachments"] == ["/path/to/file.png"]

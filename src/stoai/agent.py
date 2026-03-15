@@ -470,6 +470,16 @@ class BaseAgent:
             "subject": subject,
             "message": message_text,
         }
+        # Handle attachments — resolve relative paths and include in payload
+        attachments = args.get("attachments", [])
+        if attachments:
+            resolved = []
+            for p in attachments:
+                path = Path(p)
+                if not path.is_absolute():
+                    path = self._working_dir / path
+                resolved.append(str(path))
+            payload["attachments"] = resolved
         success = self._mail_service.send(address, payload)
         status = "delivered" if success else "refused"
         self._log("mail_sent", address=address, subject=subject, status=status, message=message_text)
