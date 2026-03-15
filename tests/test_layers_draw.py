@@ -7,71 +7,114 @@ import pytest
 from stoai.capabilities.draw import DrawManager, setup as setup_draw
 
 
+def make_mock_mcp(result=None):
+    """Create a mock MCP client that returns the given result from call_tool."""
+    mcp = MagicMock()
+    mcp.call_tool.return_value = result or {"status": "success", "text": ""}
+    return mcp
+
+
 def make_mock_agent(tmp_path):
     agent = MagicMock()
     agent.working_dir = tmp_path
-    agent.service = MagicMock()
     return agent
 
 
 class TestDrawManager:
-    def test_generate_image_success(self, tmp_path):
-        svc = MagicMock()
-        svc.generate_image.return_value = b"\x89PNG_FAKE_BYTES"
-        mgr = DrawManager(working_dir=tmp_path, llm_service=svc)
+    def test_generate_image_via_saved_file(self, tmp_path):
+        """MCP saves file to output_directory — manager finds it."""
+        out_dir = tmp_path / "media" / "images"
+        out_dir.mkdir(parents=True)
+        saved = out_dir / "generated.jpeg"
+        saved.write_bytes(b"\xff\xd8JPEG_FAKE")
+
+        mcp = make_mock_mcp({"status": "success", "text": "Image saved"})
+        mgr = DrawManager(working_dir=tmp_path, mcp_client=mcp)
         result = mgr.handle({"prompt": "a cute cat"})
         assert result["status"] == "ok"
-        assert "file_path" in result
+        assert result["file_path"] == str(saved)
+        mcp.call_tool.assert_called_once()
+        call_args = mcp.call_tool.call_args
+        assert call_args[0][0] == "text_to_image"
+        assert call_args[0][1]["prompt"] == "a cute cat"
+        assert call_args[0][1]["output_directory"] == str(out_dir)
+
+    def test_generate_image_via_url_fallback(self, tmp_path, monkeypatch):
+        """MCP returns a URL — manager downloads it."""
+        url = "https://example.com/image.jpeg"
+        mcp = make_mock_mcp({"status": "success", "text": f"Success. Image URLs: ['{url}']"})
+
+        fake_resp = MagicMock()
+        fake_resp.content = b"\xff\xd8JPEG_DOWNLOADED"
+        fake_resp.raise_for_status = MagicMock()
+
+        import stoai.capabilities.draw as draw_mod
+        monkeypatch.setattr(draw_mod.requests, "get", lambda *a, **kw: fake_resp)
+
+        mgr = DrawManager(working_dir=tmp_path, mcp_client=mcp)
+        result = mgr.handle({"prompt": "a sunset"})
+        assert result["status"] == "ok"
         path = Path(result["file_path"])
         assert path.exists()
-        assert path.read_bytes() == b"\x89PNG_FAKE_BYTES"
-        assert path.parent == tmp_path / "media" / "images"
+        assert path.read_bytes() == b"\xff\xd8JPEG_DOWNLOADED"
 
-    def test_generate_image_no_provider(self, tmp_path):
-        svc = MagicMock()
-        svc.generate_image.side_effect = RuntimeError("No image_provider configured")
-        mgr = DrawManager(working_dir=tmp_path, llm_service=svc)
-        result = mgr.handle({"prompt": "a cute cat"})
-        assert result["status"] == "error"
-        assert "image_provider" in result["message"]
+    def test_aspect_ratio_passed_through(self, tmp_path):
+        out_dir = tmp_path / "media" / "images"
+        out_dir.mkdir(parents=True)
+        (out_dir / "img.jpeg").write_bytes(b"FAKE")
 
-    def test_generate_image_not_implemented(self, tmp_path):
-        svc = MagicMock()
-        svc.generate_image.side_effect = NotImplementedError
-        mgr = DrawManager(working_dir=tmp_path, llm_service=svc)
-        result = mgr.handle({"prompt": "a cute cat"})
+        mcp = make_mock_mcp()
+        mgr = DrawManager(working_dir=tmp_path, mcp_client=mcp)
+        mgr.handle({"prompt": "wide shot", "aspect_ratio": "16:9"})
+        call_args = mcp.call_tool.call_args[0][1]
+        assert call_args["aspect_ratio"] == "16:9"
+
+    def test_mcp_error_response(self, tmp_path):
+        mcp = make_mock_mcp({"status": "error", "message": "rate limited"})
+        mgr = DrawManager(working_dir=tmp_path, mcp_client=mcp)
+        result = mgr.handle({"prompt": "a cat"})
         assert result["status"] == "error"
+        assert "rate limited" in result["message"]
+
+    def test_mcp_call_exception(self, tmp_path):
+        mcp = MagicMock()
+        mcp.call_tool.side_effect = RuntimeError("connection lost")
+        mgr = DrawManager(working_dir=tmp_path, mcp_client=mcp)
+        result = mgr.handle({"prompt": "a cat"})
+        assert result["status"] == "error"
+        assert "connection lost" in result["message"]
 
     def test_missing_prompt(self, tmp_path):
-        svc = MagicMock()
-        mgr = DrawManager(working_dir=tmp_path, llm_service=svc)
+        mcp = make_mock_mcp()
+        mgr = DrawManager(working_dir=tmp_path, mcp_client=mcp)
         result = mgr.handle({})
         assert result["status"] == "error"
-
-    def test_empty_bytes_is_error(self, tmp_path):
-        svc = MagicMock()
-        svc.generate_image.return_value = b""
-        mgr = DrawManager(working_dir=tmp_path, llm_service=svc)
-        result = mgr.handle({"prompt": "a cute cat"})
-        assert result["status"] == "error"
+        assert "prompt" in result["message"]
 
 
 class TestSetupDraw:
     def test_setup_registers_tool(self, tmp_path):
         agent = make_mock_agent(tmp_path)
-        mgr = setup_draw(agent)
+        mcp = make_mock_mcp()
+        mgr = setup_draw(agent, mcp_client=mcp)
         assert isinstance(mgr, DrawManager)
         agent.add_tool.assert_called_once()
+
+    def test_setup_requires_mcp_client(self, tmp_path):
+        agent = make_mock_agent(tmp_path)
+        with pytest.raises(ValueError, match="mcp_client"):
+            setup_draw(agent)
 
 
 class TestAddCapabilityIntegration:
     def test_add_capability_draw(self, tmp_path):
-        from stoai.agent import BaseAgent
         from unittest.mock import MagicMock
+        from stoai.agent import BaseAgent
         svc = MagicMock()
         svc.get_adapter.return_value = MagicMock()
         svc.provider = "gemini"
         svc.model = "gemini-test"
         agent = BaseAgent(agent_id="test", service=svc, working_dir=str(tmp_path))
-        mgr = agent.add_capability("draw")
+        mcp = make_mock_mcp()
+        mgr = agent.add_capability("draw", mcp_client=mcp)
         assert "draw" in agent._mcp_handlers
