@@ -97,3 +97,82 @@ class TestJSONLLoggingService:
             assert False, "Should have raised TypeError"
         except TypeError:
             pass
+
+
+# ---------------------------------------------------------------------------
+# BaseAgent + LoggingService integration
+# ---------------------------------------------------------------------------
+
+from unittest.mock import MagicMock
+from stoai import BaseAgent, AgentState
+from stoai.llm import ToolCall
+from stoai.loop_guard import LoopGuard
+
+
+def make_mock_service():
+    svc = MagicMock()
+    svc.model = "test-model"
+    svc.make_tool_result.return_value = {"role": "tool", "content": "ok"}
+    return svc
+
+
+class TestBaseAgentLoggingIntegration:
+
+    def test_tool_call_logged(self, tmp_path):
+        """Executing a tool logs tool_call and tool_result events."""
+        log_file = tmp_path / "agent.jsonl"
+        log_svc = JSONLLoggingService(log_file)
+
+        agent = BaseAgent(
+            agent_id="test",
+            service=make_mock_service(),
+            logging_service=log_svc,
+        )
+        agent.add_tool("greet", schema={"type": "object", "properties": {}}, handler=lambda args: {"status": "ok"})
+
+        guard = LoopGuard()
+        errors = []
+        tc = ToolCall(name="greet", args={})
+        agent._execute_single_tool(tc, guard, errors)
+        log_svc.close()
+
+        lines = log_file.read_text().strip().split("\n")
+        events = [json.loads(line) for line in lines]
+        types = [e["type"] for e in events]
+        assert "tool_call" in types
+        assert "tool_result" in types
+        # Verify agent_id is injected
+        assert all(e["agent_id"] == "test" for e in events)
+        # Verify ts is present
+        assert all("ts" in e for e in events)
+
+    def test_no_logging_service_is_noop(self, tmp_path):
+        """Agent without logging_service does not raise on tool execution."""
+        agent = BaseAgent(
+            agent_id="test",
+            service=make_mock_service(),
+        )
+        agent.add_tool("greet", schema={"type": "object", "properties": {}}, handler=lambda args: {"status": "ok"})
+
+        guard = LoopGuard()
+        errors = []
+        tc = ToolCall(name="greet", args={})
+        agent._execute_single_tool(tc, guard, errors)  # should not raise
+
+    def test_state_change_logged(self, tmp_path):
+        """State transitions are logged."""
+        log_file = tmp_path / "agent.jsonl"
+        log_svc = JSONLLoggingService(log_file)
+
+        agent = BaseAgent(
+            agent_id="test",
+            service=make_mock_service(),
+            logging_service=log_svc,
+        )
+        agent._set_state(AgentState.ACTIVE, reason="test")
+        log_svc.close()
+
+        lines = log_file.read_text().strip().split("\n")
+        events = [json.loads(line) for line in lines]
+        state_events = [e for e in events if e["type"] == "agent_state"]
+        assert len(state_events) >= 1
