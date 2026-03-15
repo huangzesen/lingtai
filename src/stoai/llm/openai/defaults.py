@@ -1,0 +1,15 @@
+DEFAULTS = {
+    "api_compat": "openai",
+    "base_url": None,
+    "api_key_env": "OPENAI_API_KEY",
+    "model": "",
+    "sub_agent_model": "",
+    "inline_model": "",
+    "web_search_provider": "openai",
+    "vision_provider": "openai",
+    "use_responses_api": True,
+    "compact_threshold": 100000,
+    "thinking_model": "high",
+    "thinking_sub_agent": "low",
+    "rate_limit_interval": 0,
+}

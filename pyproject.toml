@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stoai"
+version = "0.1.0"
+description = "Generic research agent with intrinsic tools and MCP-compatible extension interface"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+gemini = ["google-genai>=1.0"]
+openai = ["openai>=1.0"]
+anthropic = ["anthropic>=0.40"]
+minimax = ["minimax>=0.1"]
+all = ["stoai[gemini,openai,anthropic,minimax]"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
