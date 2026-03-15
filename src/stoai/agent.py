@@ -184,6 +184,7 @@ class BaseAgent:
         disabled_intrinsics: set[str] | None = None,
         cancel_event: threading.Event | None = None,
         streaming: bool = False,
+        logging_service: Any | None = None,
     ):
         if enabled_intrinsics is not None and disabled_intrinsics is not None:
             raise ValueError(
@@ -196,6 +197,7 @@ class BaseAgent:
         self._context = context
         self._cancel_event = cancel_event
         self._streaming = streaming
+        self._log_service = logging_service
 
         # Working directory for file intrinsics
         self._working_dir = Path(working_dir) if working_dir else Path.cwd()
@@ -608,6 +610,16 @@ class BaseAgent:
             self._idle.set()
         else:
             self._idle.clear()
+
+    def _log(self, event_type: str, **fields) -> None:
+        """Write a structured event to the logging service, if configured."""
+        if self._log_service:
+            self._log_service.log({
+                "type": event_type,
+                "agent_id": self.agent_id,
+                "ts": time.time(),
+                **fields,
+            })
 
     # ------------------------------------------------------------------
     # Main loop (final — do not override)
