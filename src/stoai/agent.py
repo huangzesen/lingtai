@@ -477,6 +477,9 @@ class BaseAgent:
             "message": message_text,
         }
         success = self._email_service.send(address, payload)
+        preview = message_text[:200] if message_text else ""
+        status = "delivered" if success else "refused"
+        self._log("email_sent", address=address, status=status, message_preview=preview)
         if success:
             return {"status": "delivered"}
         else:
@@ -581,6 +584,7 @@ class BaseAgent:
 
     def stop(self, timeout: float = 5.0) -> None:
         """Signal shutdown and wait for the agent thread to exit."""
+        self._log("agent_stop")
         self._shutdown.set()
         if self._thread:
             self._thread.join(timeout=timeout)
@@ -593,12 +597,21 @@ class BaseAgent:
             except Exception:
                 pass
 
+        # Close LoggingService if configured
+        if self._log_service is not None:
+            try:
+                self._log_service.close()
+            except Exception:
+                pass
+
     def _on_email_received(self, payload: dict) -> None:
         """Callback for EmailService — puts received email into inbox."""
         sender = payload.get("from", "unknown")
         content = payload.get("message", "")
         msg = _make_message(MSG_REQUEST, sender, content)
         self.inbox.put(msg)
+        preview = str(content)[:200] if content else ""
+        self._log("email_received", sender=sender, message_preview=preview)
 
     def _set_state(self, new_state: AgentState, reason: str = "") -> None:
         """Transition to a new state, keeping _idle in sync."""
@@ -610,6 +623,7 @@ class BaseAgent:
             self._idle.set()
         else:
             self._idle.clear()
+        self._log("agent_state", old=old.value, new=new_state.value, reason=reason)
 
     def _log(self, event_type: str, **fields) -> None:
         """Write a structured event to the logging service, if configured."""
@@ -641,6 +655,7 @@ class BaseAgent:
                     f"[{self.agent_id}] Unhandled error in message handler: {err_desc}",
                     exc_info=True,
                 )
+                self._log("error", source="message_handler", message=err_desc)
                 if msg._reply_event:
                     msg._reply_value = {
                         "text": f"Internal error: {err_desc}",
@@ -834,8 +849,10 @@ class BaseAgent:
                 tc.name, result, tool_call_id=tc_id,
                 provider=self._config.provider,
             )
+            self._log("tool_result", tool_name=tc.name, status="blocked", elapsed_ms=0)
             return msg, False, ""
 
+        self._log("tool_call", tool_name=tc.name, tool_args=args)
         timer = ToolTimer()
         try:
             # Check for unknown tool first
@@ -850,6 +867,9 @@ class BaseAgent:
 
             if isinstance(result, dict):
                 stamp_tool_result(result, timer.elapsed_ms)
+
+            status = result.get("status", "success") if isinstance(result, dict) else "success"
+            self._log("tool_result", tool_name=tc.name, status=status, elapsed_ms=timer.elapsed_ms)
 
             if verdict.warning and isinstance(result, dict):
                 result["_duplicate_warning"] = verdict.warning
@@ -887,6 +907,7 @@ class BaseAgent:
                 provider=self._config.provider,
             )
             collected_errors.append(f"{tc.name}: {e}")
+            self._log("error", source=tc.name, message=str(e))
             return result_msg, False, ""
 
     def _execute_tools_sequential(
@@ -1083,6 +1104,8 @@ class BaseAgent:
 
         self._check_and_compact()
 
+        self._log("llm_call", model=self._config.model or self.service.model or "unknown")
+
         retry_timeout = self._config.retry_timeout
 
         try:
@@ -1192,6 +1215,7 @@ class BaseAgent:
             provider=self._config.provider,
             interface=iface,
         )
+        self._log("llm_reset", entries_kept=len(iface.entries))
 
         rollback_msg = (
             "Your previous response was lost due to a server error. "
@@ -1243,8 +1267,11 @@ class BaseAgent:
             provider=self._config.provider,
         )
         if new_chat is not None:
+            before_tokens = self._chat.interface.estimate_context_tokens()
+            after_tokens = new_chat.interface.estimate_context_tokens()
             self._chat = new_chat
             self._interaction_id = None
+            self._log("compaction", before_tokens=before_tokens, after_tokens=after_tokens)
 
     # ------------------------------------------------------------------
     # Token tracking
@@ -1282,6 +1309,13 @@ class BaseAgent:
         self._api_calls = token_state["api_calls"]
         if response.usage:
             self._latest_input_tokens = response.usage.input_tokens
+            self._log(
+                "llm_response",
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+                thinking_tokens=response.usage.thinking_tokens,
+                cached_tokens=response.usage.cached_tokens,
+            )
 
     def get_token_usage(self) -> dict:
         """Return token usage summary."""
