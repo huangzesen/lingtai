@@ -315,8 +315,8 @@ def test_email_without_mail_service():
     assert "error" in result
 
 
-def test_email_send_with_attachments():
-    agent = BaseAgent(agent_id="test", service=make_mock_service())
+def test_email_send_with_attachments(tmp_path):
+    agent = BaseAgent(agent_id="test", service=make_mock_service(), working_dir=tmp_path)
     mail_svc = MagicMock()
     mail_svc.address = "127.0.0.1:9999"
     mail_svc.send.return_value = True
@@ -334,8 +334,8 @@ def test_email_send_with_attachments():
     assert sent.get("attachments") == ["/path/to/file.png"]
 
 
-def test_email_read_shows_attachments():
-    agent = BaseAgent(agent_id="test", service=make_mock_service())
+def test_email_read_shows_attachments(tmp_path):
+    agent = BaseAgent(agent_id="test", service=make_mock_service(), working_dir=tmp_path)
     mgr = agent.add_capability("email")
     mgr.on_mail_received({
         "from": "sender",

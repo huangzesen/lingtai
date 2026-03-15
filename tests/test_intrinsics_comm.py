@@ -37,7 +37,7 @@ def test_system_prompt_manager_read_nonexistent():
     assert mgr.read_section("nonexistent") is None
 
 
-def test_mail_send_passes_attachments():
+def test_mail_send_passes_attachments(tmp_path):
     """Mail handler should pass attachments to mail service."""
     from stoai.agent import BaseAgent
     from unittest.mock import MagicMock
@@ -52,7 +52,7 @@ def test_mail_send_passes_attachments():
     mail_svc.address = "127.0.0.1:9999"
     mail_svc.send.return_value = True
 
-    agent = BaseAgent(agent_id="test", service=svc, mail_service=mail_svc)
+    agent = BaseAgent(agent_id="test", service=svc, mail_service=mail_svc, working_dir=tmp_path)
 
     # Call the mail handler directly
     result = agent._intrinsics["mail"]({

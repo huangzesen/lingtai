@@ -512,13 +512,14 @@ def test_working_dir_property(tmp_path):
     agent = BaseAgent(agent_id="test", service=svc, working_dir=str(tmp_path))
     assert agent.working_dir == tmp_path
 
-def test_working_dir_property_default():
+def test_working_dir_property_required():
+    """working_dir is a required argument — omitting it raises TypeError."""
     from stoai.agent import BaseAgent
-    from pathlib import Path
     from unittest.mock import MagicMock
+    import pytest
     svc = MagicMock()
     svc.get_adapter.return_value = MagicMock()
     svc.provider = "gemini"
     svc.model = "gemini-test"
-    agent = BaseAgent(agent_id="test", service=svc)
-    assert agent.working_dir == Path.cwd()
+    with pytest.raises(TypeError, match="working_dir"):
+        BaseAgent(agent_id="test", service=svc)
