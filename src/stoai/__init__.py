@@ -10,10 +10,11 @@ from .agent import BaseAgent, Message, AgentState
 from .capabilities import setup_capability
 from .capabilities.bash import BashManager
 from .capabilities.delegate import DelegateManager
+from .capabilities.email import EmailManager
 
 # Services
 from .services.file_io import FileIOService, LocalFileIOService, GrepMatch
-from .services.email import EmailService, TCPEmailService
+from .services.mail import MailService, TCPMailService
 from .services.vision import VisionService, LLMVisionService
 from .services.search import SearchService, LLMSearchService, SearchResult
 from .services.logging import LoggingService, JSONLLoggingService
@@ -30,12 +31,13 @@ __all__ = [
     "setup_capability",
     "BashManager",
     "DelegateManager",
+    "EmailManager",
     # Services
     "FileIOService",
     "LocalFileIOService",
     "GrepMatch",
-    "EmailService",
-    "TCPEmailService",
+    "MailService",
+    "TCPMailService",
     "VisionService",
     "LLMVisionService",
     "SearchService",

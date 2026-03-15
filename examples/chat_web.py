@@ -29,7 +29,7 @@ if env_path.exists():
 
 from stoai import BaseAgent, AgentConfig
 from stoai.llm import LLMService
-from stoai.services.email import TCPEmailService
+from stoai.services.mail import TCPMailService
 
 AGENT_PORT = 8301
 WEB_PORT = 8080
@@ -183,15 +183,16 @@ def main():
         },
     )
 
-    email_svc = TCPEmailService(listen_port=AGENT_PORT)
+    email_svc = TCPMailService(listen_port=AGENT_PORT)
 
     agent = BaseAgent(
         agent_id="assistant",
         service=llm,
-        email_service=email_svc,
+        mail_service=email_svc,
         config=AgentConfig(max_turns=20),
     )
     agent.update_system_prompt("role", "You are a helpful AI assistant.", protected=True)
+    agent.add_capability("email")
     agent.start()
 
     ChatHandler.agent = agent

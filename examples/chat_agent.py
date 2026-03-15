@@ -24,7 +24,7 @@ if env_path.exists():
 
 from stoai import BaseAgent, AgentConfig
 from stoai.llm import LLMService
-from stoai.services.email import TCPEmailService
+from stoai.services.mail import TCPMailService
 
 PORT = 8301
 
@@ -49,22 +49,23 @@ def main():
         },
     )
 
-    email_svc = TCPEmailService(listen_port=PORT)
+    email_svc = TCPMailService(listen_port=PORT)
 
     agent = BaseAgent(
         agent_id="assistant",
         service=llm,
-        email_service=email_svc,
+        mail_service=email_svc,
         config=AgentConfig(max_turns=20),
         streaming=True,
     )
     agent.update_system_prompt("role", "You are a helpful AI assistant.", protected=True)
+    agent.add_capability("email")
     agent.start()
 
     print(f"Agent listening on 127.0.0.1:{PORT}")
     print("Type messages below. Press Ctrl+C to quit.\n")
 
-    sender = TCPEmailService()
+    sender = TCPMailService()
 
     try:
         while True:

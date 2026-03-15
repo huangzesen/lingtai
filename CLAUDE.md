@@ -35,7 +35,7 @@ No hard dependencies — only the active LLM provider's SDK needs to be installe
 |---------|--------------|---------------------|
 | `LLMService` | Core agent loop (thinking) | Gemini adapter |
 | `FileIOService` | read, edit, write, glob, grep | `LocalFileIOService` |
-| `EmailService` | email (inter-agent messaging) | `TCPEmailService` |
+| `MailService` | mail (point-to-point FIFO messaging) | `TCPMailService` |
 | `VisionService` | vision | `LLMVisionService` |
 | `SearchService` | web_search | `LLMSearchService` |
 | `LoggingService` | structured JSONL event logging | `JSONLLoggingService` |
@@ -46,20 +46,20 @@ Missing service = intrinsics backed by it auto-disabled. `FileIOService` auto-cr
 
 | Tier | What | How added |
 |------|------|-----------|
-| **Intrinsics** | Core capabilities (read, edit, write, glob, grep, email, vision, web_search) | Built-in, backed by services, can be disabled |
-| **Capabilities** | Composable capabilities (bash, delegate) via `add_capability()` | `agent.add_capability("bash")`, `agent.add_capability("delegate")` |
+| **Intrinsics** | Core capabilities (read, edit, write, glob, grep, mail, vision, web_search) | Built-in, backed by services, can be disabled |
+| **Capabilities** | Composable capabilities (bash, delegate, email) via `add_capability()` | `agent.add_capability("bash")`, `agent.add_capability("email")` |
 | **MCP tools** | Domain context from the host app | Passed as `mcp_tools=[MCPTool(...)]` at construction |
 
 ### Key Modules
 
-- **`agent.py`** — `BaseAgent` class. 2-state lifecycle (SLEEPING/ACTIVE), 6 optional services, persistent LLM session, 2-layer tool dispatch (intrinsics + MCP), inbox-based inter-agent messaging via EmailService, structured JSONL logging via LoggingService, context compaction, loop guard, parallel tool execution.
-- **`services/`** — Service ABCs + first implementations: `file_io.py`, `email.py`, `vision.py`, `search.py`, `logging.py`.
+- **`agent.py`** — `BaseAgent` class. 2-state lifecycle (SLEEPING/ACTIVE), 6 optional services, persistent LLM session, 2-layer tool dispatch (intrinsics + MCP), FIFO mail queue via MailService, structured JSONL logging via LoggingService, context compaction, loop guard, parallel tool execution.
+- **`services/`** — Service ABCs + first implementations: `file_io.py`, `mail.py`, `vision.py`, `search.py`, `logging.py`.
 - **`llm/interface.py`** — `ChatInterface`, the canonical provider-agnostic conversation history. Single source of truth — adapters rebuild provider formats from this. Content blocks: `TextBlock`, `ToolCallBlock`, `ToolResultBlock`, `ThinkingBlock`, `ImageBlock`.
 - **`llm/base.py`** — `LLMAdapter` (ABC), `ChatSession` (ABC), `LLMResponse`, `ToolCall`, `FunctionSchema`. All agent code depends on these, never on provider SDKs directly.
 - **`llm/service.py`** — `LLMService`. Adapter factory, session registry, one-shot generation gateway, context compaction orchestration. Decoupled from config files — uses injected `key_resolver` and `provider_defaults`.
 - **`llm/interface_converters.py`** — Bidirectional converters between `ChatInterface` and provider-specific formats (Anthropic, OpenAI, Gemini).
-- **`intrinsics/`** — Each file exports `SCHEMA`, `DESCRIPTION`, `handle_*`. Some (email, vision, web_search) have `handler=None` because they need agent state and are handled in `BaseAgent`.
-- **`capabilities/`** — Each capability module exports `setup(agent, **kwargs)`. Added via `agent.add_capability("name")`. 2 built-in: bash, delegate.
+- **`intrinsics/`** — Each file exports `SCHEMA`, `DESCRIPTION`, `handle_*`. Some (mail, vision, web_search) have `handler=None` because they need agent state and are handled in `BaseAgent`.
+- **`capabilities/`** — Each capability module exports `setup(agent, **kwargs)`. Added via `agent.add_capability("name")`. 3 built-in: bash, delegate, email. The email capability upgrades the mail FIFO with a persistent mailbox, reply/reply_all, CC/BCC, and multi-to.
 - **`config.py`** — `AgentConfig` dataclass. Host app injects resolved values; no file-based config inside stoai.
 - **`prompt.py`** — Builds system prompt from base template + `SystemPromptManager` sections + MCP tool descriptions.
 
@@ -70,8 +70,8 @@ Missing service = intrinsics backed by it auto-disabled. `FileIOService` auto-cr
 ### Extension Pattern
 
 ```python
-agent.add_capability("bash")                   # add a named capability (bash, delegate, ...)
-agent.add_capability("bash", "delegate")       # add multiple at once
+agent.add_capability("bash")                   # add a named capability (bash, delegate, email, ...)
+agent.add_capability("bash", "email")          # add multiple at once
 agent.add_tool(name, schema, handler)          # add a custom/MCP tool (low-level)
 agent.remove_tool(name)                        # remove from LLM schema
 agent.update_system_prompt(section, content)   # inject system prompt section (Python API, NOT an LLM tool)

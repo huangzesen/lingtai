@@ -144,7 +144,7 @@ class BaseAgent:
     Services (all optional):
         - ``service`` (LLMService): The brain — thinking, generating text.
         - ``file_io`` (FileIOService): File access — backs read/edit/write/glob/grep.
-        - ``email`` (EmailService): Message transport — backs email intrinsic.
+        - ``mail_service`` (MailService): Message transport — backs mail intrinsic.
         - ``vision`` (VisionService): Image understanding — backs vision intrinsic.
         - ``search`` (SearchService): Web search — backs web_search intrinsic.
 
@@ -172,7 +172,7 @@ class BaseAgent:
         service: LLMService,
         *,
         file_io: Any | None = None,
-        email_service: Any | None = None,
+        mail_service: Any | None = None,
         vision: Any | None = None,
         search: Any | None = None,
         config: AgentConfig | None = None,
@@ -209,8 +209,8 @@ class BaseAgent:
             from .services.file_io import LocalFileIOService
             self._file_io = LocalFileIOService(root=self._working_dir)
 
-        # EmailService: None means email intrinsic disabled
-        self._email_service = email_service
+        # MailService: None means mail intrinsic disabled
+        self._mail_service = mail_service
 
         # VisionService: auto-create from LLM if not provided
         if vision is not None:
@@ -227,9 +227,9 @@ class BaseAgent:
         # System prompt manager
         self._prompt_manager = SystemPromptManager()
 
-        # Email mailbox — structured storage for received emails
-        self._mailbox: list[dict] = []
-        self._mailbox_lock = threading.Lock()
+        # Mail FIFO queue — incoming messages consumed by read
+        self._mail_queue: list[dict] = []
+        self._mail_queue_lock = threading.Lock()
 
         # MCP tool handlers
         self._mcp_handlers: dict[str, Callable[[dict], dict]] = {}
@@ -300,8 +300,8 @@ class BaseAgent:
         # Agent-state intrinsics (bound methods) — depend on services
         state_intrinsics: dict[str, Callable[[dict], dict]] = {}
 
-        # Email requires EmailService OR legacy connections
-        state_intrinsics["email"] = self._handle_email
+        # Mail requires MailService
+        state_intrinsics["mail"] = self._handle_mail
 
         # Vision and web_search always available (fall back to direct LLM calls)
         state_intrinsics["vision"] = self._handle_vision
@@ -440,79 +440,65 @@ class BaseAgent:
     # Intrinsic handlers (agent-state intrinsics)
     # ------------------------------------------------------------------
 
-    def _handle_email(self, args: dict) -> dict:
-        """Handle email tool — send, check inbox, or read a specific email."""
+    def _handle_mail(self, args: dict) -> dict:
+        """Handle mail tool — FIFO send, check, read."""
         action = args.get("action", "send")
-
         if action == "send":
-            return self._email_send(args)
+            return self._mail_send(args)
         elif action == "check":
-            return self._email_check(args)
+            return self._mail_check(args)
         elif action == "read":
-            return self._email_read(args)
+            return self._mail_read(args)
         else:
-            return {"error": f"Unknown email action: {action}"}
+            return {"error": f"Unknown mail action: {action}"}
 
-    def _email_send(self, args: dict) -> dict:
-        """Send an email to another agent."""
+    def _mail_send(self, args: dict) -> dict:
+        """Send a message to another agent (point-to-point)."""
         address = args.get("address", "")
         subject = args.get("subject", "")
         message_text = args.get("message", "")
 
         if not address:
             return {"error": "address is required"}
-        if self._email_service is None:
-            return {"error": "email service not configured"}
+        if self._mail_service is None:
+            return {"error": "mail service not configured"}
 
         payload = {
-            "from": self._email_service.address or self.agent_id,
+            "from": self._mail_service.address or self.agent_id,
             "to": address,
             "subject": subject,
             "message": message_text,
         }
-        success = self._email_service.send(address, payload)
+        success = self._mail_service.send(address, payload)
+        status = "delivered" if success else "refused"
+        self._log("mail_sent", address=address, subject=subject, status=status, message=message_text)
         if success:
             return {"status": "delivered", "to": address}
         else:
             return {"status": "refused", "error": f"Could not deliver to {address}"}
 
-    def _email_check(self, args: dict) -> dict:
-        """List recent emails in the mailbox."""
-        n = args.get("n", 10)
-        with self._mailbox_lock:
-            recent = self._mailbox[-n:] if n > 0 else self._mailbox[:]
-        emails = []
-        for e in reversed(recent):  # newest first
-            emails.append({
-                "id": e["id"],
-                "from": e["from"],
-                "subject": e.get("subject", "(no subject)"),
-                "preview": e["message"][:100],
-                "time": e["time"],
-                "unread": e.get("unread", False),
-            })
-        with self._mailbox_lock:
-            total = len(self._mailbox)
-        return {"status": "ok", "total": total, "showing": len(emails), "emails": emails}
+    def _mail_check(self, args: dict) -> dict:
+        """Count messages in the FIFO queue."""
+        with self._mail_queue_lock:
+            count = len(self._mail_queue)
+        return {"status": "ok", "count": count}
 
-    def _email_read(self, args: dict) -> dict:
-        """Read a specific email by ID."""
-        email_id = args.get("email_id", "")
-        if not email_id:
-            return {"error": "email_id is required"}
-        with self._mailbox_lock:
-            for e in self._mailbox:
-                if e["id"] == email_id:
-                    e["unread"] = False
-                    return {
-                        "status": "ok",
-                        "id": e["id"],
-                        "from": e["from"],
-                        "subject": e.get("subject", "(no subject)"),
-                        "message": e["message"],
-                        "time": e["time"],
-                    }
-        return {"error": f"Email not found: {email_id}"}
+    def _mail_read(self, args: dict) -> dict:
+        """Pop and return the next message from the FIFO queue."""
+        with self._mail_queue_lock:
+            if not self._mail_queue:
+                return {"status": "ok", "message": None, "remaining": 0}
+            entry = self._mail_queue.pop(0)
+            remaining = len(self._mail_queue)
+        return {
+            "status": "ok",
+            "from": entry["from"],
+            "to": entry.get("to", ""),
+            "subject": entry.get("subject", ""),
+            "message": entry["message"],
+            "time": entry["time"],
+            "remaining": remaining,
+        }
 
     def _handle_vision(self, args: dict) -> dict:
         """Analyze an image file using VisionService or direct LLM multimodal call."""
@@ -597,10 +583,11 @@ class BaseAgent:
             return
         self._shutdown.clear()
 
-        # Start EmailService listener if configured
-        if self._email_service is not None:
+        # Start MailService listener if configured — lambda trampoline so
+        # capabilities can intercept _on_mail_received even after start()
+        if self._mail_service is not None:
             try:
-                self._email_service.listen(on_message=self._on_email_received)
+                self._mail_service.listen(on_message=lambda payload: self._on_mail_received(payload))
             except RuntimeError:
                 pass  # Already listening or no listen_port — that's fine
 
@@ -619,10 +606,10 @@ class BaseAgent:
             self._thread.join(timeout=timeout)
         self._timeout_pool.shutdown(wait=False)
 
-        # Stop EmailService if configured
-        if self._email_service is not None:
+        # Stop MailService if configured
+        if self._mail_service is not None:
             try:
-                self._email_service.stop()
+                self._mail_service.stop()
             except Exception:
                 pass
 
@@ -633,39 +620,32 @@ class BaseAgent:
             except Exception:
                 pass
 
-    def _on_email_received(self, payload: dict) -> None:
-        """Callback for EmailService — stores email in mailbox, notifies agent."""
+    def _on_mail_received(self, payload: dict) -> None:
+        """Callback for MailService — enqueues message in FIFO, notifies agent."""
         from datetime import datetime, timezone
 
         sender = payload.get("from", "unknown")
-        subject = payload.get("subject", "(no subject)")
+        subject = payload.get("subject", "")
         message = payload.get("message", "")
-        email_id = f"mail_{uuid4().hex[:8]}"
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        # Store in mailbox
-        email_entry = {
-            "id": email_id,
+        entry = {
             "from": sender,
+            "to": payload.get("to", ""),
             "subject": subject,
             "message": message,
             "time": timestamp,
-            "unread": True,
         }
-        with self._mailbox_lock:
-            self._mailbox.append(email_entry)
+        with self._mail_queue_lock:
+            self._mail_queue.append(entry)
 
-        # Notify agent with a short summary — agent can use email(action="read") for full content
-        preview = message[:80].replace("\n", " ")
+        # Notify agent with full content inline
         notification = (
-            f'[New email received]\n'
-            f'  From: {sender}\n'
-            f'  Subject: {subject}\n'
-            f'  Preview: {preview}...\n'
-            f'  ID: {email_id}\n'
-            f'Use email(action="read", email_id="{email_id}") to read the full message. '
-            f'Use email(action="send", address="{sender}", ...) to reply.'
+            f'[Mail from {sender}]\n'
+            f'Subject: {subject}\n'
+            f'{message}'
         )
+        self._log("mail_received", sender=sender, subject=subject, message=message)
         msg = _make_message(MSG_REQUEST, sender, notification)
         self.inbox.put(msg)
 
@@ -782,8 +762,13 @@ class BaseAgent:
         while True:
             if response.text:
                 collected_text_parts.append(response.text)
+                self._log("diary", text=response.text)
                 if response.tool_calls:
                     self._intermediate_text_streamed = False
+
+            if response.thoughts:
+                for thought in response.thoughts:
+                    self._log("thinking", text=thought)
 
             if not response.tool_calls:
                 break
@@ -1437,12 +1422,9 @@ class BaseAgent:
     # Public API
     # ------------------------------------------------------------------
 
-    def email(self, address: str, message: str, subject: str = "") -> dict:
-        """Send an email to another agent at the given address (public API).
-
-        Requires EmailService to be configured.
-        """
-        return self._handle_email({"action": "send", "address": address, "message": message, "subject": subject})
+    def mail(self, address: str, message: str, subject: str = "") -> dict:
+        """Send a message to another agent (public API). Requires MailService."""
+        return self._handle_mail({"action": "send", "address": address, "message": message, "subject": subject})
 
     def add_tool(
         self,

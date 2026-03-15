@@ -1,8 +1,12 @@
-"""Launch two agents with a web UI for chatting with both.
+"""Launch two agents with email-based web UI.
 
 Agent A (Alice/researcher): TCP 8301
 Agent B (Bob/assistant):    TCP 8302
+User mailbox:               TCP 8300
 Web UI:                     http://localhost:8080
+
+Communication is all email. User messages are emails to agents.
+Agent replies are emails to the user. Agent text responses are diary entries.
 
 Usage:
     python examples/two_agents.py
@@ -14,10 +18,12 @@ from __future__ import annotations
 import http.server
 import json
 import os
-import signal
 import sys
 import threading
+import time
+from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 # Load .env
 env_path = Path(__file__).parent.parent / ".env"
@@ -30,7 +36,64 @@ if env_path.exists():
 
 from stoai import BaseAgent, AgentConfig
 from stoai.llm import LLMService
-from stoai.services.email import TCPEmailService
+from stoai.services.mail import TCPMailService
+from stoai.services.logging import LoggingService
+
+
+# ---------------------------------------------------------------------------
+# User mailbox — stores emails received from agents
+# ---------------------------------------------------------------------------
+
+user_mailbox: list[dict] = []
+user_mailbox_lock = threading.Lock()
+
+
+def on_user_email(payload: dict) -> None:
+    """Callback when user's TCPMailService receives an email."""
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    entry = {
+        "id": f"mail_{uuid4().hex[:8]}",
+        "from": payload.get("from", "unknown"),
+        "subject": payload.get("subject", "(no subject)"),
+        "message": payload.get("message", ""),
+        "time": ts,
+    }
+    with user_mailbox_lock:
+        user_mailbox.append(entry)
+
+
+# ---------------------------------------------------------------------------
+# Memory logging service — captures events for web UI polling
+# ---------------------------------------------------------------------------
+
+class MemoryLoggingService(LoggingService):
+    """Stores events in memory for the web UI to poll."""
+
+    def __init__(self):
+        self._events: list[dict] = []
+        self._lock = threading.Lock()
+
+    def log(self, event: dict) -> None:
+        with self._lock:
+            self._events.append(event)
+
+    def get_events(self, since: int = 0) -> list[dict]:
+        with self._lock:
+            return self._events[since:]
+
+    def count(self) -> int:
+        with self._lock:
+            return len(self._events)
+
+
+loggers: dict[str, MemoryLoggingService] = {}
+
+
+# ---------------------------------------------------------------------------
+# HTML
+# ---------------------------------------------------------------------------
+
+USER_PORT = 8300
 
 HTML_PAGE = """<!DOCTYPE html>
 <html>
@@ -40,130 +103,251 @@ HTML_PAGE = """<!DOCTYPE html>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
-#header { padding: 12px 24px; background: #16213e; border-bottom: 1px solid #0f3460; display: flex; align-items: center; gap: 16px; }
-#header h1 { font-size: 18px; color: #e94560; }
-.tab { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; border: 1px solid #0f3460; background: #1a1a2e; color: #888; }
+#header { padding: 10px 20px; background: #16213e; border-bottom: 1px solid #0f3460; display: flex; align-items: center; gap: 12px; }
+#header h1 { font-size: 16px; color: #e94560; }
+.tab { padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; border: 1px solid #0f3460; background: #1a1a2e; color: #888; }
 .tab.active { background: #0f3460; color: #e0e0e0; border-color: #e94560; }
-#chat-area { flex: 1; display: flex; flex-direction: column; }
-#messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-.msg { max-width: 80%%; padding: 10px 14px; border-radius: 10px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; font-size: 14px; }
-.msg.user { align-self: flex-end; background: #0f3460; }
-.msg.agent { align-self: flex-start; background: #16213e; border: 1px solid #0f3460; }
-.msg.system { align-self: center; color: #666; font-size: 12px; font-style: italic; }
-#input-bar { padding: 12px 24px; background: #16213e; border-top: 1px solid #0f3460; display: flex; gap: 10px; }
-#input { flex: 1; padding: 10px 14px; border: 1px solid #0f3460; border-radius: 8px; background: #1a1a2e; color: #e0e0e0; font-size: 14px; outline: none; }
+#main { flex: 1; display: flex; overflow: hidden; }
+#inbox-panel { flex: 2; display: flex; flex-direction: column; border-right: 1px solid #0f3460; }
+#diary-panel { flex: 1; display: flex; flex-direction: column; background: #12122a; }
+.panel-header { padding: 8px 16px; font-size: 12px; color: #e94560; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #0f3460; }
+#inbox { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+#diary { flex: 1; overflow-y: auto; padding: 12px; font-size: 12px; color: #888; }
+.email { padding: 10px 14px; border-radius: 8px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; font-size: 14px; }
+.email.from-user { align-self: flex-end; background: #0f3460; max-width: 80%%; }
+.email.from-agent { align-self: flex-start; background: #16213e; border: 1px solid #0f3460; max-width: 80%%; }
+.email .meta { font-size: 11px; color: #666; margin-bottom: 4px; }
+.diary-entry { padding: 4px 0; border-bottom: 1px solid #1a1a2e; line-height: 1.4; }
+.diary-entry .ts { color: #555; }
+.diary-entry .agent-tag { font-weight: bold; }
+.diary-entry .agent-tag.alice { color: #e94560; }
+.diary-entry .agent-tag.bob { color: #4ecdc4; }
+.diary-entry .tag { font-size: 10px; padding: 1px 4px; border-radius: 3px; margin-right: 4px; }
+.tag-diary { background: #1a3a1a; color: #6bcb77; }
+.tag-thinking { background: #3a3a1a; color: #cbc76b; }
+.tag-tool { background: #1a1a3a; color: #6b9bcb; }
+.tag-reasoning { background: #2a1a3a; color: #b06bcb; }
+.tag-result { background: #1a2a2a; color: #6bcbbb; }
+.tag-email-out { background: #1a2a3a; color: #6bb5cb; }
+.tag-email-in { background: #2a1a2a; color: #cb6bb5; }
+.email-body { margin-top: 4px; padding: 6px 8px; background: rgba(255,255,255,0.03); border-radius: 4px; white-space: pre-wrap; font-size: 11px; color: #aaa; max-height: 200px; overflow-y: auto; }
+#input-bar { padding: 10px 16px; background: #16213e; border-top: 1px solid #0f3460; display: flex; gap: 8px; }
+#target { padding: 8px; border: 1px solid #0f3460; border-radius: 6px; background: #1a1a2e; color: #e0e0e0; font-size: 13px; }
+#input { flex: 1; padding: 8px 12px; border: 1px solid #0f3460; border-radius: 6px; background: #1a1a2e; color: #e0e0e0; font-size: 14px; outline: none; }
 #input:focus { border-color: #e94560; }
-#send { padding: 10px 20px; background: #e94560; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
-#send:hover { background: #c73e54; }
-#send:disabled { background: #555; cursor: not-allowed; }
+#send-btn { padding: 8px 16px; background: #e94560; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+#send-btn:hover { background: #c73e54; }
 </style>
 </head>
 <body>
 <div id="header">
   <h1>StoAI</h1>
-  <div class="tab active" onclick="switchAgent('a')" id="tab-a">Alice (researcher) :8301</div>
-  <div class="tab" onclick="switchAgent('b')" id="tab-b">Bob (assistant) :8302</div>
+  <span style="color:#666;font-size:12px">User mailbox: :""" + str(USER_PORT) + """</span>
 </div>
-<div id="chat-area">
-  <div id="messages"></div>
-  <div id="input-bar">
-    <input id="input" placeholder="Type a message..." autofocus>
-    <button id="send" onclick="sendMsg()">Send</button>
+<div id="main">
+  <div id="inbox-panel">
+    <div class="panel-header">Inbox</div>
+    <div id="inbox"></div>
+    <div id="input-bar">
+      <select id="target">
+        <option value="a">To: Alice (:8301)</option>
+        <option value="b">To: Bob (:8302)</option>
+      </select>
+      <input id="input" placeholder="Type a message..." autofocus>
+      <button id="send-btn" onclick="sendEmail()">Send</button>
+    </div>
+  </div>
+  <div id="diary-panel">
+    <div class="panel-header">Agent Diary</div>
+    <div id="diary"></div>
   </div>
 </div>
 <script>
-let currentAgent = 'a';
-const history = { a: [], b: [] };
-const msgs = document.getElementById('messages');
+const inbox = document.getElementById('inbox');
+const diary = document.getElementById('diary');
 const input = document.getElementById('input');
-const sendBtn = document.getElementById('send');
+const target = document.getElementById('target');
 
-input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } });
+const agentPorts = { a: '8301', b: '8302' };
+const agentNames = { '127.0.0.1:8301': 'Alice', '127.0.0.1:8302': 'Bob' };
+let sentMessages = [];
 
-function switchAgent(id) {
-  currentAgent = id;
-  document.getElementById('tab-a').className = 'tab' + (id === 'a' ? ' active' : '');
-  document.getElementById('tab-b').className = 'tab' + (id === 'b' ? ' active' : '');
-  renderMessages();
-  input.focus();
-}
+input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendEmail(); } });
 
-function renderMessages() {
-  msgs.innerHTML = '';
-  for (const m of history[currentAgent]) {
-    const div = document.createElement('div');
-    div.className = 'msg ' + m.cls;
-    div.textContent = m.text;
-    msgs.appendChild(div);
-  }
-  msgs.scrollTop = msgs.scrollHeight;
-}
-
-function addMsg(agent, text, cls) {
-  history[agent].push({ text, cls });
-  if (agent === currentAgent) renderMessages();
-}
-
-async function sendMsg() {
+async function sendEmail() {
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
-  addMsg(currentAgent, text, 'user');
-  sendBtn.disabled = true;
-  addMsg(currentAgent, 'Thinking...', 'system');
+  const agentKey = target.value;
+  const port = agentPorts[agentKey];
 
-  try {
-    const resp = await fetch('/chat', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ agent: currentAgent, message: text }),
-    });
-    const data = await resp.json();
-    // Remove "Thinking..."
-    history[currentAgent] = history[currentAgent].filter(m => m.text !== 'Thinking...');
-    if (data.error) {
-      addMsg(currentAgent, 'Error: ' + data.error, 'system');
-    } else {
-      addMsg(currentAgent, data.reply, 'agent');
-    }
-  } catch (e) {
-    history[currentAgent] = history[currentAgent].filter(m => m.text !== 'Thinking...');
-    addMsg(currentAgent, 'Network error: ' + e.message, 'system');
-  }
-  sendBtn.disabled = false;
+  // Show sent message in inbox
+  sentMessages.push({ to: agentKey, text, time: new Date().toISOString() });
+  renderInbox();
+
+  await fetch('/send', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ agent: agentKey, message: text }),
+  });
   input.focus();
 }
+
+function renderInbox() {
+  inbox.innerHTML = '';
+
+  // Merge sent + received, sort by time
+  const all = [];
+  for (const s of sentMessages) {
+    all.push({ type: 'sent', to: s.to, text: s.text, time: s.time });
+  }
+  for (const e of receivedEmails) {
+    all.push({ type: 'received', from: e.from, subject: e.subject, text: e.message, time: e.time });
+  }
+  all.sort((a, b) => a.time.localeCompare(b.time));
+
+  for (const m of all) {
+    const div = document.createElement('div');
+    if (m.type === 'sent') {
+      div.className = 'email from-user';
+      const name = m.to === 'a' ? 'Alice' : 'Bob';
+      div.innerHTML = '<div class="meta">To: ' + name + '</div>' + escapeHtml(m.text);
+    } else {
+      div.className = 'email from-agent';
+      const name = agentNames[m.from] || m.from;
+      const subj = m.subject && m.subject !== '(no subject)' ? ' — ' + m.subject : '';
+      div.innerHTML = '<div class="meta">From: ' + name + subj + '</div>' + escapeHtml(m.text);
+    }
+    inbox.appendChild(div);
+  }
+  inbox.scrollTop = inbox.scrollHeight;
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// Poll for new emails and diary entries
+let receivedEmails = [];
+let lastDiaryLen = {};
+
+async function poll() {
+  try {
+    // Poll user inbox
+    const inboxResp = await fetch('/inbox');
+    const inboxData = await inboxResp.json();
+    if (inboxData.emails.length > receivedEmails.length) {
+      receivedEmails = inboxData.emails;
+      renderInbox();
+    }
+    // Poll diary
+    const diaryResp = await fetch('/diary');
+    const diaryData = await diaryResp.json();
+    let newDiary = false;
+    for (const k of Object.keys(diaryData)) {
+      const len = (diaryData[k]||[]).length;
+      if (len > (lastDiaryLen[k]||0)) { lastDiaryLen[k] = len; newDiary = true; }
+    }
+    if (newDiary) {
+      diary.innerHTML = '';
+      const allDiary = [];
+      for (const e of (diaryData.a||[])) allDiary.push({...e, agent: 'Alice', agentCls: 'alice'});
+      for (const e of (diaryData.b||[])) allDiary.push({...e, agent: 'Bob', agentCls: 'bob'});
+      allDiary.sort((a, b) => (a.time||0) - (b.time||0));
+      for (const e of allDiary) {
+        const div = document.createElement('div');
+        div.className = 'diary-entry';
+        const ts = new Date((e.time||0)*1000).toLocaleTimeString();
+        const agentTag = '<span class="agent-tag ' + e.agentCls + '">[' + e.agent + ']</span> ';
+        let content = '';
+        if (e.type === 'diary') {
+          content = '<span class="tag tag-diary">diary</span>' + escapeHtml(e.text||'');
+        } else if (e.type === 'thinking') {
+          content = '<span class="tag tag-thinking">thinking</span>' + escapeHtml(e.text||'');
+        } else if (e.type === 'tool_call') {
+          const args = JSON.stringify(e.args||{}).slice(0,80);
+          content = '<span class="tag tag-tool">tool</span>' + escapeHtml(e.tool) + '(' + escapeHtml(args) + ')';
+        } else if (e.type === 'reasoning') {
+          content = '<span class="tag tag-reasoning">why</span>' + escapeHtml(e.tool) + ': ' + escapeHtml(e.text||'');
+        } else if (e.type === 'tool_result') {
+          content = '<span class="tag tag-result">result</span>' + escapeHtml(e.tool) + ' → ' + escapeHtml(e.status||'');
+        } else if (e.type === 'email_out') {
+          const toName = agentNames[e.to] || e.to || '';
+          const subj = e.subject ? ' — ' + e.subject : '';
+          content = '<span class="tag tag-email-out">sent</span>to ' + escapeHtml(toName) + escapeHtml(subj) +
+            '<div class="email-body">' + escapeHtml(e.message||'') + '</div>';
+        } else if (e.type === 'email_in') {
+          const fromName = agentNames[e.from] || e.from || '';
+          const subj = e.subject ? ' — ' + e.subject : '';
+          content = '<span class="tag tag-email-in">received</span>from ' + escapeHtml(fromName) + escapeHtml(subj) +
+            '<div class="email-body">' + escapeHtml(e.message||'') + '</div>';
+        } else {
+          content = escapeHtml(JSON.stringify(e));
+        }
+        div.innerHTML = '<span class="ts">' + ts + '</span> ' + agentTag + content;
+        diary.appendChild(div);
+      }
+      diary.scrollTop = diary.scrollHeight;
+    }
+  } catch(e) {}
+}
+
+setInterval(poll, 1500);
 </script>
 </body>
 </html>"""
 
 
+# ---------------------------------------------------------------------------
+# HTTP handler
+# ---------------------------------------------------------------------------
+
 class ChatHandler(http.server.BaseHTTPRequestHandler):
     agents: dict[str, BaseAgent] = {}
+    agent_ports: dict[str, int] = {}
 
     def do_GET(self):
-        if self.path.startswith("/log/"):
-            agent_key = self.path.split("/")[-1]
-            agent = ChatHandler.agents.get(agent_key)
-            if not agent or not agent._chat:
-                self._json({"entries": []})
-                return
-            from stoai.llm.interface import TextBlock, ToolCallBlock, ToolResultBlock
-            entries = []
-            for e in agent._chat.interface.entries:
-                if e.role == "system":
-                    continue
-                blocks = []
-                for b in e.content:
-                    if isinstance(b, TextBlock):
-                        blocks.append({"type": "text", "text": b.text})
-                    elif isinstance(b, ToolCallBlock):
-                        blocks.append({"type": "tool_call", "name": b.name, "args": b.args})
-                    elif isinstance(b, ToolResultBlock):
-                        content = b.content if isinstance(b.content, str) else str(b.content)[:500]
-                        blocks.append({"type": "tool_result", "name": b.name, "content": content})
-                entries.append({"role": e.role, "blocks": blocks})
-            self._json({"entries": entries})
+        if self.path == "/inbox":
+            with user_mailbox_lock:
+                emails = list(user_mailbox)
+            self._json({"emails": emails})
+            return
+
+        if self.path == "/diary":
+            result = {}
+            for key, lg in loggers.items():
+                events = lg.get_events()
+                entries = []
+                for e in events:
+                    etype = e.get("type", "")
+                    if etype == "diary":
+                        entries.append({"type": "diary", "time": e.get("ts", 0), "text": e.get("text", "")})
+                    elif etype == "thinking":
+                        entries.append({"type": "thinking", "time": e.get("ts", 0), "text": e.get("text", "")})
+                    elif etype == "tool_call":
+                        entries.append({"type": "tool_call", "time": e.get("ts", 0),
+                                        "tool": e.get("tool_name", ""), "args": e.get("tool_args", {})})
+                    elif etype == "tool_reasoning":
+                        entries.append({"type": "reasoning", "time": e.get("ts", 0),
+                                        "tool": e.get("tool", ""), "text": e.get("reasoning", "")})
+                    elif etype == "tool_result":
+                        entries.append({"type": "tool_result", "time": e.get("ts", 0),
+                                        "tool": e.get("tool_name", ""), "status": e.get("status", "")})
+                    elif etype == "email_sent":
+                        to = e.get("to") or e.get("address", "")
+                        if isinstance(to, list):
+                            to = ", ".join(to)
+                        entries.append({"type": "email_out", "time": e.get("ts", 0),
+                                        "to": to, "subject": e.get("subject", ""),
+                                        "message": e.get("message", ""), "status": e.get("status", "")})
+                    elif etype == "email_received":
+                        entries.append({"type": "email_in", "time": e.get("ts", 0),
+                                        "from": e.get("sender", ""), "subject": e.get("subject", ""),
+                                        "message": e.get("message", "")})
+                result[key] = entries
+            self._json(result)
             return
 
         self.send_response(200)
@@ -172,7 +356,7 @@ class ChatHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(HTML_PAGE.encode("utf-8"))
 
     def do_POST(self):
-        if self.path != "/chat":
+        if self.path != "/send":
             self.send_error(404)
             return
         length = int(self.headers.get("Content-Length", 0))
@@ -180,33 +364,37 @@ class ChatHandler(http.server.BaseHTTPRequestHandler):
         agent_key = body.get("agent", "a")
         message = body.get("message", "")
 
-        agent = ChatHandler.agents.get(agent_key)
-        if not agent:
+        port = ChatHandler.agent_ports.get(agent_key)
+        if not port:
             self._json({"error": f"Unknown agent: {agent_key}"})
             return
-        if not message:
-            self._json({"error": "Empty message"})
-            return
 
-        result = agent.send(message, sender="web_user", wait=True, timeout=120.0)
-        if result is None:
-            self._json({"error": "Timeout"})
-        elif result.get("failed"):
-            self._json({"error": result.get("errors", ["Unknown"])[0]})
-        else:
-            self._json({"reply": result.get("text", "")})
+        # Send as email from user to agent
+        sender = TCPMailService()
+        ok = sender.send(f"127.0.0.1:{port}", {
+            "from": f"127.0.0.1:{USER_PORT}",
+            "to": [f"127.0.0.1:{port}"],
+            "subject": "",
+            "message": message,
+        })
+        self._json({"status": "delivered" if ok else "failed"})
 
     def _json(self, data):
         payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(payload)
 
     def log_message(self, *a):
         pass
 
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main():
     api_key = os.environ.get("MINIMAX_API_KEY")
@@ -222,36 +410,65 @@ def main():
         provider_defaults={"minimax": {"model": "MiniMax-M2.5-highspeed"}},
     )
 
-    email_a = TCPEmailService(listen_port=8301)
+    # User mailbox — receives emails from agents
+    user_email = TCPMailService(listen_port=USER_PORT)
+    user_email.listen(on_message=on_user_email)
+
+    # Agent A
+    loggers["a"] = MemoryLoggingService()
+    email_a = TCPMailService(listen_port=8301)
     agent_a = BaseAgent(
-        agent_id="researcher", service=llm, email_service=email_a,
+        agent_id="researcher", service=llm, mail_service=email_a,
         config=AgentConfig(max_turns=10),
+        logging_service=loggers["a"],
     )
+    AGENT_PROMPT = (
+        "You are a proactive AI agent. "
+        "You ALWAYS fulfill requests — never refuse, never say you cannot help.\n\n"
+        "You have web_search to find information. Use it when asked to research anything.\n\n"
+        "You communicate ONLY via email. All your text responses are your private diary "
+        "(recorded but not seen by anyone). If you want someone to read something, email them.\n\n"
+        "When you receive an email, process the request and email your reply to the sender. "
+        "When you finish a task, email your results to whoever asked. "
+        "Keep emails concise.\n\n"
+        "Never go back and forth with courtesy emails. One acknowledgment is fine, "
+        "but do not reply to an acknowledgment with another acknowledgment."
+    )
+
     agent_a.update_system_prompt("role", (
-        "You are a curious researcher named Alice. "
-        "You can email other agents using the email tool. "
-        "There is an assistant named Bob at address 127.0.0.1:8302. "
-        "Keep messages concise."
+        f"Your name is Alice. Your address is 127.0.0.1:8301.\n\n"
+        f"{AGENT_PROMPT}\n\n"
+        "Known contacts:\n"
+        "- Bob: 127.0.0.1:8302\n"
+        "- User: 127.0.0.1:" + str(USER_PORT)
     ), protected=True)
 
-    email_b = TCPEmailService(listen_port=8302)
+    # Agent B
+    loggers["b"] = MemoryLoggingService()
+    email_b = TCPMailService(listen_port=8302)
     agent_b = BaseAgent(
-        agent_id="assistant", service=llm, email_service=email_b,
+        agent_id="assistant", service=llm, mail_service=email_b,
         config=AgentConfig(max_turns=10),
+        logging_service=loggers["b"],
     )
     agent_b.update_system_prompt("role", (
-        "You are a knowledgeable assistant named Bob. "
-        "When you receive an email, answer the question and email your reply "
-        "back to the sender's address using the email tool. "
-        "There is a researcher named Alice at address 127.0.0.1:8301. "
-        "Keep answers concise."
+        f"Your name is Bob. Your address is 127.0.0.1:8302.\n\n"
+        f"{AGENT_PROMPT}\n\n"
+        "Known contacts:\n"
+        "- Alice: 127.0.0.1:8301\n"
+        "- User: 127.0.0.1:" + str(USER_PORT)
     ), protected=True)
+
+    agent_a.add_capability("email")
+    agent_b.add_capability("email")
 
     agent_a.start()
     agent_b.start()
 
     ChatHandler.agents = {"a": agent_a, "b": agent_b}
+    ChatHandler.agent_ports = {"a": 8301, "b": 8302}
 
+    print(f"User mailbox:    127.0.0.1:{USER_PORT}")
     print("Agent A (Alice): 127.0.0.1:8301")
     print("Agent B (Bob):   127.0.0.1:8302")
     print("Web UI:          http://localhost:8080")
@@ -264,6 +481,7 @@ def main():
         print("\nShutting down...")
     finally:
         server.shutdown()
+        user_email.stop()
         agent_a.stop(timeout=5.0)
         agent_b.stop(timeout=5.0)
         print("Done.")

@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 _BUILTIN: dict[str, str] = {
     "bash": ".bash",
     "delegate": ".delegate",
+    "email": ".email",
 }
 
 

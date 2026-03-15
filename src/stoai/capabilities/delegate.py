@@ -4,20 +4,20 @@ The delegate capability combines:
 1. Agent spawning — create new agent instances
 2. Role injection — give spawned agents specific roles via system prompt
 3. MCP injection — give spawned agents specific tools
-4. Email wiring — connect spawned agents so they can communicate
+4. Mail wiring — connect spawned agents so they can communicate
 
 This is a capability (not intrinsic) because it's a coordination capability
-built on top of the base agent. The base email intrinsic provides raw
+built on top of the base agent. The base mail intrinsic provides raw
 messaging; delegate adds the orchestration patterns.
 
 Usage:
     agent.add_capability("delegate", agent_factory=my_factory_fn)
 
 Design notes:
-- Delegate builds on the email intrinsic for communication
+- Delegate builds on the mail intrinsic for communication
 - Spawned agents are tracked by the DelegateManager
 - The delegate tool handles spawning + role injection + sending the initial task
-- Sync-over-email patterns (send and wait for reply) live here, not in base
+- Sync-over-mail patterns (send and wait for reply) live here, not in base
 """
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ class DelegateManager:
     This is a stub implementation capturing the design intent.
     The full implementation requires:
     1. An agent_factory callable that creates BaseAgent instances
-    2. EmailService wiring for communication between agents
+    2. MailService wiring for communication between agents
     3. Lifecycle management (tracking, cleanup)
     """
 
@@ -108,9 +108,9 @@ class DelegateManager:
         # 1. Call self._factory() to create a new BaseAgent
         # 2. Inject role via agent.update_system_prompt("role", role, protected=True)
         # 3. Inject requested tools from available pool
-        # 4. Wire email service for communication
+        # 4. Wire mail service for communication
         # 5. Start the agent
-        # 6. Send initial task via email
+        # 6. Send initial task via mail
         # 7. Track in self._agents
 
         return {"error": "spawn not yet implemented — agent_factory integration pending"}
@@ -125,7 +125,7 @@ class DelegateManager:
         if agent_id not in self._agents:
             return {"error": f"No active agent with id: {agent_id}"}
 
-        # TODO: send via email service
+        # TODO: send via mail service
         return {"error": "send not yet implemented"}
 
     def _list(self) -> dict:

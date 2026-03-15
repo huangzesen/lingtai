@@ -45,23 +45,22 @@ def test_intrinsics_enabled_by_default():
     agent = BaseAgent(agent_id="test", service=make_mock_service())
     assert "read" in agent._intrinsics
     assert "write" in agent._intrinsics
-    assert "email" in agent._intrinsics
+    assert "mail" in agent._intrinsics
     assert "vision" in agent._intrinsics
     assert "web_search" in agent._intrinsics
     # manage_system_prompt is a layer, not an intrinsic
     assert "manage_system_prompt" not in agent._intrinsics
-    # talk renamed to email
-    assert "talk" not in agent._intrinsics
-    assert len(agent._intrinsics) == 8  # read, edit, write, glob, grep, email, vision, web_search
+    assert "email" not in agent._intrinsics  # email is now a capability, not intrinsic
+    assert len(agent._intrinsics) == 8  # read, edit, write, glob, grep, mail, vision, web_search
 
 
 def test_disabled_intrinsics():
     agent = BaseAgent(
         agent_id="test",
         service=make_mock_service(),
-        disabled_intrinsics={"email", "vision"},
+        disabled_intrinsics={"mail", "vision"},
     )
-    assert "email" not in agent._intrinsics
+    assert "mail" not in agent._intrinsics
     assert "vision" not in agent._intrinsics
     assert "read" in agent._intrinsics
 
@@ -74,7 +73,7 @@ def test_enabled_intrinsics():
     )
     assert "read" in agent._intrinsics
     assert "write" in agent._intrinsics
-    assert "email" not in agent._intrinsics
+    assert "mail" not in agent._intrinsics
     assert "vision" not in agent._intrinsics
 
 
@@ -84,7 +83,7 @@ def test_enabled_and_disabled_raises():
             agent_id="test",
             service=make_mock_service(),
             enabled_intrinsics={"read"},
-            disabled_intrinsics={"email"},
+            disabled_intrinsics={"mail"},
         )
 
 
@@ -136,20 +135,19 @@ def test_system_prompt_update_marks_dirty():
 
 
 # ---------------------------------------------------------------------------
-# Email via EmailService
+# Mail via MailService (FIFO)
 # ---------------------------------------------------------------------------
 
-def test_email_without_service():
+def test_mail_without_service():
     agent = BaseAgent(agent_id="test", service=make_mock_service())
-    result = agent.email("localhost:8301", "hello")
-    assert result.get("error") == "email service not configured"
+    result = agent.mail("localhost:8301", "hello")
+    assert result.get("error") == "mail service not configured"
 
 
-def test_email_with_service():
+def test_mail_with_service():
     import socket
-    from stoai.services.email import TCPEmailService
+    from stoai.services.mail import TCPMailService
 
-    # Get free port
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]
@@ -158,17 +156,17 @@ def test_email_with_service():
     received = []
     event = threading.Event()
 
-    receiver_svc = TCPEmailService(listen_port=port)
+    receiver_svc = TCPMailService(listen_port=port)
     receiver_svc.listen(on_message=lambda msg: (received.append(msg), event.set()))
 
     try:
-        sender_svc = TCPEmailService()
+        sender_svc = TCPMailService()
         agent = BaseAgent(
             agent_id="sender",
             service=make_mock_service(),
-            email_service=sender_svc,
+            mail_service=sender_svc,
         )
-        result = agent.email(f"127.0.0.1:{port}", "hello from agent")
+        result = agent.mail(f"127.0.0.1:{port}", "hello from agent")
         assert result["status"] == "delivered"
         assert event.wait(timeout=5.0)
         assert received[0]["message"] == "hello from agent"
@@ -176,75 +174,112 @@ def test_email_with_service():
         receiver_svc.stop()
 
 
-def test_email_to_bad_address():
-    from stoai.services.email import TCPEmailService
-    sender_svc = TCPEmailService()
+def test_mail_to_bad_address():
+    from stoai.services.mail import TCPMailService
+    sender_svc = TCPMailService()
     agent = BaseAgent(
         agent_id="test",
         service=make_mock_service(),
-        email_service=sender_svc,
+        mail_service=sender_svc,
     )
-    result = agent.email("127.0.0.1:1", "hello")
+    result = agent.mail("127.0.0.1:1", "hello")
     assert result["status"] == "refused"
 
 
 # ---------------------------------------------------------------------------
-# Email wiring — inbox receives from EmailService
+# Mail FIFO wiring
 # ---------------------------------------------------------------------------
 
-def test_email_inbox_wiring():
-    """_on_email_received should put messages into the agent's inbox."""
-    agent = BaseAgent(
-        agent_id="receiver",
-        service=make_mock_service(),
-    )
-    # Directly call the callback that EmailService would invoke
-    agent._on_email_received({
+def test_mail_inbox_wiring():
+    """_on_mail_received should enqueue in FIFO and notify agent inbox."""
+    agent = BaseAgent(agent_id="receiver", service=make_mock_service())
+    agent._on_mail_received({
         "from": "127.0.0.1:9999",
         "to": "127.0.0.1:8301",
         "message": "inbox test",
     })
     assert not agent.inbox.empty()
     msg = agent.inbox.get_nowait()
-    assert "inbox test" in msg.content  # notification includes the message preview
+    assert "inbox test" in msg.content  # full message in notification
     assert msg.sender == "127.0.0.1:9999"
-    # Email should be stored in mailbox
-    assert len(agent._mailbox) == 1
-    assert agent._mailbox[0]["message"] == "inbox test"
-    assert agent._mailbox[0]["from"] == "127.0.0.1:9999"
+    # Should be in FIFO queue
+    assert len(agent._mail_queue) == 1
+    assert agent._mail_queue[0]["message"] == "inbox test"
 
 
-def test_email_start_wires_listener():
-    """start() should call EmailService.listen() when configured."""
+def test_mail_start_wires_listener():
+    """start() should call MailService.listen() when configured."""
     import socket
-    from stoai.services.email import TCPEmailService
+    from stoai.services.mail import TCPMailService
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]
     sock.close()
 
-    agent_svc = TCPEmailService(listen_port=port)
+    agent_svc = TCPMailService(listen_port=port)
     agent = BaseAgent(
         agent_id="receiver",
         service=make_mock_service(),
-        email_service=agent_svc,
+        mail_service=agent_svc,
     )
     agent.start()
     try:
-        # The service should be listening now — send a message
-        sender_svc = TCPEmailService()
+        sender_svc = TCPMailService()
         result = sender_svc.send(
             f"127.0.0.1:{port}",
             {"from": "sender", "to": f"127.0.0.1:{port}", "message": "wired"},
         )
         assert result is True
         time.sleep(0.5)
-        # Message should be in inbox (even though the agent loop will try to process it)
-        # Check the inbox has at least received something
-        assert agent.inbox.qsize() >= 0  # message may have been consumed by loop
+        assert agent.inbox.qsize() >= 0
     finally:
         agent.stop(timeout=2.0)
+
+
+def test_mail_check_returns_count():
+    """mail check should return the count of queued messages."""
+    agent = BaseAgent(agent_id="test", service=make_mock_service())
+    for i in range(3):
+        agent._on_mail_received({"from": "s", "message": f"m{i}"})
+    result = agent._handle_mail({"action": "check"})
+    assert result["count"] == 3
+
+
+def test_mail_read_pops_fifo():
+    """mail read should pop messages in FIFO order."""
+    agent = BaseAgent(agent_id="test", service=make_mock_service())
+    agent._on_mail_received({"from": "a", "message": "first"})
+    agent._on_mail_received({"from": "b", "message": "second"})
+
+    r1 = agent._handle_mail({"action": "read"})
+    assert r1["message"] == "first"
+    assert r1["remaining"] == 1
+
+    r2 = agent._handle_mail({"action": "read"})
+    assert r2["message"] == "second"
+    assert r2["remaining"] == 0
+
+
+def test_mail_read_empty_queue():
+    """mail read on empty queue should return message=None."""
+    agent = BaseAgent(agent_id="test", service=make_mock_service())
+    result = agent._handle_mail({"action": "read"})
+    assert result["message"] is None
+    assert result["remaining"] == 0
+
+
+def test_mail_received_full_content_in_notification():
+    """_on_mail_received should put full message content in inbox notification."""
+    agent = BaseAgent(agent_id="test", service=make_mock_service())
+    agent._on_mail_received({
+        "from": "sender",
+        "subject": "test subject",
+        "message": "full body content here",
+    })
+    msg = agent.inbox.get_nowait()
+    assert "full body content here" in msg.content
+    assert "test subject" in msg.content
 
 
 # ---------------------------------------------------------------------------
@@ -437,6 +472,10 @@ def test_status():
     assert s["idle"] is True
     assert "tokens" in s
 
+
+# ---------------------------------------------------------------------------
+# Public send API
+# ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 # Public send API

@@ -1,7 +1,7 @@
-"""EmailService — abstract message transport backing the email intrinsic.
+"""MailService — abstract message transport backing the mail intrinsic.
 
-First implementation: TCPEmailService (JSON over TCP with length-prefix framing).
-Future: WebSocketEmailService, UnixSocketEmailService, PipeEmailService.
+First implementation: TCPMailService (JSON over TCP with length-prefix framing).
+Future: WebSocketMailService, UnixSocketMailService, PipeMailService.
 
 Design principles:
 - Fire-and-forget: send() returns immediately, no request/response coupling
@@ -19,10 +19,10 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable
 
 
-class EmailService(ABC):
+class MailService(ABC):
     """Abstract message transport service.
 
-    Backs the email intrinsic. Implementations provide the actual
+    Backs the mail intrinsic. Implementations provide the actual
     transport mechanism (TCP, WebSocket, Unix socket, etc.).
     """
 
@@ -56,18 +56,18 @@ class EmailService(ABC):
         ...
 
 
-class TCPEmailService(EmailService):
+class TCPMailService(MailService):
     """TCP implementation — JSON over TCP with length-prefix framing.
 
     Message format on wire: [4-byte big-endian length][UTF-8 JSON payload]
 
     Usage:
         # Listening agent
-        svc = TCPEmailService(listen_port=8301)
+        svc = TCPMailService(listen_port=8301)
         svc.listen(on_message=lambda msg: print(msg))
 
         # Sending agent
-        svc = TCPEmailService()  # no listen_port = send-only
+        svc = TCPMailService()  # no listen_port = send-only
         svc.send("localhost:8301", {"from": "localhost:8300", "message": "hello"})
     """
 
