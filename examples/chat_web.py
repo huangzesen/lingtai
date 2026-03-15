@@ -194,6 +194,8 @@ def main():
     )
     agent.update_system_prompt("role", "You are a helpful AI assistant.", protected=True)
     agent.add_capability("email")
+    policy = str(Path(__file__).parent / "bash_policy.json")
+    agent.add_capability("bash", policy_file=policy)
     agent.start()
 
     ChatHandler.agent = agent

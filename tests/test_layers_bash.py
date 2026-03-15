@@ -166,6 +166,7 @@ class TestSetupBash:
     def test_setup_requires_policy_or_yolo(self):
         agent = MagicMock()
         agent._working_dir = Path("/tmp")
+        agent._config.bash_policy_file = None  # no config fallback
         with pytest.raises(ValueError, match="policy_file"):
             setup_bash(agent)
 

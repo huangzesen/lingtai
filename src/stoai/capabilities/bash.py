@@ -202,13 +202,17 @@ def setup(
     Returns:
         The BashManager instance for programmatic access.
     """
+    # Resolve policy: explicit arg > config > error
+    resolved_policy_file = policy_file or getattr(agent._config, "bash_policy_file", None)
+
     if yolo:
         policy = BashPolicy.yolo()
-    elif policy_file is not None:
-        policy = BashPolicy.from_file(policy_file)
+    elif resolved_policy_file is not None:
+        policy = BashPolicy.from_file(resolved_policy_file)
     else:
         raise ValueError(
-            "bash capability requires policy_file='path/to/policy.json' or yolo=True"
+            "bash capability requires policy_file='path/to/policy.json', "
+            "config.bash_policy_file, or yolo=True"
         )
 
     mgr = BashManager(

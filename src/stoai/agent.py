@@ -235,6 +235,7 @@ class BaseAgent:
         # MCP tool handlers
         self._mcp_handlers: dict[str, Callable[[dict], dict]] = {}
         self._mcp_schemas: list[FunctionSchema] = []
+        self._mcp_tool_names: set[str] = set()  # tools from mcp_tools= constructor arg
         if mcp_tools:
             for tool in mcp_tools:
                 self._mcp_handlers[tool.name] = tool.handler
@@ -245,6 +246,10 @@ class BaseAgent:
                         parameters=tool.schema,
                     )
                 )
+                self._mcp_tool_names.add(tool.name)
+
+        # Capability log — (name, kwargs) for each add_capability call
+        self._capabilities: list[tuple[str, dict]] = []
 
         # --- Wire intrinsic tools ---
         self._intrinsics: dict[str, Callable[[dict], dict]] = {}
@@ -1114,22 +1119,28 @@ class BaseAgent:
 
     def _build_system_prompt(self) -> str:
         """Build the system prompt from intrinsics + sections + MCP tools."""
-        mcp_tools = [
-            MCPTool(
-                name=name,
-                schema=self._mcp_handlers.get(name, lambda a: {}).__doc__ or "",
-                description=schema.description,
-                handler=self._mcp_handlers[name],
-            )
-            for name, schema in zip(
-                [s.name for s in self._mcp_schemas],
-                self._mcp_schemas,
-            )
-            if name in self._mcp_handlers
-        ]
+        # Capability tools → listed alongside intrinsics in the built-in list
+        capability_tools: list[tuple[str, str]] = []
+        # External MCP tools → listed under "Available Domain Tools"
+        mcp_tools: list[MCPTool] = []
+
+        for s in self._mcp_schemas:
+            if s.name not in self._mcp_handlers:
+                continue
+            if s.name not in self._mcp_tool_names:
+                capability_tools.append((s.name, s.description))
+            else:
+                mcp_tools.append(MCPTool(
+                    name=s.name,
+                    schema=self._mcp_handlers[s.name].__doc__ or "",
+                    description=s.description,
+                    handler=self._mcp_handlers[s.name],
+                ))
+
         return build_system_prompt(
             prompt_manager=self._prompt_manager,
             intrinsic_names=list(self._intrinsics.keys()),
+            capability_tools=capability_tools,
             mcp_tools=mcp_tools,
         )
 
@@ -1165,16 +1176,20 @@ class BaseAgent:
                     )
                 )
 
-        # MCP schemas — inject reasoning into each
+        # Capability + MCP schemas — inject reasoning into each
         for s in self._mcp_schemas:
             params = dict(s.parameters)
             props = dict(params.get("properties", {}))
             props.update(reasoning_prop)
             params["properties"] = props
+            # Label external MCP tools so the agent can distinguish them
+            desc = s.description
+            if s.name in self._mcp_tool_names:
+                desc = f"[MCP] {desc}"
             schemas.append(
                 FunctionSchema(
                     name=s.name,
-                    description=s.description,
+                    description=desc,
                     parameters=params,
                 )
             )
@@ -1455,7 +1470,7 @@ class BaseAgent:
         handler: Callable[[dict], dict] | None = None,
         description: str = "",
     ) -> None:
-        """Register a dynamic MCP tool."""
+        """Register a dynamic tool."""
         if handler is not None:
             self._mcp_handlers[name] = handler
         if schema is not None:
@@ -1491,16 +1506,19 @@ class BaseAgent:
         from .capabilities import setup_capability
 
         if len(names) == 1:
+            self._capabilities.append((names[0], dict(kwargs)))
             return setup_capability(self, names[0], **kwargs)
         results = {}
         for name in names:
+            self._capabilities.append((name, dict(kwargs)))
             results[name] = setup_capability(self, name, **kwargs)
         return results
 
     def remove_tool(self, name: str) -> None:
-        """Unregister a dynamic MCP tool."""
+        """Unregister a dynamic tool."""
         self._mcp_handlers.pop(name, None)
         self._mcp_schemas = [s for s in self._mcp_schemas if s.name != name]
+        self._mcp_tool_names.discard(name)
         if self._chat is not None:
             self._chat.update_tools(self._build_tool_schemas())
         self._token_decomp_dirty = True
