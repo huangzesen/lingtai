@@ -45,16 +45,18 @@ DESCRIPTION = "Execute a shell command and return its output."
 class BashPolicy:
     """Command execution policy — allow/deny lists with pipe awareness.
 
-    Policy resolution:
-    - If both allow and deny are None → everything allowed
-    - If only allow is set → only those commands permitted (allowlist mode)
-    - If only deny is set → everything except those permitted (denylist mode)
-    - If both set → must be in allow AND not in deny
+    Two modes, determined by the policy file content:
+    - **Denylist mode** (only ``deny`` key): everything allowed except denied commands.
+    - **Allowlist mode** (``allow`` key present): only listed commands allowed,
+      everything else blocked. ``deny`` key is ignored in this mode.
+
+    The mode is implicit — if ``allow`` is present, it's allowlist mode.
     """
 
     def __init__(self, allow: list[str] | None = None, deny: list[str] | None = None):
         self._allow = set(allow) if allow else None
-        self._deny = set(deny) if deny else None
+        # deny is only used in denylist mode (when allow is absent)
+        self._deny = set(deny) if deny and not allow else None
 
     @classmethod
     def from_file(cls, path: str) -> "BashPolicy":
@@ -74,12 +76,15 @@ class BashPolicy:
         """Return a human-readable summary of the policy rules."""
         if self._allow is None and self._deny is None:
             return ""
-        parts = []
         if self._allow is not None:
-            parts.append(f"Allowed commands: {', '.join(sorted(self._allow))}")
-        if self._deny is not None:
-            parts.append(f"Denied commands: {', '.join(sorted(self._deny))}")
-        return "\n".join(parts)
+            return (
+                f"ALLOWLIST MODE: Only these commands are permitted (all others blocked): "
+                f"{', '.join(sorted(self._allow))}"
+            )
+        return (
+            f"DENYLIST MODE: All commands are allowed except: "
+            f"{', '.join(sorted(self._deny))}"
+        )
 
     def is_allowed(self, command: str) -> bool:
         """Check if a command string is allowed by this policy.
@@ -92,11 +97,15 @@ class BashPolicy:
         return all(self._check_single(cmd) for cmd in commands)
 
     def _check_single(self, cmd: str) -> bool:
-        """Check a single command name against policy."""
-        if self._deny is not None and cmd in self._deny:
-            return False
-        if self._allow is not None and cmd not in self._allow:
-            return False
+        """Check a single command name against policy.
+
+        Allowlist mode: command must be in allow set.
+        Denylist mode: command must not be in deny set.
+        """
+        if self._allow is not None:
+            return cmd in self._allow
+        if self._deny is not None:
+            return cmd not in self._deny
         return True
 
     @staticmethod

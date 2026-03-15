@@ -39,13 +39,14 @@ class TestBashPolicy:
         assert not policy.is_allowed("rm file.txt")
         assert not policy.is_allowed("sudo apt install")
 
-    def test_allow_and_deny(self, tmp_path):
-        """Must be in allow AND not in deny."""
+    def test_allow_ignores_deny(self, tmp_path):
+        """When allow is present, deny is ignored (allowlist mode)."""
         policy_file = tmp_path / "policy.json"
         policy_file.write_text(json.dumps({"allow": ["git", "rm"], "deny": ["rm"]}))
         policy = BashPolicy.from_file(str(policy_file))
         assert policy.is_allowed("git status")
-        assert not policy.is_allowed("rm file")  # in allow but also in deny
+        assert policy.is_allowed("rm file")  # allow mode — rm is in allow, deny ignored
+        assert not policy.is_allowed("curl http://x")  # not in allow → blocked
 
     def test_pipe_awareness(self, tmp_path):
         """Should check all commands in a pipe chain."""
