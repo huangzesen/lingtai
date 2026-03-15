@@ -47,7 +47,7 @@ Missing service = intrinsics backed by it auto-disabled. `FileIOService` auto-cr
 | Tier | What | How added |
 |------|------|-----------|
 | **Intrinsics** | Core capabilities (read, edit, write, glob, grep, mail, vision, web_search) | Built-in, backed by services, can be disabled |
-| **Capabilities** | Composable capabilities (bash, delegate, email) via `add_capability()` | `agent.add_capability("bash")`, `agent.add_capability("email")` |
+| **Capabilities** | Composable capabilities (bash, delegate, email) via `add_capability()` | `agent.add_capability("bash", policy_file="policy.json")`, `agent.add_capability("email")` |
 | **MCP tools** | Domain context from the host app | Passed as `mcp_tools=[MCPTool(...)]` at construction |
 
 ### Key Modules
@@ -70,8 +70,9 @@ Missing service = intrinsics backed by it auto-disabled. `FileIOService` auto-cr
 ### Extension Pattern
 
 ```python
-agent.add_capability("bash")                   # add a named capability (bash, delegate, email, ...)
-agent.add_capability("bash", "email")          # add multiple at once
+agent.add_capability("bash", policy_file="p.json")  # bash with policy file
+agent.add_capability("bash", yolo=True)              # bash unrestricted
+agent.add_capability("email")                        # email capability
 agent.add_tool(name, schema, handler)          # add a custom/MCP tool (low-level)
 agent.remove_tool(name)                        # remove from LLM schema
 agent.update_system_prompt(section, content)   # inject system prompt section (Python API, NOT an LLM tool)

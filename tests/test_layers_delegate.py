@@ -84,6 +84,7 @@ class TestAddCapability:
         svc.provider = "gemini"
         svc.model = "gemini-test"
         agent = BaseAgent(agent_id="test", service=svc, working_dir="/tmp")
-        results = agent.add_capability("bash", "delegate")
-        assert isinstance(results["bash"], BashManager)
-        assert isinstance(results["delegate"], DelegateManager)
+        bash_mgr = agent.add_capability("bash", yolo=True)
+        delegate_mgr = agent.add_capability("delegate")
+        assert isinstance(bash_mgr, BashManager)
+        assert isinstance(delegate_mgr, DelegateManager)

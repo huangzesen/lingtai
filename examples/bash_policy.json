@@ -1,0 +1,23 @@
+{
+    "allow": [
+        "git", "python", "python3", "node", "npm", "npx",
+        "ls", "cat", "head", "tail", "less", "more",
+        "find", "grep", "rg", "ag", "awk", "sed",
+        "wc", "sort", "uniq", "diff", "tr", "cut",
+        "echo", "printf", "pwd", "cd", "pushd", "popd",
+        "mkdir", "cp", "mv", "ln", "touch",
+        "date", "env", "which", "whoami", "uname", "hostname",
+        "tar", "gzip", "gunzip", "zip", "unzip",
+        "tee", "xargs", "true", "false", "test"
+    ],
+    "deny": [
+        "rm", "rmdir", "shred", "dd",
+        "sudo", "su", "doas",
+        "chmod", "chown", "chgrp",
+        "mount", "umount", "mkfs", "fdisk",
+        "apt", "apt-get", "yum", "dnf", "brew", "pip", "pip3",
+        "kill", "killall", "pkill", "shutdown", "reboot", "systemctl",
+        "curl", "wget", "nc", "ncat",
+        "eval", "exec"
+    ]
+}
