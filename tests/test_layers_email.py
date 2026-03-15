@@ -313,3 +313,38 @@ def test_email_without_mail_service():
     mgr = agent.add_capability("email")
     result = mgr.handle({"action": "send", "address": "someone", "message": "hello"})
     assert "error" in result
+
+
+def test_email_send_with_attachments():
+    agent = BaseAgent(agent_id="test", service=make_mock_service())
+    mail_svc = MagicMock()
+    mail_svc.address = "127.0.0.1:9999"
+    mail_svc.send.return_value = True
+    agent._mail_service = mail_svc
+    mgr = agent.add_capability("email")
+    result = mgr.handle({
+        "action": "send",
+        "address": "127.0.0.1:8888",
+        "subject": "file for you",
+        "message": "see attached",
+        "attachments": ["/path/to/file.png"],
+    })
+    assert result["status"] == "delivered"
+    sent = mail_svc.send.call_args[0][1]
+    assert sent.get("attachments") == ["/path/to/file.png"]
+
+
+def test_email_read_shows_attachments():
+    agent = BaseAgent(agent_id="test", service=make_mock_service())
+    mgr = agent.add_capability("email")
+    mgr.on_mail_received({
+        "from": "sender",
+        "to": ["test"],
+        "subject": "photo",
+        "message": "look at this",
+        "attachments": ["/receiver/mailbox/abc/attachments/photo.png"],
+    })
+    result = mgr.handle({"action": "read", "email_id": mgr._mailbox[0]["id"]})
+    assert result["status"] == "ok"
+    assert "attachments" in result
+    assert any("photo.png" in p for p in result["attachments"])

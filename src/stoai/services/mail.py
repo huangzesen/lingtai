@@ -11,11 +11,14 @@ Design principles:
 """
 from __future__ import annotations
 
+import base64
 import json
 import socket
 import struct
 import threading
+import uuid
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Callable
 
 
@@ -71,9 +74,15 @@ class TCPMailService(MailService):
         svc.send("localhost:8301", {"from": "localhost:8300", "message": "hello"})
     """
 
-    def __init__(self, listen_port: int | None = None, listen_host: str = "127.0.0.1"):
+    def __init__(
+        self,
+        listen_port: int | None = None,
+        listen_host: str = "127.0.0.1",
+        working_dir: Path | str | None = None,
+    ) -> None:
         self._listen_port = listen_port
         self._listen_host = listen_host
+        self._working_dir = Path(working_dir) if working_dir else None
         self._server_socket: socket.socket | None = None
         self._listener_thread: threading.Thread | None = None
         self._running = False
@@ -85,6 +94,21 @@ class TCPMailService(MailService):
             port = int(port_str)
         except (ValueError, AttributeError):
             return False
+
+        # Before JSON serialization, encode any file attachments
+        if "attachments" in message and message["attachments"]:
+            encoded = []
+            for fpath in message["attachments"]:
+                p = Path(fpath)
+                if not p.is_file():
+                    return False
+                encoded.append({
+                    "filename": p.name,
+                    "data": base64.b64encode(p.read_bytes()).decode("ascii"),
+                })
+            # Create a NEW dict — do not mutate the original
+            message = {k: v for k, v in message.items() if k != "attachments"}
+            message["_encoded_attachments"] = encoded
 
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -135,14 +159,38 @@ class TCPMailService(MailService):
             if length_data is None:
                 return
             length = struct.unpack(">I", length_data)[0]
-            if length > 10_000_000:  # 10MB safety limit
+            if length > 100_000_000:  # 100MB safety limit
                 return
             # Read payload
             payload_data = self._recv_exact(conn, length)
             if payload_data is None:
                 return
-            message = json.loads(payload_data.decode("utf-8"))
-            on_message(message)
+            payload = json.loads(payload_data.decode("utf-8"))
+
+            # Persist to mailbox and decode attachments
+            if self._working_dir is not None:
+                msg_id = str(uuid.uuid4())
+                msg_dir = self._working_dir / "mailbox" / msg_id
+
+                if "_encoded_attachments" in payload:
+                    att_dir = msg_dir / "attachments"
+                    att_dir.mkdir(parents=True, exist_ok=True)
+                    local_paths = []
+                    for att in payload["_encoded_attachments"]:
+                        out = att_dir / att["filename"]
+                        out.write_bytes(base64.b64decode(att["data"]))
+                        local_paths.append(str(out))
+                    del payload["_encoded_attachments"]
+                    payload["attachments"] = local_paths
+                else:
+                    msg_dir.mkdir(parents=True, exist_ok=True)
+
+                # Save message.json (without binary data)
+                (msg_dir / "message.json").write_text(
+                    json.dumps({k: v for k, v in payload.items()}, indent=2, default=str)
+                )
+
+            on_message(payload)
         except (json.JSONDecodeError, OSError, UnicodeDecodeError):
             pass
         finally:

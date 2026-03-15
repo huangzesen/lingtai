@@ -53,6 +53,11 @@ SCHEMA = {
             "items": {"type": "string"},
             "description": "BCC addresses — hidden from other recipients",
         },
+        "attachments": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "File paths to attach (for send)",
+        },
         "subject": {"type": "string", "description": "Email subject line"},
         "message": {"type": "string", "description": "Email body"},
         "email_id": {
@@ -130,6 +135,9 @@ class EmailManager:
         }
         if cc:
             base_payload["cc"] = cc
+        attachments = args.get("attachments", [])
+        if attachments:
+            base_payload["attachments"] = attachments
 
         # Deliver to all recipients: to + cc + bcc
         all_recipients = to_list + cc + bcc
@@ -199,6 +207,8 @@ class EmailManager:
                     }
                     if e.get("cc"):
                         result["cc"] = e["cc"]
+                    if e.get("attachments"):
+                        result["attachments"] = e["attachments"]
                     return result
         return {"error": f"Email not found: {email_id}"}
 
@@ -298,6 +308,7 @@ class EmailManager:
         email_id = f"mail_{uuid4().hex[:8]}"
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+        attachments = payload.get("attachments") or []
         email_entry = {
             "id": email_id,
             "from": sender,
@@ -309,6 +320,8 @@ class EmailManager:
         }
         if cc:
             email_entry["cc"] = cc
+        if attachments:
+            email_entry["attachments"] = attachments
         with self._mailbox_lock:
             self._mailbox.append(email_entry)
 
@@ -349,6 +362,10 @@ def setup(agent: "BaseAgent") -> EmailManager:
         "Use 'send' with CC/BCC for group messaging, "
         "'check' to list your mailbox, 'read' to read by ID, "
         "'reply' to respond, 'reply_all' to respond to everyone. "
+        "You can attach files to emails using the 'attachments' parameter. "
+        "Received attachments are stored in the mailbox. "
+        "To use an attachment elsewhere, create a symlink to it — "
+        "do not move the original file. "
         "For simple point-to-point messages, the mail tool also works.",
     )
     return mgr

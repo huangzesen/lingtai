@@ -12,6 +12,10 @@ _BUILTIN: dict[str, str] = {
     "bash": ".bash",
     "delegate": ".delegate",
     "email": ".email",
+    "draw": ".draw",
+    "compose": ".compose",
+    "talk": ".talk",
+    "listen": ".listen",
 }
 
 

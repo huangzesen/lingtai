@@ -352,6 +352,56 @@ class LLMService:
         model = defaults.get("model", "") if defaults else ""
         return adapter.generate_vision(question, image_bytes, model=model, mime_type=mime_type)
 
+    def generate_image(self, prompt: str) -> bytes:
+        """Text-to-image — routed to configured image_provider."""
+        provider_name = self._config.get("image_provider")
+        if provider_name is None:
+            raise RuntimeError("No image_provider configured")
+        adapter = self.get_adapter(provider_name)
+        defaults = self._get_provider_defaults(provider_name)
+        model = defaults.get("model", "") if defaults else ""
+        return adapter.generate_image(prompt, model=model)
+
+    def generate_music(self, prompt: str, duration_seconds: float | None = None) -> bytes:
+        """Text-to-music — routed to configured music_provider."""
+        provider_name = self._config.get("music_provider")
+        if provider_name is None:
+            raise RuntimeError("No music_provider configured")
+        adapter = self.get_adapter(provider_name)
+        defaults = self._get_provider_defaults(provider_name)
+        model = defaults.get("model", "") if defaults else ""
+        return adapter.generate_music(prompt, model=model, duration_seconds=duration_seconds)
+
+    def text_to_speech(self, text: str) -> bytes:
+        """TTS — routed to configured tts_provider."""
+        provider_name = self._config.get("tts_provider")
+        if provider_name is None:
+            raise RuntimeError("No tts_provider configured")
+        adapter = self.get_adapter(provider_name)
+        defaults = self._get_provider_defaults(provider_name)
+        model = defaults.get("model", "") if defaults else ""
+        return adapter.text_to_speech(text, model=model)
+
+    def transcribe(self, audio_bytes: bytes) -> str:
+        """Speech-to-text — routed to configured audio_provider."""
+        provider_name = self._config.get("audio_provider")
+        if provider_name is None:
+            raise RuntimeError("No audio_provider configured")
+        adapter = self.get_adapter(provider_name)
+        defaults = self._get_provider_defaults(provider_name)
+        model = defaults.get("model", "") if defaults else ""
+        return adapter.transcribe(audio_bytes, model=model)
+
+    def analyze_audio(self, audio_bytes: bytes, prompt: str) -> str:
+        """Audio analysis — routed to configured audio_provider."""
+        provider_name = self._config.get("audio_provider")
+        if provider_name is None:
+            raise RuntimeError("No audio_provider configured")
+        adapter = self.get_adapter(provider_name)
+        defaults = self._get_provider_defaults(provider_name)
+        model = defaults.get("model", "") if defaults else ""
+        return adapter.analyze_audio(audio_bytes, prompt, model=model)
+
     def _get_provider_defaults(self, provider_name: str) -> dict | None:
         """Get defaults for a provider from the injected provider_defaults dict."""
         return self._provider_defaults.get(provider_name)

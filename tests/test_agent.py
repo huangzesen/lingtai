@@ -496,3 +496,29 @@ def test_send_fires_message():
     msg = agent.inbox.get_nowait()
     assert msg.content == "hello"
     assert msg.type == MSG_REQUEST
+
+
+# ---------------------------------------------------------------------------
+# working_dir property
+# ---------------------------------------------------------------------------
+
+def test_working_dir_property(tmp_path):
+    from stoai.agent import BaseAgent
+    from unittest.mock import MagicMock
+    svc = MagicMock()
+    svc.get_adapter.return_value = MagicMock()
+    svc.provider = "gemini"
+    svc.model = "gemini-test"
+    agent = BaseAgent(agent_id="test", service=svc, working_dir=str(tmp_path))
+    assert agent.working_dir == tmp_path
+
+def test_working_dir_property_default():
+    from stoai.agent import BaseAgent
+    from pathlib import Path
+    from unittest.mock import MagicMock
+    svc = MagicMock()
+    svc.get_adapter.return_value = MagicMock()
+    svc.provider = "gemini"
+    svc.model = "gemini-test"
+    agent = BaseAgent(agent_id="test", service=svc)
+    assert agent.working_dir == Path.cwd()
