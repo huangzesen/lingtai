@@ -1,9 +1,10 @@
-"""Tests for the delegate layer."""
+"""Tests for the delegate capability."""
 from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.layers.delegate import DelegateManager, add_delegate_layer
+from stoai.capabilities.bash import BashManager
+from stoai.capabilities.delegate import DelegateManager, setup as setup_delegate
 
 
 class TestDelegateManager:
@@ -45,10 +46,44 @@ class TestDelegateManager:
         assert "error" in mgr.handle({"action": "send", "agent_id": "x"})
 
 
-class TestAddDelegateLayer:
-    def test_add_delegate_layer(self):
+class TestSetupDelegate:
+    def test_setup_delegate(self):
         agent = MagicMock()
-        mgr = add_delegate_layer(agent)
+        mgr = setup_delegate(agent)
         assert isinstance(mgr, DelegateManager)
         agent.add_tool.assert_called_once()
         agent.update_system_prompt.assert_called_once()
+
+
+class TestAddCapability:
+    def test_add_capability_delegate(self):
+        from stoai.agent import BaseAgent
+        svc = MagicMock()
+        svc.get_adapter.return_value = MagicMock()
+        svc.provider = "gemini"
+        svc.model = "gemini-test"
+        agent = BaseAgent(agent_id="test", service=svc)
+        mgr = agent.add_capability("delegate")
+        assert isinstance(mgr, DelegateManager)
+        assert "delegate" in agent._mcp_handlers
+
+    def test_add_capability_unknown(self):
+        from stoai.agent import BaseAgent
+        svc = MagicMock()
+        svc.get_adapter.return_value = MagicMock()
+        svc.provider = "gemini"
+        svc.model = "gemini-test"
+        agent = BaseAgent(agent_id="test", service=svc)
+        with pytest.raises(ValueError, match="Unknown capability"):
+            agent.add_capability("nonexistent")
+
+    def test_add_multiple_capabilities(self):
+        from stoai.agent import BaseAgent
+        svc = MagicMock()
+        svc.get_adapter.return_value = MagicMock()
+        svc.provider = "gemini"
+        svc.model = "gemini-test"
+        agent = BaseAgent(agent_id="test", service=svc)
+        results = agent.add_capability("bash", "delegate")
+        assert isinstance(results["bash"], BashManager)
+        assert isinstance(results["delegate"], DelegateManager)

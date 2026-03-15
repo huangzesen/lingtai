@@ -1353,6 +1353,30 @@ class BaseAgent:
             self._chat.update_tools(self._build_tool_schemas())
         self._token_decomp_dirty = True
 
+    def add_capability(self, *names: str, **kwargs: Any) -> Any:
+        """Add one or more named capabilities to this agent.
+
+        Each capability is a module under ``stoai.capabilities`` that exports
+        a ``setup(agent, **kwargs)`` function.  When a single name is given the
+        return value of ``setup`` is passed through (typically a manager
+        instance).  When multiple names are given a dict of
+        ``{name: manager}`` is returned.
+
+        Example::
+
+            agent.add_capability("bash")
+            agent.add_capability("bash", "delegate")
+            agent.add_capability("bash", allowed_commands=["git"])
+        """
+        from .capabilities import setup_capability
+
+        if len(names) == 1:
+            return setup_capability(self, names[0], **kwargs)
+        results = {}
+        for name in names:
+            results[name] = setup_capability(self, name, **kwargs)
+        return results
+
     def remove_tool(self, name: str) -> None:
         """Unregister a dynamic MCP tool."""
         self._mcp_handlers.pop(name, None)

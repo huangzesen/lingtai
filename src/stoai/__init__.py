@@ -1,4 +1,4 @@
-"""stoai — generic AI agent framework with intrinsic tools, composable layers, and pluggable services."""
+"""stoai — generic AI agent framework with intrinsic tools, composable capabilities, and pluggable services."""
 from .types import (
     MCPTool,
     UnknownToolError,
@@ -7,11 +7,10 @@ from .types import (
 from .config import AgentConfig
 from .agent import BaseAgent, Message, AgentState
 
-# Layers
-from .layers.diary import DiaryManager, add_diary_layer
-from .layers.plan import PlanManager, add_plan_layer
-from .layers.bash import BashManager, add_bash_layer
-from .layers.delegate import DelegateManager, add_delegate_layer
+# Capabilities
+from .capabilities import setup_capability
+from .capabilities.bash import BashManager
+from .capabilities.delegate import DelegateManager
 
 # Services
 from .services.file_io import FileIOService, LocalFileIOService, GrepMatch
@@ -28,15 +27,10 @@ __all__ = [
     "AgentConfig",
     "UnknownToolError",
     "AgentNotConnectedError",
-    # Layers
-    "DiaryManager",
-    "add_diary_layer",
-    "PlanManager",
-    "add_plan_layer",
+    # Capabilities
+    "setup_capability",
     "BashManager",
-    "add_bash_layer",
     "DelegateManager",
-    "add_delegate_layer",
     # Services
     "FileIOService",
     "LocalFileIOService",

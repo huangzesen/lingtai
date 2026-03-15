@@ -1,13 +1,12 @@
-"""Bash layer — shell command execution.
+"""Bash capability — shell command execution.
 
-Adds the ability to run shell commands. This is a layer (not intrinsic)
+Adds the ability to run shell commands. This is a capability (not intrinsic)
 because not every agent should have shell access — it's a powerful
 capability that should be explicitly opted into.
 
 Usage:
-    from stoai.layers.bash import add_bash_layer
-    add_bash_layer(agent, allowed_commands=None)  # unrestricted
-    add_bash_layer(agent, allowed_commands=["git", "npm", "python"])  # restricted
+    agent.add_capability("bash")
+    agent.add_capability("bash", allowed_commands=["git", "npm", "python"])
 """
 from __future__ import annotations
 
@@ -105,12 +104,12 @@ class BashManager:
             return {"error": f"Command failed: {e}"}
 
 
-def add_bash_layer(
+def setup(
     agent: "BaseAgent",
     working_dir: str | None = None,
     allowed_commands: list[str] | None = None,
 ) -> BashManager:
-    """Add shell execution capability to an agent.
+    """Set up the bash capability on an agent.
 
     Args:
         agent: The agent to extend.

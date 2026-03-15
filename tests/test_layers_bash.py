@@ -1,7 +1,8 @@
-"""Tests for the bash layer."""
+"""Tests for the bash capability."""
 import pytest
+from unittest.mock import MagicMock
 
-from stoai.layers.bash import BashManager, add_bash_layer
+from stoai.capabilities.bash import BashManager, setup as setup_bash
 
 
 class TestBashManager:
@@ -51,20 +52,31 @@ class TestBashManager:
         assert "truncated" in result["stdout"]
 
 
-class TestAddBashLayer:
-    def test_add_bash_layer(self):
-        from unittest.mock import MagicMock
+class TestSetupBash:
+    def test_setup_bash(self):
         agent = MagicMock()
-        mgr = add_bash_layer(agent)
+        mgr = setup_bash(agent)
         assert isinstance(mgr, BashManager)
         agent.add_tool.assert_called_once()
         agent.update_system_prompt.assert_called_once()
 
-    def test_add_bash_layer_with_restrictions(self):
-        from unittest.mock import MagicMock
+    def test_setup_bash_with_restrictions(self):
         agent = MagicMock()
-        mgr = add_bash_layer(agent, allowed_commands=["git", "npm"])
+        mgr = setup_bash(agent, allowed_commands=["git", "npm"])
         assert isinstance(mgr, BashManager)
         # Verify the system prompt mentions restrictions
         call_args = agent.update_system_prompt.call_args
         assert "git" in call_args[0][1]
+
+
+class TestAddCapability:
+    def test_add_capability_bash(self):
+        from stoai.agent import BaseAgent
+        svc = MagicMock()
+        svc.get_adapter.return_value = MagicMock()
+        svc.provider = "gemini"
+        svc.model = "gemini-test"
+        agent = BaseAgent(agent_id="test", service=svc)
+        mgr = agent.add_capability("bash")
+        assert isinstance(mgr, BashManager)
+        assert "bash" in agent._mcp_handlers

@@ -48,10 +48,8 @@ def test_intrinsics_enabled_by_default():
     assert "email" in agent._intrinsics
     assert "vision" in agent._intrinsics
     assert "web_search" in agent._intrinsics
-    # diary, plan, manage_system_prompt are layers, not intrinsics
+    # manage_system_prompt is a layer, not an intrinsic
     assert "manage_system_prompt" not in agent._intrinsics
-    assert "manage_diary" not in agent._intrinsics
-    assert "plan" not in agent._intrinsics
     # talk renamed to email
     assert "talk" not in agent._intrinsics
     assert len(agent._intrinsics) == 8  # read, edit, write, glob, grep, email, vision, web_search

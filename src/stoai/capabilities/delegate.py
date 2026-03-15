@@ -1,23 +1,17 @@
-"""Delegate layer — agent spawning, role injection, and MCP tool wiring.
+"""Delegate capability — agent spawning, role injection, and MCP tool wiring.
 
-The delegate layer combines:
+The delegate capability combines:
 1. Agent spawning — create new agent instances
 2. Role injection — give spawned agents specific roles via system prompt
 3. MCP injection — give spawned agents specific tools
 4. Email wiring — connect spawned agents so they can communicate
 
-This is a layer (not intrinsic) because it's a coordination capability
+This is a capability (not intrinsic) because it's a coordination capability
 built on top of the base agent. The base email intrinsic provides raw
 messaging; delegate adds the orchestration patterns.
 
 Usage:
-    from stoai.layers.delegate import add_delegate_layer
-
-    add_delegate_layer(
-        agent,
-        agent_factory=my_factory_fn,  # how to create new agents
-        default_tools=[...],          # default MCP tools for spawned agents
-    )
+    agent.add_capability("delegate", agent_factory=my_factory_fn)
 
 Design notes:
 - Delegate builds on the email intrinsic for communication
@@ -152,12 +146,12 @@ class DelegateManager:
         return {"error": "stop not yet implemented"}
 
 
-def add_delegate_layer(
+def setup(
     agent: "BaseAgent",
     agent_factory: Callable[..., "BaseAgent"] | None = None,
     default_tools: list["MCPTool"] | None = None,
 ) -> DelegateManager:
-    """Add delegation capability to an agent.
+    """Set up the delegate capability on an agent.
 
     Args:
         agent: The agent to extend.

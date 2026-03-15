@@ -46,7 +46,7 @@ Missing service = intrinsics backed by it auto-disabled. `FileIOService` auto-cr
 | Tier | What | How added |
 |------|------|-----------|
 | **Intrinsics** | Core capabilities (read, edit, write, glob, grep, email, vision, web_search) | Built-in, backed by services, can be disabled |
-| **Layers** | Composable capabilities (diary, plan, bash, delegate) via `add_tool()` + `update_system_prompt()` | `add_diary_layer(agent)`, `add_plan_layer(agent)`, etc. |
+| **Capabilities** | Composable capabilities (bash, delegate) via `add_capability()` | `agent.add_capability("bash")`, `agent.add_capability("delegate")` |
 | **MCP tools** | Domain context from the host app | Passed as `mcp_tools=[MCPTool(...)]` at construction |
 
 ### Key Modules
@@ -58,7 +58,7 @@ Missing service = intrinsics backed by it auto-disabled. `FileIOService` auto-cr
 - **`llm/service.py`** — `LLMService`. Adapter factory, session registry, one-shot generation gateway, context compaction orchestration. Decoupled from config files — uses injected `key_resolver` and `provider_defaults`.
 - **`llm/interface_converters.py`** — Bidirectional converters between `ChatInterface` and provider-specific formats (Anthropic, OpenAI, Gemini).
 - **`intrinsics/`** — Each file exports `SCHEMA`, `DESCRIPTION`, `handle_*`. Some (email, vision, web_search) have `handler=None` because they need agent state and are handled in `BaseAgent`.
-- **`layers/`** — Each layer is a function that takes an agent and wires in a tool + system prompt section. 4 layers: diary, plan, bash, delegate.
+- **`capabilities/`** — Each capability module exports `setup(agent, **kwargs)`. Added via `agent.add_capability("name")`. 2 built-in: bash, delegate.
 - **`config.py`** — `AgentConfig` dataclass. Host app injects resolved values; no file-based config inside stoai.
 - **`prompt.py`** — Builds system prompt from base template + `SystemPromptManager` sections + MCP tool descriptions.
 
@@ -69,14 +69,16 @@ Missing service = intrinsics backed by it auto-disabled. `FileIOService` auto-cr
 ### Extension Pattern
 
 ```python
-agent.add_tool(name, schema, handler)          # add tool (layer or MCP)
+agent.add_capability("bash")                   # add a named capability (bash, delegate, ...)
+agent.add_capability("bash", "delegate")       # add multiple at once
+agent.add_tool(name, schema, handler)          # add a custom/MCP tool (low-level)
 agent.remove_tool(name)                        # remove from LLM schema
 agent.update_system_prompt(section, content)   # inject system prompt section (Python API, NOT an LLM tool)
 ```
 
 ### System Prompt Structure
 
-Base prompt (hardcoded with intrinsic list) → Sections (injected by host/layers via `update_system_prompt`) → MCP tool descriptions (auto-generated). Protected sections cannot be modified by the LLM's `manage_system_prompt` intrinsic.
+Base prompt (hardcoded with intrinsic list) → Sections (injected by host/capabilities via `update_system_prompt`) → MCP tool descriptions (auto-generated). Protected sections cannot be modified by the LLM's `manage_system_prompt` intrinsic.
 
 ## Conventions
 
