@@ -70,6 +70,17 @@ class BashPolicy:
         """Create a policy that allows everything."""
         return cls()
 
+    def describe(self) -> str:
+        """Return a human-readable summary of the policy rules."""
+        if self._allow is None and self._deny is None:
+            return ""
+        parts = []
+        if self._allow is not None:
+            parts.append(f"Allowed commands: {', '.join(sorted(self._allow))}")
+        if self._deny is not None:
+            parts.append(f"Denied commands: {', '.join(sorted(self._deny))}")
+        return "\n".join(parts)
+
     def is_allowed(self, command: str) -> bool:
         """Check if a command string is allowed by this policy.
 
@@ -195,7 +206,13 @@ def setup(
         policy=policy,
         working_dir=str(agent._working_dir),
     )
-    agent.add_tool("bash", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
+    # Build description with policy rules
+    desc = DESCRIPTION
+    policy_summary = policy.describe()
+    if policy_summary:
+        desc = f"{DESCRIPTION}\n\n{policy_summary}"
+
+    agent.add_tool("bash", schema=SCHEMA, handler=mgr.handle, description=desc)
 
     agent.update_system_prompt(
         "bash_instructions",
