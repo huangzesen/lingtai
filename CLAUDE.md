@@ -29,7 +29,7 @@ No hard dependencies — only the active LLM provider's SDK needs to be installe
 
 ## Architecture
 
-### Five Services (all optional)
+### Six Services (all optional)
 
 | Service | What it backs | First implementation |
 |---------|--------------|---------------------|
@@ -38,6 +38,7 @@ No hard dependencies — only the active LLM provider's SDK needs to be installe
 | `EmailService` | email (inter-agent messaging) | `TCPEmailService` |
 | `VisionService` | vision | `LLMVisionService` |
 | `SearchService` | web_search | `LLMSearchService` |
+| `LoggingService` | structured JSONL event logging | `JSONLLoggingService` |
 
 Missing service = intrinsics backed by it auto-disabled. `FileIOService` auto-creates `LocalFileIOService` for backward compat if not passed.
 
@@ -51,8 +52,8 @@ Missing service = intrinsics backed by it auto-disabled. `FileIOService` auto-cr
 
 ### Key Modules
 
-- **`agent.py`** — `BaseAgent` class. 2-state lifecycle (SLEEPING/ACTIVE), 5 optional services, persistent LLM session, 2-layer tool dispatch (intrinsics + MCP), inbox-based inter-agent messaging via EmailService, context compaction, loop guard, parallel tool execution.
-- **`services/`** — Service ABCs + first implementations: `file_io.py`, `email.py`, `vision.py`, `search.py`.
+- **`agent.py`** — `BaseAgent` class. 2-state lifecycle (SLEEPING/ACTIVE), 6 optional services, persistent LLM session, 2-layer tool dispatch (intrinsics + MCP), inbox-based inter-agent messaging via EmailService, structured JSONL logging via LoggingService, context compaction, loop guard, parallel tool execution.
+- **`services/`** — Service ABCs + first implementations: `file_io.py`, `email.py`, `vision.py`, `search.py`, `logging.py`.
 - **`llm/interface.py`** — `ChatInterface`, the canonical provider-agnostic conversation history. Single source of truth — adapters rebuild provider formats from this. Content blocks: `TextBlock`, `ToolCallBlock`, `ToolResultBlock`, `ThinkingBlock`, `ImageBlock`.
 - **`llm/base.py`** — `LLMAdapter` (ABC), `ChatSession` (ABC), `LLMResponse`, `ToolCall`, `FunctionSchema`. All agent code depends on these, never on provider SDKs directly.
 - **`llm/service.py`** — `LLMService`. Adapter factory, session registry, one-shot generation gateway, context compaction orchestration. Decoupled from config files — uses injected `key_resolver` and `provider_defaults`.

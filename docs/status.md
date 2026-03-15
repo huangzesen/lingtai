@@ -1,7 +1,7 @@
 # StoAI — Implementation Status
 
 ## Core
-- [x] `agent.py` — BaseAgent (full lifecycle, tool dispatch, compaction, loop guard, streaming, session save/restore, 5-service architecture)
+- [x] `agent.py` — BaseAgent (full lifecycle, tool dispatch, compaction, loop guard, streaming, session save/restore, 6-service architecture)
 - [x] `types.py` — MCPTool, UnknownToolError
 - [x] `config.py` — AgentConfig dataclass
 - [x] `prompt.py` — system prompt builder
@@ -18,11 +18,12 @@
 - [x] `intrinsics/web_search.py` — web search (backed by SearchService, falls back to LLM)
 - [x] `intrinsics/manage_system_prompt.py` — Python API for system prompt sections
 
-## Services (4 + LLM)
+## Services (5 + LLM)
 - [x] `services/file_io.py` — FileIOService ABC + LocalFileIOService (wired into BaseAgent)
 - [x] `services/email.py` — EmailService ABC + TCPEmailService (wired into BaseAgent)
 - [x] `services/vision.py` — VisionService ABC + LLMVisionService (wired into BaseAgent)
 - [x] `services/search.py` — SearchService ABC + LLMSearchService (wired into BaseAgent)
+- [x] `services/logging.py` — LoggingService ABC + JSONLLoggingService (wired into BaseAgent)
 
 ## Layers (4)
 - [x] `layers/diary.py` — immutable agent log (save, catalogue, view)
@@ -45,7 +46,7 @@
 - [x] `llm_utils.py` — LLM utilities (send_with_timeout, etc.)
 - [x] `logging.py` — package logging
 
-## Tests (124 passing)
+## Tests (125 passing)
 - [x] `test_agent.py` — lifecycle, intrinsics, services, email, file I/O
 - [x] `test_types.py`
 - [x] `test_prompt.py`
@@ -59,6 +60,7 @@
 - [x] `test_token_counter.py`
 - [x] `test_services_email.py`
 - [x] `test_services_file_io.py`
+- [x] `test_services_logging.py`
 
 ## What Remains
 
