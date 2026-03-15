@@ -355,3 +355,45 @@ class LLMAdapter(ABC):
         Override in adapters that support vision. Default: returns empty response.
         """
         return LLMResponse(text="")
+
+    def generate_image(self, prompt: str, model: str) -> bytes:
+        """Text-to-image generation. Returns image bytes (PNG).
+
+        Override in adapters that support image generation.
+        Default: raises NotImplementedError.
+        """
+        raise NotImplementedError
+
+    def generate_music(
+        self, prompt: str, model: str, duration_seconds: float | None = None,
+    ) -> bytes:
+        """Text-to-music generation. Returns audio bytes.
+
+        Override in adapters that support music generation.
+        Default: raises NotImplementedError.
+        """
+        raise NotImplementedError
+
+    def text_to_speech(self, text: str, model: str) -> bytes:
+        """Text-to-speech synthesis. Returns audio bytes.
+
+        Override in adapters that support TTS.
+        Default: raises NotImplementedError.
+        """
+        raise NotImplementedError
+
+    def transcribe(self, audio_bytes: bytes, model: str) -> str:
+        """Speech-to-text transcription. Returns transcription text.
+
+        Override in adapters that support transcription.
+        Default: raises NotImplementedError.
+        """
+        raise NotImplementedError
+
+    def analyze_audio(self, audio_bytes: bytes, prompt: str, model: str) -> str:
+        """Audio analysis / description. Returns text analysis.
+
+        Override in adapters that support audio understanding.
+        Default: raises NotImplementedError.
+        """
+        raise NotImplementedError
