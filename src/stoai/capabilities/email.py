@@ -75,8 +75,14 @@ SCHEMA = {
 
 DESCRIPTION = (
     "Full email client — mailbox with persistent storage, reply, reply-all, "
-    "CC/BCC. Use 'send' for multi-recipient email, 'check' to list mailbox, "
-    "'read' to read by ID, 'reply'/'reply_all' for conversation."
+    "CC/BCC. Use 'send' with CC/BCC for group messaging, "
+    "'check' to list your mailbox, 'read' to read by ID, "
+    "'reply' to respond, 'reply_all' to respond to everyone. "
+    "You can attach files to emails using the 'attachments' parameter. "
+    "Received attachments are stored in the mailbox. "
+    "To use an attachment elsewhere, create a symlink to it — "
+    "do not move the original file. "
+    "For simple point-to-point messages, the mail tool also works."
 )
 
 
@@ -355,17 +361,5 @@ def setup(agent: "BaseAgent") -> EmailManager:
 
     agent.add_tool(
         "email", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
-    )
-    agent.update_system_prompt(
-        "email_instructions",
-        "You have full email capabilities via the email tool. "
-        "Use 'send' with CC/BCC for group messaging, "
-        "'check' to list your mailbox, 'read' to read by ID, "
-        "'reply' to respond, 'reply_all' to respond to everyone. "
-        "You can attach files to emails using the 'attachments' parameter. "
-        "Received attachments are stored in the mailbox. "
-        "To use an attachment elsewhere, create a symlink to it — "
-        "do not move the original file. "
-        "For simple point-to-point messages, the mail tool also works.",
     )
     return mgr

@@ -31,14 +31,8 @@ def test_email_capability_registers_tool():
     agent = BaseAgent(agent_id="test", service=make_mock_service(), working_dir="/tmp")
     mgr = agent.add_capability("email")
     assert "email" in agent._mcp_handlers
+    assert "email" in [s.name for s in agent._mcp_schemas]
     assert mgr is not None
-
-
-def test_email_capability_adds_system_prompt():
-    agent = BaseAgent(agent_id="test", service=make_mock_service(), working_dir="/tmp")
-    agent.add_capability("email")
-    section = agent._prompt_manager.read_section("email_instructions")
-    assert section is not None
 
 
 # ---------------------------------------------------------------------------

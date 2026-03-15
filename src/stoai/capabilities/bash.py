@@ -39,7 +39,11 @@ SCHEMA = {
     "required": ["command"],
 }
 
-DESCRIPTION = "Execute a shell command and return its output."
+DESCRIPTION = (
+    "Execute a shell command and return its output. "
+    "Use it for system operations, running scripts, git commands, "
+    "and other tasks that require shell access."
+)
 
 
 class BashPolicy:
@@ -226,11 +230,4 @@ def setup(
         desc = f"{DESCRIPTION}\n\n{policy_summary}"
 
     agent.add_tool("bash", schema=SCHEMA, handler=mgr.handle, description=desc)
-
-    agent.update_system_prompt(
-        "bash_instructions",
-        "You can execute shell commands via the bash tool. "
-        "Use it for system operations, running scripts, git commands, "
-        "and other tasks that require shell access.",
-    )
     return mgr

@@ -21,7 +21,11 @@ SCHEMA: dict[str, Any] = {
     "required": ["prompt"],
 }
 
-DESCRIPTION = "Generate an image from a text description."
+DESCRIPTION = (
+    "Generate an image from a text description. "
+    "Provide a text prompt describing the image you want. "
+    "Generated images are saved to media/images/ in your working directory."
+)
 
 
 class DrawManager:
@@ -58,10 +62,4 @@ def setup(agent: "BaseAgent", **kwargs: Any) -> DrawManager:
     """Set up the draw capability on an agent."""
     mgr = DrawManager(working_dir=agent.working_dir, llm_service=agent.service)
     agent.add_tool("draw", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
-    agent.update_system_prompt(
-        "draw_instructions",
-        "You can generate images via the draw tool. "
-        "Provide a text prompt describing the image you want. "
-        "Generated images are saved to media/images/ in your working directory.",
-    )
     return mgr

@@ -29,7 +29,11 @@ SCHEMA: dict[str, Any] = {
     "required": ["audio_path"],
 }
 
-DESCRIPTION = "Transcribe speech or analyze audio content from a file."
+DESCRIPTION = (
+    "Transcribe speech or analyze audio content from a file. "
+    "Provide the audio file path. Use mode='transcribe' for speech-to-text "
+    "or mode='analyze' with a prompt to ask questions about the audio."
+)
 
 
 class ListenManager:
@@ -70,10 +74,4 @@ def setup(agent: "BaseAgent", **kwargs: Any) -> ListenManager:
     """Set up the listen capability on an agent."""
     mgr = ListenManager(working_dir=agent.working_dir, llm_service=agent.service)
     agent.add_tool("listen", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
-    agent.update_system_prompt(
-        "listen_instructions",
-        "You can transcribe speech or analyze audio via the listen tool. "
-        "Provide the audio file path. Use mode='transcribe' for speech-to-text "
-        "or mode='analyze' with a prompt to ask questions about the audio.",
-    )
     return mgr

@@ -61,4 +61,3 @@ class TestSetupCompose:
         mgr = setup_compose(agent)
         assert isinstance(mgr, ComposeManager)
         agent.add_tool.assert_called_once()
-        agent.update_system_prompt.assert_called_once()

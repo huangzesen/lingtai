@@ -62,7 +62,6 @@ class TestSetupDraw:
         mgr = setup_draw(agent)
         assert isinstance(mgr, DrawManager)
         agent.add_tool.assert_called_once()
-        agent.update_system_prompt.assert_called_once()
 
 
 class TestAddCapabilityIntegration:

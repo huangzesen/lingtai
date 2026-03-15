@@ -21,7 +21,11 @@ SCHEMA: dict[str, Any] = {
     "required": ["text"],
 }
 
-DESCRIPTION = "Convert text to speech audio."
+DESCRIPTION = (
+    "Convert text to speech audio. "
+    "Provide the text you want spoken. "
+    "Generated audio is saved to media/audio/ in your working directory."
+)
 
 
 class TalkManager:
@@ -58,10 +62,4 @@ def setup(agent: "BaseAgent", **kwargs: Any) -> TalkManager:
     """Set up the talk capability on an agent."""
     mgr = TalkManager(working_dir=agent.working_dir, llm_service=agent.service)
     agent.add_tool("talk", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
-    agent.update_system_prompt(
-        "talk_instructions",
-        "You can convert text to speech via the talk tool. "
-        "Provide the text you want spoken. "
-        "Generated audio is saved to media/audio/ in your working directory.",
-    )
     return mgr

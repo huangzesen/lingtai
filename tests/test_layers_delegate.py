@@ -81,7 +81,6 @@ class TestSetupDelegate:
         mgr = setup_delegate(agent)
         assert isinstance(mgr, DelegateManager)
         agent.add_tool.assert_called_once()
-        agent.update_system_prompt.assert_called_once()
 
 
 class TestAddCapability:

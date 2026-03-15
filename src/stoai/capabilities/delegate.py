@@ -37,7 +37,9 @@ SCHEMA = {
 
 DESCRIPTION = (
     "Spawn a new agent on a free TCP port, cloned from this agent. "
-    "Returns the new agent's mail address. Use mail or email to communicate with it. "
+    "Returns the new agent's mail address. "
+    "Each spawned agent runs on its own TCP port with its own conversation. "
+    "Use mail or email to communicate with spawned agents. "
     "Optionally override role, inject long-term memory, or select capabilities."
 )
 
@@ -61,6 +63,10 @@ class DelegateManager:
         port = self._get_free_port()
         mail_svc = TCPMailService(listen_port=port, working_dir=parent._working_dir)
 
+        # Resolve role — override or copy parent
+        role = args.get("role") or parent._prompt_manager.read_section("role") or ""
+        ltm = args.get("ltm") or parent._prompt_manager.read_section("ltm") or ""
+
         # Create child agent with same LLM service and config
         child = BaseAgent(
             agent_id=f"{parent.agent_id}_child_{port}",
@@ -69,22 +75,9 @@ class DelegateManager:
             config=parent._config,
             working_dir=parent._working_dir,
             streaming=parent._streaming,
+            role=role,
+            ltm=ltm,
         )
-
-        # Inject role — override or copy parent
-        role = args.get("role")
-        if role:
-            child.update_system_prompt("role", role, protected=True)
-        else:
-            # Copy parent's role section if it exists
-            parent_role = parent._prompt_manager.read_section("role")
-            if parent_role:
-                child.update_system_prompt("role", parent_role, protected=True)
-
-        # Inject long-term memory if provided
-        ltm = args.get("ltm")
-        if ltm:
-            child.update_system_prompt("ltm", ltm)
 
         # Replay capabilities — filter if specified, skip delegate to prevent recursion
         requested = args.get("capabilities")
@@ -113,10 +106,4 @@ def setup(agent: "BaseAgent") -> DelegateManager:
     """Set up the delegate capability on an agent."""
     mgr = DelegateManager(agent)
     agent.add_tool("delegate", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
-    agent.update_system_prompt(
-        "delegate_instructions",
-        "You can spawn new agents via the delegate tool. "
-        "Each spawned agent runs on its own TCP port with its own conversation. "
-        "Use mail or email to communicate with spawned agents.",
-    )
     return mgr

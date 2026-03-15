@@ -185,6 +185,8 @@ class BaseAgent:
         cancel_event: threading.Event | None = None,
         streaming: bool = False,
         logging_service: Any | None = None,
+        role: str = "",
+        ltm: str = "",
     ):
         if enabled_intrinsics is not None and disabled_intrinsics is not None:
             raise ValueError(
@@ -227,6 +229,10 @@ class BaseAgent:
 
         # System prompt manager
         self._prompt_manager = SystemPromptManager()
+        if role:
+            self._prompt_manager.write_section("role", role, protected=True)
+        if ltm:
+            self._prompt_manager.write_section("ltm", ltm)
 
         # Mail FIFO queue — incoming messages consumed by read
         self._mail_queue: deque[dict] = deque()
@@ -1118,31 +1124,8 @@ class BaseAgent:
     # ------------------------------------------------------------------
 
     def _build_system_prompt(self) -> str:
-        """Build the system prompt from intrinsics + sections + MCP tools."""
-        # Capability tools → listed alongside intrinsics in the built-in list
-        capability_tools: list[tuple[str, str]] = []
-        # External MCP tools → listed under "Available Domain Tools"
-        mcp_tools: list[MCPTool] = []
-
-        for s in self._mcp_schemas:
-            if s.name not in self._mcp_handlers:
-                continue
-            if s.name not in self._mcp_tool_names:
-                capability_tools.append((s.name, s.description))
-            else:
-                mcp_tools.append(MCPTool(
-                    name=s.name,
-                    schema=self._mcp_handlers[s.name].__doc__ or "",
-                    description=s.description,
-                    handler=self._mcp_handlers[s.name],
-                ))
-
-        return build_system_prompt(
-            prompt_manager=self._prompt_manager,
-            intrinsic_names=list(self._intrinsics.keys()),
-            capability_tools=capability_tools,
-            mcp_tools=mcp_tools,
-        )
+        """Build the system prompt from base + sections."""
+        return build_system_prompt(prompt_manager=self._prompt_manager)
 
     def _build_tool_schemas(self) -> list[FunctionSchema]:
         """Build the complete tool schema list for the LLM.

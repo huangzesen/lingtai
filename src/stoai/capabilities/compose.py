@@ -25,7 +25,12 @@ SCHEMA: dict[str, Any] = {
     "required": ["prompt"],
 }
 
-DESCRIPTION = "Generate music from a text description."
+DESCRIPTION = (
+    "Generate music from a text description. "
+    "Provide a text prompt describing the music you want. "
+    "Optionally specify duration_seconds. "
+    "Generated music is saved to media/music/ in your working directory."
+)
 
 
 class ComposeManager:
@@ -64,11 +69,4 @@ def setup(agent: "BaseAgent", **kwargs: Any) -> ComposeManager:
     """Set up the compose capability on an agent."""
     mgr = ComposeManager(working_dir=agent.working_dir, llm_service=agent.service)
     agent.add_tool("compose", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
-    agent.update_system_prompt(
-        "compose_instructions",
-        "You can generate music via the compose tool. "
-        "Provide a text prompt describing the music you want. "
-        "Optionally specify duration_seconds. "
-        "Generated music is saved to media/music/ in your working directory.",
-    )
     return mgr

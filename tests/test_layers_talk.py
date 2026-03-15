@@ -53,4 +53,3 @@ class TestSetupTalk:
         mgr = setup_talk(agent)
         assert isinstance(mgr, TalkManager)
         agent.add_tool.assert_called_once()
-        agent.update_system_prompt.assert_called_once()

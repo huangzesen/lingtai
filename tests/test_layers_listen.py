@@ -79,4 +79,3 @@ class TestSetupListen:
         mgr = setup_listen(agent)
         assert isinstance(mgr, ListenManager)
         agent.add_tool.assert_called_once()
-        agent.update_system_prompt.assert_called_once()
