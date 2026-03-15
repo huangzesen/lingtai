@@ -689,7 +689,7 @@ class GeminiAdapter(LLMAdapter):
     supports_web_search = True
     supports_vision = True
 
-    def __init__(self, api_key: str, timeout_ms: int = 300_000):
+    def __init__(self, api_key: str, timeout_ms: int = 300_000, max_rpm: int = 0):
         self._client = genai.Client(
             api_key=api_key,
             http_options=types.HttpOptions(
@@ -700,6 +700,7 @@ class GeminiAdapter(LLMAdapter):
         # When True, make_tool_result_message() produces Interactions API dicts
         # instead of Chat API Part objects.
         self._use_interactions: bool = False
+        self._setup_gate(max_rpm)
 
     # -- LLMAdapter interface --------------------------------------------------
 
@@ -714,6 +715,7 @@ class GeminiAdapter(LLMAdapter):
         interface: ChatInterface | None = None,
         thinking: str = "default",
         interaction_id: str | None = None,
+        context_window: int = 0,
     ) -> ChatSession:
         # Check if Interactions API is enabled
         use_interactions = True
@@ -735,6 +737,7 @@ class GeminiAdapter(LLMAdapter):
                 thinking=thinking,
                 force_tool_call=force_tool_call,
                 interaction_id=interaction_id,
+                context_window=context_window,
             )
 
         # --- Chat API path (used for json_schema mode) ---
@@ -779,9 +782,8 @@ class GeminiAdapter(LLMAdapter):
 
         self._use_interactions = False
         chat = self._client.chats.create(**create_kwargs)
-        from ...llm_utils import get_context_limit
 
-        return GeminiChatSession(chat, context_window=get_context_limit(model), interface=interface)
+        return GeminiChatSession(chat, context_window=context_window, interface=interface)
 
     def _create_interactions_session(
         self,
@@ -794,6 +796,7 @@ class GeminiAdapter(LLMAdapter):
         thinking: str = "default",
         force_tool_call: bool = False,
         interaction_id: str | None = None,
+        context_window: int = 0,
     ) -> InteractionsChatSession:
         """Create an InteractionsChatSession with server-side state.
 
@@ -832,9 +835,6 @@ class GeminiAdapter(LLMAdapter):
             config_kwargs["generation_config"] = gen_config
 
         self._use_interactions = True
-        from ...llm_utils import get_context_limit
-
-        ctx_window = get_context_limit(model)
 
         # If resuming from a saved interaction_id, history is server-side
         if interaction_id:
@@ -843,7 +843,7 @@ class GeminiAdapter(LLMAdapter):
                 model,
                 config_kwargs,
                 prev_interaction_id=interaction_id,
-                context_window=ctx_window,
+                context_window=context_window,
                 interface=interface,
             )
 
@@ -856,7 +856,7 @@ class GeminiAdapter(LLMAdapter):
             model,
             config_kwargs,
             prev_interaction_id=None,
-            context_window=ctx_window,
+            context_window=context_window,
             interface=interface,
         )
 

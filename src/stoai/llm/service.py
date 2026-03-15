@@ -9,10 +9,13 @@ This version is decoupled from any app-specific config system:
 
 from __future__ import annotations
 
+import json
 import os
 import threading
+import time
 import uuid
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from .base import (
@@ -22,6 +25,130 @@ from .base import (
     LLMResponse,
 )
 from .interface import ChatInterface, ToolResultBlock
+
+# ---------------------------------------------------------------------------
+# Model context-window registry
+# ---------------------------------------------------------------------------
+
+# Default context window when model is unknown and litellm registry is unavailable
+DEFAULT_CONTEXT_WINDOW = 256_000
+
+LITELLM_REGISTRY_URL = (
+    "https://raw.githubusercontent.com/BerriAI/litellm/main/"
+    "model_prices_and_context_window.json"
+)
+_CACHE_MAX_AGE = 86400  # 24 hours
+
+_litellm_cache: dict[str, int] | None = None
+_litellm_lock = threading.Lock()
+
+
+def _get_cache_path(data_dir: str | None = None) -> Path:
+    if data_dir:
+        return Path(data_dir) / "model_context_windows.json"
+    return Path.home() / ".stoai" / "model_context_windows.json"
+
+
+def _fetch_litellm_registry(data_dir: str | None = None) -> dict[str, int]:
+    """Fetch max_input_tokens from litellm registry, cache locally.
+
+    Returns a flat dict of {model_name: max_input_tokens}.
+    Entries are stored in two forms:
+    - Bare names (e.g., "gemini-3-flash-preview", "claude-sonnet-4-6")
+    - Provider-stripped names from prefixed entries (e.g., "minimax/MiniMax-M2.5" -> "MiniMax-M2.5")
+    """
+    cache_path = _get_cache_path(data_dir)
+
+    # Try reading from cache
+    if cache_path.exists():
+        try:
+            age = time.time() - cache_path.stat().st_mtime
+            if age < _CACHE_MAX_AGE:
+                cached = json.loads(cache_path.read_text(encoding="utf-8"))
+                if isinstance(cached, dict) and cached:
+                    return cached
+        except Exception:
+            pass
+
+    # Fetch from GitHub
+    try:
+        import urllib.request
+        req = urllib.request.Request(LITELLM_REGISTRY_URL, headers={
+            "User-Agent": "stoai/1.0",
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            raw = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        # Try stale cache
+        if cache_path.exists():
+            try:
+                return json.loads(cache_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        return {}
+
+    # Extract max_input_tokens
+    result: dict[str, int] = {}
+    for model_key, info in raw.items():
+        if not isinstance(info, dict):
+            continue
+        max_input = info.get("max_input_tokens")
+        if not max_input or not isinstance(max_input, (int, float)):
+            continue
+        max_input = int(max_input)
+
+        result[model_key] = max_input
+
+        if "/" in model_key:
+            bare = model_key.split("/", 1)[1]
+            if bare not in result:
+                result[bare] = max_input
+
+    # Cache to disk
+    try:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(json.dumps(result), encoding="utf-8")
+    except Exception:
+        pass
+
+    return result
+
+
+def _get_litellm_registry() -> dict[str, int]:
+    """Get litellm registry (lazy-loaded, thread-safe)."""
+    global _litellm_cache
+    if _litellm_cache is not None:
+        return _litellm_cache
+    with _litellm_lock:
+        if _litellm_cache is not None:
+            return _litellm_cache
+        _litellm_cache = _fetch_litellm_registry()
+        return _litellm_cache
+
+
+def get_context_limit(model_name: str) -> int:
+    """Return context window size for a model, or DEFAULT_CONTEXT_WINDOW if unknown.
+
+    Resolution order:
+    1. litellm community registry (cached, refreshed daily) — exact then prefix match
+    2. DEFAULT_CONTEXT_WINDOW (256k)
+    """
+    if not model_name:
+        return DEFAULT_CONTEXT_WINDOW
+
+    # Try litellm registry — exact match first, then longest prefix
+    registry = _get_litellm_registry()
+    if registry:
+        if model_name in registry:
+            return registry[model_name]
+        best, best_len = 0, 0
+        for prefix, limit in registry.items():
+            if model_name.startswith(prefix) and len(prefix) > best_len:
+                best, best_len = limit, len(prefix)
+        if best > 0:
+            return best
+
+    return DEFAULT_CONTEXT_WINDOW
 
 COMPACTION_PROMPT = (
     "You are compacting conversation history for an AI agent so it can "
@@ -89,37 +216,40 @@ class LLMService:
         # Build kwargs, omitting None values so adapters fall back to env vars
         key_kw: dict = {"api_key": api_key} if api_key is not None else {}
         url_kw: dict = {"base_url": base_url} if base_url is not None else {}
+        defaults = self._get_provider_defaults(provider)
+        max_rpm = defaults.get("max_rpm", 0) if defaults else 0
+        rpm_kw: dict = {"max_rpm": max_rpm} if max_rpm > 0 else {}
 
         p = provider.lower()
         if p == "gemini":
             from .gemini.adapter import GeminiAdapter
-            return GeminiAdapter(**key_kw)
+            return GeminiAdapter(**key_kw, **rpm_kw)
         elif p == "anthropic":
             from .anthropic.adapter import AnthropicAdapter
-            return AnthropicAdapter(**key_kw, **url_kw)
+            return AnthropicAdapter(**key_kw, **url_kw, **rpm_kw)
         elif p == "openai":
             from .openai.adapter import OpenAIAdapter
-            return OpenAIAdapter(**key_kw, **url_kw)
+            return OpenAIAdapter(**key_kw, **url_kw, **rpm_kw)
         elif p == "minimax":
             from .minimax.adapter import MiniMaxAdapter
-            return MiniMaxAdapter(**key_kw, **url_kw)
+            return MiniMaxAdapter(**key_kw, **url_kw, **rpm_kw)
         elif p == "grok":
             from .grok.adapter import GrokAdapter
-            return GrokAdapter(**key_kw)
+            return GrokAdapter(**key_kw, **rpm_kw)
         elif p == "deepseek":
             from .deepseek.adapter import DeepSeekAdapter
-            return DeepSeekAdapter(**key_kw)
+            return DeepSeekAdapter(**key_kw, **rpm_kw)
         elif p == "qwen":
             from .qwen.adapter import QwenAdapter
-            return QwenAdapter(**key_kw)
+            return QwenAdapter(**key_kw, **rpm_kw)
         elif p == "kimi":
             from .kimi.adapter import create_kimi_adapter
             defaults = self._get_provider_defaults(p)
             compat = defaults.get("api_compat", "openai") if defaults else "openai"
-            return create_kimi_adapter(**key_kw, api_compat=compat, **url_kw)
+            return create_kimi_adapter(**key_kw, api_compat=compat, **url_kw, **rpm_kw)
         elif p == "glm":
             from .glm.adapter import GLMAdapter
-            return GLMAdapter(**key_kw)
+            return GLMAdapter(**key_kw, **rpm_kw)
         elif p == "custom":
             from .custom.adapter import create_custom_adapter
             defaults = self._get_provider_defaults(p)
@@ -128,7 +258,7 @@ class LLMService:
             vis = defaults.get("supports_vision", False) if defaults else False
             return create_custom_adapter(
                 **key_kw, api_compat=compat, supports_web_search=ws,
-                supports_vision=vis, **url_kw,
+                supports_vision=vis, **url_kw, **rpm_kw,
             )
         else:
             raise ValueError(f"Unknown provider: {provider!r}")
@@ -258,6 +388,7 @@ class LLMService:
         """
         adapter = self.get_adapter(provider) if provider else self.get_adapter(self._provider, self._base_url)
         session_model = model or self._model
+        ctx_window = get_context_limit(session_model)
         chat = adapter.create_chat(
             model=session_model,
             system_prompt=system_prompt,
@@ -267,6 +398,7 @@ class LLMService:
             json_schema=json_schema,
             force_tool_call=force_tool_call,
             interface=interface,
+            context_window=ctx_window,
         )
         if tracked:
             chat.session_id = _generate_session_id()
@@ -289,12 +421,14 @@ class LLMService:
         # Restore tools from interface so adapters can build provider-specific format
         tools = FunctionSchema.from_dicts(interface.current_tools)
 
+        ctx_window = get_context_limit(self._model)
         chat = self.get_adapter(self._provider, self._base_url).create_chat(
             model=self._model,
             system_prompt=interface.current_system_prompt or "",
             tools=tools,
             interface=interface,
             thinking=thinking,
+            context_window=ctx_window,
         )
         chat.session_id = session_id or _generate_session_id()
         chat._agent_type = metadata.get("agent_type", "")

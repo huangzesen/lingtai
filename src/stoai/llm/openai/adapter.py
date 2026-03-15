@@ -184,6 +184,7 @@ class OpenAIChatSession(ChatSession):
         tool_choice: str | None,
         extra_kwargs: dict,
         client_kwargs: dict | None = None,
+        context_window: int = 0,
     ):
         self._client = client
         self._model = model
@@ -192,10 +193,7 @@ class OpenAIChatSession(ChatSession):
         self._tool_choice = tool_choice
         self._extra_kwargs = extra_kwargs
         self._client_kwargs = client_kwargs or {}
-
-        # Context window for compaction
-        from ...llm_utils import get_context_limit
-        self._context_window = get_context_limit(model)
+        self._context_window = context_window
 
     @property
     def interface(self) -> ChatInterface:
@@ -701,6 +699,7 @@ class OpenAIAdapter(LLMAdapter):
         base_url: str | None = None,
         timeout_ms: int = 300_000,
         use_responses: bool = False,
+        max_rpm: int = 0,
     ):
         self.base_url = base_url
         self._use_responses = use_responses
@@ -710,6 +709,7 @@ class OpenAIAdapter(LLMAdapter):
         kwargs["timeout"] = timeout_ms / 1000.0  # openai SDK uses seconds
         self._client_kwargs = dict(kwargs)  # store for session reset
         self._client = openai.OpenAI(**kwargs)
+        self._setup_gate(max_rpm)
 
     # -- LLMAdapter interface --------------------------------------------------
 
@@ -724,6 +724,7 @@ class OpenAIAdapter(LLMAdapter):
         interface: ChatInterface | None = None,
         thinking: str = "default",
         interaction_id: str | None = None,  # ignored — Gemini-specific
+        context_window: int = 0,
     ) -> ChatSession:
         # Create interface if not provided
         tool_dicts = FunctionSchema.list_to_dicts(tools)
@@ -852,6 +853,7 @@ class OpenAIAdapter(LLMAdapter):
             tool_choice=tool_choice,
             extra_kwargs=extra_kwargs,
             client_kwargs=self._client_kwargs,
+            context_window=context_window,
         )
 
     def generate(

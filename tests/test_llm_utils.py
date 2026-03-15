@@ -1,58 +1,9 @@
 """Tests for stoai.llm_utils."""
 
 from stoai.llm_utils import (
-    get_context_limit,
-    build_outcome_summary,
     track_llm_usage,
     execute_tools_batch,
-    MODEL_CONTEXT_LIMITS,
 )
-
-
-def test_get_context_limit_known_model():
-    """Known models should return their hardcoded limit."""
-    limit = get_context_limit("gemini-2.5-flash")
-    assert limit == 1_048_576
-
-
-def test_get_context_limit_prefix_match():
-    """Models with version suffixes should match via longest prefix."""
-    limit = get_context_limit("claude-opus-4-20250514")
-    assert limit == 200_000
-
-
-def test_get_context_limit_unknown():
-    """Unknown models should return 0 (no match)."""
-    limit = get_context_limit("totally-unknown-model-xyz")
-    assert isinstance(limit, int)
-    assert limit >= 0
-
-
-def test_get_context_limit_empty():
-    """Empty model name returns 0."""
-    assert get_context_limit("") == 0
-
-
-def test_build_outcome_summary_basic():
-    """build_outcome_summary produces a readable string."""
-    outcomes = [
-        {"tool": "fetch_data", "status": "ok", "label": "B_GSM", "num_points": 1000, "units": "nT"},
-        {"tool": "render_plot", "status": "ok"},
-    ]
-    summary = build_outcome_summary(outcomes)
-    assert "fetch_data=ok" in summary
-    assert "B_GSM" in summary
-    assert "render_plot=ok" in summary
-
-
-def test_build_outcome_summary_error_truncation():
-    """Error messages longer than 500 chars should be truncated."""
-    long_msg = "x" * 1000
-    outcomes = [{"tool": "bad_tool", "status": "error", "message": long_msg}]
-    summary = build_outcome_summary(outcomes)
-    assert "..." in summary
-    # Should not contain the full 1000-char message
-    assert len(summary) < 1000
 
 
 class FakeLLMResponse:

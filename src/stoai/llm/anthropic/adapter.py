@@ -263,6 +263,7 @@ class AnthropicChatSession(ChatSession):
         tool_choice: dict | None,
         extra_kwargs: dict,
         client_kwargs: dict | None = None,
+        context_window: int = 0,
     ):
         self._client = client
         self._model = model
@@ -272,10 +273,7 @@ class AnthropicChatSession(ChatSession):
         self._tool_choice = tool_choice
         self._extra_kwargs = extra_kwargs
         self._client_kwargs = client_kwargs or {}
-
-        # Context window for compaction
-        from ...llm_utils import get_context_limit
-        self._context_window = get_context_limit(model)
+        self._context_window = context_window
 
     @property
     def interface(self) -> ChatInterface:
@@ -599,6 +597,7 @@ class AnthropicAdapter(LLMAdapter):
         *,
         base_url: str | None = None,
         timeout_ms: int = 300_000,
+        max_rpm: int = 0,
     ):
         self._base_url = base_url
         kwargs: dict[str, Any] = {
@@ -609,6 +608,7 @@ class AnthropicAdapter(LLMAdapter):
             kwargs["base_url"] = base_url
         self._client_kwargs = dict(kwargs)  # store for session reset
         self._client = anthropic.Anthropic(**kwargs)
+        self._setup_gate(max_rpm)
 
     @staticmethod
     def _resolve_thinking_budget(thinking: str) -> int | None:
@@ -642,6 +642,7 @@ class AnthropicAdapter(LLMAdapter):
         interface: ChatInterface | None = None,
         thinking: str = "default",
         interaction_id: str | None = None,  # ignored — Gemini-specific
+        context_window: int = 0,
     ) -> AnthropicChatSession:
         # Create interface from scratch or from history
         if interface is not None:
@@ -695,6 +696,7 @@ class AnthropicAdapter(LLMAdapter):
             tool_choice=tool_choice,
             extra_kwargs=extra_kwargs,
             client_kwargs=self._client_kwargs,
+            context_window=context_window,
         )
 
     def generate(

@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .interface import ChatInterface, ToolResultBlock
-from .rate_limiter import RateLimiter
+from .api_gate import APICallGate
 
 
 # ---------------------------------------------------------------------------
@@ -239,17 +239,22 @@ class LLMAdapter(ABC):
     supports_web_search: bool = False
     supports_vision: bool = False
 
-    # Rate limiter instance for throttling API calls
-    _rate_limiter: RateLimiter | None = None
+    _gate: APICallGate | None = None
 
-    def _setup_rate_limiter(self, min_interval: float) -> None:
-        """Set up rate limiting for this adapter.
+    def _setup_gate(self, max_rpm: int) -> None:
+        """Set up rate-limiting gate for this adapter.
 
         Args:
-            min_interval: Minimum seconds between API calls. 0 disables.
+            max_rpm: Maximum requests per minute. 0 disables.
         """
-        if min_interval > 0:
-            self._rate_limiter = RateLimiter(min_interval)
+        if max_rpm > 0:
+            self._gate = APICallGate(max_rpm)
+
+    def _gated_call(self, fn: Callable[[], Any]) -> Any:
+        """Run fn through the gate if configured, otherwise call directly."""
+        if self._gate is not None:
+            return self._gate.submit(fn)
+        return fn()
 
     @abstractmethod
     def create_chat(
@@ -263,6 +268,7 @@ class LLMAdapter(ABC):
         interface: ChatInterface | None = None,
         thinking: str = "default",
         interaction_id: str | None = None,
+        context_window: int = 0,
     ) -> ChatSession:
         """Create a new multi-turn chat session.
 
@@ -280,6 +286,8 @@ class LLMAdapter(ABC):
                 (adapter decides).
             interaction_id: Gemini Interactions API session ID for server-side
                 history resume.  Ignored by providers that don't support it.
+            context_window: Total context window in tokens for this model.
+                0 = unknown.  Provided by LLMService.
         """
 
     @abstractmethod
