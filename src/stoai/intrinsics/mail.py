@@ -28,6 +28,11 @@ SCHEMA = {
         },
         "subject": {"type": "string", "description": "Message subject (for send)"},
         "message": {"type": "string", "description": "Message body (for send)"},
+        "attachments": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "List of file paths to attach to the message (for send)",
+        },
     },
     "required": ["action"],
 }
