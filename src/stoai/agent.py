@@ -491,7 +491,9 @@ class BaseAgent:
                 "time": e["time"],
                 "unread": e.get("unread", False),
             })
-        return {"status": "ok", "count": len(emails), "emails": emails}
+        with self._mailbox_lock:
+            total = len(self._mailbox)
+        return {"status": "ok", "total": total, "showing": len(emails), "emails": emails}
 
     def _email_read(self, args: dict) -> dict:
         """Read a specific email by ID."""
@@ -889,8 +891,13 @@ class BaseAgent:
         """
         tc_id = getattr(tc, "id", None)
         args = dict(tc.args) if tc.args else {}
+        reasoning = args.pop("reasoning", None)
         args.pop("commentary", None)
         args.pop("_sync", None)
+
+        # Log reasoning as diary entry
+        if reasoning:
+            self._log("tool_reasoning", tool=tc.name, reasoning=reasoning)
 
         verdict = guard.record_tool_call(tc.name, args)
         if verdict.blocked:
@@ -1002,8 +1009,12 @@ class BaseAgent:
         for i, tc in enumerate(tool_calls):
             tc_id = getattr(tc, "id", None)
             args = dict(tc.args) if tc.args else {}
+            reasoning = args.pop("reasoning", None)
             args.pop("commentary", None)
             args.pop("_sync", None)
+
+            if reasoning:
+                self._log("tool_reasoning", tool=tc.name, reasoning=reasoning)
 
             verdict = guard.record_tool_call(tc.name, args)
             if verdict.blocked:
@@ -1117,23 +1128,50 @@ class BaseAgent:
         )
 
     def _build_tool_schemas(self) -> list[FunctionSchema]:
-        """Build the complete tool schema list for the LLM."""
+        """Build the complete tool schema list for the LLM.
+
+        Every tool gets a 'reasoning' parameter injected — the agent must
+        explain why it's calling this tool. Reasoning is logged as part of
+        the agent's diary and stripped before the handler runs.
+        """
+        reasoning_prop = {
+            "reasoning": {
+                "type": "string",
+                "description": "Brief explanation of why you are calling this tool (recorded in your diary).",
+            },
+        }
+
         schemas = []
 
         # Intrinsic schemas
         for name in self._intrinsics:
             info = ALL_INTRINSICS.get(name)
             if info:
+                params = dict(info["schema"])
+                props = dict(params.get("properties", {}))
+                props.update(reasoning_prop)
+                params["properties"] = props
                 schemas.append(
                     FunctionSchema(
                         name=name,
                         description=info["description"],
-                        parameters=info["schema"],
+                        parameters=params,
                     )
                 )
 
-        # MCP schemas
-        schemas.extend(self._mcp_schemas)
+        # MCP schemas — inject reasoning into each
+        for s in self._mcp_schemas:
+            params = dict(s.parameters)
+            props = dict(params.get("properties", {}))
+            props.update(reasoning_prop)
+            params["properties"] = props
+            schemas.append(
+                FunctionSchema(
+                    name=s.name,
+                    description=s.description,
+                    parameters=params,
+                )
+            )
 
         return schemas
 
