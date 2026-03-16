@@ -10,3 +10,18 @@ venv/
 .mypy_cache/
 .env
 .worktrees/
+.claude/
+
+# Agent runtime artifacts (working dirs from examples)
+alice/
+bob/
+charlie/
+researcher/
+assistant/
+orchestrator/
+memory/
+mailbox/
+
+# Scratch scripts and artifacts
+plot_example.py
+scatter_plot.*
