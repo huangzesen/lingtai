@@ -118,7 +118,10 @@ class EmailManager:
         for folder in ("inbox", "sent"):
             path = self._mailbox_dir / folder / email_id / "message.json"
             if path.is_file():
-                data = json.loads(path.read_text())
+                try:
+                    data = json.loads(path.read_text())
+                except (json.JSONDecodeError, OSError):
+                    continue
                 data["_folder"] = folder
                 data.setdefault("_mailbox_id", email_id)
                 return data
