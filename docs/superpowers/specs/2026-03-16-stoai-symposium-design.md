@@ -32,7 +32,7 @@ The backend is thin — intelligence lives in stoai agents. The backend provides
     SubA    SubB    MemoryAgent
 ```
 
-All agents are peers in the filesystem sense (siblings under `base_dir`), but logically form a tree rooted at the orchestrator.
+All agents are peers in the filesystem sense (siblings under `base_dir`), but logically form a tree rooted at the orchestrator. Note: subagents cannot sub-delegate (stoai's delegate capability explicitly skips itself when replaying capabilities to children).
 
 ### Communication
 
@@ -42,7 +42,7 @@ All inter-agent communication uses the existing **email capability** (filesystem
 
 | Channel | What | Mechanism | When to use |
 |---------|------|-----------|-------------|
-| **LTM** | Universal knowledge expressible in words | `update_ltm` MCP tool → mutates agent's `ltm` field | Pitfalls, best practices, factual discoveries that benefit all agents |
+| **LTM** | Universal knowledge expressible in words | `update_ltm` MCP tool → calls `agent.update_system_prompt("ltm", content)` | Pitfalls, best practices, factual discoveries that benefit all agents |
 | **Broadcast** | Actionable resources requiring agent-to-agent follow-up | Email CC-all from orchestrator | "SubB has a useful script — email SubB if you need it" |
 
 The orchestrator decides which channel to use. Generic instructions in its system prompt guide this decision. The boundary between the two channels is intentionally flexible — the orchestrator uses judgment.
@@ -78,11 +78,11 @@ Registry of delegated agents. Three actions:
 | `register` | `agent_id`, `role`, `address` | Confirmation |
 | `deregister` | `agent_id` | Confirmation |
 
-**Access:** All agents (orchestrator, subagents, memory agent).
+**Access:** Orchestrator gets all three actions. Subagents and memory agent get `list` action only (cannot register/deregister — only the orchestrator manages the registry after delegating).
 
 ### `update_ltm`
 
-Update an agent's LTM (the `ltm` field on `BaseAgent`, injected into system prompt).
+Update an agent's LTM by calling `agent.update_system_prompt("ltm", content)` on the target agent instance(s). This mutates the `"ltm"` section in the agent's `SystemPromptManager`, which is included in the system prompt on the next LLM turn.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
@@ -95,11 +95,20 @@ Update an agent's LTM (the `ltm` field on `BaseAgent`, injected into system prom
 
 ```python
 def tools_for_role(role: str, registry: AgentRegistry) -> list[MCPTool]:
-    common = [manage_agents_tool]
     if role == "orchestrator":
-        return common + [update_ltm_tool]
-    return common
+        # Full manage_agents (list/register/deregister) + update_ltm
+        return [manage_agents_full_tool, update_ltm_tool]
+    # Subagents/memory: manage_agents with list action only
+    return [manage_agents_list_only_tool]
 ```
+
+### Registration Flow
+
+When the orchestrator delegates a subagent, it must perform a two-step sequence:
+1. Call `delegate(role=..., ...)` → receives `agent_id` and `address`
+2. Call `manage_agents(action="register", agent_id=..., role=..., address=...)` → adds to registry
+
+The orchestrator's system prompt explicitly instructs this pattern. The registry emits an `agent_registered` event, which the WebSocket server pushes to the frontend.
 
 ## Backend
 
@@ -159,28 +168,58 @@ Startup sequence:
 
 ### AgentRegistry (`registry.py`)
 
-In-memory shared state:
+In-memory shared state, thread-safe (all mutations protected by `threading.Lock` since MCP tool handlers are called from different agent threads):
 
 ```python
 @dataclass
 class AgentEntry:
     agent_id: str
     role: str
-    address: str
-    status: str  # "active", "idle", "stopped"
+    address: str          # mail address, e.g. "127.0.0.1:54321"
+    status: str           # "active", "idle", "stopped"
+    agent_ref: BaseAgent  # live reference for update_system_prompt calls
 
 class AgentRegistry:
-    agents: dict[str, AgentEntry]
-    event_callbacks: list[Callable]
+    _lock: threading.Lock
+    _agents: dict[str, AgentEntry]
+    _event_callbacks: list[Callable]
 
-    def register(self, agent_id, role, address) -> None
+    def register(self, agent_id, role, address, agent_ref) -> None
     def deregister(self, agent_id) -> None
-    def list_agents(self) -> list[AgentEntry]
+    def list_agents(self) -> list[dict]  # returns dicts (no agent_ref exposed)
     def update_ltm(self, content, agent_id=None) -> None
     def subscribe(self, callback) -> None  # for WebSocket push
+    def _emit(self, event_type, payload) -> None
 ```
 
-`update_ltm` needs references to the actual `BaseAgent` instances to mutate their `ltm` field. The registry holds these references (set during agent creation).
+`update_ltm` calls `agent_ref.update_system_prompt("ltm", content)` on target agent(s). The registry holds live `BaseAgent` references — the orchestrator passes these when calling `register` (the MCP handler resolves `agent_id` to the live instance via the delegate manager's child tracking).
+
+### Event Bridge (`registry.py`)
+
+Agent-internal events (email sent, status changes) must be bridged to the WebSocket server. The strategy: inject a custom `LoggingService` implementation (`SymposiumLoggingService`) into each agent that both writes JSONL (standard behavior) and forwards events to the registry's event bus.
+
+```python
+class SymposiumLoggingService(LoggingService):
+    """Forwards agent events to the registry event bus."""
+
+    def __init__(self, agent_id: str, registry: AgentRegistry):
+        self._agent_id = agent_id
+        self._registry = registry
+
+    def log(self, event: dict) -> None:
+        event_type = event.get("type")
+        if event_type == "email_sent":
+            self._registry._emit("email_sent", {
+                "agent_id": self._agent_id, **event
+            })
+        elif event_type in ("agent_started", "agent_stopped"):
+            self._registry._emit("agent_status_changed", {
+                "agent_id": self._agent_id,
+                "status": "active" if event_type == "agent_started" else "stopped",
+            })
+```
+
+Each agent is constructed with this logging service. Registry events (`agent_registered`, `agent_deregistered`, `ltm_updated`) are emitted directly by the registry methods. Agent-internal events (`email_sent`, `agent_status_changed`) are emitted by the logging service bridge.
 
 ### HTTP/WebSocket Server (`server.py`)
 
@@ -190,7 +229,7 @@ class AgentRegistry:
 |--------|------|-------------|
 | `GET` | `/api/agents` | List all agents from registry |
 | `GET` | `/api/ltm` | Current LTM content |
-| `GET` | `/api/emails/{agent_id}` | Email history for an agent |
+| `GET` | `/api/emails/{agent_id}` | Email history for an agent (direct filesystem read of `base_dir/{agent_id}/mailbox/`) |
 | `POST` | `/api/task` | Send research task to orchestrator |
 | `GET` | `/` | Serve React build (`frontend/dist/`) |
 
@@ -203,8 +242,8 @@ Pushes events to frontend:
 | `agent_registered` | `{agent_id, role, address}` | `manage_agents(action="register")` |
 | `agent_deregistered` | `{agent_id}` | `manage_agents(action="deregister")` |
 | `ltm_updated` | `{content, agent_id}` | `update_ltm()` |
-| `email_sent` | `{from, to, subject}` | Email capability sends mail |
-| `agent_status_changed` | `{agent_id, status}` | Agent lifecycle events |
+| `email_sent` | `{agent_id, from, to, subject}` | Email capability sends mail (bridged via `SymposiumLoggingService`) |
+| `agent_status_changed` | `{agent_id, status}` | Agent lifecycle events (bridged via `SymposiumLoggingService`) |
 
 ### Orchestrator Setup (`orchestrator.py`)
 
@@ -221,8 +260,8 @@ The orchestrator's system prompt includes:
 
 - **React 18+** with TypeScript
 - **Vite** for bundling
-- **A graph library** (reactflow, d3-force, or similar — to be decided during implementation)
-- **CSS** — TBD (Tailwind, CSS modules, or styled-components)
+- **reactflow** for agent graph visualization (tree layout + animated edges)
+- **Tailwind CSS** for styling
 
 ### Layout
 
@@ -312,12 +351,14 @@ dependencies = [
   "dependencies": {
     "react": "^18",
     "react-dom": "^18",
-    "reactflow": "^11"  // or alternative graph library
+    "reactflow": "^11"
   },
   "devDependencies": {
     "vite": "^5",
     "typescript": "^5",
-    "@types/react": "^18"
+    "@types/react": "^18",
+    "tailwindcss": "^4",
+    "@tailwindcss/vite": "^4"
   }
 }
 ```
