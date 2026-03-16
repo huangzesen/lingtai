@@ -274,6 +274,37 @@ def _spawn(self, agent_id: str, role: str, ...) -> StoAIAgent:
 - `delegate` capability is excluded from the delegate's capabilities (prevents infinite recursion)
 - Future delegate capability policy (e.g., restricting what delegates can do) is the delegate tool's own concern, not StoAIAgent's
 
+### Delegate Reasoning as First Prompt
+
+Every tool already has a `reasoning` parameter injected by `_build_tool_schemas()` — it's popped from args before dispatch and logged as diary. For the delegate tool, `reasoning` serves double duty:
+
+1. **Diary** — logged as `tool_reasoning` event, same as all other tools
+2. **First prompt** — sent as the initial message to the delegated agent via `delegate.send(reasoning, sender=parent.agent_id)`
+
+This means the delegate's reasoning is the mission briefing. The delegate schema description should guide the LLM to write a thorough reasoning for this tool — not a one-liner but a multi-line explanation of what the delegated agent should do, why, and what context it needs.
+
+Updated delegate schema description:
+
+```python
+DESCRIPTION = (
+    "Spawn a new agent cloned from this agent. "
+    "Returns the new agent's mail address. "
+    "IMPORTANT: The reasoning field for this tool is sent as the first message "
+    "to the spawned agent — write a thorough mission briefing: what to do, why, "
+    "what context is needed, and what to report back."
+)
+```
+
+The spawn logic sends the reasoning as the first message after `start()`:
+
+```python
+delegate.start()
+if reasoning:
+    delegate.send(reasoning, sender=parent.agent_id, wait=False)
+```
+
+Note: `reasoning` is popped from args in `_execute_single_tool` before dispatch. The delegate handler needs access to it. Two options: (a) pass it through a side channel, or (b) don't pop `reasoning` for the delegate tool. Option (b) is simpler — the delegate handler reads `args.get("reasoning")`, uses it as the first prompt, and ignores it for schema dispatch. The implementation should choose the cleanest approach.
+
 ## 5. Package Exports
 
 ```python
