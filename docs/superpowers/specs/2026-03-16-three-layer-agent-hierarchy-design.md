@@ -27,7 +27,7 @@ CustomAgent(StoAIAgent) — host's wrapper (subclass with domain logic)
 | `capabilities=` format | `list[str]` or `dict[str, dict]` — list is sugar for dict with empty kwargs | Clean one-liner for simple cases, dict when kwargs needed |
 | Delegate spawning | Mirrors parent capabilities by default | Future delegate policy is delegate tool's concern, not StoAIAgent's |
 | `[MCP]` tool labeling | Kept — StoAIAgent populates `_mcp_tool_names` from `tools=` param | Capabilities are capabilities, MCP tools are MCP tools — the LLM should know the difference |
-| `shutdown_reason` | Public property on BaseAgent | Host reads it after agent stops to decide rebirth |
+| Shutdown reason | In the tool call args, visible in restored chat history | Reborn agent reads its own conversation history — no special property needed |
 | Shutdown | `status(action="shutdown", reason="...")` intrinsic | Agent requests termination; host handles rebirth |
 | File convenience methods | Stay on BaseAgent | Ergonomic wrappers backed by intrinsics, kernel-level |
 
@@ -112,7 +112,6 @@ def _handle_status(self, args: dict) -> dict:
 def _status_shutdown(self, args: dict) -> dict:
     reason = args.get("reason", "")
     self._log("shutdown_requested", reason=reason)
-    self._shutdown_reason = reason
     self._shutdown.set()  # signals the run loop to exit
     return {"status": "ok", "message": "Shutdown initiated."}
 ```
@@ -123,7 +122,7 @@ System prompt guidance:
 
 > "Use `status(action='shutdown', reason='...')` when you need capabilities you don't have. Before shutting down, mail your admin explaining what you need. You will be reborn with the right tools."
 
-Host side: after the agent stops, check `agent.shutdown_reason` (public property) to understand why. Rebirth protocol is the host's responsibility — read the reason, spawn a new StoAIAgent, restore chat from the same working dir.
+Host side: the rebirth protocol is the host's responsibility — spawn a new StoAIAgent with the right capabilities, restore chat from the same working dir. The reborn agent sees its own shutdown reason in the restored chat history (it's the last tool call before termination).
 
 ### Status Intrinsic Schema Update
 
@@ -147,19 +146,11 @@ if tools:
 
 Capabilities are capabilities. MCP tools are MCP tools. The LLM should know which is which.
 
-### `shutdown_reason` Property
+### Shutdown Reason — No Special Property
 
-```python
-# Initialized in __init__
-self._shutdown_reason: str = ""
+The `reason` lives in the tool call args: `status(action="shutdown", reason="need bash")`. It's logged to the event log AND it's part of the chat history. When the reborn agent's chat session is restored from the same working dir, it sees the shutdown call and knows why it was reborn. No `shutdown_reason` property, no special mechanism.
 
-# Public property
-@property
-def shutdown_reason(self) -> str:
-    return self._shutdown_reason
-```
-
-`stop()` behavior is unchanged whether triggered by shutdown intrinsic or normal stop — it flushes LTM, writes manifest, releases lock. The only difference is `shutdown_reason` being non-empty.
+`stop()` behavior is unchanged whether triggered by shutdown intrinsic or normal stop — it flushes LTM, writes manifest, releases lock.
 
 ## 3. StoAIAgent
 
