@@ -16,6 +16,8 @@ _BUILTIN: dict[str, str] = {
     "compose": ".compose",
     "talk": ".talk",
     "listen": ".listen",
+    "vision": ".vision",
+    "web_search": ".web_search",
 }
 
 

@@ -1,0 +1,92 @@
+"""Vision capability — image understanding via LLM or VisionService.
+
+Adds the ability to analyze images. Uses VisionService if provided,
+otherwise falls back to the LLM's multimodal vision endpoint.
+
+Usage:
+    agent.add_capability("vision")  # uses LLM fallback
+    agent.add_capability("vision", vision_service=my_svc)  # uses dedicated service
+"""
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ..agent import BaseAgent
+
+SCHEMA = {
+    "type": "object",
+    "properties": {
+        "image_path": {"type": "string", "description": "Path to the image file"},
+        "question": {
+            "type": "string",
+            "description": "Question about the image",
+            "default": "Describe this image.",
+        },
+    },
+    "required": ["image_path"],
+}
+
+DESCRIPTION = (
+    "Analyze an image using the LLM's vision capabilities. "
+    "Supports JPEG, PNG, and WebP. Ask any question about the image — "
+    "describe contents, read text, interpret charts, identify objects, "
+    "assess style or mood. Combine with draw to generate then analyze images."
+)
+
+_MIME_BY_EXT: dict[str, str] = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+}
+
+
+class VisionManager:
+    """Handles vision tool calls."""
+
+    def __init__(self, agent: "BaseAgent", vision_service: Any | None = None) -> None:
+        self._agent = agent
+        self._vision_service = vision_service
+
+    def handle(self, args: dict) -> dict:
+        image_path = args.get("image_path", "")
+        question = args.get("question", "Describe what you see in this image.")
+
+        if not image_path:
+            return {"status": "error", "message": "Provide image_path"}
+
+        path = Path(image_path)
+        if not path.is_absolute():
+            path = self._agent._working_dir / path
+
+        if not path.is_file():
+            return {"status": "error", "message": f"Image file not found: {path}"}
+
+        # Try VisionService first
+        if self._vision_service is not None:
+            try:
+                analysis = self._vision_service.analyze_image(str(path), prompt=question)
+                return {"status": "ok", "analysis": analysis}
+            except NotImplementedError:
+                pass  # Fall through to direct LLM call
+
+        # Fall back to direct LLM multimodal call
+        image_bytes = path.read_bytes()
+        mime = _MIME_BY_EXT.get(path.suffix.lower(), "image/png")
+
+        response = self._agent.service.generate_vision(question, image_bytes, mime_type=mime)
+        if not response.text:
+            return {
+                "status": "error",
+                "message": "Vision analysis returned no response — vision provider may not be configured.",
+            }
+        return {"status": "ok", "analysis": response.text}
+
+
+def setup(agent: "BaseAgent", vision_service: Any | None = None, **kwargs: Any) -> VisionManager:
+    """Set up the vision capability on an agent."""
+    mgr = VisionManager(agent, vision_service=vision_service)
+    agent.add_tool("vision", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
+    return mgr
