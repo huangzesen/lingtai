@@ -66,10 +66,10 @@ def test_email_capability_registers_tool(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_email_receive_notification(tmp_path):
-    """on_mail_received should send notification to agent inbox."""
+    """on_normal_mail should send notification to agent inbox."""
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
     mgr = agent.add_capability("email")
-    mgr.on_mail_received({
+    mgr.on_normal_mail({
         "_mailbox_id": "abc123",
         "from": "sender",
         "to": ["test"],
@@ -83,10 +83,10 @@ def test_email_receive_notification(tmp_path):
 
 
 def test_email_receive_fallback_id(tmp_path):
-    """on_mail_received should generate ID if _mailbox_id is absent."""
+    """on_normal_mail should generate ID if _mailbox_id is absent."""
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
     mgr = agent.add_capability("email")
-    mgr.on_mail_received({"from": "sender", "message": "body"})
+    mgr.on_normal_mail({"from": "sender", "message": "body"})
     assert not agent.inbox.empty()
 
 

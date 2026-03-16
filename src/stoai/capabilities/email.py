@@ -493,33 +493,13 @@ class EmailManager:
     # Receive interception
     # ------------------------------------------------------------------
 
-    def on_mail_received(self, payload: dict) -> None:
-        """Intercept incoming mail — send notification to agent inbox.
+    def on_normal_mail(self, payload: dict) -> None:
+        """Handle normal mail — save to mailbox and notify agent.
 
-        Cancel-type emails are delegated to the base agent's cancel handler.
-        Normal emails are saved to the mailbox and a notification is sent.
+        Replaces BaseAgent._on_normal_mail when the email capability is active.
+        Cancel-type emails never reach this method — they are handled by
+        BaseAgent._on_mail_received before delegation.
         """
-        mail_type = payload.get("type", "normal")
-        if mail_type == "cancel":
-            # Delegate cancel handling to base agent
-            if self._agent._cancelling:
-                return
-            self._agent._cancel_mail = payload
-            self._agent._cancel_event.set()
-            self._agent._log(
-                "cancel_received",
-                sender=payload.get("from", "unknown"),
-                subject=payload.get("subject", ""),
-            )
-            return
-
-        if mail_type != "normal":
-            import logging
-            logging.getLogger(__name__).warning(
-                "[%s] Unrecognized mail type %r, treating as normal",
-                self._agent.agent_id, mail_type,
-            )
-
         # Use _mailbox_id from mail service, or fall back to generating one
         email_id = payload.get("_mailbox_id") or str(uuid4())
 
@@ -551,7 +531,7 @@ class EmailManager:
 def setup(agent: "BaseAgent") -> EmailManager:
     """Set up email capability — filesystem-based mailbox."""
     mgr = EmailManager(agent)
-    agent._on_mail_received = mgr.on_mail_received
+    agent._on_normal_mail = mgr.on_normal_mail
     agent.add_tool(
         "email", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
     )

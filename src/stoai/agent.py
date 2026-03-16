@@ -228,7 +228,6 @@ class BaseAgent:
         self._admin = admin
         self._cancel_event = threading.Event()
         self._cancel_mail: dict | None = None
-        self._cancelling = False
         self._streaming = streaming
         self._log_service = logging_service
 
@@ -670,8 +669,7 @@ class BaseAgent:
             return
         self._shutdown.clear()
 
-        # Start MailService listener if configured — lambda trampoline so
-        # capabilities can intercept _on_mail_received even after start()
+        # Start MailService listener if configured
         if self._mail_service is not None:
             try:
                 self._mail_service.listen(on_message=lambda payload: self._on_mail_received(payload))
@@ -776,17 +774,18 @@ class BaseAgent:
         os.replace(str(tmp), str(target))
 
     def _on_mail_received(self, payload: dict) -> None:
-        """Callback for MailService — enqueues message in FIFO, notifies agent.
+        """Callback for MailService — routes by mail type.
 
         Cancel-type emails bypass the queue and set the cancel event directly.
-        """
-        from datetime import datetime, timezone
+        Normal emails are delegated to ``_on_normal_mail`` (which capabilities
+        like email can replace).
 
+        This method is never replaced — it is the stable entry point for all
+        incoming mail.
+        """
         mail_type = payload.get("type", "normal")
 
         if mail_type == "cancel":
-            if self._cancelling:
-                return  # already in diary flow, ignore
             self._cancel_mail = payload
             self._cancel_event.set()
             self._log(
@@ -796,11 +795,15 @@ class BaseAgent:
             )
             return
 
-        if mail_type != "normal":
-            logger.warning(
-                "[%s] Unrecognized mail type %r, treating as normal",
-                self.agent_id, mail_type,
-            )
+        self._on_normal_mail(payload)
+
+    def _on_normal_mail(self, payload: dict) -> None:
+        """Handle a normal mail — enqueue in FIFO and notify agent.
+
+        Capabilities (e.g. email) replace this method to provide richer
+        mail handling (mailbox, notifications, etc.).
+        """
+        from datetime import datetime, timezone
 
         sender = payload.get("from", "unknown")
         subject = payload.get("subject", "")
@@ -1019,7 +1022,6 @@ class BaseAgent:
         summarizing its work, then returns the diary text as the response.
         """
         cancel_mail = self._cancel_mail
-        self._cancelling = True
         self._cancel_event.clear()
 
         diary_text = ""
@@ -1051,7 +1053,6 @@ class BaseAgent:
                 )
 
         self._cancel_mail = None
-        self._cancelling = False
         return {
             "text": diary_text,
             "failed": False,

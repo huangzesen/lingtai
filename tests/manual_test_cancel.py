@@ -69,11 +69,11 @@ def main():
         agents[name] = agent
         managers[name] = mgr
 
-    # Start mail listeners — use agent._on_mail_received which is replaced
-    # by the email capability's on_mail_received (handles cancel + normal)
+    # Start mail listeners — all mail goes through agent._on_mail_received
+    # which handles cancel internally, then delegates normal to _on_normal_mail
     for name, agent in agents.items():
         agent._mail_service.listen(
-            on_message=lambda msg, mgr=managers[name]: mgr.on_mail_received(msg)
+            on_message=lambda msg, a=agent: a._on_mail_received(msg)
         )
 
     def addr(name):
@@ -157,36 +157,12 @@ def main():
     print(f"  Failed: {diary_result['failed']}")
     print(f"  Cancel event cleared: {not agents['bob']._cancel_event.is_set()}")
     print(f"  Cancel mail cleared: {agents['bob']._cancel_mail is None}")
-    print(f"  Cancelling flag cleared: {not agents['bob']._cancelling}")
 
     # Verify the diary prompt included cancel email info
     diary_prompt = mock_chat.send.call_args[0][0]
     print(f"\n  Diary prompt sent to LLM:")
     for line in diary_prompt.split("\n"):
         print(f"    {line}")
-
-    # --- Test 5: Re-entrant cancel protection ---
-    print("\n" + "=" * 60)
-    print("TEST 5: Re-entrant cancel protection")
-    print("=" * 60)
-
-    agents["charlie"]._cancelling = True
-    agents["charlie"]._cancel_mail = {"from": "first_sender"}
-
-    # Try to send cancel while already cancelling
-    mail_services["alice"].send(addr("charlie"), {
-        "from": addr("alice"),
-        "to": addr("charlie"),
-        "subject": "Second cancel",
-        "message": "Stop again",
-        "type": "cancel",
-    })
-    time.sleep(0.3)
-    print(f"  Charlie cancel mail still from first sender: {agents['charlie']._cancel_mail.get('from') == 'first_sender'}")
-    print(f"  Charlie cancel event NOT re-set: {not agents['charlie']._cancel_event.is_set()}")
-
-    # Clean up
-    agents["charlie"]._cancelling = False
 
     # --- Cleanup ---
     print("\n" + "=" * 60)

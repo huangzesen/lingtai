@@ -95,7 +95,7 @@ class TestThreeAgentEmail:
         # Start listening on all agents
         for name, agent in self.agents.items():
             agent._mail_service.listen(
-                on_message=lambda msg, mgr=self.managers[name]: mgr.on_mail_received(msg)
+                on_message=lambda msg, a=agent: a._on_mail_received(msg)
             )
 
     def teardown_method(self):

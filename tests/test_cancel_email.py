@@ -118,10 +118,9 @@ def test_unrecognized_type_treated_as_normal(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_cancelling_flag_prevents_reentrant_cancel(tmp_path):
-    """If already in diary flow (_cancelling=True), new cancel emails are ignored."""
+def test_second_cancel_overwrites_first(tmp_path):
+    """A second cancel email overwrites the first — last writer wins."""
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
-    agent._cancelling = True
     agent._cancel_mail = {"from": "first_boss"}
 
     second_payload = {
@@ -133,10 +132,8 @@ def test_cancelling_flag_prevents_reentrant_cancel(tmp_path):
     }
     agent._on_mail_received(second_payload)
 
-    # Should NOT overwrite the first cancel mail
-    assert agent._cancel_mail["from"] == "first_boss"
-    # Event should NOT be re-set
-    assert not agent._cancel_event.is_set()
+    assert agent._cancel_mail["from"] == "second_boss"
+    assert agent._cancel_event.is_set()
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +165,7 @@ def test_handle_cancel_diary_produces_llm_call(tmp_path):
     assert result["errors"] == []
     assert not agent._cancel_event.is_set()  # cleared
     assert agent._cancel_mail is None  # cleared
-    assert agent._cancelling is False  # cleared
+    # _cancelling removed — no re-entrancy flag needed
     mock_chat.send.assert_called_once()
     # Verify the prompt includes cancel email info
     prompt = mock_chat.send.call_args[0][0]
@@ -196,7 +193,6 @@ def test_handle_cancel_diary_handles_llm_failure(tmp_path):
     assert "LLM down" in result["text"]
     assert result["failed"] is False
     assert agent._cancel_mail is None
-    assert agent._cancelling is False
 
 
 def test_handle_cancel_diary_without_chat(tmp_path):
