@@ -132,6 +132,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .tag-result { background: #1a2a2a; color: #6bcbbb; }
 .tag-email-out { background: #1a2a3a; color: #6bb5cb; }
 .tag-email-in { background: #2a1a2a; color: #cb6bb5; }
+.tag-cancel { background: #3a1a1a; color: #e94560; font-weight: bold; }
+.tag-cancel-diary { background: #3a2a1a; color: #f0a500; }
 .email-body { margin-top: 4px; padding: 6px 8px; background: rgba(255,255,255,0.03); border-radius: 4px; white-space: pre-wrap; font-size: 11px; color: #aaa; max-height: 200px; overflow-y: auto; }
 #input-bar { padding: 10px 16px; background: #16213e; border-top: 1px solid #0f3460; display: flex; gap: 8px; align-items: center; }
 #target { padding: 8px; border: 1px solid #0f3460; border-radius: 6px; background: #1a1a2e; color: #e0e0e0; font-size: 13px; }
@@ -363,6 +365,11 @@ function renderDiary() {
       const subj = e.subject ? ' \\u2014 ' + e.subject : '';
       content = '<span class="tag tag-email-in">received</span>from ' + escapeHtml(fromName) + escapeHtml(subj) +
         '<div class="email-body">' + escapeHtml(e.message||'') + '</div>';
+    } else if (e.type === 'cancel_received') {
+      const fromName = agentNames[e.from] || e.from || '';
+      content = '<span class="tag tag-cancel">CANCELLED</span>by ' + escapeHtml(fromName) + (e.subject ? ' \\u2014 ' + escapeHtml(e.subject) : '');
+    } else if (e.type === 'cancel_diary') {
+      content = '<span class="tag tag-cancel-diary">cancel diary</span>' + escapeHtml(e.text||'');
     } else {
       content = escapeHtml(JSON.stringify(e));
     }
@@ -453,6 +460,12 @@ class ChatHandler(http.server.BaseHTTPRequestHandler):
                         entries.append({"type": "email_in", "time": e.get("ts", 0),
                                         "from": e.get("sender", ""), "subject": e.get("subject", ""),
                                         "message": e.get("message", "")})
+                    elif etype == "cancel_received":
+                        entries.append({"type": "cancel_received", "time": e.get("ts", 0),
+                                        "from": e.get("sender", ""), "subject": e.get("subject", "")})
+                    elif etype == "cancel_diary":
+                        entries.append({"type": "cancel_diary", "time": e.get("ts", 0),
+                                        "text": e.get("text", "")})
                 result[key] = entries
             self._json(result)
             return
@@ -556,7 +569,7 @@ def main():
     agent_a = BaseAgent(
         agent_id="alice", service=llm, mail_service=mail_a,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
-        logging_service=loggers["a"],
+        logging_service=loggers["a"], admin=True,
     )
     agent_a.update_system_prompt("role", (
         "Your name is Alice. Your address is 127.0.0.1:8301.\n\n"
@@ -602,8 +615,11 @@ def main():
     ), protected=True)
 
     agent_a.add_capability("email")
+    agent_a.add_capability("web_search")
     agent_b.add_capability("email")
+    agent_b.add_capability("web_search")
     agent_c.add_capability("email")
+    agent_c.add_capability("web_search")
 
     agent_a.start()
     agent_b.start()

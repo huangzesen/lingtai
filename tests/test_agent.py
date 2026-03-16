@@ -46,25 +46,25 @@ def test_intrinsics_enabled_by_default(tmp_path):
     assert "read" in agent._intrinsics
     assert "write" in agent._intrinsics
     assert "mail" in agent._intrinsics
-    assert "vision" in agent._intrinsics
-    assert "web_search" in agent._intrinsics
     # manage_system_prompt is a layer, not an intrinsic
     assert "manage_system_prompt" not in agent._intrinsics
     assert "email" not in agent._intrinsics  # email is now a capability, not intrinsic
+    assert "vision" not in agent._intrinsics  # vision is now a capability
+    assert "web_search" not in agent._intrinsics  # web_search is now a capability
     assert "clock" in agent._intrinsics
     assert "status" in agent._intrinsics
-    assert len(agent._intrinsics) == 11  # read, edit, write, glob, grep, mail, vision, web_search, clock, status, memory
+    assert len(agent._intrinsics) == 9  # read, edit, write, glob, grep, mail, clock, status, memory
 
 
 def test_disabled_intrinsics(tmp_path):
     agent = BaseAgent(
         agent_id="test",
         service=make_mock_service(),
-        disabled_intrinsics={"mail", "vision"},
+        disabled_intrinsics={"mail", "clock"},
         base_dir=tmp_path,
     )
     assert "mail" not in agent._intrinsics
-    assert "vision" not in agent._intrinsics
+    assert "clock" not in agent._intrinsics
     assert "read" in agent._intrinsics
 
 
@@ -78,7 +78,7 @@ def test_enabled_intrinsics(tmp_path):
     assert "read" in agent._intrinsics
     assert "write" in agent._intrinsics
     assert "mail" not in agent._intrinsics
-    assert "vision" not in agent._intrinsics
+    assert "clock" not in agent._intrinsics
 
 
 def test_enabled_and_disabled_raises(tmp_path):

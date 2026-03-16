@@ -462,7 +462,9 @@ def main():
     ), protected=True)
 
     agent_a.add_capability("email")
+    agent_a.add_capability("web_search")
     agent_b.add_capability("email")
+    agent_b.add_capability("web_search")
 
     agent_a.start()
     agent_b.start()

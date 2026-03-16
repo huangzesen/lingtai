@@ -7,7 +7,7 @@ Key concepts:
     - **2-layer tool dispatch**: intrinsics (built-in) + MCP handlers (domain tools).
     - **Opaque context**: the host app can pass any context object — the agent
       stores it but never introspects it.
-    - **6 optional services**: LLM, FileIO, Mail, Vision, Search, Logging —
+    - **4 optional services**: LLM, FileIO, Mail, Logging —
       missing service auto-disables the intrinsics it backs.
 """
 
@@ -146,18 +146,6 @@ def _make_message(
 
 
 # ---------------------------------------------------------------------------
-# MIME types for vision
-# ---------------------------------------------------------------------------
-
-_MIME_BY_EXT: dict[str, str] = {
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".webp": "image/webp",
-}
-
-
-# ---------------------------------------------------------------------------
 # BaseAgent
 # ---------------------------------------------------------------------------
 
@@ -169,8 +157,6 @@ class BaseAgent:
         - ``service`` (LLMService): The brain — thinking, generating text.
         - ``file_io`` (FileIOService): File access — backs read/edit/write/glob/grep.
         - ``mail_service`` (MailService): Message transport — backs mail intrinsic.
-        - ``vision`` (VisionService): Image understanding — backs vision intrinsic.
-        - ``search`` (SearchService): Web search — backs web_search intrinsic.
 
     Missing service = intrinsics backed by it are auto-disabled.
 
@@ -197,8 +183,6 @@ class BaseAgent:
         *,
         file_io: Any | None = None,
         mail_service: Any | None = None,
-        vision: Any | None = None,
-        search: Any | None = None,
         config: AgentConfig | None = None,
         mcp_tools: list[MCPTool] | None = None,
         base_dir: str | Path,
@@ -263,18 +247,6 @@ class BaseAgent:
 
         # MailService: None means mail intrinsic disabled
         self._mail_service = mail_service
-
-        # VisionService: auto-create from LLM if not provided
-        if vision is not None:
-            self._vision_service = vision
-        else:
-            self._vision_service = None  # will fall back to direct LLM call
-
-        # SearchService: auto-create from LLM if not provided
-        if search is not None:
-            self._search_service = search
-        else:
-            self._search_service = None  # will fall back to direct LLM call
 
         # Read manifest for resume (before prompt manager, so role can be restored)
         manifest_role, manifest_ltm = self._read_manifest()
@@ -390,10 +362,6 @@ class BaseAgent:
 
         # Mail requires MailService
         state_intrinsics["mail"] = self._handle_mail
-
-        # Vision and web_search always available (fall back to direct LLM calls)
-        state_intrinsics["vision"] = self._handle_vision
-        state_intrinsics["web_search"] = self._handle_web_search
 
         # Clock — always available (no service dependency)
         state_intrinsics["clock"] = self._handle_clock
@@ -609,67 +577,6 @@ class BaseAgent:
         if entry.get("attachments"):
             result["attachments"] = entry["attachments"]
         return result
-
-    def _handle_vision(self, args: dict) -> dict:
-        """Analyze an image file using VisionService or direct LLM multimodal call."""
-        image_path = args.get("image_path", "")
-        question = args.get("question", "Describe what you see in this image.")
-
-        if not image_path:
-            return {"status": "error", "message": "Provide image_path"}
-
-        path = Path(image_path)
-        if not path.is_absolute():
-            path = self._working_dir / path
-
-        if not path.is_file():
-            return {"status": "error", "message": f"Image file not found: {path}"}
-
-        # Try VisionService first
-        if self._vision_service is not None:
-            try:
-                analysis = self._vision_service.analyze_image(str(path), prompt=question)
-                return {"status": "ok", "analysis": analysis}
-            except NotImplementedError:
-                pass  # Fall through to direct LLM call
-
-        # Fall back to direct LLM multimodal call
-        image_bytes = path.read_bytes()
-        mime = _MIME_BY_EXT.get(path.suffix.lower(), "image/png")
-
-        response = self.service.generate_vision(question, image_bytes, mime_type=mime)
-        if not response.text:
-            return {
-                "status": "error",
-                "message": "Vision analysis returned no response — vision provider may not be configured.",
-            }
-        return {"status": "ok", "analysis": response.text}
-
-    def _handle_web_search(self, args: dict) -> dict:
-        """Search the web using SearchService or direct LLM grounding."""
-        query = args.get("query")
-        if not query:
-            return {"status": "error", "message": "Missing required parameter: query"}
-
-        # Try SearchService first
-        if self._search_service is not None:
-            try:
-                results = self._search_service.search(query)
-                formatted = "\n\n".join(
-                    f"**{r.title}**\n{r.url}\n{r.snippet}" for r in results
-                )
-                return {"status": "ok", "results": formatted or "No results found."}
-            except NotImplementedError:
-                pass  # Fall through to direct LLM call
-
-        # Fall back to direct LLM grounding call
-        resp = self.service.web_search(query)
-        if not resp.text:
-            return {
-                "status": "error",
-                "message": "Web search returned no results. The web search provider may not be configured.",
-            }
-        return {"status": "ok", "results": resp.text}
 
     def _handle_clock(self, args: dict) -> dict:
         """Handle clock tool — time check and wait/sync."""
