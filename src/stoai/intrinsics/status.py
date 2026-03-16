@@ -27,10 +27,11 @@ SCHEMA = {
                 "- tokens.context.usage_pct: percentage of context window currently occupied\n"
                 "Use this to monitor resource consumption, decide when to save "
                 "important information to long-term memory, and identify yourself.\n\n"
-                "shutdown: initiate graceful self-termination. Use when you need "
-                "capabilities you don't have. Before shutting down, mail your admin "
-                "explaining what you need and why. A successor agent may resume from "
-                "your working directory and conversation history."
+                "shutdown: initiate graceful self-termination. Use when you want "
+                "to add more capabilities or tools. Protocol: (1) mail your admin "
+                "explaining what capabilities/tools you need and why, (2) then call "
+                "shutdown. A successor agent may resume from your working directory "
+                "and conversation history."
             ),
         },
         "reason": {
@@ -43,6 +44,6 @@ SCHEMA = {
 DESCRIPTION = (
     "Agent self-inspection and lifecycle. "
     "'show' returns identity, runtime, and resource usage. "
-    "'shutdown' initiates graceful self-termination — use when you need "
-    "capabilities you don't have. Mail your admin before shutting down."
+    "'shutdown' initiates graceful self-termination — use when you want "
+    "more capabilities or tools. Mail your admin first, then shutdown."
 )
