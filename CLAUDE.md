@@ -29,6 +29,20 @@ No hard dependencies — only the active LLM provider's SDK needs to be installe
 
 ## Architecture
 
+### Three-Layer Agent Hierarchy
+
+```
+BaseAgent              — kernel (intrinsics, sealed tool surface)
+    |
+StoAIAgent(BaseAgent)  — kernel + capabilities + domain tools
+    |
+CustomAgent(StoAIAgent) — host's wrapper (subclass with domain logic)
+```
+
+- **BaseAgent** (`base_agent.py`) — pure kernel. 9 intrinsics, `add_tool()`/`remove_tool()` sealed after `start()`. No capabilities. `update_system_prompt()` stays open.
+- **StoAIAgent** (`stoai_agent.py`) — accepts `capabilities=` (list or dict) and `tools=` (MCPTool list) at construction. `get_capability(name)` for manager access.
+- **Custom agents** — subclass StoAIAgent, add domain tools via `add_tool()` or `_setup_capability()` in `__init__`.
+
 ### Four Services (all optional)
 
 | Service | What it backs | First implementation |
@@ -38,26 +52,29 @@ No hard dependencies — only the active LLM provider's SDK needs to be installe
 | `MailService` | mail (point-to-point FIFO messaging) | `TCPMailService` |
 | `LoggingService` | structured JSONL event logging (auto-created in working dir) | `JSONLLoggingService` |
 
-Missing service = intrinsics backed by it auto-disabled. `FileIOService` auto-creates `LocalFileIOService` for backward compat if not passed. `LoggingService` auto-creates `JSONLLoggingService` at `{working_dir}/logs/events.jsonl` if not passed. `VisionService` and `SearchService` are capability-level — passed via `add_capability("vision", vision_service=...)` / `add_capability("web_search", search_service=...)`.
+Missing service = intrinsics backed by it auto-disabled. `FileIOService` auto-creates `LocalFileIOService` for backward compat if not passed. `LoggingService` auto-creates `JSONLLoggingService` at `{working_dir}/logs/events.jsonl` if not passed. `VisionService` and `SearchService` are capability-level — passed via `capabilities={"vision": {"vision_service": svc}}`.
 
 ### Three-Tier Tool Model
 
 | Tier | What | How added |
 |------|------|-----------|
-| **Intrinsics** | Core capabilities (read, edit, write, glob, grep, mail, clock, status, memory) | Built-in, backed by services, can be disabled |
-| **Capabilities** | Composable capabilities (bash, delegate, email, vision, web_search, talk, compose, draw, listen) via `add_capability()` | `agent.add_capability("bash", policy_file="policy.json")`, `agent.add_capability("vision")` |
-| **MCP tools** | Domain context from the host app | Passed as `mcp_tools=[MCPTool(...)]` at construction |
+| **Intrinsics** | Core capabilities (read, edit, write, glob, grep, mail, clock, status+shutdown, memory) | Built-in, backed by services, can be disabled |
+| **Capabilities** | Composable capabilities (bash, delegate, email, vision, web_search, talk, compose, draw, listen) | Declared at construction via `capabilities=` on StoAIAgent |
+| **MCP tools** | Domain context from the host app | Passed as `tools=[MCPTool(...)]` on StoAIAgent, or `add_tool()` in subclass constructors |
 
 ### Key Modules
 
-- **`agent.py`** — `BaseAgent` class. 2-state lifecycle (SLEEPING/ACTIVE), 4 optional services, persistent LLM session, 2-layer tool dispatch (intrinsics + MCP), FIFO mail queue via MailService, structured JSONL logging via LoggingService (auto-created), git-controlled working dir, context compaction, loop guard, parallel tool execution.
+- **`base_agent.py`** — `BaseAgent` class (kernel). 2-state lifecycle (SLEEPING/ACTIVE), 4 optional services, persistent LLM session, 2-layer tool dispatch (intrinsics + tools), FIFO mail queue via MailService, structured JSONL logging, git-controlled working dir, context compaction, loop guard, parallel tool execution. Tool surface sealed after `start()`.
+- **`stoai_agent.py`** — `StoAIAgent(BaseAgent)`. Accepts `capabilities=` and `tools=` at construction. Tracks `_capabilities` for delegate replay. `get_capability(name)` returns manager instances.
+- **`state.py`** — `AgentState` enum (ACTIVE, SLEEPING).
+- **`message.py`** — `Message` dataclass, `_make_message`, `MSG_REQUEST`, `MSG_USER_INPUT`.
 - **`services/`** — Service ABCs + first implementations: `file_io.py`, `mail.py`, `vision.py`, `search.py`, `logging.py`.
 - **`llm/interface.py`** — `ChatInterface`, the canonical provider-agnostic conversation history. Single source of truth — adapters rebuild provider formats from this. Content blocks: `TextBlock`, `ToolCallBlock`, `ToolResultBlock`, `ThinkingBlock`, `ImageBlock`.
 - **`llm/base.py`** — `LLMAdapter` (ABC), `ChatSession` (ABC), `LLMResponse`, `ToolCall`, `FunctionSchema`. All agent code depends on these, never on provider SDKs directly.
 - **`llm/service.py`** — `LLMService`. Adapter factory, session registry, one-shot generation gateway, context compaction orchestration. Decoupled from config files — uses injected `key_resolver` and `provider_defaults`.
 - **`llm/interface_converters.py`** — Bidirectional converters between `ChatInterface` and provider-specific formats (Anthropic, OpenAI, Gemini).
-- **`intrinsics/`** — Each file exports `SCHEMA`, `DESCRIPTION`, `handle_*`. Some (mail, clock, status, memory) have `handler=None` because they need agent state and are handled in `BaseAgent`.
-- **`capabilities/`** — Each capability module exports `setup(agent, **kwargs)`. Added via `agent.add_capability("name")`. 9 built-in: bash, delegate, email, vision, web_search, talk, compose, draw, listen. The email capability upgrades the mail FIFO with a persistent mailbox, reply/reply_all, CC/BCC, and multi-to.
+- **`intrinsics/`** — Each file exports `SCHEMA`, `DESCRIPTION`, `handle_*`. Some (mail, clock, status, memory) have `handler=None` because they need agent state and are handled in `BaseAgent`. Status intrinsic supports `show` and `shutdown` actions.
+- **`capabilities/`** — Each capability module exports `setup(agent, **kwargs)`. 9 built-in: bash, delegate, email, vision, web_search, talk, compose, draw, listen. The email capability upgrades the mail FIFO with a persistent mailbox, reply/reply_all, CC/BCC, and multi-to. Delegate spawns `StoAIAgent` with reasoning as first prompt.
 - **`config.py`** — `AgentConfig` dataclass. Host app injects resolved values; no file-based config inside stoai.
 - **`prompt.py`** — Builds system prompt from base template + `SystemPromptManager` sections + MCP tool descriptions.
 
@@ -69,32 +86,48 @@ Missing service = intrinsics backed by it auto-disabled. `FileIOService` auto-cr
 
 | Capability | Usage | What it adds |
 |-----------|-------|-------------|
-| `bash` | `add_capability("bash", policy_file="p.json")` or `yolo=True` | Shell command execution with policy |
-| `delegate` | `add_capability("delegate")` | Spawn and manage sub-agents |
-| `email` | `add_capability("email")` | Persistent mailbox — upgrades mail FIFO with reply, CC/BCC, search, check |
-| `vision` | `add_capability("vision")` or `vision_service=svc` | Image understanding (LLM multimodal or dedicated VisionService) |
-| `web_search` | `add_capability("web_search")` or `search_service=svc` | Web search (LLM grounding or dedicated SearchService) |
-| `talk` | `add_capability("talk")` | Text-to-speech via MiniMax MCP |
-| `compose` | `add_capability("compose")` | Music generation via MiniMax MCP |
-| `draw` | `add_capability("draw")` | Text-to-image via MiniMax MCP |
-| `listen` | `add_capability("listen")` | Speech transcription + music analysis |
+| `bash` | `capabilities={"bash": {"policy_file": "p.json"}}` or `{"bash": {"yolo": True}}` | Shell command execution with policy |
+| `delegate` | `capabilities=["delegate"]` | Spawn peer agents (reasoning = first prompt) |
+| `email` | `capabilities=["email"]` | Persistent mailbox — upgrades mail FIFO with reply, CC/BCC, search, check |
+| `vision` | `capabilities=["vision"]` or `{"vision": {"vision_service": svc}}` | Image understanding (LLM multimodal or dedicated VisionService) |
+| `web_search` | `capabilities=["web_search"]` or `{"web_search": {"search_service": svc}}` | Web search (LLM grounding or dedicated SearchService) |
+| `talk` | `capabilities=["talk"]` | Text-to-speech via MiniMax MCP |
+| `compose` | `capabilities=["compose"]` | Music generation via MiniMax MCP |
+| `draw` | `capabilities=["draw"]` | Text-to-image via MiniMax MCP |
+| `listen` | `capabilities=["listen"]` | Speech transcription + music analysis |
 
 ### Extension Pattern
 
 ```python
-agent.add_capability("vision", "web_search")          # multiple at once (no kwargs)
-agent.add_capability("bash", policy_file="p.json")     # single with kwargs
-agent.add_capability("bash", yolo=True)                # single with kwargs
-agent.add_tool(name, schema, handler)                  # add a custom/MCP tool (low-level)
-agent.remove_tool(name)                                # remove from LLM schema
-agent.update_system_prompt(section, content)           # inject system prompt section (Python API, NOT an LLM tool)
+# Layer 2: StoAIAgent with capabilities
+agent = StoAIAgent(
+    agent_id="alice", service=svc, base_dir="/agents",
+    capabilities=["vision", "web_search", "bash"],      # list form (no kwargs)
+)
+agent = StoAIAgent(
+    agent_id="bob", service=svc, base_dir="/agents",
+    capabilities={"bash": {"policy_file": "p.json"}},   # dict form (with kwargs)
+    tools=[MCPTool(name="query_db", ...)],               # domain tools
+)
+
+# Layer 3: Custom agent subclass
+class ResearchAgent(StoAIAgent):
+    def __init__(self, **kwargs):
+        super().__init__(capabilities=["vision", "web_search"], **kwargs)
+        self._setup_capability("bash", policy_file="research.json")
+        self.add_tool("query_db", schema={...}, handler=db_handler)
+
+# Low-level API (on BaseAgent, sealed after start)
+agent.add_tool(name, schema=schema, handler=handler)     # register tool
+agent.remove_tool(name)                                   # unregister tool
+agent.update_system_prompt(section, content)              # inject prompt section (open at any time)
 ```
 
-Note: `add_capability(*names, **kwargs)` accepts multiple names, but kwargs apply to all — use separate calls when capabilities need different kwargs.
+Note: `capabilities=` accepts `list[str]` (no kwargs) or `dict[str, dict]` (with kwargs per capability). `add_tool()` and `remove_tool()` raise `RuntimeError` after `start()`.
 
 ### System Prompt Structure
 
-Base prompt (hardcoded with intrinsic list) → Sections (injected by host/capabilities via `update_system_prompt`) → MCP tool descriptions (auto-generated). Protected sections cannot be modified by the LLM's `manage_system_prompt` intrinsic.
+Base prompt (hardcoded with intrinsic list + shutdown guidance) → Sections (injected by host/capabilities via `update_system_prompt`) → MCP tool descriptions (auto-generated). Protected sections cannot be modified by the LLM's `manage_system_prompt` intrinsic.
 
 ## Conventions
 
