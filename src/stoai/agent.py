@@ -667,6 +667,67 @@ class BaseAgent:
             "unix": now.timestamp(),
         }
 
+    def _clock_wait(self, args: dict) -> dict:
+        """Wait for a duration or until mail arrives.
+
+        If seconds is given, waits up to that many seconds (capped at 300).
+        Wakes early if mail arrives or cancel event is set.
+        If seconds is omitted, blocks indefinitely until mail arrives or cancel.
+        """
+        max_wait = 300
+        seconds = args.get("seconds")
+        if seconds is not None:
+            seconds = float(seconds)
+            if seconds < 0:
+                return {"error": "seconds must be non-negative"}
+            seconds = min(seconds, max_wait)
+
+        self._log("clock_wait_start", seconds=seconds)
+
+        # Clear the event so we only wake on NEW mail.
+        # But first, check if mail or cancel is already pending — honour those
+        # immediately so callers that pre-signal don't lose the event.
+        # (Also handles the race where mail arrives between tool dispatch and here.)
+        if self._cancel_event.is_set():
+            self._log("clock_wait_end", reason="cancelled", waited=0.0)
+            return {"status": "ok", "reason": "cancelled", "waited": 0.0}
+        if self._mail_arrived.is_set():
+            self._log("clock_wait_end", reason="mail_arrived", waited=0.0)
+            return {"status": "ok", "reason": "mail_arrived", "waited": 0.0}
+
+        self._mail_arrived.clear()
+
+        # Poll loop: check both events with short sleeps.
+        # We can't wait on two Events at once, so we poll with 0.5s granularity.
+        # Use time.monotonic() for accurate elapsed tracking (Event.wait can return early).
+        poll_interval = 0.5
+        t0 = time.monotonic()
+
+        while True:
+            waited = time.monotonic() - t0
+
+            if self._cancel_event.is_set():
+                self._log("clock_wait_end", reason="cancelled", waited=waited)
+                return {"status": "ok", "reason": "cancelled", "waited": waited}
+
+            if self._mail_arrived.is_set():
+                self._log("clock_wait_end", reason="mail_arrived", waited=waited)
+                return {"status": "ok", "reason": "mail_arrived", "waited": waited}
+
+            if seconds is not None and waited >= seconds:
+                self._log("clock_wait_end", reason="timeout", waited=waited)
+                return {"status": "ok", "reason": "timeout", "waited": waited}
+
+            # Determine how long to sleep this iteration
+            if seconds is not None:
+                remaining = seconds - waited
+                sleep_time = min(poll_interval, remaining)
+            else:
+                sleep_time = poll_interval
+
+            # Wait on mail_arrived with timeout — wakes on mail OR after sleep_time
+            self._mail_arrived.wait(timeout=sleep_time)
+
     # ------------------------------------------------------------------
     # Properties
     # ------------------------------------------------------------------
