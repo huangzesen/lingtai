@@ -61,19 +61,23 @@ class DelegateManager:
 
         # Get a free TCP port
         port = self._get_free_port()
-        mail_svc = TCPMailService(listen_port=port, working_dir=parent._working_dir)
+        child_id = f"{parent.agent_id}_child_{port}"
 
         # Resolve role — override or copy parent
         role = args.get("role") or parent._prompt_manager.read_section("role") or ""
         ltm = args.get("ltm") or parent._prompt_manager.read_section("ltm") or ""
 
-        # Create child agent with same LLM service and config
+        # Child is a peer in the same base_dir
+        child_working_dir = parent._base_dir / child_id
+        mail_svc = TCPMailService(listen_port=port, working_dir=child_working_dir)
+
+        # Create child agent as peer
         child = BaseAgent(
-            agent_id=f"{parent.agent_id}_child_{port}",
+            agent_id=child_id,
             service=parent.service,
             mail_service=mail_svc,
             config=parent._config,
-            working_dir=parent._working_dir,
+            base_dir=parent._base_dir,
             streaming=parent._streaming,
             role=role,
             ltm=ltm,
