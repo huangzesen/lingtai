@@ -107,8 +107,8 @@ def test_add_remove_tool(tmp_path):
 
 
 def test_mcp_tools_registered(tmp_path):
-    tool = MCPTool(name="domain_tool", schema={}, description="test", handler=lambda a: {"r": 1})
-    agent = BaseAgent(agent_id="test", service=make_mock_service(), mcp_tools=[tool], base_dir=tmp_path)
+    agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
+    agent.add_tool("domain_tool", schema={}, description="test", handler=lambda a: {"r": 1})
     assert "domain_tool" in agent._mcp_handlers
 
 
@@ -591,3 +591,39 @@ def test_agent_id_validation(tmp_path):
 def test_base_dir_must_exist(tmp_path):
     with pytest.raises(FileNotFoundError):
         BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path / "nonexistent")
+
+
+# ---------------------------------------------------------------------------
+# Seal guard
+# ---------------------------------------------------------------------------
+
+def test_add_tool_raises_after_start(tmp_path):
+    """add_tool() must raise RuntimeError after start()."""
+    agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
+    agent.add_tool("foo", schema={"type": "object", "properties": {}}, handler=lambda args: {}, description="test")
+    agent.start()
+    try:
+        with pytest.raises(RuntimeError, match="Cannot modify tools after start"):
+            agent.add_tool("bar", schema={"type": "object", "properties": {}}, handler=lambda args: {}, description="test2")
+    finally:
+        agent.stop(timeout=2.0)
+
+
+def test_remove_tool_raises_after_start(tmp_path):
+    """remove_tool() must raise RuntimeError after start()."""
+    agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
+    agent.add_tool("foo", schema={"type": "object", "properties": {}}, handler=lambda args: {}, description="test")
+    agent.start()
+    try:
+        with pytest.raises(RuntimeError, match="Cannot modify tools after start"):
+            agent.remove_tool("foo")
+    finally:
+        agent.stop(timeout=2.0)
+
+
+def test_add_tool_works_before_start(tmp_path):
+    """add_tool() works fine before start()."""
+    agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
+    agent.add_tool("foo", schema={"type": "object", "properties": {}}, handler=lambda args: {"ok": True}, description="test")
+    assert "foo" in agent._mcp_handlers
+    agent.stop(timeout=1.0)

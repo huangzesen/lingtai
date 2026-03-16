@@ -116,7 +116,6 @@ class BaseAgent:
         file_io: Any | None = None,
         mail_service: Any | None = None,
         config: AgentConfig | None = None,
-        mcp_tools: list[MCPTool] | None = None,
         base_dir: str | Path,
         context: Any = None,
         enabled_intrinsics: set[str] | None = None,
@@ -221,21 +220,7 @@ class BaseAgent:
         # MCP tool handlers
         self._mcp_handlers: dict[str, Callable[[dict], dict]] = {}
         self._mcp_schemas: list[FunctionSchema] = []
-        self._mcp_tool_names: set[str] = set()  # tools from mcp_tools= constructor arg
-        if mcp_tools:
-            for tool in mcp_tools:
-                self._mcp_handlers[tool.name] = tool.handler
-                self._mcp_schemas.append(
-                    FunctionSchema(
-                        name=tool.name,
-                        description=tool.description,
-                        parameters=tool.schema,
-                    )
-                )
-                self._mcp_tool_names.add(tool.name)
-
-        # Capability log — (name, kwargs) for each add_capability call
-        self._capabilities: list[tuple[str, dict]] = []
+        self._mcp_tool_names: set[str] = set()
 
         # --- Wire intrinsic tools ---
         self._intrinsics: dict[str, Callable[[dict], dict]] = {}
@@ -250,6 +235,7 @@ class BaseAgent:
         self._idle = threading.Event()
         self._idle.set()
         self._state = AgentState.SLEEPING
+        self._sealed = False
 
         # Persistent LLM session
         self._chat: ChatSession | None = None
@@ -810,6 +796,7 @@ class BaseAgent:
 
     def start(self) -> None:
         """Start the agent's main loop thread."""
+        self._sealed = True
         if self._thread and self._thread.is_alive():
             return
         self._shutdown.clear()
@@ -1871,6 +1858,8 @@ class BaseAgent:
         description: str = "",
     ) -> None:
         """Register a dynamic tool."""
+        if self._sealed:
+            raise RuntimeError("Cannot modify tools after start()")
         if handler is not None:
             self._mcp_handlers[name] = handler
         if schema is not None:
@@ -1888,34 +1877,10 @@ class BaseAgent:
             self._chat.update_tools(self._build_tool_schemas())
         self._token_decomp_dirty = True
 
-    def add_capability(self, *names: str, **kwargs: Any) -> Any:
-        """Add one or more named capabilities to this agent.
-
-        Each capability is a module under ``stoai.capabilities`` that exports
-        a ``setup(agent, **kwargs)`` function.  When a single name is given the
-        return value of ``setup`` is passed through (typically a manager
-        instance).  When multiple names are given a dict of
-        ``{name: manager}`` is returned.
-
-        Example::
-
-            agent.add_capability("bash")
-            agent.add_capability("bash", "delegate")
-            agent.add_capability("bash", allowed_commands=["git"])
-        """
-        from .capabilities import setup_capability
-
-        if len(names) == 1:
-            self._capabilities.append((names[0], dict(kwargs)))
-            return setup_capability(self, names[0], **kwargs)
-        results = {}
-        for name in names:
-            self._capabilities.append((name, dict(kwargs)))
-            results[name] = setup_capability(self, name, **kwargs)
-        return results
-
     def remove_tool(self, name: str) -> None:
         """Unregister a dynamic tool."""
+        if self._sealed:
+            raise RuntimeError("Cannot modify tools after start()")
         self._mcp_handlers.pop(name, None)
         self._mcp_schemas = [s for s in self._mcp_schemas if s.name != name]
         self._mcp_tool_names.discard(name)
