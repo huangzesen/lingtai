@@ -8,7 +8,7 @@ Each intrinsic has:
 Some intrinsics (mail, vision, web_search) are implemented in BaseAgent
 because they need access to agent state (services, etc.).
 """
-from . import read, edit, write, glob, grep, mail, vision, web_search
+from . import read, edit, write, glob, grep, mail, vision, web_search, clock
 
 ALL_INTRINSICS = {
     "read": {"schema": read.SCHEMA, "description": read.DESCRIPTION, "handler": read.handle_read},
@@ -19,4 +19,5 @@ ALL_INTRINSICS = {
     "mail": {"schema": mail.SCHEMA, "description": mail.DESCRIPTION, "handler": None},
     "vision": {"schema": vision.SCHEMA, "description": vision.DESCRIPTION, "handler": None},
     "web_search": {"schema": web_search.SCHEMA, "description": web_search.DESCRIPTION, "handler": None},
+    "clock": {"schema": clock.SCHEMA, "description": clock.DESCRIPTION, "handler": None},
 }
