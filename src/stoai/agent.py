@@ -656,6 +656,17 @@ class BaseAgent:
         else:
             return {"error": f"Unknown clock action: {action}"}
 
+    def _clock_check(self) -> dict:
+        """Return current UTC time and unix timestamp."""
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        return {
+            "status": "ok",
+            "utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "unix": now.timestamp(),
+        }
+
     # ------------------------------------------------------------------
     # Properties
     # ------------------------------------------------------------------

@@ -60,3 +60,21 @@ def test_mail_arrived_event_exists(tmp_path):
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
     assert isinstance(agent._mail_arrived, threading.Event)
     assert not agent._mail_arrived.is_set()
+
+
+# ---------------------------------------------------------------------------
+# check action
+# ---------------------------------------------------------------------------
+
+
+def test_clock_check_returns_time(tmp_path):
+    """clock check should return current UTC time and unix timestamp."""
+    agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
+    result = agent._handle_clock({"action": "check"})
+
+    assert result["status"] == "ok"
+    assert "utc" in result
+    assert "unix" in result
+    assert isinstance(result["unix"], float)
+    # UTC string should be ISO format
+    assert "T" in result["utc"]
