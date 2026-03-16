@@ -79,6 +79,14 @@ SCHEMA = {
             "enum": ["inbox", "sent"],
             "description": "Folder for check/search. Default: inbox for check, both for search.",
         },
+        "type": {
+            "type": "string",
+            "enum": ["normal", "cancel"],
+            "description": (
+                "Mail type (for send). 'normal' (default) is regular mail. "
+                "'cancel' stops the target agent immediately (requires admin privilege)."
+            ),
+        },
     },
     "required": ["action"],
 }
@@ -229,8 +237,13 @@ class EmailManager:
         raw_address = args.get("address", "")
         subject = args.get("subject", "")
         message_text = args.get("message", "")
+        mail_type = args.get("type", "normal")
         cc = args.get("cc") or []
         bcc = args.get("bcc") or []
+
+        # Privilege gate: only admin agents can send non-normal mail
+        if mail_type != "normal" and not self._agent._admin:
+            return {"error": f"Not authorized to send type={mail_type!r} mail (requires admin=True)"}
 
         if isinstance(raw_address, str):
             to_list = [raw_address] if raw_address else []
@@ -267,6 +280,7 @@ class EmailManager:
             "to": to_list,
             "subject": subject,
             "message": message_text,
+            "type": mail_type,
         }
         if cc:
             base_payload["cc"] = cc

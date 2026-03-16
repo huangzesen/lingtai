@@ -98,7 +98,6 @@ class AgentState(enum.Enum):
 # ---------------------------------------------------------------------------
 
 MSG_REQUEST = "request"
-MSG_CANCEL = "cancel"
 MSG_USER_INPUT = "user_input"
 
 
@@ -108,7 +107,7 @@ class Message:
 
     Attributes:
         id:        Unique message ID (auto-generated if not provided).
-        type:      One of MSG_REQUEST, MSG_CANCEL, MSG_USER_INPUT.
+        type:      One of MSG_REQUEST, MSG_USER_INPUT.
         sender:    Agent ID, "user", etc.
         content:   Payload — str for requests, dict for structured data.
         reply_to:  Links back to original message.
@@ -205,7 +204,7 @@ class BaseAgent:
         context: Any = None,
         enabled_intrinsics: set[str] | None = None,
         disabled_intrinsics: set[str] | None = None,
-        cancel_event: threading.Event | None = None,
+        admin: bool = False,
         streaming: bool = False,
         logging_service: Any | None = None,
         role: str = "",
@@ -226,7 +225,10 @@ class BaseAgent:
         self.service = service
         self._config = config or AgentConfig()
         self._context = context
-        self._cancel_event = cancel_event
+        self._admin = admin
+        self._cancel_event = threading.Event()
+        self._cancel_mail: dict | None = None
+        self._cancelling = False
         self._streaming = streaming
         self._log_service = logging_service
 
@@ -516,6 +518,11 @@ class BaseAgent:
         address = args.get("address", "")
         subject = args.get("subject", "")
         message_text = args.get("message", "")
+        mail_type = args.get("type", "normal")
+
+        # Privilege gate: only admin agents can send non-normal mail
+        if mail_type != "normal" and not self._admin:
+            return {"error": f"Not authorized to send type={mail_type!r} mail (requires admin=True)"}
 
         if not address:
             return {"error": "address is required"}
@@ -527,6 +534,7 @@ class BaseAgent:
             "to": address,
             "subject": subject,
             "message": message_text,
+            "type": mail_type,
         }
         # Handle attachments — resolve relative paths, verify existence
         attachments = args.get("attachments", [])
@@ -768,8 +776,31 @@ class BaseAgent:
         os.replace(str(tmp), str(target))
 
     def _on_mail_received(self, payload: dict) -> None:
-        """Callback for MailService — enqueues message in FIFO, notifies agent."""
+        """Callback for MailService — enqueues message in FIFO, notifies agent.
+
+        Cancel-type emails bypass the queue and set the cancel event directly.
+        """
         from datetime import datetime, timezone
+
+        mail_type = payload.get("type", "normal")
+
+        if mail_type == "cancel":
+            if self._cancelling:
+                return  # already in diary flow, ignore
+            self._cancel_mail = payload
+            self._cancel_event.set()
+            self._log(
+                "cancel_received",
+                sender=payload.get("from", "unknown"),
+                subject=payload.get("subject", ""),
+            )
+            return
+
+        if mail_type != "normal":
+            logger.warning(
+                "[%s] Unrecognized mail type %r, treating as normal",
+                self.agent_id, mail_type,
+            )
 
         sender = payload.get("from", "unknown")
         subject = payload.get("subject", "")
@@ -855,9 +886,7 @@ class BaseAgent:
 
     def _handle_message(self, msg: Message) -> None:
         """Route message by type. Subclasses may override for routing."""
-        if msg.type == MSG_CANCEL:
-            self._handle_cancel(msg)
-        elif msg.type in (MSG_REQUEST, MSG_USER_INPUT):
+        if msg.type in (MSG_REQUEST, MSG_USER_INPUT):
             self._handle_request(msg)
         else:
             logger.warning(f"[{self.agent_id}] Unknown message type: {msg.type}")
@@ -879,11 +908,6 @@ class BaseAgent:
         result = self._process_response(response)
         self._post_request(msg, result)
         self._deliver_result(msg, result)
-
-    def _handle_cancel(self, msg: Message) -> None:
-        """Cancel active tools. Agent stays alive."""
-        if self._cancel_event:
-            self._cancel_event.set()
 
     def _get_guard_limits(self) -> tuple[int, int, int]:
         """Return (max_total_calls, dup_free_passes, dup_hard_block).
@@ -920,12 +944,8 @@ class BaseAgent:
             if not response.tool_calls:
                 break
 
-            if self._cancel_event and self._cancel_event.is_set():
-                return {
-                    "text": "Interrupted by user.",
-                    "failed": True,
-                    "errors": ["Interrupted"],
-                }
+            if self._cancel_event.is_set():
+                return self._handle_cancel_diary()
 
             stop_reason = guard.check_limit(len(response.tool_calls))
             if stop_reason:
@@ -990,6 +1010,52 @@ class BaseAgent:
             "text": final_text,
             "failed": has_errors and no_useful_output,
             "errors": collected_errors,
+        }
+
+    def _handle_cancel_diary(self) -> dict:
+        """Handle cancellation triggered by a cancel email.
+
+        Sends one final LLM call asking the agent to write a diary entry
+        summarizing its work, then returns the diary text as the response.
+        """
+        cancel_mail = self._cancel_mail
+        self._cancelling = True
+        self._cancel_event.clear()
+
+        diary_text = ""
+        if cancel_mail and self._chat:
+            sender = cancel_mail.get("from", "unknown")
+            subject = cancel_mail.get("subject", "")
+            message = cancel_mail.get("message", "")
+
+            prompt = (
+                f"[CANCELLED] You have been stopped by a cancel email.\n"
+                f"From: {sender}\n"
+                f"Subject: {subject}\n"
+                f"Message: {message}\n\n"
+                f"Write a brief diary entry summarizing what you were working on "
+                f"and where you left off, so you can resume later."
+            )
+            try:
+                response = self._chat.send(prompt)
+                diary_text = response.text or ""
+                self._log("cancel_diary", text=diary_text)
+            except Exception as exc:
+                logger.warning(
+                    "[%s] Diary LLM call failed during cancel: %s",
+                    self.agent_id, exc,
+                )
+                diary_text = (
+                    f"[Cancelled by {sender}] "
+                    f"Diary generation failed: {exc}"
+                )
+
+        self._cancel_mail = None
+        self._cancelling = False
+        return {
+            "text": diary_text,
+            "failed": False,
+            "errors": [],
         }
 
     # ------------------------------------------------------------------
@@ -1115,6 +1181,8 @@ class BaseAgent:
         """
         tool_results = []
         for tc in tool_calls:
+            if self._cancel_event.is_set():
+                return [], False, ""
             result_msg, intercepted, intercept_text = self._execute_single_tool(
                 tc, guard, collected_errors,
             )
@@ -1187,8 +1255,9 @@ class BaseAgent:
                 for i, tc, args in to_execute
             }
             for future in as_completed(futures, timeout=300.0):
-                if self._cancel_event and self._cancel_event.is_set():
-                    break
+                if self._cancel_event.is_set():
+                    pool.shutdown(wait=False, cancel_futures=True)
+                    return [], False, ""
                 try:
                     idx, result = future.result()
                     results_map[idx] = result
@@ -1327,7 +1396,6 @@ class BaseAgent:
                     chat=self._chat,
                     message=message,
                     timeout_pool=self._timeout_pool,
-                    cancel_event=self._cancel_event,
                     retry_timeout=retry_timeout,
                     agent_name=self.agent_id,
                     logger=logger,
@@ -1353,7 +1421,6 @@ class BaseAgent:
                         chat=self._chat,
                         message=message,
                         timeout_pool=self._timeout_pool,
-                        cancel_event=self._cancel_event,
                         retry_timeout=retry_timeout,
                         agent_name=self.agent_id,
                         logger=logger,
@@ -1377,7 +1444,6 @@ class BaseAgent:
             chat=self._chat,
             message=message,
             timeout_pool=self._timeout_pool,
-            cancel_event=self._cancel_event,
             retry_timeout=retry_timeout,
             agent_name=self.agent_id,
             logger=logger,

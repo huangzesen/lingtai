@@ -6,7 +6,6 @@ All functions are stateless (operate on passed-in state dicts).
 
 import contextvars
 import json
-import threading
 import time
 from pathlib import Path
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
@@ -49,10 +48,6 @@ _LLM_RETRY_TIMEOUT = 120  # abandon call and retry after this
 _LLM_MAX_RETRIES = 4  # retry 4 times, then rollback takes over
 _API_ERROR_RETRY_DELAYS = [10.0, 10.0]
 _SESSION_RESET_THRESHOLD = 2  # rollback after 2 consecutive errors (~20s)
-
-
-class _CancelledDuringLLM(Exception):
-    """Raised when user cancellation is detected during an LLM API wait."""
 
 
 def _is_stale_interaction_error(exc: Exception) -> bool:
@@ -173,7 +168,6 @@ def _is_retryable_api_error(exc: Exception) -> bool:
 def _send_with_retry(
     submit_fn,
     timeout_pool: ThreadPoolExecutor,
-    cancel_event: threading.Event | None,
     retry_timeout: float,
     agent_name: str,
     on_reset=None,
@@ -213,10 +207,6 @@ def _send_with_retry(
         t0 = time.monotonic()
         try:
             while True:
-                if cancel_event and cancel_event.is_set():
-                    future.cancel()
-                    raise _CancelledDuringLLM()
-
                 elapsed = time.monotonic() - t0
                 remaining = retry_timeout - elapsed
                 if remaining <= 0:
@@ -256,8 +246,6 @@ def _send_with_retry(
                     "[%s] LLM API timed out after %.0fs, no retries left",
                     agent_name, elapsed,
                 )
-        except _CancelledDuringLLM:
-            raise
         except Exception as exc:
             if _is_history_desync_error(exc) and on_reset and not _desync_reset_done:
                 _desync_reset_done = True
@@ -352,7 +340,6 @@ def send_with_timeout(
     chat,
     message,
     timeout_pool: ThreadPoolExecutor,
-    cancel_event: threading.Event | None,
     retry_timeout: float,
     agent_name: str,
     logger,
@@ -363,7 +350,7 @@ def send_with_timeout(
     """Send a message to the LLM with periodic warnings and retry on timeout."""
     submit_fn = _SubmitFn(timeout_pool, chat, message, "send")
     return _send_with_retry(
-        submit_fn, timeout_pool, cancel_event, retry_timeout,
+        submit_fn, timeout_pool, retry_timeout,
         agent_name, on_reset, max_retries, reset_threshold,
     )
 
@@ -372,7 +359,6 @@ def send_with_timeout_stream(
     chat,
     message,
     timeout_pool: ThreadPoolExecutor,
-    cancel_event: threading.Event | None,
     retry_timeout: float,
     agent_name: str,
     logger,
@@ -388,7 +374,7 @@ def send_with_timeout_stream(
     extra_args = (on_chunk,) if on_chunk is not None else ()
     submit_fn = _SubmitFn(timeout_pool, chat, message, "send_stream", extra_args)
     return _send_with_retry(
-        submit_fn, timeout_pool, cancel_event, retry_timeout,
+        submit_fn, timeout_pool, retry_timeout,
         agent_name, on_reset, max_retries, reset_threshold,
     )
 

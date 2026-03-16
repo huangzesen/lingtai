@@ -33,6 +33,14 @@ SCHEMA = {
             "items": {"type": "string"},
             "description": "List of file paths to attach to the message (for send)",
         },
+        "type": {
+            "type": "string",
+            "enum": ["normal", "cancel"],
+            "description": (
+                "Mail type (for send). 'normal' (default) is regular mail. "
+                "'cancel' stops the target agent immediately (requires admin privilege)."
+            ),
+        },
     },
     "required": ["action"],
 }
