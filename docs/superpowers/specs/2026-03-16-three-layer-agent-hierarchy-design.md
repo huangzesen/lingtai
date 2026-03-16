@@ -115,7 +115,7 @@ def _status_shutdown(self, args: dict) -> dict:
     self._shutdown.set()  # signals the run loop to exit
     return {
         "status": "ok",
-        "message": "Shutdown initiated. When you are reborn, review your conversation history to understand why you were shut down and what you need.",
+        "message": "Shutdown initiated. A successor agent may resume from your working directory and conversation history.",
     }
 ```
 
@@ -123,9 +123,9 @@ The status intrinsic schema is updated to include `shutdown` action and `reason`
 
 System prompt guidance:
 
-> "Use `status(action='shutdown', reason='...')` when you need capabilities you don't have. Before shutting down, mail your admin explaining what you need. You will be reborn with the right tools."
+> "Use `status(action='shutdown', reason='...')` when you need capabilities you don't have. Before shutting down, mail your admin explaining what you need and why. The admin will delegate a successor with the right tools, resuming from your working directory and conversation history."
 
-Host side: the rebirth protocol is the host's responsibility — spawn a new StoAIAgent with the right capabilities, restore chat from the same working dir. The reborn agent sees its own shutdown reason in the restored chat history (it's the last tool call before termination).
+Host/admin side: the admin reads the agent's mail, spawns a new StoAIAgent with the requested capabilities using the same working dir, and restores chat state. The successor agent sees the full conversation history including the shutdown call and its reason — it picks up where the predecessor left off.
 
 ### Status Intrinsic Schema Update
 
@@ -151,7 +151,7 @@ Capabilities are capabilities. MCP tools are MCP tools. The LLM should know whic
 
 ### Shutdown Reason — No Special Property
 
-The `reason` lives in the tool call args: `status(action="shutdown", reason="need bash")`. It's logged to the event log AND it's part of the chat history. When the reborn agent's chat session is restored from the same working dir, it sees the shutdown call and knows why it was reborn. No `shutdown_reason` property, no special mechanism.
+The `reason` lives in the tool call args: `status(action="shutdown", reason="need bash")`. It's logged to the event log AND it's part of the chat history. When a successor agent's chat session is restored from the same working dir, it sees the shutdown call and knows the context. No `shutdown_reason` property, no special mechanism. The succession is just normal delegation — the admin spawns a new agent that happens to resume from the same working dir.
 
 `stop()` behavior is unchanged whether triggered by shutdown intrinsic or normal stop — it flushes LTM, writes manifest, releases lock.
 
