@@ -1,0 +1,288 @@
+"""Three-agent email integration test.
+
+Tests end-to-end email flows between three agents (Alice, Bob, Charlie)
+using real TCPMailService instances and the email capability.
+
+Scenarios:
+1. Alice sends to Bob and Charlie (multi-to)
+2. Bob replies to Alice
+3. Charlie reply-alls (reaches Alice + Bob)
+4. Alice sends to Bob with Charlie on CC
+"""
+from __future__ import annotations
+
+import json
+import socket
+import threading
+import time
+from pathlib import Path
+from unittest.mock import MagicMock
+
+from stoai.agent import BaseAgent
+from stoai.config import AgentConfig
+from stoai.services.mail import TCPMailService
+
+
+def _make_mock_service():
+    svc = MagicMock()
+    svc.get_adapter.return_value = MagicMock()
+    svc.provider = "gemini"
+    svc.model = "gemini-test"
+    return svc
+
+
+def _get_free_port():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
+
+
+def _make_agent(agent_id: str, port: int, working_dir: Path):
+    """Create an agent with a real TCPMailService and email capability."""
+    mail_svc = TCPMailService(listen_port=port, working_dir=working_dir)
+    agent = BaseAgent(
+        agent_id=agent_id,
+        service=_make_mock_service(),
+        mail_service=mail_svc,
+        working_dir=working_dir,
+    )
+    mgr = agent.add_capability("email")
+    return agent, mgr
+
+
+def _inbox_count(working_dir: Path) -> int:
+    """Count emails in the inbox directory."""
+    inbox = working_dir / "mailbox" / "inbox"
+    if not inbox.is_dir():
+        return 0
+    return sum(1 for d in inbox.iterdir() if d.is_dir() and (d / "message.json").is_file())
+
+
+def _inbox_emails(working_dir: Path) -> list[dict]:
+    """Load all inbox emails sorted by received_at."""
+    inbox = working_dir / "mailbox" / "inbox"
+    if not inbox.is_dir():
+        return []
+    emails = []
+    for d in inbox.iterdir():
+        msg_file = d / "message.json"
+        if d.is_dir() and msg_file.is_file():
+            data = json.loads(msg_file.read_text())
+            data.setdefault("_mailbox_id", d.name)
+            emails.append(data)
+    emails.sort(key=lambda e: e.get("received_at", ""))
+    return emails
+
+
+class TestThreeAgentEmail:
+    """Integration tests for email flows between three agents."""
+
+    def setup_method(self, tmp_path_factory=None):
+        """Set up three agents with real TCP mail services."""
+        # Use unique temp dirs per agent
+        import tempfile
+        self.tmp_dirs = {}
+        self.ports = {name: _get_free_port() for name in ("alice", "bob", "charlie")}
+        self.agents = {}
+        self.managers = {}
+        for name, port in self.ports.items():
+            d = Path(tempfile.mkdtemp())
+            self.tmp_dirs[name] = d
+            agent, mgr = _make_agent(name, port, d)
+            self.agents[name] = agent
+            self.managers[name] = mgr
+
+        # Start listening on all agents
+        for name, agent in self.agents.items():
+            agent._mail_service.listen(
+                on_message=lambda msg, mgr=self.managers[name]: mgr.on_mail_received(msg)
+            )
+
+    def teardown_method(self):
+        """Stop all mail services and clean up temp dirs."""
+        for agent in self.agents.values():
+            agent._mail_service.stop()
+        import shutil
+        for d in self.tmp_dirs.values():
+            shutil.rmtree(d, ignore_errors=True)
+
+    def _addr(self, name: str) -> str:
+        return f"127.0.0.1:{self.ports[name]}"
+
+    def _dir(self, name: str) -> Path:
+        return self.tmp_dirs[name]
+
+    def _wait_for_inbox(self, name: str, count: int, timeout: float = 5.0):
+        """Wait until the agent's inbox has at least `count` messages."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if _inbox_count(self._dir(name)) >= count:
+                return True
+            time.sleep(0.05)
+        return False
+
+    # -------------------------------------------------------------------
+    # Test 1: Alice sends to Bob and Charlie
+    # -------------------------------------------------------------------
+
+    def test_alice_sends_to_bob_and_charlie(self):
+        """Alice sends a single email to both Bob and Charlie."""
+        result = self.managers["alice"].handle({
+            "action": "send",
+            "address": [self._addr("bob"), self._addr("charlie")],
+            "subject": "Team update",
+            "message": "Hello team, here is the update.",
+        })
+        assert result["status"] == "delivered"
+
+        assert self._wait_for_inbox("bob", 1), "Bob did not receive the email"
+        assert self._wait_for_inbox("charlie", 1), "Charlie did not receive the email"
+
+        # Verify content
+        bob_mail = _inbox_emails(self._dir("bob"))[0]
+        charlie_mail = _inbox_emails(self._dir("charlie"))[0]
+        assert bob_mail["message"] == "Hello team, here is the update."
+        assert charlie_mail["subject"] == "Team update"
+        assert bob_mail["from"] == self._addr("alice")
+        assert charlie_mail["from"] == self._addr("alice")
+
+    # -------------------------------------------------------------------
+    # Test 2: Bob replies to Alice
+    # -------------------------------------------------------------------
+
+    def test_bob_replies_to_alice(self):
+        """Alice emails Bob, then Bob replies back to Alice."""
+        # Alice → Bob
+        self.managers["alice"].handle({
+            "action": "send",
+            "address": self._addr("bob"),
+            "subject": "Question",
+            "message": "What is the status?",
+        })
+        assert self._wait_for_inbox("bob", 1)
+
+        # Bob reads and replies
+        bob_email_id = _inbox_emails(self._dir("bob"))[0]["_mailbox_id"]
+        result = self.managers["bob"].handle({
+            "action": "reply",
+            "email_id": bob_email_id,
+            "message": "Everything is on track.",
+        })
+        assert result["status"] == "delivered"
+
+        # Alice should receive Bob's reply
+        assert self._wait_for_inbox("alice", 1), "Alice did not receive Bob's reply"
+        alice_mail = _inbox_emails(self._dir("alice"))[0]
+        assert alice_mail["message"] == "Everything is on track."
+        assert alice_mail["subject"] == "Re: Question"
+        assert alice_mail["from"] == self._addr("bob")
+
+    # -------------------------------------------------------------------
+    # Test 3: Charlie reply-alls (reaches Alice + Bob)
+    # -------------------------------------------------------------------
+
+    def test_charlie_reply_all(self):
+        """Alice sends to Bob and Charlie, Charlie reply-alls to both."""
+        # Alice → Bob + Charlie
+        self.managers["alice"].handle({
+            "action": "send",
+            "address": [self._addr("bob"), self._addr("charlie")],
+            "subject": "Group discussion",
+            "message": "Let's plan the sprint.",
+        })
+        assert self._wait_for_inbox("charlie", 1)
+
+        # Charlie reply-alls
+        charlie_email_id = _inbox_emails(self._dir("charlie"))[0]["_mailbox_id"]
+        result = self.managers["charlie"].handle({
+            "action": "reply_all",
+            "email_id": charlie_email_id,
+            "message": "I have some ideas to share.",
+        })
+        assert result["status"] == "delivered"
+
+        # Both Alice and Bob should receive Charlie's reply
+        assert self._wait_for_inbox("alice", 1), "Alice did not receive Charlie's reply_all"
+        assert self._wait_for_inbox("bob", 2), "Bob did not receive Charlie's reply_all"
+
+        # Verify Alice got the reply
+        alice_reply = _inbox_emails(self._dir("alice"))[0]
+        assert alice_reply["message"] == "I have some ideas to share."
+        assert alice_reply["from"] == self._addr("charlie")
+        assert alice_reply["subject"] == "Re: Group discussion"
+
+        # Verify Bob also got it
+        bob_emails = _inbox_emails(self._dir("bob"))
+        bob_from_charlie = [e for e in bob_emails if e["from"] == self._addr("charlie")]
+        assert len(bob_from_charlie) == 1
+        assert bob_from_charlie[0]["message"] == "I have some ideas to share."
+
+    # -------------------------------------------------------------------
+    # Test 4: Alice sends to Bob with Charlie on CC
+    # -------------------------------------------------------------------
+
+    def test_alice_sends_to_bob_with_charlie_cc(self):
+        """Alice sends to Bob with Charlie on CC — both receive, CC field visible."""
+        result = self.managers["alice"].handle({
+            "action": "send",
+            "address": self._addr("bob"),
+            "subject": "FYI",
+            "message": "Bob, please review. Charlie for visibility.",
+            "cc": [self._addr("charlie")],
+        })
+        assert result["status"] == "delivered"
+
+        assert self._wait_for_inbox("bob", 1), "Bob did not receive the email"
+        assert self._wait_for_inbox("charlie", 1), "Charlie did not receive the CC"
+
+        # Both should see the CC field
+        bob_mail = _inbox_emails(self._dir("bob"))[0]
+        charlie_mail = _inbox_emails(self._dir("charlie"))[0]
+        assert bob_mail["cc"] == [self._addr("charlie")]
+        assert charlie_mail["cc"] == [self._addr("charlie")]
+        assert bob_mail["message"] == "Bob, please review. Charlie for visibility."
+        assert charlie_mail["message"] == "Bob, please review. Charlie for visibility."
+
+    # -------------------------------------------------------------------
+    # Test 5: Full conversation flow
+    # -------------------------------------------------------------------
+
+    def test_full_conversation_flow(self):
+        """End-to-end: Alice starts thread, Bob replies, Charlie reply-alls."""
+        # Step 1: Alice → Bob + Charlie
+        self.managers["alice"].handle({
+            "action": "send",
+            "address": [self._addr("bob"), self._addr("charlie")],
+            "subject": "Project kickoff",
+            "message": "Welcome to the project!",
+        })
+        assert self._wait_for_inbox("bob", 1)
+        assert self._wait_for_inbox("charlie", 1)
+
+        # Step 2: Bob replies to Alice only
+        bob_email_id = _inbox_emails(self._dir("bob"))[0]["_mailbox_id"]
+        self.managers["bob"].handle({
+            "action": "reply",
+            "email_id": bob_email_id,
+            "message": "Thanks, excited to start!",
+        })
+        assert self._wait_for_inbox("alice", 1)
+        assert _inbox_emails(self._dir("alice"))[0]["subject"] == "Re: Project kickoff"
+
+        # Step 3: Charlie reply-alls
+        charlie_email_id = _inbox_emails(self._dir("charlie"))[0]["_mailbox_id"]
+        self.managers["charlie"].handle({
+            "action": "reply_all",
+            "email_id": charlie_email_id,
+            "message": "Looking forward to it!",
+        })
+        # Alice gets Charlie's reply (2nd message), Bob also gets it (2nd message)
+        assert self._wait_for_inbox("alice", 2), "Alice didn't get Charlie's reply_all"
+        assert self._wait_for_inbox("bob", 2), "Bob didn't get Charlie's reply_all"
+
+        # Verify final mailbox states
+        assert _inbox_count(self._dir("alice")) == 2  # Bob's reply + Charlie's reply_all
+        assert _inbox_count(self._dir("bob")) == 2    # Alice's original + Charlie's reply_all
+        assert _inbox_count(self._dir("charlie")) == 1  # Alice's original only
