@@ -18,6 +18,7 @@ import json
 import os
 import queue
 import re
+import subprocess
 from collections import deque
 import sys
 import threading
@@ -228,6 +229,8 @@ class BaseAgent:
         self._admin = admin
         self._cancel_event = threading.Event()
         self._cancel_mail: dict | None = None
+        self._started_at: str = ""
+        self._uptime_anchor: float | None = None  # set in start(), None means not started
         self._streaming = streaming
         self._log_service = logging_service
 
@@ -370,6 +373,9 @@ class BaseAgent:
 
         # Clock — always available (no service dependency)
         state_intrinsics["clock"] = self._handle_clock
+
+        # Status — always available (no service dependency)
+        state_intrinsics["status"] = self._handle_status
 
         all_names = file_intrinsic_names | set(state_intrinsics.keys())
 
@@ -729,6 +735,73 @@ class BaseAgent:
             self._mail_arrived.wait(timeout=sleep_time)
 
     # ------------------------------------------------------------------
+    # Status intrinsic
+    # ------------------------------------------------------------------
+
+    def _handle_status(self, args: dict) -> dict:
+        """Handle status tool — agent self-inspection."""
+        action = args.get("action", "show")
+        if action == "show":
+            return self._status_show()
+        else:
+            return {"error": f"Unknown status action: {action}"}
+
+    def _status_show(self) -> dict:
+        """Return full agent self-inspection payload."""
+        # Identity
+        mail_addr = None
+        if self._mail_service is not None and self._mail_service.address:
+            mail_addr = self._mail_service.address
+
+        # Runtime
+        uptime = time.monotonic() - self._uptime_anchor if self._uptime_anchor is not None else 0.0
+
+        # Token usage
+        usage = self.get_token_usage()
+
+        # Context window — requires active chat session
+        if self._chat is not None:
+            try:
+                window_size = self._chat.context_window()
+                ctx_total = usage["ctx_total_tokens"]
+                usage_pct = round(ctx_total / window_size * 100, 1) if window_size else 0.0
+            except Exception:
+                window_size = None
+                usage_pct = None
+        else:
+            window_size = None
+            usage_pct = None
+
+        return {
+            "status": "ok",
+            "identity": {
+                "agent_id": self.agent_id,
+                "working_dir": str(self._working_dir),
+                "mail_address": mail_addr,
+            },
+            "runtime": {
+                "started_at": self._started_at,
+                "uptime_seconds": round(uptime, 1),
+            },
+            "tokens": {
+                "input_tokens": usage["input_tokens"],
+                "output_tokens": usage["output_tokens"],
+                "thinking_tokens": usage["thinking_tokens"],
+                "cached_tokens": usage["cached_tokens"],
+                "total_tokens": usage["total_tokens"],
+                "api_calls": usage["api_calls"],
+                "context": {
+                    "system_tokens": usage["ctx_system_tokens"],
+                    "tools_tokens": usage["ctx_tools_tokens"],
+                    "history_tokens": usage["ctx_history_tokens"],
+                    "total_tokens": usage["ctx_total_tokens"],
+                    "window_size": window_size,
+                    "usage_pct": usage_pct,
+                },
+            },
+        }
+
+    # ------------------------------------------------------------------
     # Properties
     # ------------------------------------------------------------------
 
@@ -754,6 +827,14 @@ class BaseAgent:
         if self._thread and self._thread.is_alive():
             return
         self._shutdown.clear()
+
+        # Initialize git repo in working directory (first start only)
+        self._git_init_working_dir()
+
+        # Capture startup time for uptime tracking
+        from datetime import datetime, timezone
+        self._started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        self._uptime_anchor = time.monotonic()
 
         # Start MailService listener if configured
         if self._mail_service is not None:
@@ -825,6 +906,75 @@ class BaseAgent:
             except OSError:
                 pass
             self._lock_file = None
+
+    def _git_init_working_dir(self) -> None:
+        """Initialize working directory as a git repo with opt-in tracking.
+
+        Creates .gitignore (track nothing by default, whitelist ltm/),
+        ltm/ directory, and makes an initial commit. Skips if .git exists.
+        """
+        git_dir = self._working_dir / ".git"
+        if git_dir.is_dir():
+            return  # Already initialized (resume)
+
+        try:
+            # git init
+            subprocess.run(
+                ["git", "init"],
+                cwd=self._working_dir,
+                capture_output=True, check=True,
+            )
+
+            # Configure git identity for this repo
+            subprocess.run(
+                ["git", "config", "user.email", "agent@stoai"],
+                cwd=self._working_dir,
+                capture_output=True, check=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "StoAI Agent"],
+                cwd=self._working_dir,
+                capture_output=True, check=True,
+            )
+
+            # .gitignore — opt-in tracking
+            gitignore = self._working_dir / ".gitignore"
+            gitignore.write_text(
+                "# Track nothing by default\n"
+                "*\n"
+                "# Except these\n"
+                "!.gitignore\n"
+                "!ltm/\n"
+                "!ltm/**\n"
+            )
+
+            # Create ltm/ directory and ltm.md
+            ltm_dir = self._working_dir / "ltm"
+            ltm_dir.mkdir(exist_ok=True)
+            ltm_file = ltm_dir / "ltm.md"
+            if not ltm_file.is_file():
+                ltm_file.write_text("")
+
+            # Initial commit
+            subprocess.run(
+                ["git", "add", ".gitignore", "ltm/"],
+                cwd=self._working_dir,
+                capture_output=True, check=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "init: agent working directory"],
+                cwd=self._working_dir,
+                capture_output=True, check=True,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            # Git not available — degrade gracefully. Agent still works,
+            # just without git tracking for ltm.
+            # Still create ltm/ directory and file
+            ltm_dir = self._working_dir / "ltm"
+            ltm_dir.mkdir(exist_ok=True)
+            ltm_file = ltm_dir / "ltm.md"
+            if not ltm_file.is_file():
+                ltm_file.write_text("")
 
     def _read_manifest(self) -> tuple[str, str]:
         """Read role and ltm from .agent.json. Returns ("", "") if not found."""
