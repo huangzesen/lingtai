@@ -1,9 +1,8 @@
 """Mail intrinsic — point-to-point FIFO messaging.
 
 Actions:
-    send  — fire-and-forget message to an address
-    check — count messages in the queue
-    read  — pop and return the next message from the queue
+    send — fire-and-forget message to an address
+    read — pop and return the next message from the queue
 
 The actual handlers live in BaseAgent (needs access to MailService and queue).
 This module provides the schema and description.
@@ -15,11 +14,10 @@ SCHEMA = {
     "properties": {
         "action": {
             "type": "string",
-            "enum": ["send", "check", "read"],
+            "enum": ["send", "read"],
             "description": (
                 "send: send a message (requires address, message; optional subject). "
-                "check: count queued messages. "
-                "read: pop and return the next message."
+                "read: pop and return the next message (returns null if queue is empty)."
             ),
         },
         "address": {

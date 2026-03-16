@@ -147,8 +147,8 @@ class TestBaseAgentLoggingIntegration:
         # Verify ts is present
         assert all("ts" in e for e in events)
 
-    def test_no_logging_service_is_noop(self, tmp_path):
-        """Agent without logging_service does not raise on tool execution."""
+    def test_auto_logging_to_working_dir(self, tmp_path):
+        """Agent without explicit logging_service auto-creates one in working dir."""
         agent = BaseAgent(
             agent_id="test",
             service=make_mock_service(),
@@ -159,7 +159,15 @@ class TestBaseAgentLoggingIntegration:
         guard = LoopGuard()
         errors = []
         tc = ToolCall(name="greet", args={})
-        agent._execute_single_tool(tc, guard, errors)  # should not raise
+        agent._execute_single_tool(tc, guard, errors)
+
+        # Log file should exist in working dir
+        log_file = tmp_path / "test" / "logs" / "events.jsonl"
+        assert log_file.is_file()
+        lines = log_file.read_text().strip().split("\n")
+        events = [json.loads(line) for line in lines]
+        types = [e["type"] for e in events]
+        assert "tool_call" in types
 
     def test_state_change_logged(self, tmp_path):
         """State transitions are logged."""

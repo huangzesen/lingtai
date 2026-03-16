@@ -232,7 +232,6 @@ class BaseAgent:
         self._started_at: str = ""
         self._uptime_anchor: float | None = None  # set in start(), None means not started
         self._streaming = streaming
-        self._log_service = logging_service
 
         # Base directory (shared root) and working directory (per-agent)
         self._base_dir = Path(base_dir)
@@ -240,6 +239,15 @@ class BaseAgent:
             raise FileNotFoundError(f"base_dir does not exist: {self._base_dir}")
         self._working_dir = self._base_dir / self.agent_id
         self._working_dir.mkdir(exist_ok=True)
+
+        # LoggingService: auto-create in working dir if not provided
+        if logging_service is not None:
+            self._log_service = logging_service
+        else:
+            from .services.logging import JSONLLoggingService
+            log_dir = self._working_dir / "logs"
+            log_dir.mkdir(exist_ok=True)
+            self._log_service = JSONLLoggingService(log_dir / "events.jsonl")
 
         # Acquire working directory lock
         self._lock_file: Any = None
@@ -530,12 +538,10 @@ class BaseAgent:
     # ------------------------------------------------------------------
 
     def _handle_mail(self, args: dict) -> dict:
-        """Handle mail tool — FIFO send, check, read."""
+        """Handle mail tool — FIFO send and read."""
         action = args.get("action", "send")
         if action == "send":
             return self._mail_send(args)
-        elif action == "check":
-            return self._mail_check(args)
         elif action == "read":
             return self._mail_read(args)
         else:
@@ -583,12 +589,6 @@ class BaseAgent:
             return {"status": "delivered", "to": address}
         else:
             return {"status": "refused", "error": f"Could not deliver to {address}"}
-
-    def _mail_check(self, args: dict) -> dict:
-        """Count messages in the FIFO queue."""
-        with self._mail_queue_lock:
-            count = len(self._mail_queue)
-        return {"status": "ok", "count": count}
 
     def _mail_read(self, args: dict) -> dict:
         """Pop and return the next message from the FIFO queue."""
@@ -1100,6 +1100,8 @@ class BaseAgent:
                 "!.gitignore\n"
                 "!ltm/\n"
                 "!ltm/**\n"
+                "!logs/\n"
+                "!logs/**\n"
             )
 
             # Create ltm/ directory and ltm.md

@@ -245,15 +245,6 @@ def test_mail_start_wires_listener(tmp_path):
         agent.stop(timeout=2.0)
 
 
-def test_mail_check_returns_count(tmp_path):
-    """mail check should return the count of queued messages."""
-    agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
-    for i in range(3):
-        agent._on_mail_received({"from": "s", "message": f"m{i}"})
-    result = agent._handle_mail({"action": "check"})
-    assert result["count"] == 3
-
-
 def test_mail_read_pops_fifo(tmp_path):
     """mail read should pop messages in FIFO order."""
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
