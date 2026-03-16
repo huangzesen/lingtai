@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from stoai.agent import BaseAgent
+from stoai.base_agent import BaseAgent
 from stoai.config import AgentConfig
 from stoai.services.mail import TCPMailService
 

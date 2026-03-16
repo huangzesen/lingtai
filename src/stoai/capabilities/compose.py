@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from ..logging import get_logger
 
 if TYPE_CHECKING:
-    from ..agent import BaseAgent
+    from ..base_agent import BaseAgent
 
 logger = get_logger()
 

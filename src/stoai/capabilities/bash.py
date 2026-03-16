@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..agent import BaseAgent
+    from ..base_agent import BaseAgent
 
 SCHEMA = {
     "type": "object",

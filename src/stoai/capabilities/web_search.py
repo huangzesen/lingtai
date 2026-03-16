@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..agent import BaseAgent
+    from ..base_agent import BaseAgent
 
 SCHEMA = {
     "type": "object",

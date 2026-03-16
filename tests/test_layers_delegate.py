@@ -19,7 +19,7 @@ def make_mock_service():
 class TestDelegateManager:
     def test_spawn_returns_address(self, tmp_path):
         """Spawn should return a valid address."""
-        from stoai.agent import BaseAgent
+        from stoai.base_agent import BaseAgent
         parent = BaseAgent(agent_id="parent", service=make_mock_service(), base_dir=tmp_path)
         mgr = parent.add_capability("delegate")
         result = mgr.handle({})
@@ -30,7 +30,7 @@ class TestDelegateManager:
 
     def test_spawn_with_role(self, tmp_path):
         """Spawn with role override should create agent with that role."""
-        from stoai.agent import BaseAgent
+        from stoai.base_agent import BaseAgent
         parent = BaseAgent(agent_id="parent", service=make_mock_service(), base_dir=tmp_path)
         parent.update_system_prompt("role", "I am the parent", protected=True)
         mgr = parent.add_capability("delegate")
@@ -39,7 +39,7 @@ class TestDelegateManager:
 
     def test_spawn_copies_parent_role(self, tmp_path):
         """Spawn without role should copy parent's role."""
-        from stoai.agent import BaseAgent
+        from stoai.base_agent import BaseAgent
         parent = BaseAgent(agent_id="parent", service=make_mock_service(), base_dir=tmp_path)
         parent.update_system_prompt("role", "I am the parent", protected=True)
         mgr = parent.add_capability("delegate")
@@ -48,7 +48,7 @@ class TestDelegateManager:
 
     def test_spawn_inherits_capabilities(self, tmp_path):
         """Spawned agent should get parent's capabilities (minus delegate)."""
-        from stoai.agent import BaseAgent
+        from stoai.base_agent import BaseAgent
         parent = BaseAgent(agent_id="parent", service=make_mock_service(), base_dir=tmp_path)
         parent.add_capability("bash", yolo=True)
         parent.add_capability("delegate")
@@ -57,7 +57,7 @@ class TestDelegateManager:
 
     def test_spawn_with_ltm(self, tmp_path):
         """Spawn with ltm should inject it as a system prompt section."""
-        from stoai.agent import BaseAgent
+        from stoai.base_agent import BaseAgent
         parent = BaseAgent(agent_id="parent", service=make_mock_service(), base_dir=tmp_path)
         mgr = parent.add_capability("delegate")
         result = mgr.handle({"ltm": "Remember: always be concise"})
@@ -65,7 +65,7 @@ class TestDelegateManager:
 
     def test_spawn_no_recursive_delegate(self, tmp_path):
         """Spawned agent should not get delegate capability (prevents recursion)."""
-        from stoai.agent import BaseAgent
+        from stoai.base_agent import BaseAgent
         parent = BaseAgent(agent_id="parent", service=make_mock_service(), base_dir=tmp_path)
         parent.add_capability("bash", yolo=True)
         parent.add_capability("delegate")
@@ -85,20 +85,20 @@ class TestSetupDelegate:
 
 class TestAddCapability:
     def test_add_capability_delegate(self, tmp_path):
-        from stoai.agent import BaseAgent
+        from stoai.base_agent import BaseAgent
         agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
         mgr = agent.add_capability("delegate")
         assert isinstance(mgr, DelegateManager)
         assert "delegate" in agent._mcp_handlers
 
     def test_add_capability_unknown(self, tmp_path):
-        from stoai.agent import BaseAgent
+        from stoai.base_agent import BaseAgent
         agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
         with pytest.raises(ValueError, match="Unknown capability"):
             agent.add_capability("nonexistent")
 
     def test_add_multiple_capabilities_separately(self, tmp_path):
-        from stoai.agent import BaseAgent
+        from stoai.base_agent import BaseAgent
         agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
         bash_mgr = agent.add_capability("bash", yolo=True)
         delegate_mgr = agent.add_capability("delegate")
@@ -107,7 +107,7 @@ class TestAddCapability:
 
     def test_capabilities_log(self, tmp_path):
         """add_capability should record (name, kwargs) in _capabilities."""
-        from stoai.agent import BaseAgent
+        from stoai.base_agent import BaseAgent
         agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
         agent.add_capability("bash", yolo=True)
         agent.add_capability("delegate")

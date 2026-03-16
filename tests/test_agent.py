@@ -5,7 +5,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.agent import BaseAgent, Message, AgentState, _make_message, MSG_REQUEST
+from stoai.base_agent import BaseAgent
+from stoai.message import Message, _make_message, MSG_REQUEST
+from stoai.state import AgentState
 from stoai.types import MCPTool, UnknownToolError
 from stoai.config import AgentConfig
 

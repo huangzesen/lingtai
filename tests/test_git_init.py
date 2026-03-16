@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.agent import BaseAgent
+from stoai.base_agent import BaseAgent
 
 
 def make_mock_service():

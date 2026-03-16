@@ -177,7 +177,7 @@ class TestSetupBash:
 
 class TestAddCapability:
     def test_add_capability_bash_yolo(self, tmp_path):
-        from stoai.agent import BaseAgent
+        from stoai.base_agent import BaseAgent
         svc = MagicMock()
         svc.get_adapter.return_value = MagicMock()
         svc.provider = "gemini"
@@ -188,7 +188,7 @@ class TestAddCapability:
         assert "bash" in agent._mcp_handlers
 
     def test_add_capability_bash_with_policy(self, tmp_path):
-        from stoai.agent import BaseAgent
+        from stoai.base_agent import BaseAgent
         policy_file = tmp_path / "policy.json"
         policy_file.write_text(json.dumps({"allow": ["echo"]}))
         svc = MagicMock()

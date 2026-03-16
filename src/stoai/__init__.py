@@ -4,7 +4,9 @@ from .types import (
     UnknownToolError,
 )
 from .config import AgentConfig
-from .agent import BaseAgent, Message, AgentState
+from .base_agent import BaseAgent
+from .state import AgentState
+from .message import Message, MSG_REQUEST, MSG_USER_INPUT
 
 # Capabilities
 from .capabilities import setup_capability
@@ -24,6 +26,8 @@ __all__ = [
     "BaseAgent",
     "Message",
     "AgentState",
+    "MSG_REQUEST",
+    "MSG_USER_INPUT",
     "MCPTool",
     "AgentConfig",
     "UnknownToolError",

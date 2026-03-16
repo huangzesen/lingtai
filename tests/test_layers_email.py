@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from stoai.agent import BaseAgent
+from stoai.base_agent import BaseAgent
 
 
 def make_mock_service():

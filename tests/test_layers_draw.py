@@ -109,7 +109,7 @@ class TestSetupDraw:
 class TestAddCapabilityIntegration:
     def test_add_capability_draw(self, tmp_path):
         from unittest.mock import MagicMock
-        from stoai.agent import BaseAgent
+        from stoai.base_agent import BaseAgent
         svc = MagicMock()
         svc.get_adapter.return_value = MagicMock()
         svc.provider = "gemini"

@@ -6,7 +6,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from stoai.agent import BaseAgent, AgentState, MSG_REQUEST
+from stoai.base_agent import BaseAgent
+from stoai.state import AgentState
+from stoai.message import MSG_REQUEST
 from stoai.config import AgentConfig
 from stoai.llm import LLMResponse, ToolCall
 

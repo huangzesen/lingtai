@@ -39,7 +39,7 @@ def test_system_prompt_manager_read_nonexistent():
 
 def test_mail_send_passes_attachments(tmp_path):
     """Mail handler should pass attachments to mail service."""
-    from stoai.agent import BaseAgent
+    from stoai.base_agent import BaseAgent
     from unittest.mock import MagicMock
     from pathlib import Path
 

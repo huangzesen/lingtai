@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 if TYPE_CHECKING:
-    from ..agent import BaseAgent
+    from ..base_agent import BaseAgent
 
 SCHEMA = {
     "type": "object",
@@ -522,7 +522,7 @@ class EmailManager:
             f'Use email(action="reply", email_id="{email_id}", message="...") to reply.'
         )
 
-        from ..agent import _make_message, MSG_REQUEST
+        from ..message import _make_message, MSG_REQUEST
         self._agent._log("email_received", sender=sender, to=to, cc=cc, subject=subject, message=message)
         msg = _make_message(MSG_REQUEST, sender, notification)
         self._agent.inbox.put(msg)

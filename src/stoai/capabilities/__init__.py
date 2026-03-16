@@ -5,7 +5,7 @@ import importlib
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..agent import BaseAgent
+    from ..base_agent import BaseAgent
 
 # Registry of built-in capability names → module paths (relative to this package).
 _BUILTIN: dict[str, str] = {

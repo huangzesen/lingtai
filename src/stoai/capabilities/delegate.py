@@ -14,7 +14,7 @@ import socket
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..agent import BaseAgent
+    from ..base_agent import BaseAgent
 
 SCHEMA = {
     "type": "object",
@@ -54,7 +54,7 @@ class DelegateManager:
         return self._spawn(args)
 
     def _spawn(self, args: dict) -> dict:
-        from ..agent import BaseAgent
+        from ..base_agent import BaseAgent
         from ..services.mail import TCPMailService
 
         parent = self._agent
