@@ -2,7 +2,7 @@
 
 Actions:
     show     — display agent identity, runtime, and resource usage
-    shutdown — initiate graceful self-termination (use when capabilities are lacking)
+    shutdown — initiate graceful self-termination (use when you want to add more capabilities or tools)
 
 The handler lives in BaseAgent (needs access to agent state).
 This module provides the schema and description.
