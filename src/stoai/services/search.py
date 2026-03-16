@@ -1,4 +1,4 @@
-"""SearchService — abstract web search backing the web_search intrinsic.
+"""SearchService — abstract web search backing the web_search capability.
 
 First implementation: LLMSearchService (wraps LLM grounding/search capabilities).
 Future: BraveSearchService, SerpAPIService, etc.
@@ -24,7 +24,7 @@ class SearchResult:
 class SearchService(ABC):
     """Abstract web search service.
 
-    Backs the web_search intrinsic. Implementations provide search
+    Backs the web_search capability. Implementations provide search
     via LLM grounding, dedicated search APIs, or other backends.
     """
 

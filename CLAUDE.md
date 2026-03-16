@@ -29,37 +29,35 @@ No hard dependencies — only the active LLM provider's SDK needs to be installe
 
 ## Architecture
 
-### Six Services (all optional)
+### Four Services (all optional)
 
 | Service | What it backs | First implementation |
 |---------|--------------|---------------------|
 | `LLMService` | Core agent loop (thinking) | Gemini adapter |
 | `FileIOService` | read, edit, write, glob, grep | `LocalFileIOService` |
 | `MailService` | mail (point-to-point FIFO messaging) | `TCPMailService` |
-| `VisionService` | vision | `LLMVisionService` |
-| `SearchService` | web_search | `LLMSearchService` |
-| `LoggingService` | structured JSONL event logging | `JSONLLoggingService` |
+| `LoggingService` | structured JSONL event logging (auto-created in working dir) | `JSONLLoggingService` |
 
-Missing service = intrinsics backed by it auto-disabled. `FileIOService` auto-creates `LocalFileIOService` for backward compat if not passed.
+Missing service = intrinsics backed by it auto-disabled. `FileIOService` auto-creates `LocalFileIOService` for backward compat if not passed. `LoggingService` auto-creates `JSONLLoggingService` at `{working_dir}/logs/events.jsonl` if not passed. `VisionService` and `SearchService` are capability-level — passed via `add_capability("vision", vision_service=...)` / `add_capability("web_search", search_service=...)`.
 
 ### Three-Tier Tool Model
 
 | Tier | What | How added |
 |------|------|-----------|
-| **Intrinsics** | Core capabilities (read, edit, write, glob, grep, mail, vision, web_search) | Built-in, backed by services, can be disabled |
-| **Capabilities** | Composable capabilities (bash, delegate, email) via `add_capability()` | `agent.add_capability("bash", policy_file="policy.json")`, `agent.add_capability("email")` |
+| **Intrinsics** | Core capabilities (read, edit, write, glob, grep, mail, clock, status, memory) | Built-in, backed by services, can be disabled |
+| **Capabilities** | Composable capabilities (bash, delegate, email, vision, web_search, talk, compose, draw, listen) via `add_capability()` | `agent.add_capability("bash", policy_file="policy.json")`, `agent.add_capability("vision")` |
 | **MCP tools** | Domain context from the host app | Passed as `mcp_tools=[MCPTool(...)]` at construction |
 
 ### Key Modules
 
-- **`agent.py`** — `BaseAgent` class. 2-state lifecycle (SLEEPING/ACTIVE), 6 optional services, persistent LLM session, 2-layer tool dispatch (intrinsics + MCP), FIFO mail queue via MailService, structured JSONL logging via LoggingService, context compaction, loop guard, parallel tool execution.
+- **`agent.py`** — `BaseAgent` class. 2-state lifecycle (SLEEPING/ACTIVE), 4 optional services, persistent LLM session, 2-layer tool dispatch (intrinsics + MCP), FIFO mail queue via MailService, structured JSONL logging via LoggingService (auto-created), git-controlled working dir, context compaction, loop guard, parallel tool execution.
 - **`services/`** — Service ABCs + first implementations: `file_io.py`, `mail.py`, `vision.py`, `search.py`, `logging.py`.
 - **`llm/interface.py`** — `ChatInterface`, the canonical provider-agnostic conversation history. Single source of truth — adapters rebuild provider formats from this. Content blocks: `TextBlock`, `ToolCallBlock`, `ToolResultBlock`, `ThinkingBlock`, `ImageBlock`.
 - **`llm/base.py`** — `LLMAdapter` (ABC), `ChatSession` (ABC), `LLMResponse`, `ToolCall`, `FunctionSchema`. All agent code depends on these, never on provider SDKs directly.
 - **`llm/service.py`** — `LLMService`. Adapter factory, session registry, one-shot generation gateway, context compaction orchestration. Decoupled from config files — uses injected `key_resolver` and `provider_defaults`.
 - **`llm/interface_converters.py`** — Bidirectional converters between `ChatInterface` and provider-specific formats (Anthropic, OpenAI, Gemini).
-- **`intrinsics/`** — Each file exports `SCHEMA`, `DESCRIPTION`, `handle_*`. Some (mail, vision, web_search) have `handler=None` because they need agent state and are handled in `BaseAgent`.
-- **`capabilities/`** — Each capability module exports `setup(agent, **kwargs)`. Added via `agent.add_capability("name")`. 3 built-in: bash, delegate, email. The email capability upgrades the mail FIFO with a persistent mailbox, reply/reply_all, CC/BCC, and multi-to.
+- **`intrinsics/`** — Each file exports `SCHEMA`, `DESCRIPTION`, `handle_*`. Some (mail, clock, status, memory) have `handler=None` because they need agent state and are handled in `BaseAgent`.
+- **`capabilities/`** — Each capability module exports `setup(agent, **kwargs)`. Added via `agent.add_capability("name")`. 9 built-in: bash, delegate, email, vision, web_search, talk, compose, draw, listen. The email capability upgrades the mail FIFO with a persistent mailbox, reply/reply_all, CC/BCC, and multi-to.
 - **`config.py`** — `AgentConfig` dataclass. Host app injects resolved values; no file-based config inside stoai.
 - **`prompt.py`** — Builds system prompt from base template + `SystemPromptManager` sections + MCP tool descriptions.
 

@@ -1,4 +1,4 @@
-"""VisionService — abstract image understanding backing the vision intrinsic.
+"""VisionService — abstract image understanding backing the vision capability.
 
 First implementation: LLMVisionService (wraps multimodal LLM).
 Future: dedicated vision models, OCR services, etc.
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class VisionService(ABC):
     """Abstract vision service.
 
-    Backs the vision intrinsic. Implementations provide image understanding
+    Backs the vision capability. Implementations provide image understanding
     via LLM multimodal input, dedicated vision models, or other backends.
     """
 
