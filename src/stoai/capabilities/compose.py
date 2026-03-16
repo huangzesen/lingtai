@@ -31,7 +31,7 @@ SCHEMA: dict[str, Any] = {
 }
 
 DESCRIPTION = (
-    "Generate music from a text description and lyrics using MiniMax music-2.5. "
+    "Generate music from a text description and lyrics. "
     "Provide a prompt describing the style/mood/genre and lyrics for the vocals. "
     "For instrumental-style tracks, use placeholder lyrics like 'La la la'. "
     "Output: MP3 file (up to 5 minutes) saved to media/music/ in your working directory. "

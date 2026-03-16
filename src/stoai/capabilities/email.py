@@ -1,21 +1,21 @@
-"""Email capability — mailbox, reply, reply_all, CC/BCC on top of mail.
+"""Email capability — filesystem-based mailbox with search.
 
-Upgrades the base mail intrinsic (FIFO queue) with:
-- Persistent mailbox (stored messages with IDs)
-- check: list mailbox with filtering
-- read: read specific message by ID
-- reply: auto-fill address/subject from original
-- reply_all: reply to all recipients minus self
-- send: multi-to with CC/BCC
-- Receive interception: boxes incoming messages, notifies agent inbox
+Storage layout:
+    working_dir/mailbox/inbox/{uuid}/message.json   — received
+    working_dir/mailbox/sent/{uuid}/message.json     — sent
+    working_dir/mailbox/read.json                    — read tracking
 
 Usage:
     agent.add_capability("email")
 """
 from __future__ import annotations
 
-import threading
+import json
+import os
+import re
+import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -27,13 +27,14 @@ SCHEMA = {
     "properties": {
         "action": {
             "type": "string",
-            "enum": ["send", "check", "read", "reply", "reply_all"],
+            "enum": ["send", "check", "read", "reply", "reply_all", "search"],
             "description": (
                 "send: send with optional cc/bcc (requires address, message). "
-                "check: list mailbox (optional n for max recent). "
+                "check: list mailbox (optional folder, n). "
                 "read: read email by ID (requires email_id). "
                 "reply: reply to email (requires email_id, message). "
-                "reply_all: reply to all recipients (requires email_id, message)."
+                "reply_all: reply to all recipients (requires email_id, message). "
+                "search: regex search mailbox (requires query, optional folder)."
             ),
         },
         "address": {
@@ -66,33 +67,135 @@ SCHEMA = {
         },
         "n": {
             "type": "integer",
-            "description": "Max recent emails to show (for check)",
+            "description": "Max recent emails to show (for check, default 10)",
             "default": 10,
+        },
+        "query": {
+            "type": "string",
+            "description": "Regex pattern for search (matches from, subject, message)",
+        },
+        "folder": {
+            "type": "string",
+            "enum": ["inbox", "sent"],
+            "description": "Folder for check/search. Default: inbox for check, both for search.",
         },
     },
     "required": ["action"],
 }
 
 DESCRIPTION = (
-    "Full email client — mailbox with persistent storage, reply, reply-all, "
-    "CC/BCC. Use 'send' with CC/BCC for group messaging, "
-    "'check' to list your mailbox, 'read' to read by ID, "
-    "'reply' to respond, 'reply_all' to respond to everyone. "
-    "You can attach files to emails using the 'attachments' parameter. "
-    "Received attachments are stored in the mailbox. "
-    "To use an attachment elsewhere, create a symlink to it — "
-    "do not move the original file. "
-    "For simple point-to-point messages, the mail tool also works."
+    "Full email client — filesystem-based mailbox with inbox/sent folders, "
+    "reply, reply-all, CC/BCC, attachments, and regex search. "
+    "Use 'send' for outgoing email (saved to sent/). "
+    "'check' to list inbox or sent (optional folder param). "
+    "'read' to read by ID. "
+    "'reply'/'reply_all' to respond. "
+    "'search' to find emails by regex (searches from, subject, message). "
+    "Attachments are stored alongside emails in the mailbox."
 )
 
 
 class EmailManager:
-    """Full email manager — mailbox, reply, CC/BCC on top of base mail."""
+    """Filesystem-based email manager — reads/writes mailbox/ directory."""
 
     def __init__(self, agent: "BaseAgent"):
         self._agent = agent
-        self._mailbox: list[dict] = []
-        self._mailbox_lock = threading.Lock()
+
+    @property
+    def _mailbox_dir(self) -> Path:
+        return self._agent._working_dir / "mailbox"
+
+    # ------------------------------------------------------------------
+    # Filesystem helpers
+    # ------------------------------------------------------------------
+
+    def _load_email(self, email_id: str) -> dict | None:
+        """Load a single email by ID. Checks inbox/ then sent/."""
+        for folder in ("inbox", "sent"):
+            path = self._mailbox_dir / folder / email_id / "message.json"
+            if path.is_file():
+                data = json.loads(path.read_text())
+                data["_folder"] = folder
+                data.setdefault("_mailbox_id", email_id)
+                return data
+        return None
+
+    def _list_emails(self, folder: str) -> list[dict]:
+        """Load all emails from a folder, sorted by time (newest first)."""
+        folder_dir = self._mailbox_dir / folder
+        if not folder_dir.is_dir():
+            return []
+        emails = []
+        for msg_dir in folder_dir.iterdir():
+            msg_file = msg_dir / "message.json"
+            if msg_dir.is_dir() and msg_file.is_file():
+                try:
+                    data = json.loads(msg_file.read_text())
+                    data["_folder"] = folder
+                    data.setdefault("_mailbox_id", msg_dir.name)
+                    emails.append(data)
+                except (json.JSONDecodeError, OSError):
+                    continue
+        # Sort by timestamp — received_at for inbox, sent_at for sent
+        def sort_key(e):
+            return e.get("received_at") or e.get("sent_at") or e.get("time") or ""
+        emails.sort(key=sort_key, reverse=True)
+        return emails
+
+    def _read_ids(self) -> set[str]:
+        """Load the set of read email IDs from read.json."""
+        path = self._mailbox_dir / "read.json"
+        if path.is_file():
+            try:
+                return set(json.loads(path.read_text()))
+            except (json.JSONDecodeError, OSError):
+                return set()
+        return set()
+
+    def _mark_read(self, email_id: str) -> None:
+        """Add email_id to read.json with atomic write."""
+        ids = self._read_ids()
+        ids.add(email_id)
+        self._mailbox_dir.mkdir(parents=True, exist_ok=True)
+        target = self._mailbox_dir / "read.json"
+        fd, tmp = tempfile.mkstemp(dir=str(self._mailbox_dir), suffix=".tmp")
+        try:
+            os.write(fd, json.dumps(sorted(ids)).encode())
+            os.close(fd)
+            os.replace(tmp, str(target))
+        except Exception:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+            raise
+
+    def _email_summary(self, e: dict, read_ids: set[str] | None = None) -> dict:
+        """Build a summary dict from a raw email dict."""
+        eid = e.get("_mailbox_id", "")
+        if read_ids is None:
+            read_ids = self._read_ids()
+        entry = {
+            "id": eid,
+            "from": e.get("from", ""),
+            "to": e.get("to", []),
+            "subject": e.get("subject", "(no subject)"),
+            "preview": e.get("message", "")[:100],
+            "time": e.get("received_at") or e.get("sent_at") or e.get("time") or "",
+            "folder": e.get("_folder", ""),
+        }
+        # Only track unread for inbox
+        if e.get("_folder") == "inbox":
+            entry["unread"] = eid not in read_ids
+        if e.get("cc"):
+            entry["cc"] = e["cc"]
+        return entry
+
+    # ------------------------------------------------------------------
+    # Action dispatch
+    # ------------------------------------------------------------------
 
     def handle(self, args: dict) -> dict:
         action = args.get("action")
@@ -106,11 +209,13 @@ class EmailManager:
             return self._reply(args)
         elif action == "reply_all":
             return self._reply_all(args)
+        elif action == "search":
+            return self._search(args)
         else:
             return {"error": f"Unknown email action: {action}"}
 
     # ------------------------------------------------------------------
-    # Send with multi-to, CC, BCC
+    # Send — deliver + save to sent/
     # ------------------------------------------------------------------
 
     def _send(self, args: dict) -> dict:
@@ -156,6 +261,21 @@ class EmailManager:
             else:
                 refused.append(addr)
 
+        # Save to sent/ (includes bcc for sender's records)
+        sent_id = str(uuid4())
+        sent_dir = self._mailbox_dir / "sent" / sent_id
+        sent_dir.mkdir(parents=True, exist_ok=True)
+        sent_record = {
+            **base_payload,
+            "_mailbox_id": sent_id,
+            "sent_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        if bcc:
+            sent_record["bcc"] = bcc
+        (sent_dir / "message.json").write_text(
+            json.dumps(sent_record, indent=2, default=str)
+        )
+
         self._agent._log(
             "email_sent", to=to_list, cc=cc, bcc=bcc,
             subject=subject, message=message_text,
@@ -170,64 +290,62 @@ class EmailManager:
             return {"status": "partial", "delivered": delivered, "refused": refused}
 
     # ------------------------------------------------------------------
-    # Mailbox: check, read
+    # Check — list emails from a folder
     # ------------------------------------------------------------------
 
     def _check(self, args: dict) -> dict:
+        folder = args.get("folder", "inbox")
         n = args.get("n", 10)
-        with self._mailbox_lock:
-            total = len(self._mailbox)
-            recent = self._mailbox[-n:] if n > 0 else self._mailbox[:]
-        emails = []
-        for e in reversed(recent):  # newest first
-            entry = {
-                "id": e["id"],
-                "from": e["from"],
-                "to": e.get("to", []),
-                "subject": e.get("subject", "(no subject)"),
-                "preview": e["message"][:100],
-                "time": e["time"],
-                "unread": e.get("unread", False),
-            }
-            if e.get("cc"):
-                entry["cc"] = e["cc"]
-            emails.append(entry)
-        return {"status": "ok", "total": total, "showing": len(emails), "emails": emails}
+        emails = self._list_emails(folder)
+        total = len(emails)
+        recent = emails[:n] if n > 0 else emails
+        read_ids = self._read_ids()
+        summaries = [self._email_summary(e, read_ids) for e in recent]
+        return {"status": "ok", "total": total, "showing": len(summaries), "emails": summaries}
+
+    # ------------------------------------------------------------------
+    # Read — load full email by ID
+    # ------------------------------------------------------------------
 
     def _read(self, args: dict) -> dict:
         email_id = args.get("email_id", "")
         if not email_id:
             return {"error": "email_id is required"}
-        with self._mailbox_lock:
-            for e in self._mailbox:
-                if e["id"] == email_id:
-                    e["unread"] = False
-                    result = {
-                        "status": "ok",
-                        "id": e["id"],
-                        "from": e["from"],
-                        "to": e.get("to", []),
-                        "subject": e.get("subject", "(no subject)"),
-                        "message": e["message"],
-                        "time": e["time"],
-                    }
-                    if e.get("cc"):
-                        result["cc"] = e["cc"]
-                    if e.get("attachments"):
-                        result["attachments"] = e["attachments"]
-                    return result
-        return {"error": f"Email not found: {email_id}"}
+
+        data = self._load_email(email_id)
+        if data is None:
+            return {"error": f"Email not found: {email_id}"}
+
+        # Mark as read (inbox only)
+        if data.get("_folder") == "inbox":
+            self._mark_read(email_id)
+
+        result = {
+            "status": "ok",
+            "id": email_id,
+            "from": data.get("from", ""),
+            "to": data.get("to", []),
+            "subject": data.get("subject", "(no subject)"),
+            "message": data.get("message", ""),
+            "time": data.get("received_at") or data.get("sent_at") or data.get("time") or "",
+            "folder": data.get("_folder", ""),
+        }
+        if data.get("cc"):
+            result["cc"] = data["cc"]
+        if data.get("attachments"):
+            result["attachments"] = data["attachments"]
+        return result
+
+    # ------------------------------------------------------------------
+    # Lookup — used by reply/reply_all
+    # ------------------------------------------------------------------
+
+    def _lookup(self, email_id: str) -> dict | None:
+        return self._load_email(email_id)
 
     # ------------------------------------------------------------------
     # Reply, Reply All
     # ------------------------------------------------------------------
-
-    def _lookup(self, email_id: str) -> dict | None:
-        with self._mailbox_lock:
-            for e in self._mailbox:
-                if e["id"] == email_id:
-                    return dict(e)  # shallow copy
-        return None
 
     def _reply(self, args: dict) -> dict:
         email_id = args.get("email_id", "")
@@ -299,11 +417,49 @@ class EmailManager:
         })
 
     # ------------------------------------------------------------------
+    # Search
+    # ------------------------------------------------------------------
+
+    def _search(self, args: dict) -> dict:
+        query = args.get("query", "")
+        if not query:
+            return {"error": "query is required for search"}
+
+        folder = args.get("folder")
+        folders = [folder] if folder else ["inbox", "sent"]
+
+        try:
+            pattern = re.compile(query, re.IGNORECASE)
+        except re.error as e:
+            return {"error": f"Invalid regex: {e}"}
+
+        matches = []
+        read_ids = self._read_ids()
+        for f in folders:
+            for email in self._list_emails(f):
+                searchable = " ".join([
+                    email.get("from", ""),
+                    email.get("subject", ""),
+                    email.get("message", ""),
+                ])
+                if pattern.search(searchable):
+                    matches.append(self._email_summary(email, read_ids))
+
+        return {"status": "ok", "total": len(matches), "emails": matches}
+
+    # ------------------------------------------------------------------
     # Receive interception
     # ------------------------------------------------------------------
 
     def on_mail_received(self, payload: dict) -> None:
-        """Intercept incoming mail — store in mailbox, notify agent inbox."""
+        """Intercept incoming mail — send notification to agent inbox.
+
+        The mail service already wrote message.json to disk.
+        We just need to extract the ID and notify.
+        """
+        # Use _mailbox_id from mail service, or fall back to generating one
+        email_id = payload.get("_mailbox_id") or str(uuid4())
+
         sender = payload.get("from", "unknown")
         to = payload.get("to") or []
         if isinstance(to, str):
@@ -311,25 +467,6 @@ class EmailManager:
         cc = payload.get("cc") or []
         subject = payload.get("subject", "(no subject)")
         message = payload.get("message", "")
-        email_id = f"mail_{uuid4().hex[:8]}"
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        attachments = payload.get("attachments") or []
-        email_entry = {
-            "id": email_id,
-            "from": sender,
-            "to": to,
-            "subject": subject,
-            "message": message,
-            "time": timestamp,
-            "unread": True,
-        }
-        if cc:
-            email_entry["cc"] = cc
-        if attachments:
-            email_entry["attachments"] = attachments
-        with self._mailbox_lock:
-            self._mailbox.append(email_entry)
 
         # Send notification to agent inbox (not the full content)
         preview = message[:80].replace("\n", " ")
@@ -349,16 +486,9 @@ class EmailManager:
 
 
 def setup(agent: "BaseAgent") -> EmailManager:
-    """Set up email capability — mailbox, reply, CC/BCC on top of mail.
-
-    Intercepts the agent's mail receive callback to box messages.
-    """
+    """Set up email capability — filesystem-based mailbox."""
     mgr = EmailManager(agent)
-
-    # Intercept the mail receive path — works regardless of start() order
-    # because start() uses a lambda trampoline
     agent._on_mail_received = mgr.on_mail_received
-
     agent.add_tool(
         "email", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
     )

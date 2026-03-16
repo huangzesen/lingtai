@@ -35,7 +35,7 @@ SCHEMA: dict[str, Any] = {
 }
 
 DESCRIPTION = (
-    "Convert text to speech audio using MiniMax speech-2.6. "
+    "Convert text to speech audio. "
     "Produces natural-sounding speech in multiple voices and emotions. "
     "Output: MP3 file saved to media/audio/ in your working directory. "
     "Supports voice selection, emotion control (happy, sad, neutral), "

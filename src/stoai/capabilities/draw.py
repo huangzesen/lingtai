@@ -31,7 +31,7 @@ SCHEMA: dict[str, Any] = {
 }
 
 DESCRIPTION = (
-    "Generate an image from a text description using MiniMax image-01. "
+    "Generate an image from a text description. "
     "Provide a detailed prompt — the more specific, the better the result. "
     "Supports various aspect ratios (1:1, 16:9, 9:16, 4:3, etc.). "
     "Output: JPEG image saved to media/images/ in your working directory. "
