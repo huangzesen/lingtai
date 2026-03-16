@@ -5,6 +5,7 @@ from .types import (
 )
 from .config import AgentConfig
 from .base_agent import BaseAgent
+from .stoai_agent import StoAIAgent
 from .state import AgentState
 from .message import Message, MSG_REQUEST, MSG_USER_INPUT
 
@@ -24,6 +25,7 @@ from .services.logging import LoggingService, JSONLLoggingService
 __all__ = [
     # Core
     "BaseAgent",
+    "StoAIAgent",
     "Message",
     "AgentState",
     "MSG_REQUEST",
