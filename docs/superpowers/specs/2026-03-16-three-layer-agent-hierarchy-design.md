@@ -113,7 +113,10 @@ def _status_shutdown(self, args: dict) -> dict:
     reason = args.get("reason", "")
     self._log("shutdown_requested", reason=reason)
     self._shutdown.set()  # signals the run loop to exit
-    return {"status": "ok", "message": "Shutdown initiated."}
+    return {
+        "status": "ok",
+        "message": "Shutdown initiated. When you are reborn, review your conversation history to understand why you were shut down and what you need.",
+    }
 ```
 
 The status intrinsic schema is updated to include `shutdown` action and `reason` parameter.
