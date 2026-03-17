@@ -35,7 +35,7 @@ if env_path.exists():
             key, _, val = line.partition("=")
             os.environ.setdefault(key.strip(), val.strip().strip("'\""))
 
-from stoai import BaseAgent, AgentConfig
+from stoai import StoAIAgent, AgentConfig
 from stoai.llm import LLMService
 from stoai.services.mail import TCPMailService
 from stoai.services.logging import LoggingService
@@ -419,7 +419,7 @@ setInterval(poll, 1500);
 # ---------------------------------------------------------------------------
 
 class ChatHandler(http.server.BaseHTTPRequestHandler):
-    agents: dict[str, BaseAgent] = {}
+    agents: dict[str, StoAIAgent] = {}
     agent_ports: dict[str, int] = {}
 
     def do_GET(self):
@@ -566,60 +566,56 @@ def main():
     # Agent A (Alice)
     loggers["a"] = MemoryLoggingService()
     mail_a = TCPMailService(listen_port=8301, working_dir=base_dir / "alice")
-    agent_a = BaseAgent(
+    agent_a = StoAIAgent(
         agent_id="alice", service=llm, mail_service=mail_a,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
         logging_service=loggers["a"], admin=True,
+        role=(
+            "Your name is Alice. Your address is 127.0.0.1:8301.\n\n"
+            f"{AGENT_PROMPT}\n\n"
+            "Known contacts:\n"
+            "- Bob: 127.0.0.1:8302\n"
+            "- Charlie: 127.0.0.1:8303\n"
+            f"- User: 127.0.0.1:{USER_PORT}"
+        ),
+        capabilities=["email", "web_search"],
     )
-    agent_a.update_system_prompt("role", (
-        "Your name is Alice. Your address is 127.0.0.1:8301.\n\n"
-        f"{AGENT_PROMPT}\n\n"
-        "Known contacts:\n"
-        "- Bob: 127.0.0.1:8302\n"
-        "- Charlie: 127.0.0.1:8303\n"
-        "- User: 127.0.0.1:" + str(USER_PORT)
-    ), protected=True)
 
     # Agent B (Bob)
     loggers["b"] = MemoryLoggingService()
     mail_b = TCPMailService(listen_port=8302, working_dir=base_dir / "bob")
-    agent_b = BaseAgent(
+    agent_b = StoAIAgent(
         agent_id="bob", service=llm, mail_service=mail_b,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
         logging_service=loggers["b"],
+        role=(
+            "Your name is Bob. Your address is 127.0.0.1:8302.\n\n"
+            f"{AGENT_PROMPT}\n\n"
+            "Known contacts:\n"
+            "- Alice: 127.0.0.1:8301\n"
+            "- Charlie: 127.0.0.1:8303\n"
+            f"- User: 127.0.0.1:{USER_PORT}"
+        ),
+        capabilities=["email", "web_search"],
     )
-    agent_b.update_system_prompt("role", (
-        "Your name is Bob. Your address is 127.0.0.1:8302.\n\n"
-        f"{AGENT_PROMPT}\n\n"
-        "Known contacts:\n"
-        "- Alice: 127.0.0.1:8301\n"
-        "- Charlie: 127.0.0.1:8303\n"
-        "- User: 127.0.0.1:" + str(USER_PORT)
-    ), protected=True)
 
     # Agent C (Charlie)
     loggers["c"] = MemoryLoggingService()
     mail_c = TCPMailService(listen_port=8303, working_dir=base_dir / "charlie")
-    agent_c = BaseAgent(
+    agent_c = StoAIAgent(
         agent_id="charlie", service=llm, mail_service=mail_c,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
         logging_service=loggers["c"],
+        role=(
+            "Your name is Charlie. Your address is 127.0.0.1:8303.\n\n"
+            f"{AGENT_PROMPT}\n\n"
+            "Known contacts:\n"
+            "- Alice: 127.0.0.1:8301\n"
+            "- Bob: 127.0.0.1:8302\n"
+            f"- User: 127.0.0.1:{USER_PORT}"
+        ),
+        capabilities=["email", "web_search"],
     )
-    agent_c.update_system_prompt("role", (
-        "Your name is Charlie. Your address is 127.0.0.1:8303.\n\n"
-        f"{AGENT_PROMPT}\n\n"
-        "Known contacts:\n"
-        "- Alice: 127.0.0.1:8301\n"
-        "- Bob: 127.0.0.1:8302\n"
-        "- User: 127.0.0.1:" + str(USER_PORT)
-    ), protected=True)
-
-    agent_a.add_capability("email")
-    agent_a.add_capability("web_search")
-    agent_b.add_capability("email")
-    agent_b.add_capability("web_search")
-    agent_c.add_capability("email")
-    agent_c.add_capability("web_search")
 
     agent_a.start()
     agent_b.start()

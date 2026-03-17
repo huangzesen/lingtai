@@ -1,4 +1,4 @@
-"""Launch a BaseAgent on a TCP port and chat with it.
+"""Launch a StoAIAgent on a TCP port and chat with it.
 
 Usage:
     python examples/chat_agent.py
@@ -22,7 +22,7 @@ if env_path.exists():
             key, _, val = line.partition("=")
             os.environ.setdefault(key.strip(), val.strip().strip("'\""))
 
-from stoai import BaseAgent, AgentConfig
+from stoai import StoAIAgent, AgentConfig
 from stoai.llm import LLMService
 from stoai.services.mail import TCPMailService
 
@@ -51,18 +51,17 @@ def main():
 
     mail_svc = TCPMailService(listen_port=PORT)
 
-    agent = BaseAgent(
+    policy = str(Path(__file__).parent / "bash_policy.json")
+    agent = StoAIAgent(
         agent_id="assistant",
         service=llm,
         mail_service=mail_svc,
         config=AgentConfig(max_turns=20),
         base_dir=".",
         streaming=True,
+        role="You are a helpful AI assistant.",
+        capabilities={"email": {}, "bash": {"policy_file": policy}, "file": {}},
     )
-    agent.update_system_prompt("role", "You are a helpful AI assistant.", protected=True)
-    agent.add_capability("email")
-    policy = str(Path(__file__).parent / "bash_policy.json")
-    agent.add_capability("bash", policy_file=policy)
     agent.start()
 
     print(f"Agent listening on 127.0.0.1:{PORT}")

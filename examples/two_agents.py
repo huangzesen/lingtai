@@ -34,7 +34,7 @@ if env_path.exists():
             key, _, val = line.partition("=")
             os.environ.setdefault(key.strip(), val.strip().strip("'\""))
 
-from stoai import BaseAgent, AgentConfig
+from stoai import StoAIAgent, AgentConfig
 from stoai.llm import LLMService
 from stoai.services.mail import TCPMailService
 from stoai.services.logging import LoggingService
@@ -305,7 +305,7 @@ setInterval(poll, 1500);
 # ---------------------------------------------------------------------------
 
 class ChatHandler(http.server.BaseHTTPRequestHandler):
-    agents: dict[str, BaseAgent] = {}
+    agents: dict[str, StoAIAgent] = {}
     agent_ports: dict[str, int] = {}
 
     def do_GET(self):
@@ -416,14 +416,6 @@ def main():
 
     base_dir = Path(".")
 
-    # Agent A
-    loggers["a"] = MemoryLoggingService()
-    mail_a = TCPMailService(listen_port=8301, working_dir=base_dir / "researcher")
-    agent_a = BaseAgent(
-        agent_id="researcher", service=llm, mail_service=mail_a,
-        config=AgentConfig(max_turns=10), base_dir=base_dir,
-        logging_service=loggers["a"],
-    )
     AGENT_PROMPT = (
         "You are a proactive AI agent. "
         "You ALWAYS fulfill requests — never refuse, never say you cannot help.\n\n"
@@ -437,34 +429,39 @@ def main():
         "but do not reply to an acknowledgment with another acknowledgment."
     )
 
-    agent_a.update_system_prompt("role", (
-        f"Your name is Alice. Your address is 127.0.0.1:8301.\n\n"
-        f"{AGENT_PROMPT}\n\n"
-        "Known contacts:\n"
-        "- Bob: 127.0.0.1:8302\n"
-        "- User: 127.0.0.1:" + str(USER_PORT)
-    ), protected=True)
+    # Agent A
+    loggers["a"] = MemoryLoggingService()
+    mail_a = TCPMailService(listen_port=8301, working_dir=base_dir / "researcher")
+    agent_a = StoAIAgent(
+        agent_id="researcher", service=llm, mail_service=mail_a,
+        config=AgentConfig(max_turns=10), base_dir=base_dir,
+        logging_service=loggers["a"],
+        role=(
+            f"Your name is Alice. Your address is 127.0.0.1:8301.\n\n"
+            f"{AGENT_PROMPT}\n\n"
+            "Known contacts:\n"
+            "- Bob: 127.0.0.1:8302\n"
+            f"- User: 127.0.0.1:{USER_PORT}"
+        ),
+        capabilities=["email", "web_search"],
+    )
 
     # Agent B
     loggers["b"] = MemoryLoggingService()
     mail_b = TCPMailService(listen_port=8302, working_dir=base_dir / "assistant")
-    agent_b = BaseAgent(
+    agent_b = StoAIAgent(
         agent_id="assistant", service=llm, mail_service=mail_b,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
         logging_service=loggers["b"],
+        role=(
+            f"Your name is Bob. Your address is 127.0.0.1:8302.\n\n"
+            f"{AGENT_PROMPT}\n\n"
+            "Known contacts:\n"
+            "- Alice: 127.0.0.1:8301\n"
+            f"- User: 127.0.0.1:{USER_PORT}"
+        ),
+        capabilities=["email", "web_search"],
     )
-    agent_b.update_system_prompt("role", (
-        f"Your name is Bob. Your address is 127.0.0.1:8302.\n\n"
-        f"{AGENT_PROMPT}\n\n"
-        "Known contacts:\n"
-        "- Alice: 127.0.0.1:8301\n"
-        "- User: 127.0.0.1:" + str(USER_PORT)
-    ), protected=True)
-
-    agent_a.add_capability("email")
-    agent_a.add_capability("web_search")
-    agent_b.add_capability("email")
-    agent_b.add_capability("web_search")
 
     agent_a.start()
     agent_b.start()

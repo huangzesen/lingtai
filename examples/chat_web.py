@@ -1,4 +1,4 @@
-"""Web chat UI for a BaseAgent.
+"""Web chat UI for a StoAIAgent.
 
 Usage:
     python examples/chat_web.py
@@ -27,7 +27,7 @@ if env_path.exists():
             key, _, val = line.partition("=")
             os.environ.setdefault(key.strip(), val.strip().strip("'\""))
 
-from stoai import BaseAgent, AgentConfig
+from stoai import StoAIAgent, AgentConfig
 from stoai.llm import LLMService
 from stoai.services.mail import TCPMailService
 
@@ -118,7 +118,7 @@ async function sendMsg() {
 class ChatHandler(http.server.BaseHTTPRequestHandler):
     """HTTP handler: serves chat page and proxies messages to agent."""
 
-    agent: BaseAgent = None  # set by main()
+    agent: StoAIAgent = None  # set by main()
 
     def do_GET(self):
         self.send_response(200)
@@ -185,17 +185,16 @@ def main():
 
     mail_svc = TCPMailService(listen_port=AGENT_PORT)
 
-    agent = BaseAgent(
+    policy = str(Path(__file__).parent / "bash_policy.json")
+    agent = StoAIAgent(
         agent_id="assistant",
         service=llm,
         mail_service=mail_svc,
         config=AgentConfig(max_turns=20),
         base_dir=".",
+        role="You are a helpful AI assistant.",
+        capabilities={"email": {}, "bash": {"policy_file": policy}, "file": {}},
     )
-    agent.update_system_prompt("role", "You are a helpful AI assistant.", protected=True)
-    agent.add_capability("email")
-    policy = str(Path(__file__).parent / "bash_policy.json")
-    agent.add_capability("bash", policy_file=policy)
     agent.start()
 
     ChatHandler.agent = agent
