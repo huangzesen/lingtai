@@ -5,6 +5,7 @@ export interface AgentInfo {
   address: string;
   port: number;
   status: "active" | "sleeping";
+  type: "admin" | "agent";
 }
 
 export interface Email {
@@ -49,6 +50,37 @@ export interface SentMessage {
   cc: string[];
   text: string;
   time: string;
+}
+
+/** Network visualization types */
+
+export interface NetworkNode {
+  id: string;
+  name: string;
+  color: string;
+  status: "active" | "sleeping";
+  type: "admin" | "agent" | "user";
+  x?: number;
+  y?: number;
+  vx?: number;
+  vy?: number;
+  fx?: number | null;
+  fy?: number | null;
+}
+
+export interface NetworkEdge {
+  source: string | NetworkNode;
+  target: string | NetworkNode;
+  count: number;
+}
+
+export interface Particle {
+  id: string;
+  source: string;
+  target: string;
+  color: string;
+  startTime: number;
+  duration: number;
 }
 
 /** Agent accent colors — indexed by agent order. */

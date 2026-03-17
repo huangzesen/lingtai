@@ -40,6 +40,7 @@ def list_agents(request: Request):
             "address": entry.address,
             "port": entry.port,
             "status": entry.agent.state.value,
+            "type": "admin" if entry.agent._admin else "agent",
         })
     return agents
 
