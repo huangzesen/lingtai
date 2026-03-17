@@ -16,10 +16,7 @@ from __future__ import annotations
 import json
 import os
 import queue
-import re
-import subprocess
 from collections import deque
-import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -28,6 +25,7 @@ from typing import Any, Callable
 
 from .config import AgentConfig
 from .state import AgentState
+from .workdir import WorkingDir
 from .message import Message, _make_message, MSG_REQUEST, MSG_USER_INPUT
 from .intrinsics import ALL_INTRINSICS
 from .prompt import SystemPromptManager
@@ -49,32 +47,9 @@ from .loop_guard import LoopGuard
 from .prompt import build_system_prompt
 from .token_counter import count_tokens, count_tool_tokens
 from .tool_timing import ToolTimer, stamp_tool_result
-from .types import (
-    MCPTool,
-    UnknownToolError,
-)
+from .types import UnknownToolError
 
 logger = get_logger()
-
-# Cross-platform file locking
-if sys.platform == "win32":
-    import msvcrt as _msvcrt
-
-    def _lock_fd(fd):
-        _msvcrt.locking(fd.fileno(), _msvcrt.LK_NBLCK, 1)
-
-    def _unlock_fd(fd):
-        _msvcrt.locking(fd.fileno(), _msvcrt.LK_UNLCK, 1)
-else:
-    import fcntl as _fcntl
-
-    def _lock_fd(fd):
-        _fcntl.flock(fd, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
-
-    def _unlock_fd(fd):
-        _fcntl.flock(fd, _fcntl.LOCK_UN)
-
-_AGENT_ID_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
 # ---------------------------------------------------------------------------
@@ -124,12 +99,6 @@ class BaseAgent:
         role: str = "",
         ltm: str = "",
     ):
-        # Validate agent_id
-        if not _AGENT_ID_RE.match(agent_id):
-            raise ValueError(
-                f"agent_id must match [a-zA-Z0-9_-]+, got: {agent_id!r}"
-            )
-
         self.agent_id = agent_id
         self.service = service
         self._config = config or AgentConfig()
@@ -145,8 +114,8 @@ class BaseAgent:
         self._base_dir = Path(base_dir)
         if not self._base_dir.is_dir():
             raise FileNotFoundError(f"base_dir does not exist: {self._base_dir}")
-        self._working_dir = self._base_dir / self.agent_id
-        self._working_dir.mkdir(exist_ok=True)
+        self._workdir = WorkingDir(base_dir=base_dir, agent_id=agent_id)
+        self._working_dir = self._workdir.path
 
         # LoggingService: auto-create in working dir if not provided
         if logging_service is not None:
@@ -158,8 +127,7 @@ class BaseAgent:
             self._log_service = JSONLLoggingService(log_dir / "events.jsonl")
 
         # Acquire working directory lock
-        self._lock_file: Any = None
-        self._acquire_lock()
+        self._workdir.acquire_lock()
 
         # --- Wire services ---
         # FileIOService: auto-create LocalFileIOService for backward compat
@@ -173,7 +141,7 @@ class BaseAgent:
         self._mail_service = mail_service
 
         # Read manifest for resume (before prompt manager, so role can be restored)
-        manifest_role, manifest_ltm = self._read_manifest()
+        manifest_role, manifest_ltm = self._workdir.read_manifest()
         if not role and manifest_role:
             role = manifest_role
 
@@ -209,7 +177,15 @@ class BaseAgent:
             self._prompt_manager.write_section("memory", loaded_memory)
 
         # Write manifest (without memory — it now lives in system/memory.md)
-        self._write_manifest()
+        from datetime import datetime, timezone
+        manifest_data = {
+            "agent_id": self.agent_id,
+            "started_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "role": self._prompt_manager.read_section("covenant") or "",
+        }
+        if self._mail_service is not None and self._mail_service.address:
+            manifest_data["address"] = self._mail_service.address
+        self._workdir.write_manifest(manifest_data)
 
         # Mail FIFO queue — incoming messages consumed by read
         self._mail_queue: deque[dict] = deque()
@@ -219,7 +195,7 @@ class BaseAgent:
         # MCP tool handlers
         self._mcp_handlers: dict[str, Callable[[dict], dict]] = {}
         self._mcp_schemas: list[FunctionSchema] = []
-        self._mcp_tool_names: set[str] = set()
+
 
         # --- Wire intrinsic tools ---
         self._intrinsics: dict[str, Callable[[dict], dict]] = {}
@@ -537,26 +513,7 @@ class BaseAgent:
     def _system_diff(self, file_path: Path, obj: str) -> dict:
         """Show uncommitted git diff for a system file."""
         rel_path = f"system/{obj}.md"
-        try:
-            result = subprocess.run(
-                ["git", "diff", rel_path],
-                cwd=self._working_dir,
-                capture_output=True, text=True,
-            )
-            diff_text = result.stdout.strip()
-            # Also check for untracked/new file changes
-            if not diff_text:
-                status_result = subprocess.run(
-                    ["git", "status", "--porcelain", rel_path],
-                    cwd=self._working_dir,
-                    capture_output=True, text=True,
-                )
-                if status_result.stdout.strip():
-                    # Untracked or new — show the file content as the "diff"
-                    diff_text = f"(new/untracked file)\n{file_path.read_text()}"
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            diff_text = ""
-
+        diff_text = self._workdir.diff(rel_path)
         return {
             "status": "ok",
             "path": str(file_path),
@@ -581,7 +538,7 @@ class BaseAgent:
 
         # Git diff + commit
         rel_path = f"system/{obj}.md"
-        git_diff, commit_hash = self._git_diff_and_commit(rel_path, obj)
+        git_diff, commit_hash = self._workdir.diff_and_commit(rel_path, obj)
 
         self._log(f"system_load_{obj}", size_bytes=size_bytes, changed=commit_hash is not None)
 
@@ -596,71 +553,6 @@ class BaseAgent:
                 "commit": commit_hash,
             },
         }
-
-    def _git_diff_and_commit(self, rel_path: str, label: str) -> tuple[str | None, str | None]:
-        """Run git diff on a file, stage, and commit if changed.
-
-        Returns (diff_text, short_commit_hash) or (None, None) if no changes.
-        """
-        try:
-            diff_result = subprocess.run(
-                ["git", "diff", rel_path],
-                cwd=self._working_dir,
-                capture_output=True, text=True,
-            )
-            diff_cached = subprocess.run(
-                ["git", "diff", "--cached", rel_path],
-                cwd=self._working_dir,
-                capture_output=True, text=True,
-            )
-            status_result = subprocess.run(
-                ["git", "status", "--porcelain", rel_path],
-                cwd=self._working_dir,
-                capture_output=True, text=True,
-            )
-
-            has_changes = bool(
-                diff_result.stdout.strip()
-                or diff_cached.stdout.strip()
-                or status_result.stdout.strip()
-            )
-
-            if not has_changes:
-                return None, None
-
-            diff_text = diff_result.stdout or status_result.stdout
-
-            subprocess.run(
-                ["git", "add", rel_path],
-                cwd=self._working_dir,
-                capture_output=True, check=True,
-            )
-
-            if not diff_text.strip():
-                staged = subprocess.run(
-                    ["git", "diff", "--cached", rel_path],
-                    cwd=self._working_dir,
-                    capture_output=True, text=True,
-                )
-                diff_text = staged.stdout
-
-            subprocess.run(
-                ["git", "commit", "-m", f"system: update {label}"],
-                cwd=self._working_dir,
-                capture_output=True, check=True,
-            )
-
-            hash_result = subprocess.run(
-                ["git", "rev-parse", "--short", "HEAD"],
-                cwd=self._working_dir,
-                capture_output=True, text=True,
-            )
-            commit_hash = hash_result.stdout.strip()
-
-            return diff_text, commit_hash
-
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            return None, None
 
     # ------------------------------------------------------------------
     # Properties
@@ -677,7 +569,7 @@ class BaseAgent:
     @property
     def working_dir(self) -> Path:
         """The agent's working directory."""
-        return self._working_dir
+        return self._workdir.path
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -691,7 +583,7 @@ class BaseAgent:
         self._shutdown.clear()
 
         # Initialize git repo in working directory (first start only)
-        self._git_init_working_dir()
+        self._workdir.init_git()
 
         # Capture startup time for uptime tracking
         from datetime import datetime, timezone
@@ -742,153 +634,16 @@ class BaseAgent:
             memory_file.write_text(memory_content)
 
         # Persist final state and release lock
-        self._write_manifest()
-        self._release_lock()
-
-    # ------------------------------------------------------------------
-    # Working directory lock + manifest
-    # ------------------------------------------------------------------
-
-    _LOCK_FILE = ".agent.lock"
-    _MANIFEST_FILE = ".agent.json"
-
-    def _acquire_lock(self) -> None:
-        """Acquire exclusive lock on working directory."""
-        lock_path = self._working_dir / self._LOCK_FILE
-        self._lock_file = open(lock_path, "w")
-        try:
-            _lock_fd(self._lock_file)
-        except OSError:
-            self._lock_file.close()
-            self._lock_file = None
-            raise RuntimeError(
-                f"Working directory '{self._working_dir}' is already in use "
-                f"by another agent. Each agent needs its own directory."
-            )
-
-    def _release_lock(self) -> None:
-        """Release working directory lock."""
-        if self._lock_file is not None:
-            try:
-                _unlock_fd(self._lock_file)
-                self._lock_file.close()
-            except OSError:
-                pass
-            self._lock_file = None
-
-    def _git_init_working_dir(self) -> None:
-        """Initialize working directory as a git repo with opt-in tracking.
-
-        Creates .gitignore (track nothing by default, whitelist system/),
-        system/ directory with covenant.md and memory.md, and makes an initial commit.
-        Skips if .git exists.
-        """
-        git_dir = self._working_dir / ".git"
-        if git_dir.is_dir():
-            return  # Already initialized (resume)
-
-        try:
-            # git init
-            subprocess.run(
-                ["git", "init"],
-                cwd=self._working_dir,
-                capture_output=True, check=True,
-            )
-
-            # Configure git identity for this repo
-            subprocess.run(
-                ["git", "config", "user.email", "agent@stoai"],
-                cwd=self._working_dir,
-                capture_output=True, check=True,
-            )
-            subprocess.run(
-                ["git", "config", "user.name", "StoAI Agent"],
-                cwd=self._working_dir,
-                capture_output=True, check=True,
-            )
-
-            # .gitignore — opt-in tracking
-            gitignore = self._working_dir / ".gitignore"
-            gitignore.write_text(
-                "# Track nothing by default\n"
-                "*\n"
-                "# Except these\n"
-                "!.gitignore\n"
-                "!system/\n"
-                "!system/**\n"
-                "!logs/\n"
-                "!logs/**\n"
-            )
-
-            # Create system/ directory with covenant.md and memory.md
-            system_dir = self._working_dir / "system"
-            system_dir.mkdir(exist_ok=True)
-            covenant_file = system_dir / "covenant.md"
-            if not covenant_file.is_file():
-                covenant_file.write_text("")
-            memory_file = system_dir / "memory.md"
-            if not memory_file.is_file():
-                memory_file.write_text("")
-
-            # Initial commit
-            subprocess.run(
-                ["git", "add", ".gitignore", "system/"],
-                cwd=self._working_dir,
-                capture_output=True, check=True,
-            )
-            subprocess.run(
-                ["git", "commit", "-m", "init: agent working directory"],
-                cwd=self._working_dir,
-                capture_output=True, check=True,
-            )
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            # Git not available — degrade gracefully. Agent still works,
-            # just without git tracking.
-            # Still create system/ directory and files
-            system_dir = self._working_dir / "system"
-            system_dir.mkdir(exist_ok=True)
-            covenant_file = system_dir / "covenant.md"
-            if not covenant_file.is_file():
-                covenant_file.write_text("")
-            memory_file = system_dir / "memory.md"
-            if not memory_file.is_file():
-                memory_file.write_text("")
-
-    def _read_manifest(self) -> tuple[str, str]:
-        """Read role and ltm from .agent.json. Returns ("", "") if not found.
-
-        Note: ltm is read for migration purposes only. New agents store memory
-        in system/memory.md, not in the manifest.
-        """
-        path = self._working_dir / self._MANIFEST_FILE
-        if not path.is_file():
-            return "", ""
-        try:
-            data = json.loads(path.read_text())
-            return data.get("role", ""), data.get("ltm", "")
-        except (json.JSONDecodeError, OSError):
-            corrupt = self._working_dir / ".agent.json.corrupt"
-            try:
-                path.rename(corrupt)
-            except OSError:
-                pass
-            logger.warning("Corrupt .agent.json renamed to .agent.json.corrupt")
-            return "", ""
-
-    def _write_manifest(self) -> None:
-        """Write .agent.json atomically."""
         from datetime import datetime, timezone
-        data = {
+        manifest_data = {
             "agent_id": self.agent_id,
             "started_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "role": self._prompt_manager.read_section("covenant") or "",
         }
         if self._mail_service is not None and self._mail_service.address:
-            data["address"] = self._mail_service.address
-        target = self._working_dir / self._MANIFEST_FILE
-        tmp = self._working_dir / ".agent.json.tmp"
-        tmp.write_text(json.dumps(data, indent=2))
-        os.replace(str(tmp), str(target))
+            manifest_data["address"] = self._mail_service.address
+        self._workdir.write_manifest(manifest_data)
+        self._workdir.release_lock()
 
     def _on_mail_received(self, payload: dict) -> None:
         """Callback for MailService — routes by mail type.
@@ -1470,14 +1225,10 @@ class BaseAgent:
             props = dict(params.get("properties", {}))
             props.update(reasoning_prop)
             params["properties"] = props
-            # Label external MCP tools so the agent can distinguish them
-            desc = s.description
-            if s.name in self._mcp_tool_names:
-                desc = f"[MCP] {desc}"
             schemas.append(
                 FunctionSchema(
                     name=s.name,
-                    description=desc,
+                    description=s.description,
                     parameters=params,
                 )
             )
@@ -1781,7 +1532,6 @@ class BaseAgent:
             raise RuntimeError("Cannot modify tools after start()")
         self._mcp_handlers.pop(name, None)
         self._mcp_schemas = [s for s in self._mcp_schemas if s.name != name]
-        self._mcp_tool_names.discard(name)
         if self._chat is not None:
             self._chat.update_tools(self._build_tool_schemas())
         self._token_decomp_dirty = True

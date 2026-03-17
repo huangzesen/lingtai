@@ -198,7 +198,8 @@ class AnimaManager:
         return {"status": "ok", "path": str(self._character_path)}
 
     def _role_diff(self, _args: dict) -> dict:
-        return self._agent._system_diff(self._character_path, "character")
+        diff_text = self._agent._workdir.diff("system/character.md")
+        return {"status": "ok", "path": str(self._character_path), "git_diff": diff_text}
 
     def _role_load(self, _args: dict) -> dict:
         # Read both files and concatenate
@@ -227,7 +228,7 @@ class AnimaManager:
 
         # Git commit character.md
         rel_path = "system/character.md"
-        git_diff, commit_hash = self._agent._git_diff_and_commit(
+        git_diff, commit_hash = self._agent._workdir.diff_and_commit(
             rel_path, "character",
         )
 
