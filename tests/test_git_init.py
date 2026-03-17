@@ -45,14 +45,14 @@ def test_start_creates_gitignore(tmp_path):
 
 
 def test_start_creates_system_dir(tmp_path):
-    """agent.start() should create system/ directory with role.md and ltm.md."""
+    """agent.start() should create system/ directory with covenant.md and memory.md."""
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
     agent.start()
     try:
         system_dir = agent.working_dir / "system"
         assert system_dir.is_dir()
-        assert (system_dir / "role.md").is_file()
-        assert (system_dir / "ltm.md").is_file()
+        assert (system_dir / "covenant.md").is_file()
+        assert (system_dir / "memory.md").is_file()
     finally:
         agent.stop()
 
