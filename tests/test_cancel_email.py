@@ -258,7 +258,8 @@ def test_non_admin_cannot_send_cancel_mail(tmp_path):
     mock_mail.address = "127.0.0.1:8000"
     agent._mail_service = mock_mail
 
-    result = agent._mail_send({
+    result = agent._intrinsics["mail"]({
+        "action": "send",
         "address": "127.0.0.1:8001",
         "subject": "stop",
         "message": "stop",
@@ -279,7 +280,8 @@ def test_admin_can_send_cancel_mail(tmp_path):
     mock_mail.send.return_value = True
     agent._mail_service = mock_mail
 
-    result = agent._mail_send({
+    result = agent._intrinsics["mail"]({
+        "action": "send",
         "address": "127.0.0.1:8001",
         "subject": "stop",
         "message": "stop now",
@@ -303,7 +305,8 @@ def test_non_admin_can_send_normal_mail(tmp_path):
     mock_mail.send.return_value = True
     agent._mail_service = mock_mail
 
-    result = agent._mail_send({
+    result = agent._intrinsics["mail"]({
+        "action": "send",
         "address": "127.0.0.1:8001",
         "subject": "hello",
         "message": "hi there",
