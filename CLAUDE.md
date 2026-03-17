@@ -58,8 +58,8 @@ CustomAgent(Agent) — host's wrapper (subclass with domain logic)
 
 | Tier | What | How added |
 |------|------|-----------|
-| **Intrinsics** | Kernel services (mail, clock, status+shutdown, system) | Built-in, always present |
-| **Capabilities** | Composable capabilities (file [read/write/edit/glob/grep], bash, conscience, delegate, email, vision, web_search, talk, compose, draw, listen) | Declared at construction via `capabilities=` on Agent |
+| **Intrinsics** | Kernel services (mail, clock, status+shutdown, system). System operates on `memory` object with `diff`/`load` actions. Covenant is a protected prompt section (no tool access). Capabilities can upgrade intrinsics via `override_intrinsic()`. | Built-in, always present |
+| **Capabilities** | Composable capabilities (file [read/write/edit/glob/grep], anima, bash, conscience, delegate, email, vision, web_search, talk, compose, draw, listen) | Declared at construction via `capabilities=` on Agent |
 | **MCP tools** | Domain context from the host app | Passed as `tools=[MCPTool(...)]` on Agent, or `add_tool()` in subclass constructors |
 
 ### Key Modules
@@ -73,8 +73,8 @@ CustomAgent(Agent) — host's wrapper (subclass with domain logic)
 - **`llm/base.py`** — `LLMAdapter` (ABC), `ChatSession` (ABC), `LLMResponse`, `ToolCall`, `FunctionSchema`. All agent code depends on these, never on provider SDKs directly.
 - **`llm/service.py`** — `LLMService`. Adapter factory, session registry, one-shot generation gateway, context compaction orchestration. Decoupled from config files — uses injected `key_resolver` and `provider_defaults`.
 - **`llm/interface_converters.py`** — Bidirectional converters between `ChatInterface` and provider-specific formats (Anthropic, OpenAI, Gemini).
-- **`intrinsics/`** — Each file exports `SCHEMA`, `DESCRIPTION`. All 4 kernel intrinsics (mail, clock, status, system) have `handler=None` because they need agent state and are handled in `BaseAgent`. Status intrinsic supports `show` and `shutdown` actions. System intrinsic supports `view`/`diff`/`load` actions on `role`/`ltm` objects.
-- **`capabilities/`** — Each capability module exports `setup(agent, **kwargs)`. 15 built-in: read, write, edit, glob, grep (file I/O — also available as `"file"` group), bash, conscience, delegate, email, vision, web_search, talk, compose, draw, listen. The email capability upgrades the mail FIFO with a persistent mailbox, reply/reply_all, CC/BCC, and multi-to. Delegate spawns `Agent` with reasoning as first prompt. Conscience adds hormê — a periodic inner voice that nudges idle agents.
+- **`intrinsics/`** — Each file exports `SCHEMA`, `DESCRIPTION`. All 4 kernel intrinsics (mail, clock, status, system) have `handler=None` because they need agent state and are handled in `BaseAgent`. Status intrinsic supports `show` and `shutdown` actions. System intrinsic supports `diff`/`load` actions on `memory` object. Covenant is injected at construction as a protected prompt section (no tool access).
+- **`capabilities/`** — Each capability module exports `setup(agent, **kwargs)`. 16 built-in: read, write, edit, glob, grep (file I/O — also available as `"file"` group), anima, bash, conscience, delegate, email, vision, web_search, talk, compose, draw, listen. The email capability upgrades the mail intrinsic with a persistent mailbox, reply/reply_all, CC/BCC, and multi-to. The anima capability upgrades the system intrinsic with evolving role, structured memory, and on-demand compaction. Delegate spawns `Agent` with reasoning as first prompt. Conscience adds hormê — a periodic inner voice that nudges idle agents.
 - **`config.py`** — `AgentConfig` dataclass. Host app injects resolved values; no file-based config inside stoai.
 - **`prompt.py`** — Builds system prompt from base template + `SystemPromptManager` sections + MCP tool descriptions.
 
@@ -82,7 +82,7 @@ CustomAgent(Agent) — host's wrapper (subclass with domain logic)
 
 10 adapters under `llm/`, each lazy-imported. Most use OpenAI-compatible SDK: Gemini (`google-genai`), OpenAI, Anthropic, MiniMax, DeepSeek, Grok, Qwen, GLM, Kimi, Custom. Each adapter subdirectory has `adapter.py` (implementation) and `defaults.py` (model defaults).
 
-### Built-in Capabilities (15)
+### Built-in Capabilities (16)
 
 | Capability | Usage | What it adds |
 |-----------|-------|-------------|
@@ -92,6 +92,7 @@ CustomAgent(Agent) — host's wrapper (subclass with domain logic)
 | `edit` | `capabilities=["edit"]` | Exact string replacement in files via FileIOService |
 | `glob` | `capabilities=["glob"]` | Find files by glob pattern via FileIOService |
 | `grep` | `capabilities=["grep"]` | Search file contents by regex via FileIOService |
+| `anima` | `capabilities=["anima"]` | Upgrades system intrinsic — evolving role (covenant + character), structured memory (submit/consolidate), on-demand context compaction |
 | `bash` | `capabilities={"bash": {"policy_file": "p.json"}}` or `{"bash": {"yolo": True}}` | Shell command execution with policy |
 | `conscience` | `capabilities=["conscience"]` or `{"conscience": {"interval": 300}}` | Inner voice (hormê) — periodic self-nudge that wakes idle agents. Agent writes its own prompt via `inner_voice` action, toggles via `horme` action. Each nudge git-committed to `conscience/horme.md` |
 | `delegate` | `capabilities=["delegate"]` | Spawn peer agents (reasoning = first prompt) |
@@ -127,10 +128,11 @@ class ResearchAgent(Agent):
 # Low-level API (on BaseAgent, sealed after start)
 agent.add_tool(name, schema=schema, handler=handler)     # register tool
 agent.remove_tool(name)                                   # unregister tool
+agent.override_intrinsic(name)                            # remove intrinsic, return handler
 agent.update_system_prompt(section, content)              # inject prompt section (open at any time)
 ```
 
-Note: `capabilities=` accepts `list[str]` (no kwargs) or `dict[str, dict]` (with kwargs per capability). Group names like `"file"` expand to individual capabilities. `add_tool()` and `remove_tool()` raise `RuntimeError` after `start()`.
+Note: `capabilities=` accepts `list[str]` (no kwargs) or `dict[str, dict]` (with kwargs per capability). Group names like `"file"` expand to individual capabilities. `add_tool()`, `remove_tool()`, and `override_intrinsic()` raise `RuntimeError` after `start()`.
 
 ### System Prompt Structure
 

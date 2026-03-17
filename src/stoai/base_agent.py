@@ -177,38 +177,38 @@ class BaseAgent:
         if not role and manifest_role:
             role = manifest_role
 
-        # LTM and role file paths
+        # LTM and role file paths — renamed to covenant/memory
         system_dir = self._working_dir / "system"
-        ltm_file = system_dir / "ltm.md"
-        role_file = system_dir / "role.md"
+        memory_file = system_dir / "memory.md"
+        covenant_file = system_dir / "covenant.md"
 
-        # If constructor ltm is provided and ltm file doesn't exist, write it
-        if ltm and not ltm_file.is_file():
+        # If constructor ltm is provided and memory file doesn't exist, write it
+        if ltm and not memory_file.is_file():
             system_dir.mkdir(exist_ok=True)
-            ltm_file.write_text(ltm)
+            memory_file.write_text(ltm)
         # If manifest has ltm and file doesn't exist, migrate
-        elif manifest_ltm and not ltm_file.is_file():
+        elif manifest_ltm and not memory_file.is_file():
             system_dir.mkdir(exist_ok=True)
-            ltm_file.write_text(manifest_ltm)
+            memory_file.write_text(manifest_ltm)
 
-        # If constructor role is provided and role file doesn't exist, write it
-        if role and not role_file.is_file():
+        # If constructor role is provided and covenant file doesn't exist, write it
+        if role and not covenant_file.is_file():
             system_dir.mkdir(exist_ok=True)
-            role_file.write_text(role)
+            covenant_file.write_text(role)
 
-        # Auto-load LTM from file into prompt manager
-        loaded_ltm = ""
-        if ltm_file.is_file():
-            loaded_ltm = ltm_file.read_text()
+        # Auto-load memory from file into prompt manager
+        loaded_memory = ""
+        if memory_file.is_file():
+            loaded_memory = memory_file.read_text()
 
         # System prompt manager
         self._prompt_manager = SystemPromptManager()
         if role:
-            self._prompt_manager.write_section("role", role, protected=True)
-        if loaded_ltm.strip():
-            self._prompt_manager.write_section("ltm", loaded_ltm)
+            self._prompt_manager.write_section("covenant", role, protected=True)
+        if loaded_memory.strip():
+            self._prompt_manager.write_section("memory", loaded_memory)
 
-        # Write manifest (without ltm — it now lives in system/ltm.md)
+        # Write manifest (without memory — it now lives in system/memory.md)
         self._write_manifest()
 
         # Mail FIFO queue — incoming messages consumed by read
@@ -515,36 +515,24 @@ class BaseAgent:
     # ------------------------------------------------------------------
 
     def _handle_system(self, args: dict) -> dict:
-        """Handle system tool — agent identity management (role + ltm)."""
-        action = args.get("action", "view")
+        """Handle system tool — agent memory management."""
+        action = args.get("action", "")
         obj = args.get("object", "")
-        if obj not in ("role", "ltm"):
-            return {"error": f"Unknown object: {obj!r}. Must be 'role' or 'ltm'."}
+        if obj != "memory":
+            return {"error": f"Unknown object: {obj!r}. Must be 'memory'."}
 
         system_dir = self._working_dir / "system"
         system_dir.mkdir(exist_ok=True)
-        file_path = system_dir / f"{obj}.md"
+        file_path = system_dir / "memory.md"
         if not file_path.is_file():
             file_path.write_text("")
 
-        if action == "view":
-            return self._system_view(file_path)
-        elif action == "diff":
-            return self._system_diff(file_path, obj)
+        if action == "diff":
+            return self._system_diff(file_path, "memory")
         elif action == "load":
-            return self._system_load(file_path, obj)
+            return self._system_load(file_path, "memory")
         else:
-            return {"error": f"Unknown action: {action!r}. Must be 'view', 'diff', or 'load'."}
-
-    def _system_view(self, file_path: Path) -> dict:
-        """Read the current contents of a system file."""
-        content = file_path.read_text()
-        return {
-            "status": "ok",
-            "path": str(file_path),
-            "content": content,
-            "size_bytes": len(content.encode("utf-8")),
-        }
+            return {"error": f"Unknown action: {action!r}. Must be 'diff' or 'load'."}
 
     def _system_diff(self, file_path: Path, obj: str) -> dict:
         """Show uncommitted git diff for a system file."""
@@ -581,9 +569,8 @@ class BaseAgent:
         size_bytes = len(content.encode("utf-8"))
 
         # Inject into system prompt (or remove if empty)
-        protected = (obj == "role")
         if content.strip():
-            self._prompt_manager.write_section(obj, content, protected=protected)
+            self._prompt_manager.write_section(obj, content)
         else:
             self._prompt_manager.delete_section(obj)
         self._token_decomp_dirty = True
@@ -747,12 +734,12 @@ class BaseAgent:
             except Exception:
                 pass
 
-        # Persist LTM from prompt manager to file
-        ltm_content = self._prompt_manager.read_section("ltm") or ""
-        ltm_file = self._working_dir / "system" / "ltm.md"
-        if ltm_file.is_file() or ltm_content:
-            ltm_file.parent.mkdir(exist_ok=True)
-            ltm_file.write_text(ltm_content)
+        # Persist memory from prompt manager to file
+        memory_content = self._prompt_manager.read_section("memory") or ""
+        memory_file = self._working_dir / "system" / "memory.md"
+        if memory_file.is_file() or memory_content:
+            memory_file.parent.mkdir(exist_ok=True)
+            memory_file.write_text(memory_content)
 
         # Persist final state and release lock
         self._write_manifest()
@@ -793,7 +780,7 @@ class BaseAgent:
         """Initialize working directory as a git repo with opt-in tracking.
 
         Creates .gitignore (track nothing by default, whitelist system/),
-        system/ directory with role.md and ltm.md, and makes an initial commit.
+        system/ directory with covenant.md and memory.md, and makes an initial commit.
         Skips if .git exists.
         """
         git_dir = self._working_dir / ".git"
@@ -833,15 +820,15 @@ class BaseAgent:
                 "!logs/**\n"
             )
 
-            # Create system/ directory with role.md and ltm.md
+            # Create system/ directory with covenant.md and memory.md
             system_dir = self._working_dir / "system"
             system_dir.mkdir(exist_ok=True)
-            role_file = system_dir / "role.md"
-            if not role_file.is_file():
-                role_file.write_text("")
-            ltm_file = system_dir / "ltm.md"
-            if not ltm_file.is_file():
-                ltm_file.write_text("")
+            covenant_file = system_dir / "covenant.md"
+            if not covenant_file.is_file():
+                covenant_file.write_text("")
+            memory_file = system_dir / "memory.md"
+            if not memory_file.is_file():
+                memory_file.write_text("")
 
             # Initial commit
             subprocess.run(
@@ -860,18 +847,18 @@ class BaseAgent:
             # Still create system/ directory and files
             system_dir = self._working_dir / "system"
             system_dir.mkdir(exist_ok=True)
-            role_file = system_dir / "role.md"
-            if not role_file.is_file():
-                role_file.write_text("")
-            ltm_file = system_dir / "ltm.md"
-            if not ltm_file.is_file():
-                ltm_file.write_text("")
+            covenant_file = system_dir / "covenant.md"
+            if not covenant_file.is_file():
+                covenant_file.write_text("")
+            memory_file = system_dir / "memory.md"
+            if not memory_file.is_file():
+                memory_file.write_text("")
 
     def _read_manifest(self) -> tuple[str, str]:
         """Read role and ltm from .agent.json. Returns ("", "") if not found.
 
-        Note: ltm is read for migration purposes only. New agents store ltm
-        in system/ltm.md, not in the manifest.
+        Note: ltm is read for migration purposes only. New agents store memory
+        in system/memory.md, not in the manifest.
         """
         path = self._working_dir / self._MANIFEST_FILE
         if not path.is_file():
@@ -894,7 +881,7 @@ class BaseAgent:
         data = {
             "agent_id": self.agent_id,
             "started_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "role": self._prompt_manager.read_section("role") or "",
+            "role": self._prompt_manager.read_section("covenant") or "",
         }
         if self._mail_service is not None and self._mail_service.address:
             data["address"] = self._mail_service.address
@@ -1798,6 +1785,20 @@ class BaseAgent:
         if self._chat is not None:
             self._chat.update_tools(self._build_tool_schemas())
         self._token_decomp_dirty = True
+
+    def override_intrinsic(self, name: str) -> Callable[[dict], dict]:
+        """Remove an intrinsic and return its handler for delegation.
+
+        Called by capabilities that upgrade an intrinsic (email → mail,
+        anima → system). Must be called before start() (tool surface sealed).
+
+        Returns the original handler so the capability can delegate to it.
+        """
+        if self._sealed:
+            raise RuntimeError("Cannot modify tools after start()")
+        handler = self._intrinsics.pop(name)  # raises KeyError if missing
+        self._token_decomp_dirty = True
+        return handler
 
     def update_system_prompt(
         self, section: str, content: str, *, protected: bool = False

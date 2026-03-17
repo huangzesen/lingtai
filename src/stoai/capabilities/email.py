@@ -531,6 +531,7 @@ class EmailManager:
 def setup(agent: "BaseAgent") -> EmailManager:
     """Set up email capability — filesystem-based mailbox."""
     mgr = EmailManager(agent)
+    agent.override_intrinsic("mail")  # remove mail tool; email reimplements fully
     agent._on_normal_mail = mgr.on_normal_mail
     agent.add_tool(
         "email", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,

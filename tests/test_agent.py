@@ -438,15 +438,15 @@ def test_agent_lock_released_on_stop(tmp_path):
     agent2 = BaseAgent(agent_id="alice", service=make_mock_service(), base_dir=tmp_path)
 
 
-def test_agent_resume_reads_role_ltm(tmp_path):
+def test_agent_resume_reads_covenant_memory(tmp_path):
     agent = BaseAgent(
         agent_id="alice", service=make_mock_service(), base_dir=tmp_path,
         role="researcher", ltm="knows python",
     )
     agent.stop()
     agent2 = BaseAgent(agent_id="alice", service=make_mock_service(), base_dir=tmp_path)
-    assert agent2._prompt_manager.read_section("role") == "researcher"
-    assert agent2._prompt_manager.read_section("ltm") == "knows python"
+    assert agent2._prompt_manager.read_section("covenant") == "researcher"
+    assert agent2._prompt_manager.read_section("memory") == "knows python"
 
 
 def test_agent_resume_explicit_overrides_manifest(tmp_path):
@@ -459,19 +459,19 @@ def test_agent_resume_explicit_overrides_manifest(tmp_path):
         agent_id="alice", service=make_mock_service(), base_dir=tmp_path,
         role="new role",
     )
-    assert agent2._prompt_manager.read_section("role") == "new role"
-    assert agent2._prompt_manager.read_section("ltm") == "old ltm"
+    assert agent2._prompt_manager.read_section("covenant") == "new role"
+    assert agent2._prompt_manager.read_section("memory") == "old ltm"
 
 
-def test_agent_stop_persists_ltm(tmp_path):
+def test_agent_stop_persists_memory(tmp_path):
     agent = BaseAgent(
         agent_id="alice", service=make_mock_service(), base_dir=tmp_path, ltm="initial",
     )
-    agent._prompt_manager.write_section("ltm", "updated knowledge")
+    agent._prompt_manager.write_section("memory", "updated knowledge")
     agent.stop()
-    ltm_file = tmp_path / "alice" / "system" / "ltm.md"
-    assert ltm_file.is_file()
-    assert ltm_file.read_text() == "updated knowledge"
+    memory_file = tmp_path / "alice" / "system" / "memory.md"
+    assert memory_file.is_file()
+    assert memory_file.read_text() == "updated knowledge"
 
 
 def test_agent_corrupt_manifest(tmp_path):
@@ -480,7 +480,7 @@ def test_agent_corrupt_manifest(tmp_path):
     (agent_dir / ".agent.json").write_text("{corrupt json")
     agent = BaseAgent(agent_id="alice", service=make_mock_service(), base_dir=tmp_path)
     assert (agent_dir / ".agent.json.corrupt").is_file()
-    assert agent._prompt_manager.read_section("role") is None
+    assert agent._prompt_manager.read_section("covenant") is None
 
 
 def test_agent_id_validation(tmp_path):
