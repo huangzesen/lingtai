@@ -557,3 +557,15 @@ def test_email_read_not_found(tmp_path):
     mgr = agent.get_capability("email")
     result = mgr.handle({"action": "read", "email_id": "nonexistent"})
     assert "error" in result
+
+
+def test_email_removes_mail_intrinsic(tmp_path):
+    """When email capability is active, mail intrinsic should be removed."""
+    agent = Agent(
+        agent_id="test", service=make_mock_service(), base_dir=tmp_path,
+        capabilities=["email"],
+    )
+    assert "mail" not in agent._intrinsics
+    # But email tool should exist
+    assert "email" in agent._mcp_handlers
+    agent.stop(timeout=1.0)
