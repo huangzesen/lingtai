@@ -2,7 +2,7 @@
 
 Actions:
     show     — display agent identity, runtime, and resource usage
-    shutdown — initiate graceful self-termination (use when you want to add more capabilities or tools, mail to admin request first and then shutdown)
+    shutdown — initiate graceful self-termination (use when you want to add more capabilities or tools, contact admin first and then shutdown)
 
 The handler lives in BaseAgent (needs access to agent state).
 This module provides the schema and description.
@@ -28,7 +28,7 @@ SCHEMA = {
                 "Use this to monitor resource consumption, decide when to save "
                 "important information to long-term memory, and identify yourself.\n\n"
                 "shutdown: initiate graceful self-termination. Use when you want "
-                "to add more capabilities or tools. Protocol: (1) mail your admin "
+                "to add more capabilities or tools. Protocol: (1) contact your admin "
                 "explaining what capabilities/tools you need and why, (2) then call "
                 "shutdown. A successor agent may resume from your working directory "
                 "and conversation history."
@@ -45,5 +45,5 @@ DESCRIPTION = (
     "Agent self-inspection and lifecycle. "
     "'show' returns identity, runtime, and resource usage. "
     "'shutdown' initiates graceful self-termination — use when you want "
-    "more capabilities or tools. Mail your admin first, then shutdown."
+    "more capabilities or tools. Contact your admin first, then shutdown."
 )
