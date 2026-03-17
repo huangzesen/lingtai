@@ -48,7 +48,7 @@ def handle(agent, args: dict) -> dict:
     elif action == "wait":
         return _wait(agent, args)
     else:
-        return {"error": f"Unknown clock action: {action}"}
+        return {"status": "error", "message": f"Unknown clock action: {action}"}
 
 
 def _check(agent) -> dict:
@@ -67,7 +67,7 @@ def _wait(agent, args: dict) -> dict:
     if seconds is not None:
         seconds = float(seconds)
         if seconds < 0:
-            return {"error": "seconds must be non-negative"}
+            return {"status": "error", "message": "seconds must be non-negative"}
         seconds = min(seconds, max_wait)
 
     agent._log("clock_wait_start", seconds=seconds)

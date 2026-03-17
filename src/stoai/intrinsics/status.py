@@ -56,7 +56,7 @@ def handle(agent, args: dict) -> dict:
     elif action == "shutdown":
         return _shutdown(agent, args)
     else:
-        return {"error": f"Unknown status action: {action}"}
+        return {"status": "error", "message": f"Unknown status action: {action}"}
 
 
 def _shutdown(agent, args: dict) -> dict:

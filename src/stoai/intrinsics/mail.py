@@ -58,7 +58,7 @@ def handle(agent, args: dict) -> dict:
     elif action == "read":
         return _read(agent, args)
     else:
-        return {"error": f"Unknown mail action: {action}"}
+        return {"status": "error", "message": f"Unknown mail action: {action}"}
 
 
 def _send(agent, args: dict) -> dict:
@@ -68,12 +68,12 @@ def _send(agent, args: dict) -> dict:
     mail_type = args.get("type", "normal")
 
     if mail_type != "normal" and not agent._admin:
-        return {"error": f"Not authorized to send type={mail_type!r} mail (requires admin=True)"}
+        return {"status": "error", "message": f"Not authorized to send type={mail_type!r} mail (requires admin=True)"}
 
     if not address:
-        return {"error": "address is required"}
+        return {"status": "error", "message": "address is required"}
     if agent._mail_service is None:
-        return {"error": "mail service not configured"}
+        return {"status": "error", "message": "mail service not configured"}
 
     payload = {
         "from": agent._mail_service.address or agent.agent_id,
@@ -90,7 +90,7 @@ def _send(agent, args: dict) -> dict:
             if not path.is_absolute():
                 path = agent._working_dir / path
             if not path.is_file():
-                return {"error": f"Attachment not found: {path}"}
+                return {"status": "error", "message": f"Attachment not found: {path}"}
             resolved.append(str(path))
         payload["attachments"] = resolved
     err = agent._mail_service.send(address, payload)

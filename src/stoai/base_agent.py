@@ -467,6 +467,7 @@ class BaseAgent:
                 msg = self.inbox.get(timeout=self._inbox_timeout)
             except queue.Empty:
                 continue
+            msg = self._collapse_email_notifications(msg)
             self._set_state(AgentState.ACTIVE, reason=f"received {msg.type}")
             try:
                 self._handle_message(msg)
@@ -487,6 +488,56 @@ class BaseAgent:
             finally:
                 self._persist_chat_history()
                 self._set_state(AgentState.SLEEPING, reason="all done")
+
+    def _collapse_email_notifications(self, msg: Message) -> Message:
+        """Collapse consecutive email notification messages into one.
+
+        If *msg* is an email notification, drain any additional email
+        notifications already queued and merge them into a single message.
+        Non-email messages found in the queue are put back.
+        """
+        if msg._email_notification is None:
+            return msg
+
+        # Collect all email notifications that are already queued
+        notifications = [msg._email_notification]
+        requeue: list[Message] = []
+
+        while True:
+            try:
+                queued = self.inbox.get_nowait()
+            except queue.Empty:
+                break
+            if queued._email_notification is not None:
+                notifications.append(queued._email_notification)
+            else:
+                requeue.append(queued)
+
+        # Put non-email messages back (preserving order)
+        for m in requeue:
+            self.inbox.put(m)
+
+        if len(notifications) == 1:
+            # Only the original — return as-is
+            return msg
+
+        # Build a merged notification
+        lines = [f"[{len(notifications)} new emails arrived]", ""]
+        for i, n in enumerate(notifications, 1):
+            lines.append(
+                f'{i}. From {n["sender"]} — Subject: {n["subject"]}\n'
+                f'   Preview: {n["preview"]}...\n'
+                f'   ID: {n["email_id"]}'
+            )
+        lines.append("")
+        lines.append(
+            'Use email(action="check") to see your inbox, or '
+            'email(action="read", email_id="...") to read a specific email.'
+        )
+        merged_content = "\n".join(lines)
+        merged = _make_message(MSG_REQUEST, "system", merged_content)
+        self._log("email_notifications_collapsed", count=len(notifications))
+        return merged
 
     # ------------------------------------------------------------------
     # Message handling

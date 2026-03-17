@@ -42,7 +42,7 @@ def handle(agent, args: dict) -> dict:
     action = args.get("action", "")
     obj = args.get("object", "")
     if obj != "memory":
-        return {"error": f"Unknown object: {obj!r}. Must be 'memory'."}
+        return {"status": "error", "message": f"Unknown object: {obj!r}. Must be 'memory'."}
 
     system_dir = agent._working_dir / "system"
     system_dir.mkdir(exist_ok=True)
@@ -55,7 +55,7 @@ def handle(agent, args: dict) -> dict:
     elif action == "load":
         return _load(agent, file_path, "memory")
     else:
-        return {"error": f"Unknown action: {action!r}. Must be 'diff' or 'load'."}
+        return {"status": "error", "message": f"Unknown action: {action!r}. Must be 'diff' or 'load'."}
 
 
 def _diff(agent, file_path, obj: str) -> dict:

@@ -117,7 +117,10 @@ class ToolExecutor:
                 stamp_tool_result(result, timer.elapsed_ms)
 
             status = result.get("status", "success") if isinstance(result, dict) else "success"
-            self._log("tool_result", tool_name=tc.name, status=status, elapsed_ms=timer.elapsed_ms)
+            log_fields: dict[str, Any] = {"tool_name": tc.name, "status": status, "elapsed_ms": timer.elapsed_ms}
+            if status == "error" and isinstance(result, dict):
+                log_fields["message"] = result.get("message", "unknown error")
+            self._log("tool_result", **log_fields)
 
             if verdict.warning and isinstance(result, dict):
                 result["_duplicate_warning"] = verdict.warning
@@ -214,6 +217,7 @@ class ToolExecutor:
         errors_map: dict[int, str] = {}
 
         def _run_one(index: int, tc: ToolCall, args: dict):
+            self._log("tool_call", tool_name=tc.name, tool_args=args)
             timer = ToolTimer()
             with timer:
                 result = self._dispatch_fn(
@@ -221,6 +225,11 @@ class ToolExecutor:
                 )
             if isinstance(result, dict):
                 stamp_tool_result(result, timer.elapsed_ms)
+            status = result.get("status", "success") if isinstance(result, dict) else "success"
+            log_fields: dict[str, Any] = {"tool_name": tc.name, "status": status, "elapsed_ms": timer.elapsed_ms}
+            if status == "error" and isinstance(result, dict):
+                log_fields["message"] = result.get("message", "unknown error")
+            self._log("tool_result", **log_fields)
             return index, result
 
         pool = ThreadPoolExecutor(max_workers=len(to_execute))
@@ -239,6 +248,8 @@ class ToolExecutor:
                 except Exception as e:
                     idx = futures[future]
                     errors_map[idx] = str(e)
+                    tc_name = next((tc.name for i, tc, _ in to_execute if i == idx), "unknown")
+                    self._log("error", source=tc_name, message=str(e))
         except TimeoutError:
             for future, idx in futures.items():
                 if idx not in results_map and idx not in errors_map:

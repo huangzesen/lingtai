@@ -35,6 +35,7 @@ class Message:
     timestamp: float = field(default_factory=time.monotonic)
     _reply_event: threading.Event | None = field(default=None, repr=False)
     _reply_value: Any = field(default=None, repr=False)
+    _email_notification: dict | None = field(default=None, repr=False)
 
 
 def _make_message(

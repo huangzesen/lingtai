@@ -280,6 +280,7 @@ setInterval(poll, 1500);
 class ChatHandler(http.server.BaseHTTPRequestHandler):
     agents: dict[str, Agent] = {}
     agent_ports: dict[str, int] = {}
+    base_dir: Path = Path(".")
 
     def do_GET(self):
         if self.path == "/inbox":
@@ -294,7 +295,7 @@ class ChatHandler(http.server.BaseHTTPRequestHandler):
             # base_dir / agent_id / logs / events.jsonl
             agent_ids = {"a": "alice", "b": "bob"}
             for key, agent_id in agent_ids.items():
-                log_file = base_dir / agent_id / "logs" / "events.jsonl"
+                log_file = ChatHandler.base_dir / agent_id / "logs" / "events.jsonl"
                 entries = []
                 if log_file.exists():
                     with open(log_file, "r") as f:
@@ -382,43 +383,16 @@ class ChatHandler(http.server.BaseHTTPRequestHandler):
 # ---------------------------------------------------------------------------
 
 def make_covenant(name: str, address: str, contacts: dict[str, str]) -> str:
-    """Build a structured covenant for an agent."""
+    """Build a structured covenant for an agent from a template file."""
+    template_path = Path(__file__).parent.parent / "prompt" / "covenant" / "covenant.example.md"
+    if not template_path.exists():
+        # Fallback to a minimal version if template is missing
+        contact_lines = "\n".join(f"- {n}: {a}" for n, a in contacts.items())
+        return f"### Identity\nName: {name}\nAddress: {address}\n\n### Contacts\n{contact_lines}"
+
+    template = template_path.read_text()
     contact_lines = "\n".join(f"- {n}: {a}" for n, a in contacts.items())
-    return (
-        f"### Identity\n"
-        f"Name: {name}\n"
-        f"Address: {address}\n"
-        f"\n"
-        f"### Communication\n"
-        f"- All communication — including with the user — is done via email.\n"
-        f"- Addresses are ip:port format.\n"
-        f"- Your text responses are your private diary — no one sees them.\n"
-        f"- Email history is your long-term memory.\n"
-        f"- Always report results back to whoever asked. Don't just do work silently.\n"
-        f"- When emailing a peer, give enough context. Don't send one-word emails.\n"
-        f"\n"
-        f"### Communication Resilience\n"
-        f"- If you don't hear back after sending an email, wait up to 1 minute, then retry.\n"
-        f"- Don't passively wait — silence may mean the email system is buggy, not that the recipient is ignoring you.\n"
-        f"- If retries fail, try alternative approaches (different tool, do it yourself, etc.).\n"
-        f"\n"
-        f"### Working Directory\n"
-        f"- Work under your working directory. Save everything there.\n"
-        f"- Feel free to create a temp/ folder for scratch files.\n"
-        f"\n"
-        f"### Context Management\n"
-        f"- Be aware of your context window. Compact proactively when approaching 300k tokens.\n"
-        f"- Your email inbox is part of your long-term memory — important context survives compaction there.\n"
-        f"- Before compacting, save key findings and state to files or memory so nothing is lost.\n"
-        f"\n"
-        f"### Autonomy\n"
-        f"- Be self-sufficient. Try things, fail, adjust. Don't ask for permission when you can figure it out.\n"
-        f"- If a tool fails, try alternatives. Don't give up after one attempt.\n"
-        f"- Be creative with your tools. Be proactive and helpful to peers.\n"
-        f"\n"
-        f"### Contacts\n"
-        f"{contact_lines}"
-    )
+    return template.format(name=name, address=address, contact_lines=contact_lines)
 
 
 def main():
@@ -485,6 +459,7 @@ def main():
 
     ChatHandler.agents = {"a": agent_a, "b": agent_b}
     ChatHandler.agent_ports = {"a": 8301, "b": 8302}
+    ChatHandler.base_dir = base_dir
 
     print(f"User mailbox:    127.0.0.1:{USER_PORT}")
     print("Agent A (Alice): 127.0.0.1:8301")

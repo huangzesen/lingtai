@@ -154,14 +154,15 @@ class BashManager:
     def handle(self, args: dict) -> dict:
         command = args.get("command", "")
         if not command.strip():
-            return {"error": "command is required"}
+            return {"status": "error", "message": "command is required"}
 
         # Check policy
         if not self._policy.is_allowed(command):
             denied = BashPolicy._extract_commands(command)
             return {
-                "error": f"Command not allowed by policy. "
-                f"Denied command(s): {', '.join(denied)}"
+                "status": "error",
+                "message": f"Command not allowed by policy. "
+                f"Denied command(s): {', '.join(denied)}",
             }
 
         timeout = args.get("timeout", 30)
@@ -190,9 +191,9 @@ class BashManager:
                 "stderr": stderr,
             }
         except subprocess.TimeoutExpired:
-            return {"error": f"Command timed out after {timeout}s"}
+            return {"status": "error", "message": f"Command timed out after {timeout}s"}
         except Exception as e:
-            return {"error": f"Command failed: {e}"}
+            return {"status": "error", "message": f"Command failed: {e}"}
 
 
 def setup(

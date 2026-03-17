@@ -199,7 +199,7 @@ class EmailManager:
             "from": e.get("from", ""),
             "to": e.get("to", []),
             "subject": e.get("subject", "(no subject)"),
-            "preview": e.get("message", "")[:100],
+            "preview": e.get("message", "")[:200],
             "time": e.get("received_at") or e.get("sent_at") or e.get("time") or "",
             "folder": e.get("_folder", ""),
         }
@@ -522,7 +522,7 @@ class EmailManager:
         message = payload.get("message", "")
 
         # Send notification to agent inbox (not the full content)
-        preview = message[:80].replace("\n", " ")
+        preview = message[:200].replace("\n", " ")
         notification = (
             f'[New email from {sender}]\n'
             f'  Subject: {subject}\n'
@@ -535,6 +535,12 @@ class EmailManager:
         from ..message import _make_message, MSG_REQUEST
         self._agent._log("email_received", sender=sender, to=to, cc=cc, subject=subject, message=message)
         msg = _make_message(MSG_REQUEST, sender, notification)
+        msg._email_notification = {
+            "email_id": email_id,
+            "sender": sender,
+            "subject": subject,
+            "preview": preview,
+        }
         self._agent.inbox.put(msg)
 
 

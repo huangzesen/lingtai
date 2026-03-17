@@ -105,13 +105,13 @@ class TestBashManager:
     def test_empty_command(self):
         mgr = BashManager(policy=BashPolicy.yolo(), working_dir="/tmp")
         result = mgr.handle({"command": ""})
-        assert "error" in result
+        assert result["status"] == "error"
 
     def test_timeout(self):
         mgr = BashManager(policy=BashPolicy.yolo(), working_dir="/tmp")
         result = mgr.handle({"command": "sleep 10", "timeout": 0.5})
-        assert "error" in result
-        assert "timed out" in result["error"]
+        assert result["status"] == "error"
+        assert "timed out" in result["message"]
 
     def test_policy_denies(self, tmp_path):
         policy_file = tmp_path / "policy.json"
@@ -119,8 +119,8 @@ class TestBashManager:
         policy = BashPolicy.from_file(str(policy_file))
         mgr = BashManager(policy=policy, working_dir="/tmp")
         result = mgr.handle({"command": "rm -rf /"})
-        assert "error" in result
-        assert "not allowed" in result["error"]
+        assert result["status"] == "error"
+        assert "not allowed" in result["message"]
 
     def test_policy_allows(self, tmp_path):
         policy_file = tmp_path / "policy.json"

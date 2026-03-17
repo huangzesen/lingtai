@@ -33,7 +33,7 @@ def setup(agent: "BaseAgent") -> None:
     def handle_read(args: dict) -> dict:
         path = args.get("file_path", "")
         if not path:
-            return {"error": "file_path is required"}
+            return {"status": "error", "message": "file_path is required"}
         if not Path(path).is_absolute():
             path = str(agent._working_dir / path)
         offset = args.get("offset", 1)
@@ -41,9 +41,9 @@ def setup(agent: "BaseAgent") -> None:
         try:
             content = agent._file_io.read(path)
         except FileNotFoundError:
-            return {"error": f"File not found: {path}"}
+            return {"status": "error", "message": f"File not found: {path}"}
         except Exception as e:
-            return {"error": f"Cannot read {path}: {e}"}
+            return {"status": "error", "message": f"Cannot read {path}: {e}"}
         lines = content.splitlines(keepends=True)
         start = max(0, offset - 1)
         selected = lines[start:start + limit]
