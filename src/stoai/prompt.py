@@ -6,6 +6,7 @@ from .intrinsics.manage_system_prompt import SystemPromptManager
 BASE_PROMPT = """\
 # System Prompt
 
+Your text responses are your private diary — not visible to anyone. Use tools to take action and communicate.
 Read your tool schemas carefully for capabilities, caveats and pipelines."""
 
 
