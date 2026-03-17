@@ -38,21 +38,21 @@ def test_start_creates_gitignore(tmp_path):
         content = gitignore.read_text()
         assert "*" in content
         assert "!.gitignore" in content
-        assert "!ltm/" in content
-        assert "!ltm/**" in content
+        assert "!system/" in content
+        assert "!system/**" in content
     finally:
         agent.stop()
 
 
-def test_start_creates_ltm_dir(tmp_path):
-    """agent.start() should create ltm/ directory and ltm.md."""
+def test_start_creates_system_dir(tmp_path):
+    """agent.start() should create system/ directory with role.md and ltm.md."""
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
     agent.start()
     try:
-        ltm_dir = agent.working_dir / "ltm"
-        assert ltm_dir.is_dir()
-        ltm_file = ltm_dir / "ltm.md"
-        assert ltm_file.is_file()
+        system_dir = agent.working_dir / "system"
+        assert system_dir.is_dir()
+        assert (system_dir / "role.md").is_file()
+        assert (system_dir / "ltm.md").is_file()
     finally:
         agent.stop()
 

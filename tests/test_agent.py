@@ -55,7 +55,7 @@ def test_intrinsics_enabled_by_default(tmp_path):
     assert "web_search" not in agent._intrinsics  # web_search is now a capability
     assert "clock" in agent._intrinsics
     assert "status" in agent._intrinsics
-    assert len(agent._intrinsics) == 9  # read, edit, write, glob, grep, mail, clock, status, memory
+    assert len(agent._intrinsics) == 9  # read, edit, write, glob, grep, mail, clock, status, system
 
 
 def test_disabled_intrinsics(tmp_path):
@@ -565,7 +565,7 @@ def test_agent_stop_persists_ltm(tmp_path):
     )
     agent._prompt_manager.write_section("ltm", "updated knowledge")
     agent.stop()
-    ltm_file = tmp_path / "alice" / "ltm" / "ltm.md"
+    ltm_file = tmp_path / "alice" / "system" / "ltm.md"
     assert ltm_file.is_file()
     assert ltm_file.read_text() == "updated knowledge"
 
