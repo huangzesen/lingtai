@@ -62,15 +62,15 @@ def test_git_init_skips_if_already_initialized(tmp_path):
 
 def test_read_manifest_returns_empty_when_missing(tmp_path):
     wd = WorkingDir(base_dir=tmp_path, agent_id="alice")
-    assert wd.read_manifest() == ("", "")
+    assert wd.read_manifest() == ""
 
 
 def test_write_and_read_manifest(tmp_path):
     wd = WorkingDir(base_dir=tmp_path, agent_id="alice")
-    manifest = {"agent_id": "alice", "role": "researcher", "started_at": "2026-01-01T00:00:00Z"}
+    manifest = {"agent_id": "alice", "covenant": "researcher", "started_at": "2026-01-01T00:00:00Z"}
     wd.write_manifest(manifest)
-    role, ltm = wd.read_manifest()
-    assert role == "researcher"
+    covenant = wd.read_manifest()
+    assert covenant == "researcher"
 
 
 def test_diff_and_commit(tmp_path):

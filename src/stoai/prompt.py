@@ -41,17 +41,21 @@ class SystemPromptManager:
         ]
 
     def render(self) -> str:
-        """Render all sections into a single system prompt string."""
-        parts = []
+        """Render all sections into a single system prompt string.
+
+        Ordering: capability:* sections first, then everything else.
+        """
+        caps = []
+        rest = []
         for name, entry in self._sections.items():
-            parts.append(f"## {name}\n{entry['content']}")
-        return "\n\n".join(parts)
+            bucket = caps if name.startswith("capability:") else rest
+            bucket.append(f"## {name}\n{entry['content']}")
+        return "\n\n".join(caps + rest)
 
 
 BASE_PROMPT = """\
 # System Prompt
 
-Your text responses are your private diary — not visible to anyone. All external communication and actions are done through tools.
 Read your tool schemas carefully for capabilities, caveats and pipelines.
 Your working directory is your identity — all your state, memory, and files live there.
 Your memory section below may be updated mid-session.

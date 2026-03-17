@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..base_agent import BaseAgent
 
+_DEFAULT_POLICY_FILE = Path(__file__).parent / "bash_policy.json"
+
 SCHEMA = {
     "type": "object",
     "properties": {
@@ -216,10 +218,7 @@ def setup(
     elif resolved_policy_file is not None:
         policy = BashPolicy.from_file(resolved_policy_file)
     else:
-        raise ValueError(
-            "bash capability requires policy_file='path/to/policy.json', "
-            "config.bash_policy_file, or yolo=True"
-        )
+        policy = BashPolicy.from_file(str(_DEFAULT_POLICY_FILE))
 
     mgr = BashManager(
         policy=policy,

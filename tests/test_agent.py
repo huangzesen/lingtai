@@ -441,7 +441,7 @@ def test_agent_lock_released_on_stop(tmp_path):
 def test_agent_resume_reads_covenant_memory(tmp_path):
     agent = BaseAgent(
         agent_id="alice", service=make_mock_service(), base_dir=tmp_path,
-        role="researcher", ltm="knows python",
+        covenant="researcher", memory="knows python",
     )
     agent.stop()
     agent2 = BaseAgent(agent_id="alice", service=make_mock_service(), base_dir=tmp_path)
@@ -452,12 +452,12 @@ def test_agent_resume_reads_covenant_memory(tmp_path):
 def test_agent_resume_explicit_overrides_manifest(tmp_path):
     agent = BaseAgent(
         agent_id="alice", service=make_mock_service(), base_dir=tmp_path,
-        role="old role", ltm="old ltm",
+        covenant="old role", memory="old ltm",
     )
     agent.stop()
     agent2 = BaseAgent(
         agent_id="alice", service=make_mock_service(), base_dir=tmp_path,
-        role="new role",
+        covenant="new role",
     )
     assert agent2._prompt_manager.read_section("covenant") == "new role"
     assert agent2._prompt_manager.read_section("memory") == "old ltm"
@@ -465,7 +465,7 @@ def test_agent_resume_explicit_overrides_manifest(tmp_path):
 
 def test_agent_stop_persists_memory(tmp_path):
     agent = BaseAgent(
-        agent_id="alice", service=make_mock_service(), base_dir=tmp_path, ltm="initial",
+        agent_id="alice", service=make_mock_service(), base_dir=tmp_path, memory="initial",
     )
     agent._prompt_manager.write_section("memory", "updated knowledge")
     agent.stop()

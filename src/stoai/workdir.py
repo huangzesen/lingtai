@@ -209,20 +209,21 @@ class WorkingDir:
 
     # --- Manifest ---
 
-    def read_manifest(self) -> tuple[str, str]:
+    def read_manifest(self) -> str:
+        """Read the covenant from the manifest file. Returns empty string if missing."""
         path = self._path / _MANIFEST_FILE
         if not path.is_file():
-            return "", ""
+            return ""
         try:
             data = json.loads(path.read_text())
-            return data.get("role", ""), data.get("ltm", "")
+            return data.get("covenant", "")
         except (json.JSONDecodeError, OSError):
             corrupt = self._path / ".agent.json.corrupt"
             try:
                 path.rename(corrupt)
             except OSError:
                 pass
-            return "", ""
+            return ""
 
     def write_manifest(self, manifest: dict) -> None:
         target = self._path / _MANIFEST_FILE

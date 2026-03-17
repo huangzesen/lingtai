@@ -86,8 +86,8 @@ class BaseAgent:
         admin: bool = False,
         streaming: bool = False,
         logging_service: Any | None = None,
-        role: str = "",
-        ltm: str = "",
+        covenant: str = "",
+        memory: str = "",
     ):
         self.agent_id = agent_id
         self.service = service
@@ -132,29 +132,25 @@ class BaseAgent:
         # Set by anima capability to prevent stop() from overwriting anima-managed memory.md
         self._anima_owns_memory = False
 
-        # Read manifest for resume (before prompt manager, so role can be restored)
-        manifest_role, manifest_ltm = self._workdir.read_manifest()
-        if not role and manifest_role:
-            role = manifest_role
+        # Read manifest for resume (before prompt manager, so covenant can be restored)
+        manifest_covenant = self._workdir.read_manifest()
+        if not covenant and manifest_covenant:
+            covenant = manifest_covenant
 
-        # LTM and role file paths — renamed to covenant/memory
+        # Covenant and memory file paths
         system_dir = self._working_dir / "system"
         memory_file = system_dir / "memory.md"
         covenant_file = system_dir / "covenant.md"
 
-        # If constructor ltm is provided and memory file doesn't exist, write it
-        if ltm and not memory_file.is_file():
+        # If constructor memory is provided and memory file doesn't exist, write it
+        if memory and not memory_file.is_file():
             system_dir.mkdir(exist_ok=True)
-            memory_file.write_text(ltm)
-        # If manifest has ltm and file doesn't exist, migrate
-        elif manifest_ltm and not memory_file.is_file():
-            system_dir.mkdir(exist_ok=True)
-            memory_file.write_text(manifest_ltm)
+            memory_file.write_text(memory)
 
-        # If constructor role is provided and covenant file doesn't exist, write it
-        if role and not covenant_file.is_file():
+        # If constructor covenant is provided and covenant file doesn't exist, write it
+        if covenant and not covenant_file.is_file():
             system_dir.mkdir(exist_ok=True)
-            covenant_file.write_text(role)
+            covenant_file.write_text(covenant)
 
         # Auto-load memory from file into prompt manager
         loaded_memory = ""
@@ -163,8 +159,8 @@ class BaseAgent:
 
         # System prompt manager
         self._prompt_manager = SystemPromptManager()
-        if role:
-            self._prompt_manager.write_section("covenant", role, protected=True)
+        if covenant:
+            self._prompt_manager.write_section("covenant", covenant, protected=True)
         if loaded_memory.strip():
             self._prompt_manager.write_section("memory", loaded_memory)
 
@@ -173,7 +169,7 @@ class BaseAgent:
         manifest_data = {
             "agent_id": self.agent_id,
             "started_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "role": self._prompt_manager.read_section("covenant") or "",
+            "covenant": self._prompt_manager.read_section("covenant") or "",
         }
         if self._mail_service is not None and self._mail_service.address:
             manifest_data["address"] = self._mail_service.address
@@ -306,6 +302,28 @@ class BaseAgent:
         self._started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         self._uptime_anchor = time.monotonic()
 
+        # Export assembled system prompt to system/system.md
+        system_dir = self._working_dir / "system"
+        system_dir.mkdir(exist_ok=True)
+        (system_dir / "system.md").write_text(self._build_system_prompt())
+
+        # Restore chat session and token state from filesystem if available
+        chat_history_file = system_dir / "chat_history.json"
+        if chat_history_file.is_file():
+            try:
+                state = json.loads(chat_history_file.read_text())
+                self.restore_chat(state)
+                self._log("session_restored")
+            except Exception as e:
+                logger.warning(f"[{self.agent_id}] Failed to restore chat history: {e}")
+        status_file = system_dir / "status.json"
+        if status_file.is_file():
+            try:
+                status_state = json.loads(status_file.read_text())
+                self.restore_token_state(status_state.get("tokens", {}))
+            except Exception as e:
+                logger.warning(f"[{self.agent_id}] Failed to restore token state: {e}")
+
         # Start MailService listener if configured
         if self._mail_service is not None:
             try:
@@ -355,7 +373,7 @@ class BaseAgent:
         manifest_data = {
             "agent_id": self.agent_id,
             "started_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "role": self._prompt_manager.read_section("covenant") or "",
+            "covenant": self._prompt_manager.read_section("covenant") or "",
         }
         if self._mail_service is not None and self._mail_service.address:
             manifest_data["address"] = self._mail_service.address
@@ -471,6 +489,7 @@ class BaseAgent:
                     }
                     msg._reply_event.set()
             finally:
+                self._persist_chat_history()
                 self._set_state(AgentState.SLEEPING, reason="all done")
 
     # ------------------------------------------------------------------
@@ -795,9 +814,13 @@ class BaseAgent:
         """
         self._prompt_manager.write_section(section, content, protected=protected)
         self._token_decomp_dirty = True
-        # Update the live session's system prompt if one exists
+        # Export updated system prompt to file and update live session
+        prompt = self._build_system_prompt()
+        system_md = self._working_dir / "system" / "system.md"
+        system_md.parent.mkdir(exist_ok=True)
+        system_md.write_text(prompt)
         if self._chat is not None:
-            self._chat.update_system_prompt(self._build_system_prompt())
+            self._chat.update_system_prompt(prompt)
 
     def send(
         self,
@@ -850,6 +873,25 @@ class BaseAgent:
     def restore_token_state(self, state: dict) -> None:
         """Restore cumulative token counters from a saved session."""
         self._session.restore_token_state(state)
+
+    def _persist_chat_history(self) -> None:
+        """Save chat history and status to system/ and git-commit."""
+        system_dir = self._working_dir / "system"
+        try:
+            # Chat history
+            state = self.get_chat_state()
+            if state:
+                (system_dir / "chat_history.json").write_text(
+                    json.dumps(state, ensure_ascii=False)
+                )
+            # Status (tokens, state, uptime)
+            (system_dir / "status.json").write_text(
+                json.dumps(self.status(), ensure_ascii=False, indent=2)
+            )
+            self._workdir.diff_and_commit("system/chat_history.json", "chat_history")
+            self._workdir.diff_and_commit("system/status.json", "status")
+        except Exception as e:
+            logger.warning(f"[{self.agent_id}] Failed to persist session state: {e}")
 
     # ------------------------------------------------------------------
     # Status / introspection

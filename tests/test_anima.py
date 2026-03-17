@@ -51,7 +51,7 @@ def test_anima_manager_accessible(tmp_path):
 def test_role_update_writes_character(tmp_path):
     agent = Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
-        role="You are helpful",
+        covenant="You are helpful",
         capabilities=["anima"],
     )
     mgr = agent.get_capability("anima")
@@ -94,7 +94,7 @@ def test_role_diff(tmp_path):
 def test_role_load_combines_covenant_and_character(tmp_path):
     agent = Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
-        role="You are helpful",
+        covenant="You are helpful",
         capabilities=["anima"],
     )
     agent.start()
@@ -445,7 +445,7 @@ def test_anima_migrates_ltm_to_library(tmp_path):
     """If ltm is provided, anima should migrate it to a library entry."""
     agent = Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
-        ltm="I know about CDF format",
+        memory="I know about CDF format",
         capabilities=["anima"],
     )
     mgr = agent.get_capability("anima")

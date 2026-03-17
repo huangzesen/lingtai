@@ -1,14 +1,14 @@
 """Delegate capability — spawn a new agent on a free TCP port.
 
 Creates a new Agent with capabilities from the parent agent.
-Optionally overrides the role and/or long-term memory (system prompt sections).
+Optionally overrides the covenant and/or memory (system prompt sections).
 Returns the new agent's mail address so the parent can communicate with it.
 The reasoning field is sent as the first message (mission briefing) to the
 spawned agent.
 
 Usage:
     Agent(capabilities=["delegate"])
-    # Then the LLM can call: delegate(role="researcher", ltm="focus on X")
+    # Then the LLM can call: delegate(covenant="researcher", memory="focus on X")
 """
 from __future__ import annotations
 
@@ -21,13 +21,13 @@ if TYPE_CHECKING:
 SCHEMA = {
     "type": "object",
     "properties": {
-        "role": {
+        "covenant": {
             "type": "string",
-            "description": "Role/system prompt override for the new agent (optional, default = copy parent)",
+            "description": "Covenant override for the new agent (optional, default = copy parent)",
         },
-        "ltm": {
+        "memory": {
             "type": "string",
-            "description": "Long-term memory / context to inject (optional)",
+            "description": "Memory / context to inject (optional)",
         },
         "capabilities": {
             "type": "array",
@@ -42,7 +42,7 @@ DESCRIPTION = (
     "Returns the new agent's mail address. "
     "Each spawned agent runs on its own TCP port with its own conversation. "
     "Use mail or email to communicate with spawned agents. "
-    "Optionally override role, inject long-term memory, or select capabilities. "
+    "Optionally override covenant, inject memory, or select capabilities. "
     "IMPORTANT: The reasoning field for this tool is sent as the first message "
     "to the spawned agent — write a thorough mission briefing: what to do, why, "
     "what context is needed, and what to report back."
@@ -69,9 +69,9 @@ class DelegateManager:
         port = self._get_free_port()
         child_id = f"{parent.agent_id}_delegate_{port}"
 
-        # Resolve role — override or copy parent
-        role = args.get("role") or parent._prompt_manager.read_section("covenant") or ""
-        ltm = args.get("ltm") or parent._prompt_manager.read_section("memory") or ""
+        # Resolve covenant — override or copy parent
+        covenant = args.get("covenant") or parent._prompt_manager.read_section("covenant") or ""
+        memory = args.get("memory") or parent._prompt_manager.read_section("memory") or ""
 
         # Build capabilities dict from parent (excluding delegate to prevent recursion)
         requested = args.get("capabilities")
@@ -95,8 +95,8 @@ class DelegateManager:
             config=parent._config,
             base_dir=parent._base_dir,
             streaming=parent._streaming,
-            role=role,
-            ltm=ltm,
+            covenant=covenant,
+            memory=memory,
             capabilities=caps,
         )
         delegate.start()

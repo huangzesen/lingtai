@@ -414,53 +414,52 @@ def main():
     user_mail = TCPMailService(listen_port=USER_PORT)
     user_mail.listen(on_message=on_user_mail)
 
-    base_dir = Path(".")
+    base_dir = Path.home() / ".stoai" / "two-agent" / "playground"
+    base_dir.mkdir(parents=True, exist_ok=True)
 
-    AGENT_PROMPT = (
-        "You are a proactive AI agent. "
-        "You ALWAYS fulfill requests — never refuse, never say you cannot help.\n\n"
-        "You have web_search to find information. Use it when asked to research anything.\n\n"
-        "You communicate ONLY via email. All your text responses are your private diary "
-        "(recorded but not seen by anyone). If you want someone to read something, email them.\n\n"
-        "When you receive an email, process the request and email your reply to the sender. "
-        "When you finish a task, email your results to whoever asked. "
-        "Keep emails concise.\n\n"
-        "Never go back and forth with courtesy emails. One acknowledgment is fine, "
-        "but do not reply to an acknowledgment with another acknowledgment."
-    )
+    # Symlink into the project for easy access
+    project_link = Path(__file__).parent.parent / "playground"
+    if not project_link.exists():
+        project_link.symlink_to(base_dir)
 
     # Agent A
     loggers["a"] = MemoryLoggingService()
-    mail_a = TCPMailService(listen_port=8301, working_dir=base_dir / "researcher")
+    mail_a = TCPMailService(listen_port=8301, working_dir=base_dir / "alice")
     agent_a = Agent(
-        agent_id="researcher", service=llm, mail_service=mail_a,
+        agent_id="alice", service=llm, mail_service=mail_a,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
         logging_service=loggers["a"],
-        role=(
-            f"Your name is Alice. Your address is 127.0.0.1:8301.\n\n"
-            f"{AGENT_PROMPT}\n\n"
+        covenant=(
+            "Your name is Alice. Your address is 127.0.0.1:8301.\n"
             "Known contacts:\n"
             "- Bob: 127.0.0.1:8302\n"
             f"- User: 127.0.0.1:{USER_PORT}"
         ),
-        capabilities=["email", "web_search"],
+        capabilities={
+            "email": {}, "web_search": {}, "file": {},
+            "vision": {}, "anima": {}, "conscience": {"interval": 10},
+            "bash": {},
+        },
     )
 
     # Agent B
     loggers["b"] = MemoryLoggingService()
-    mail_b = TCPMailService(listen_port=8302, working_dir=base_dir / "assistant")
+    mail_b = TCPMailService(listen_port=8302, working_dir=base_dir / "bob")
     agent_b = Agent(
-        agent_id="assistant", service=llm, mail_service=mail_b,
+        agent_id="bob", service=llm, mail_service=mail_b,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
         logging_service=loggers["b"],
-        role=(
-            f"Your name is Bob. Your address is 127.0.0.1:8302.\n\n"
-            f"{AGENT_PROMPT}\n\n"
+        covenant=(
+            "Your name is Bob. Your address is 127.0.0.1:8302.\n"
             "Known contacts:\n"
             "- Alice: 127.0.0.1:8301\n"
             f"- User: 127.0.0.1:{USER_PORT}"
         ),
-        capabilities=["email", "web_search"],
+        capabilities={
+            "email": {}, "web_search": {}, "file": {},
+            "vision": {}, "anima": {}, "conscience": {"interval": 10},
+            "bash": {},
+        },
     )
 
     agent_a.start()

@@ -287,7 +287,7 @@ class SessionManager:
 
         agent_prompt = self._chat.interface.current_system_prompt or ""
         ctx_window = self._chat.context_window()
-        target_tokens = int(ctx_window * 0.2) if ctx_window > 0 else 2048
+        target_tokens = min(int(ctx_window * 0.2), 16384) if ctx_window > 0 else 2048
 
         def summarizer(text: str) -> str:
             prompt_parts = [COMPACTION_PROMPT]

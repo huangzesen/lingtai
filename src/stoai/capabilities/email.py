@@ -91,6 +91,11 @@ SCHEMA = {
     "required": ["action"],
 }
 
+SYSTEM_PROMPT = (
+    "All communication is done via email. "
+    "Your text responses are your private diary — no one else sees them."
+)
+
 DESCRIPTION = (
     "Full email client — filesystem-based mailbox with inbox/sent folders, "
     "reply, reply-all, CC/BCC, attachments, and regex search. "

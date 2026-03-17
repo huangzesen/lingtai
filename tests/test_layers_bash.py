@@ -163,12 +163,13 @@ class TestSetupBash:
         assert isinstance(mgr, BashManager)
         agent.add_tool.assert_called_once()
 
-    def test_setup_requires_policy_or_yolo(self):
+    def test_setup_uses_default_policy_when_none_specified(self):
         agent = MagicMock()
         agent._working_dir = Path("/tmp")
         agent._config.bash_policy_file = None  # no config fallback
-        with pytest.raises(ValueError, match="policy_file"):
-            setup_bash(agent)
+        # Should succeed — falls back to bundled default policy
+        setup_bash(agent)
+        agent.add_tool.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

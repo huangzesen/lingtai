@@ -48,7 +48,7 @@ def test_covenant_constructor_arg_writes_to_system(tmp_path):
     """covenant= constructor arg should write to system/covenant.md."""
     agent = BaseAgent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
-        role="You are a helpful agent",
+        covenant="You are a helpful agent",
     )
     covenant_file = agent.working_dir / "system" / "covenant.md"
     assert covenant_file.is_file()
@@ -57,10 +57,10 @@ def test_covenant_constructor_arg_writes_to_system(tmp_path):
 
 
 def test_memory_constructor_arg_writes_to_system(tmp_path):
-    """ltm= constructor arg should write to system/memory.md."""
+    """memory= constructor arg should write to system/memory.md."""
     agent = BaseAgent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
-        ltm="initial memory",
+        memory="initial memory",
     )
     memory_file = agent.working_dir / "system" / "memory.md"
     assert memory_file.is_file()
@@ -72,7 +72,7 @@ def test_covenant_is_protected_section(tmp_path):
     """Covenant should be a protected prompt section."""
     agent = BaseAgent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
-        role="researcher",
+        covenant="researcher",
     )
     sections = agent._prompt_manager.list_sections()
     covenant_section = [s for s in sections if s["name"] == "covenant"]
@@ -91,7 +91,7 @@ def test_existing_system_files_not_overwritten(tmp_path):
 
     agent = BaseAgent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
-        ltm="constructor ltm",
+        memory="constructor ltm",
     )
     assert (agent.working_dir / "system" / "memory.md").read_text() == "existing content"
     agent.stop(timeout=1.0)
