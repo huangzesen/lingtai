@@ -8,7 +8,7 @@ import pytest
 from stoai.base_agent import BaseAgent
 from stoai.message import Message, _make_message, MSG_REQUEST
 from stoai.state import AgentState
-from stoai.types import MCPTool, UnknownToolError
+from stoai.types import UnknownToolError
 from stoai.config import AgentConfig
 
 

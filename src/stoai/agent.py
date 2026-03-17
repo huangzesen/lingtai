@@ -1,28 +1,25 @@
-"""Agent — BaseAgent + composable capabilities + domain tools.
+"""Agent — BaseAgent + composable capabilities.
 
 Layer 2 of the three-layer hierarchy:
     BaseAgent (kernel) → Agent (capabilities) → CustomAgent (domain)
 
-Capabilities and tools are declared at construction and sealed before start().
+Capabilities are declared at construction and sealed before start().
 """
 from __future__ import annotations
 
 from typing import Any
 
 from .base_agent import BaseAgent
-from .types import MCPTool
 
 
 class Agent(BaseAgent):
-    """BaseAgent with composable capabilities and domain tools.
+    """BaseAgent with composable capabilities.
 
     Args:
         capabilities: Capability names to enable. Either a list of strings
             (no kwargs) or a dict mapping names to kwargs dicts.
             Example: ``["file", "bash"]`` or ``{"bash": {"policy_file": "p.json"}}``.
             Group names (e.g. ``"file"``) expand to individual capabilities.
-        tools: Domain tools (MCP tools) to register. Each tool gets an ``[MCP]``
-            prefix in its LLM-visible description.
         *args, **kwargs: Passed through to BaseAgent.
     """
 
@@ -30,7 +27,6 @@ class Agent(BaseAgent):
         self,
         *args: Any,
         capabilities: list[str] | dict[str, dict] | None = None,
-        tools: list[MCPTool] | None = None,
         **kwargs: Any,
     ):
         super().__init__(*args, **kwargs)
@@ -59,17 +55,6 @@ class Agent(BaseAgent):
         if capabilities:
             for name, cap_kwargs in capabilities.items():
                 self._setup_capability(name, **cap_kwargs)
-
-        # Register domain tools
-        if tools:
-            for tool in tools:
-                self.add_tool(
-                    tool.name,
-                    schema=tool.schema,
-                    handler=tool.handler,
-                    description=tool.description,
-                )
-                self._mcp_tool_names.add(tool.name)
 
     def _setup_capability(self, name: str, **kwargs: Any) -> Any:
         """Load a named capability.
