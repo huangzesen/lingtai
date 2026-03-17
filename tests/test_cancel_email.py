@@ -277,7 +277,7 @@ def test_admin_can_send_cancel_mail(tmp_path):
     )
     mock_mail = MagicMock()
     mock_mail.address = "127.0.0.1:8000"
-    mock_mail.send.return_value = True
+    mock_mail.send.return_value = None
     agent._mail_service = mock_mail
 
     result = agent._intrinsics["mail"]({
@@ -302,7 +302,7 @@ def test_non_admin_can_send_normal_mail(tmp_path):
     )
     mock_mail = MagicMock()
     mock_mail.address = "127.0.0.1:8000"
-    mock_mail.send.return_value = True
+    mock_mail.send.return_value = None
     agent._mail_service = mock_mail
 
     result = agent._intrinsics["mail"]({

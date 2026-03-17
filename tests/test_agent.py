@@ -201,7 +201,7 @@ def test_mail_start_wires_listener(tmp_path):
             f"127.0.0.1:{port}",
             {"from": "sender", "to": f"127.0.0.1:{port}", "message": "wired"},
         )
-        assert result is True
+        assert result is None
         time.sleep(0.5)
         assert agent.inbox.qsize() >= 0
     finally:

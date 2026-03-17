@@ -50,7 +50,7 @@ def test_mail_send_passes_attachments(tmp_path):
 
     mail_svc = MagicMock()
     mail_svc.address = "127.0.0.1:9999"
-    mail_svc.send.return_value = True
+    mail_svc.send.return_value = None
 
     agent = BaseAgent(agent_id="test", service=svc, mail_service=mail_svc, base_dir=tmp_path)
 

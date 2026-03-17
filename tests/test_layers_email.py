@@ -129,7 +129,7 @@ def test_email_check_sent(tmp_path):
                        capabilities=["email"])
     mail_svc = MagicMock()
     mail_svc.address = "me"
-    mail_svc.send.return_value = True
+    mail_svc.send.return_value = None
     agent._mail_service = mail_svc
     mgr = agent.get_capability("email")
     mgr.handle({"action": "send", "address": "someone", "message": "hello", "subject": "test"})
@@ -194,7 +194,7 @@ def test_email_send_saves_to_sent(tmp_path):
                        capabilities=["email"])
     mail_svc = MagicMock()
     mail_svc.address = "me"
-    mail_svc.send.return_value = True
+    mail_svc.send.return_value = None
     agent._mail_service = mail_svc
     mgr = agent.get_capability("email")
     result = mgr.handle({
@@ -216,7 +216,7 @@ def test_email_send_saves_bcc_in_sent(tmp_path):
                        capabilities=["email"])
     mail_svc = MagicMock()
     mail_svc.address = "me"
-    mail_svc.send.return_value = True
+    mail_svc.send.return_value = None
     agent._mail_service = mail_svc
     mgr = agent.get_capability("email")
     mgr.handle({
@@ -234,7 +234,7 @@ def test_email_blocks_identical_consecutive_send(tmp_path):
                        capabilities=["email"])
     mail_svc = MagicMock()
     mail_svc.address = "127.0.0.1:9999"
-    mail_svc.send.return_value = True
+    mail_svc.send.return_value = None
     agent._mail_service = mail_svc
     mgr = agent.get_capability("email")
 
@@ -267,7 +267,7 @@ def test_email_blocks_identical_reply(tmp_path):
                        capabilities=["email"])
     mail_svc = MagicMock()
     mail_svc.address = "127.0.0.1:9999"
-    mail_svc.send.return_value = True
+    mail_svc.send.return_value = None
     agent._mail_service = mail_svc
     mgr = agent.get_capability("email")
 
@@ -290,7 +290,7 @@ def test_email_send_with_attachments(tmp_path):
                        capabilities=["email"])
     mail_svc = MagicMock()
     mail_svc.address = "127.0.0.1:9999"
-    mail_svc.send.return_value = True
+    mail_svc.send.return_value = None
     agent._mail_service = mail_svc
     mgr = agent.get_capability("email")
     result = mgr.handle({
@@ -412,7 +412,7 @@ def test_email_reply(tmp_path):
                        capabilities=["email"])
     mock_svc = MagicMock()
     mock_svc.address = "me"
-    mock_svc.send.return_value = True
+    mock_svc.send.return_value = None
     agent._mail_service = mock_svc
     mgr = agent.get_capability("email")
     eid = _make_inbox_email(agent.working_dir, sender="alice", subject="Original topic", message="Please respond")
@@ -428,7 +428,7 @@ def test_email_reply_no_double_re(tmp_path):
                        capabilities=["email"])
     mock_svc = MagicMock()
     mock_svc.address = "me"
-    mock_svc.send.return_value = True
+    mock_svc.send.return_value = None
     agent._mail_service = mock_svc
     mgr = agent.get_capability("email")
     eid = _make_inbox_email(agent.working_dir, sender="other", subject="Re: Already replied", message="text")
@@ -446,7 +446,7 @@ def test_email_reply_all(tmp_path):
                        capabilities=["email"])
     mock_svc = MagicMock()
     mock_svc.address = "me"
-    mock_svc.send.return_value = True
+    mock_svc.send.return_value = None
     agent._mail_service = mock_svc
     mgr = agent.get_capability("email")
     eid = _make_inbox_email(agent.working_dir, sender="alice", to=["me", "bob"],
@@ -465,7 +465,7 @@ def test_email_reply_all_excludes_self(tmp_path):
                        capabilities=["email"])
     mock_svc = MagicMock()
     mock_svc.address = "me"
-    mock_svc.send.return_value = True
+    mock_svc.send.return_value = None
     agent._mail_service = mock_svc
     mgr = agent.get_capability("email")
     eid = _make_inbox_email(agent.working_dir, sender="alice", to=["me", "alice"],
@@ -518,7 +518,7 @@ def test_email_search_folder_filter(tmp_path):
                        capabilities=["email"])
     mail_svc = MagicMock()
     mail_svc.address = "me"
-    mail_svc.send.return_value = True
+    mail_svc.send.return_value = None
     agent._mail_service = mail_svc
     mgr = agent.get_capability("email")
     _make_inbox_email(agent.working_dir, message="keyword in inbox")

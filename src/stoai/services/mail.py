@@ -30,8 +30,8 @@ class MailService(ABC):
     """
 
     @abstractmethod
-    def send(self, address: str, message: dict) -> bool:
-        """Send a message to an address. Returns True if delivered.
+    def send(self, address: str, message: dict) -> str | None:
+        """Send a message to an address. Returns None on success, error string on failure.
 
         Fire-and-forget — does not wait for a response.
         The address format is transport-specific (e.g. "localhost:8301" for TCP).
@@ -87,13 +87,13 @@ class TCPMailService(MailService):
         self._listener_thread: threading.Thread | None = None
         self._running = False
 
-    def send(self, address: str, message: dict) -> bool:
-        """Send a message to host:port. Returns True on success."""
+    def send(self, address: str, message: dict) -> str | None:
+        """Send a message to host:port. Returns None on success, error string on failure."""
         try:
             host, port_str = address.rsplit(":", 1)
             port = int(port_str)
         except (ValueError, AttributeError):
-            return False
+            return f"Invalid address {address!r} — expected host:port (e.g. 127.0.0.1:8302)"
 
         # Before JSON serialization, encode any file attachments
         if "attachments" in message and message["attachments"]:
@@ -101,7 +101,7 @@ class TCPMailService(MailService):
             for fpath in message["attachments"]:
                 p = Path(fpath)
                 if not p.is_file():
-                    return False
+                    return f"Attachment not found: {fpath}"
                 encoded.append({
                     "filename": p.name,
                     "data": base64.b64encode(p.read_bytes()).decode("ascii"),
@@ -117,9 +117,9 @@ class TCPMailService(MailService):
                 payload = json.dumps(message, ensure_ascii=False).encode("utf-8")
                 # Length-prefix framing: 4-byte big-endian length + payload
                 sock.sendall(struct.pack(">I", len(payload)) + payload)
-                return True
-        except (OSError, ConnectionError, TimeoutError):
-            return False
+                return None
+        except (OSError, ConnectionError, TimeoutError) as e:
+            return f"Cannot reach {address}: {e}"
 
     def listen(self, on_message: Callable[[dict], None]) -> None:
         """Start a TCP server listening for incoming messages."""

@@ -35,7 +35,7 @@ class TestTCPMailService:
                 f"127.0.0.1:{port}",
                 {"from": "127.0.0.1:9999", "to": f"127.0.0.1:{port}", "message": "hello"},
             )
-            assert result is True
+            assert result is None
 
             assert event.wait(timeout=5.0), "Message not received within timeout"
             assert len(received) == 1
@@ -43,17 +43,21 @@ class TestTCPMailService:
         finally:
             listener.stop()
 
-    def test_send_to_nonexistent_returns_false(self):
-        """Sending to a non-listening port should return False."""
+    def test_send_to_nonexistent_returns_error(self):
+        """Sending to a non-listening port should return an error string."""
         sender = TCPMailService()
         result = sender.send("127.0.0.1:1", {"message": "hello"})
-        assert result is False
+        assert isinstance(result, str)
+        assert "Cannot reach" in result
 
-    def test_send_bad_address_returns_false(self):
-        """Bad address format should return False."""
+    def test_send_bad_address_returns_error(self):
+        """Bad address format should return an error string."""
         sender = TCPMailService()
-        assert sender.send("not-an-address", {"message": "hello"}) is False
-        assert sender.send("", {"message": "hello"}) is False
+        result = sender.send("not-an-address", {"message": "hello"})
+        assert isinstance(result, str)
+        assert "Invalid address" in result
+        result = sender.send("", {"message": "hello"})
+        assert isinstance(result, str)
 
     def test_address_property(self):
         """Address should reflect listen config."""
@@ -143,7 +147,7 @@ class TestMailAttachments:
                     "attachments": [str(attachment)],
                 },
             )
-            assert result is True
+            assert result is None
             assert event.wait(timeout=5.0)
             msg = received[0]
             # Receiver should get local file paths, not base64
@@ -182,7 +186,7 @@ class TestMailAttachments:
                 f"127.0.0.1:{port}",
                 {"from": "sender", "to": f"127.0.0.1:{port}", "message": "no attachments"},
             )
-            assert result is True
+            assert result is None
             assert event.wait(timeout=5.0)
             assert received[0]["message"] == "no attachments"
         finally:
@@ -195,7 +199,8 @@ class TestMailAttachments:
             "127.0.0.1:1",
             {"from": "s", "to": "r", "message": "hi", "attachments": ["/nonexistent/file.png"]},
         )
-        assert result is False
+        assert isinstance(result, str)
+        assert "Attachment not found" in result
 
     def test_mailbox_directory_structure(self, tmp_path):
         """Received messages are saved in mailbox/<uuid>/message.json + attachments/."""

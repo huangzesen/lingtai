@@ -93,13 +93,13 @@ def _send(agent, args: dict) -> dict:
                 return {"error": f"Attachment not found: {path}"}
             resolved.append(str(path))
         payload["attachments"] = resolved
-    success = agent._mail_service.send(address, payload)
-    status = "delivered" if success else "refused"
+    err = agent._mail_service.send(address, payload)
+    status = "delivered" if err is None else "refused"
     agent._log("mail_sent", address=address, subject=subject, status=status, message=message_text)
-    if success:
+    if err is None:
         return {"status": "delivered", "to": address}
     else:
-        return {"status": "refused", "error": f"Could not deliver to {address}"}
+        return {"status": "refused", "error": err}
 
 
 def _read(agent, args: dict) -> dict:

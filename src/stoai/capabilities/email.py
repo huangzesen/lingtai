@@ -296,12 +296,14 @@ class EmailManager:
         all_recipients = to_list + cc + bcc
         delivered = []
         refused = []
+        errors = []
         for addr in all_recipients:
-            ok = self._agent._mail_service.send(addr, base_payload)
-            if ok:
+            err = self._agent._mail_service.send(addr, base_payload)
+            if err is None:
                 delivered.append(addr)
             else:
                 refused.append(addr)
+                errors.append(err)
 
         # Save to sent/ (includes bcc for sender's records)
         sent_id = str(uuid4())
@@ -335,7 +337,7 @@ class EmailManager:
         if not refused:
             return {"status": "delivered", "to": to_list, "cc": cc, "bcc": bcc}
         elif not delivered:
-            return {"status": "refused", "error": "Could not deliver to any recipient", "refused": refused}
+            return {"status": "refused", "error": errors[0], "refused": refused}
         else:
             return {"status": "partial", "delivered": delivered, "refused": refused}
 

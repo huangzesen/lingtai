@@ -371,13 +371,13 @@ class ChatHandler(http.server.BaseHTTPRequestHandler):
 
         # Send as email from user to agent
         sender = TCPMailService()
-        ok = sender.send(f"127.0.0.1:{port}", {
+        err = sender.send(f"127.0.0.1:{port}", {
             "from": f"127.0.0.1:{USER_PORT}",
             "to": [f"127.0.0.1:{port}"],
             "subject": "",
             "message": message,
         })
-        self._json({"status": "delivered" if ok else "failed"})
+        self._json({"status": "delivered"} if err is None else {"status": "failed", "error": err})
 
     def _json(self, data):
         payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
