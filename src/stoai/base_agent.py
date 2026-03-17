@@ -229,6 +229,7 @@ class BaseAgent:
     def _get_discovery_info(self) -> dict:
         """Return live agent info for TCP discovery queries."""
         info = {
+            "_stoai": "agent",
             "agent_id": self.agent_id,
             "started_at": self._started_at,
             "working_dir": str(self._working_dir),
