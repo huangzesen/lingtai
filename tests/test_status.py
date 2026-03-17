@@ -31,16 +31,6 @@ def test_status_wired_in_agent(tmp_path):
     assert "status" in agent._intrinsics
 
 
-def test_status_can_be_disabled(tmp_path):
-    agent = BaseAgent(
-        agent_id="test",
-        service=make_mock_service(),
-        disabled_intrinsics={"status"},
-        base_dir=tmp_path,
-    )
-    assert "status" not in agent._intrinsics
-
-
 def test_status_show_returns_identity(tmp_path):
     agent = BaseAgent(agent_id="alice", service=make_mock_service(), base_dir=tmp_path)
     agent.start()

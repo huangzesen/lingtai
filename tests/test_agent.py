@@ -45,53 +45,14 @@ def test_agent_double_start(tmp_path):
 
 def test_intrinsics_enabled_by_default(tmp_path):
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
-    assert "read" in agent._intrinsics
-    assert "write" in agent._intrinsics
     assert "mail" in agent._intrinsics
-    # manage_system_prompt is a layer, not an intrinsic
-    assert "manage_system_prompt" not in agent._intrinsics
-    assert "email" not in agent._intrinsics  # email is now a capability, not intrinsic
-    assert "vision" not in agent._intrinsics  # vision is now a capability
-    assert "web_search" not in agent._intrinsics  # web_search is now a capability
     assert "clock" in agent._intrinsics
     assert "status" in agent._intrinsics
-    assert len(agent._intrinsics) == 9  # read, edit, write, glob, grep, mail, clock, status, system
-
-
-def test_disabled_intrinsics(tmp_path):
-    agent = BaseAgent(
-        agent_id="test",
-        service=make_mock_service(),
-        disabled_intrinsics={"mail", "clock"},
-        base_dir=tmp_path,
-    )
-    assert "mail" not in agent._intrinsics
-    assert "clock" not in agent._intrinsics
-    assert "read" in agent._intrinsics
-
-
-def test_enabled_intrinsics(tmp_path):
-    agent = BaseAgent(
-        agent_id="test",
-        service=make_mock_service(),
-        enabled_intrinsics={"read", "write"},
-        base_dir=tmp_path,
-    )
-    assert "read" in agent._intrinsics
-    assert "write" in agent._intrinsics
-    assert "mail" not in agent._intrinsics
-    assert "clock" not in agent._intrinsics
-
-
-def test_enabled_and_disabled_raises(tmp_path):
-    with pytest.raises(ValueError, match="Cannot specify both"):
-        BaseAgent(
-            agent_id="test",
-            service=make_mock_service(),
-            enabled_intrinsics={"read"},
-            disabled_intrinsics={"mail"},
-            base_dir=tmp_path,
-        )
+    assert "system" in agent._intrinsics
+    # File I/O is now a capability, not intrinsic
+    assert "read" not in agent._intrinsics
+    assert "write" not in agent._intrinsics
+    assert len(agent._intrinsics) == 4  # mail, clock, status, system
 
 
 # ---------------------------------------------------------------------------
@@ -284,63 +245,6 @@ def test_mail_received_full_content_in_notification(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# FileIOService integration
-# ---------------------------------------------------------------------------
-
-def test_file_intrinsics_use_service(tmp_path):
-    """File intrinsics should delegate to the FileIOService."""
-    from stoai.services.file_io import LocalFileIOService
-
-    svc = LocalFileIOService(root=tmp_path)
-    agent = BaseAgent(
-        agent_id="test",
-        service=make_mock_service(),
-        file_io=svc,
-        base_dir=tmp_path,
-    )
-
-    # Write via agent
-    result = agent.write_file(str(tmp_path / "test.txt"), "hello world")
-    assert result["status"] == "ok"
-
-    # Read via agent
-    result = agent.read_file(str(tmp_path / "test.txt"))
-    assert "hello world" in result["content"]
-
-    # Edit via agent
-    result = agent.edit_file(str(tmp_path / "test.txt"), "hello", "goodbye")
-    assert result["status"] == "ok"
-
-    result = agent.read_file(str(tmp_path / "test.txt"))
-    assert "goodbye world" in result["content"]
-
-
-def test_file_intrinsics_auto_create_service(tmp_path):
-    """Without explicit file_io, LocalFileIOService should be auto-created."""
-    agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
-    # Should still have file intrinsics
-    assert "read" in agent._intrinsics
-    assert "write" in agent._intrinsics
-    assert agent._file_io is not None
-
-
-def test_no_file_io_disables_file_intrinsics(tmp_path):
-    """Setting file_io=None should not create file intrinsics.
-
-    NOTE: Currently file_io=None triggers auto-creation of LocalFileIOService
-    for backward compat. To truly disable file intrinsics, use disabled_intrinsics.
-    """
-    agent = BaseAgent(
-        agent_id="test",
-        service=make_mock_service(),
-        disabled_intrinsics={"read", "edit", "write", "glob", "grep"},
-        base_dir=tmp_path,
-    )
-    assert "read" not in agent._intrinsics
-    assert "write" not in agent._intrinsics
-
-
-# ---------------------------------------------------------------------------
 # Token usage
 # ---------------------------------------------------------------------------
 
@@ -387,14 +291,14 @@ def test_message_reply_event():
 # ---------------------------------------------------------------------------
 
 def test_execute_single_tool_intrinsic(tmp_path):
-    """Intrinsic tools should be callable via _execute_single_tool."""
+    """Intrinsic tools should be callable via _dispatch_tool."""
     from stoai.llm.base import ToolCall
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
 
-    # Replace the read intrinsic with a mock
-    agent._intrinsics["read"] = lambda args: {"status": "ok", "content": "test"}
+    # Replace the clock intrinsic with a mock
+    agent._intrinsics["clock"] = lambda args: {"status": "ok", "time": "12:00"}
 
-    tc = ToolCall(name="read", args={"file_path": "/tmp/test.txt"})
+    tc = ToolCall(name="clock", args={"action": "check"})
     result = agent._dispatch_tool(tc)
     assert result["status"] == "ok"
 

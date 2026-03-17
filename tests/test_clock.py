@@ -44,17 +44,6 @@ def test_clock_wired_in_agent(tmp_path):
     assert "clock" in agent._intrinsics
 
 
-def test_clock_can_be_disabled(tmp_path):
-    """Clock should be disable-able like other intrinsics."""
-    agent = BaseAgent(
-        agent_id="test",
-        service=make_mock_service(),
-        disabled_intrinsics={"clock"},
-        base_dir=tmp_path,
-    )
-    assert "clock" not in agent._intrinsics
-
-
 def test_mail_arrived_event_exists(tmp_path):
     """Agent should have a _mail_arrived threading.Event."""
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)

@@ -118,19 +118,12 @@ class BaseAgent:
         config: AgentConfig | None = None,
         base_dir: str | Path,
         context: Any = None,
-        enabled_intrinsics: set[str] | None = None,
-        disabled_intrinsics: set[str] | None = None,
         admin: bool = False,
         streaming: bool = False,
         logging_service: Any | None = None,
         role: str = "",
         ltm: str = "",
     ):
-        if enabled_intrinsics is not None and disabled_intrinsics is not None:
-            raise ValueError(
-                "Cannot specify both enabled_intrinsics and disabled_intrinsics"
-            )
-
         # Validate agent_id
         if not _AGENT_ID_RE.match(agent_id):
             raise ValueError(
@@ -230,7 +223,7 @@ class BaseAgent:
 
         # --- Wire intrinsic tools ---
         self._intrinsics: dict[str, Callable[[dict], dict]] = {}
-        self._wire_intrinsics(enabled_intrinsics, disabled_intrinsics)
+        self._wire_intrinsics()
 
         # Inbox
         self.inbox: queue.Queue[Message] = queue.Queue()
@@ -272,158 +265,12 @@ class BaseAgent:
     # Intrinsic wiring
     # ------------------------------------------------------------------
 
-    def _wire_intrinsics(
-        self,
-        enabled: set[str] | None,
-        disabled: set[str] | None,
-    ) -> None:
-        """Wire intrinsic tool handlers based on enabled/disabled sets and available services."""
-        # File intrinsics — delegate to FileIOService
-        file_intrinsic_names = {"read", "edit", "write", "glob", "grep"}
-
-        # Agent-state intrinsics (bound methods) — depend on services
-        state_intrinsics: dict[str, Callable[[dict], dict]] = {}
-
-        # Mail requires MailService
-        state_intrinsics["mail"] = self._handle_mail
-
-        # Clock — always available (no service dependency)
-        state_intrinsics["clock"] = self._handle_clock
-
-        # Status — always available (no service dependency)
-        state_intrinsics["status"] = self._handle_status
-
-        # System — always available (no service dependency)
-        state_intrinsics["system"] = self._handle_system
-
-        all_names = file_intrinsic_names | set(state_intrinsics.keys())
-
-        # Determine which intrinsics to enable
-        if enabled is not None:
-            active_names = enabled & all_names
-        elif disabled is not None:
-            active_names = all_names - disabled
-        else:
-            active_names = all_names
-
-        # Wire file intrinsics via FileIOService
-        if self._file_io is not None:
-            for name in file_intrinsic_names:
-                if name in active_names:
-                    self._intrinsics[name] = self._make_file_service_handler(name)
-        # else: no FileIOService → no file intrinsics
-
-        # Wire state intrinsics
-        for name, handler in state_intrinsics.items():
-            if name in active_names:
-                self._intrinsics[name] = handler
-
-    def _make_file_service_handler(self, intrinsic_name: str) -> Callable[[dict], dict]:
-        """Create a file intrinsic handler that delegates to FileIOService."""
-
-        if intrinsic_name == "read":
-            def _handle_read(args: dict) -> dict:
-                path = args.get("file_path", "")
-                if not path:
-                    return {"error": "file_path is required"}
-                if not Path(path).is_absolute():
-                    path = str(self._working_dir / path)
-                offset = args.get("offset", 1)
-                limit = args.get("limit", 2000)
-                try:
-                    content = self._file_io.read(path)
-                except FileNotFoundError:
-                    return {"error": f"File not found: {path}"}
-                except Exception as e:
-                    return {"error": f"Cannot read {path}: {e}"}
-                lines = content.splitlines(keepends=True)
-                start = max(0, offset - 1)
-                selected = lines[start:start + limit]
-                numbered = "".join(f"{start + i + 1}\t{line}" for i, line in enumerate(selected))
-                return {"content": numbered, "total_lines": len(lines), "lines_shown": len(selected)}
-            return _handle_read
-
-        elif intrinsic_name == "edit":
-            def _handle_edit(args: dict) -> dict:
-                path = args.get("file_path", "")
-                if not path:
-                    return {"error": "file_path is required"}
-                if not Path(path).is_absolute():
-                    path = str(self._working_dir / path)
-                old = args.get("old_string", "")
-                new = args.get("new_string", "")
-                replace_all = args.get("replace_all", False)
-                try:
-                    content = self._file_io.read(path)
-                except FileNotFoundError:
-                    return {"error": f"File not found: {path}"}
-                except Exception as e:
-                    return {"error": f"Cannot read {path}: {e}"}
-                count = content.count(old)
-                if count == 0:
-                    return {"error": f"old_string not found in {path}"}
-                if count > 1 and not replace_all:
-                    return {"error": f"old_string found {count} times — use replace_all=true or provide more context"}
-                if replace_all:
-                    updated = content.replace(old, new)
-                else:
-                    updated = content.replace(old, new, 1)
-                try:
-                    self._file_io.write(path, updated)
-                except Exception as e:
-                    return {"error": f"Cannot write {path}: {e}"}
-                return {"status": "ok", "replacements": count if replace_all else 1}
-            return _handle_edit
-
-        elif intrinsic_name == "write":
-            def _handle_write(args: dict) -> dict:
-                path = args.get("file_path", "")
-                content = args.get("content", "")
-                if not path:
-                    return {"error": "file_path is required"}
-                if not Path(path).is_absolute():
-                    path = str(self._working_dir / path)
-                try:
-                    self._file_io.write(path, content)
-                    return {"status": "ok", "path": path, "bytes": len(content)}
-                except Exception as e:
-                    return {"error": f"Cannot write {path}: {e}"}
-            return _handle_write
-
-        elif intrinsic_name == "glob":
-            def _handle_glob(args: dict) -> dict:
-                pattern = args.get("pattern", "")
-                if not pattern:
-                    return {"error": "pattern is required"}
-                search_dir = args.get("path", str(self._working_dir))
-                if not Path(search_dir).is_absolute():
-                    search_dir = str(self._working_dir / search_dir)
-                try:
-                    matches = self._file_io.glob(pattern, root=search_dir)
-                    return {"matches": matches, "count": len(matches)}
-                except Exception as e:
-                    return {"error": f"Glob failed: {e}"}
-            return _handle_glob
-
-        elif intrinsic_name == "grep":
-            def _handle_grep(args: dict) -> dict:
-                pattern = args.get("pattern", "")
-                if not pattern:
-                    return {"error": "pattern is required"}
-                search_path = args.get("path", str(self._working_dir))
-                if not Path(search_path).is_absolute():
-                    search_path = str(self._working_dir / search_path)
-                max_matches = args.get("max_matches", 200)
-                try:
-                    results = self._file_io.grep(pattern, path=search_path, max_results=max_matches)
-                    matches = [{"file": r.path, "line": r.line_number, "text": r.line} for r in results]
-                    return {"matches": matches, "count": len(matches), "truncated": len(matches) >= max_matches}
-                except Exception as e:
-                    return {"error": f"Grep failed: {e}"}
-            return _handle_grep
-
-        else:
-            raise ValueError(f"Unknown file intrinsic: {intrinsic_name}")
+    def _wire_intrinsics(self) -> None:
+        """Wire kernel intrinsic tool handlers."""
+        self._intrinsics["mail"] = self._handle_mail
+        self._intrinsics["clock"] = self._handle_clock
+        self._intrinsics["status"] = self._handle_status
+        self._intrinsics["system"] = self._handle_system
 
     # ------------------------------------------------------------------
     # Intrinsic handlers (agent-state intrinsics)
@@ -2003,49 +1850,6 @@ class BaseAgent:
         if msg._reply_value is None:
             return {"text": "", "failed": True, "errors": ["no reply"]}
         return msg._reply_value
-
-    # File access methods (convenience wrappers for programmatic use)
-
-    def read_file(self, path: str) -> dict:
-        """Read a file using the read intrinsic."""
-        handler = self._intrinsics.get("read")
-        if handler is None:
-            return {"error": "read intrinsic is not enabled"}
-        return handler({"file_path": path})
-
-    def write_file(self, path: str, content: str) -> dict:
-        """Write a file using the write intrinsic."""
-        handler = self._intrinsics.get("write")
-        if handler is None:
-            return {"error": "write intrinsic is not enabled"}
-        return handler({"file_path": path, "content": content})
-
-    def edit_file(self, path: str, old_string: str, new_string: str) -> dict:
-        """Edit a file using the edit intrinsic."""
-        handler = self._intrinsics.get("edit")
-        if handler is None:
-            return {"error": "edit intrinsic is not enabled"}
-        return handler({
-            "file_path": path,
-            "old_string": old_string,
-            "new_string": new_string,
-        })
-
-    def glob(self, pattern: str, path: str = ".") -> dict:
-        """Find files matching a glob pattern."""
-        handler = self._intrinsics.get("glob")
-        if handler is None:
-            from .intrinsics.glob import handle_glob
-            return handle_glob({"pattern": pattern, "path": path})
-        return handler({"pattern": pattern, "path": path})
-
-    def grep(self, pattern: str, path: str = ".", file_glob: str = "*") -> dict:
-        """Search file contents by regex pattern."""
-        handler = self._intrinsics.get("grep")
-        if handler is None:
-            from .intrinsics.grep import handle_grep
-            return handle_grep({"pattern": pattern, "path": path, "glob": file_glob})
-        return handler({"pattern": pattern, "path": path, "glob": file_glob})
 
     # ------------------------------------------------------------------
     # Session persistence
