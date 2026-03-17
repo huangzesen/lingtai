@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from ..logging import get_logger
@@ -153,7 +153,7 @@ class MCPClient:
                 "tool": name,
                 "args": args,
                 "result": result,
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             })
             if len(self._activity_log) > 50:
                 self._activity_log[:] = self._activity_log[-50:]

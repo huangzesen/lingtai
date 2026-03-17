@@ -40,7 +40,7 @@ CustomAgent(Agent) — host's wrapper (subclass with domain logic)
 ```
 
 - **BaseAgent** (`base_agent.py`) — pure kernel. 4 intrinsics (mail, clock, status, system), `add_tool()`/`remove_tool()` sealed after `start()`. No capabilities. `update_system_prompt()` stays open.
-- **Agent** (`agent.py`) — accepts `capabilities=` (list or dict) and `tools=` (MCPTool list) at construction. `get_capability(name)` for manager access.
+- **Agent** (`agent.py`) — accepts `capabilities=` (list or dict) at construction. `get_capability(name)` for manager access.
 - **Custom agents** — subclass Agent, add domain tools via `add_tool()` or `_setup_capability()` in `__init__`.
 
 ### Four Services (all optional)
@@ -60,12 +60,12 @@ CustomAgent(Agent) — host's wrapper (subclass with domain logic)
 |------|------|-----------|
 | **Intrinsics** | Kernel services (mail, clock, status+shutdown, system). System operates on `memory` object with `diff`/`load` actions. Covenant is a protected prompt section (no tool access). Capabilities can upgrade intrinsics via `override_intrinsic()`. | Built-in, always present |
 | **Capabilities** | Composable capabilities (file [read/write/edit/glob/grep], anima, bash, conscience, delegate, email, vision, web_search, talk, compose, draw, listen) | Declared at construction via `capabilities=` on Agent |
-| **MCP tools** | Domain context from the host app | Passed as `tools=[MCPTool(...)]` on Agent, or `add_tool()` in subclass constructors |
+| **MCP tools** | Domain tools from external MCP servers | Connected via `MCPClient` from `services/mcp.py`, or `add_tool()` in subclass constructors |
 
 ### Key Modules
 
 - **`base_agent.py`** — `BaseAgent` class (kernel). 2-state lifecycle (SLEEPING/ACTIVE), 4 optional services, persistent LLM session, 2-layer tool dispatch (intrinsics + tools), FIFO mail queue via MailService, structured JSONL logging, git-controlled working dir, context compaction, loop guard, parallel tool execution. Tool surface sealed after `start()`.
-- **`agent.py`** — `Agent(BaseAgent)`. Accepts `capabilities=` and `tools=` at construction. Tracks `_capabilities` for delegate replay. `get_capability(name)` returns manager instances.
+- **`agent.py`** — `Agent(BaseAgent)`. Accepts `capabilities=` at construction. Tracks `_capabilities` for delegate replay. `get_capability(name)` returns manager instances.
 - **`state.py`** — `AgentState` enum (ACTIVE, SLEEPING).
 - **`message.py`** — `Message` dataclass, `_make_message`, `MSG_REQUEST`, `MSG_USER_INPUT`.
 - **`services/`** — Service ABCs + first implementations: `file_io.py`, `mail.py`, `vision.py`, `search.py`, `logging.py`.
@@ -115,7 +115,6 @@ agent = Agent(
 agent = Agent(
     agent_id="bob", service=svc, base_dir="/agents",
     capabilities={"bash": {"policy_file": "p.json"}},   # dict form (with kwargs)
-    tools=[MCPTool(name="query_db", ...)],               # domain tools
 )
 
 # Layer 3: Custom agent subclass
