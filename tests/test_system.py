@@ -108,9 +108,9 @@ def test_system_diff_memory(tmp_path):
     try:
         memory_file = agent.working_dir / "system" / "memory.md"
         memory_file.write_text("first version\n")
-        agent._handle_system({"action": "load", "object": "memory"})
+        agent._intrinsics["system"]({"action": "load", "object": "memory"})
         memory_file.write_text("second version\n")
-        result = agent._handle_system({"action": "diff", "object": "memory"})
+        result = agent._intrinsics["system"]({"action": "diff", "object": "memory"})
         assert result["status"] == "ok"
         assert "first version" in result["git_diff"] or "second version" in result["git_diff"]
     finally:
@@ -123,7 +123,7 @@ def test_system_load_memory(tmp_path):
     try:
         memory_file = agent.working_dir / "system" / "memory.md"
         memory_file.write_text("# Memory\n\nimportant fact\n")
-        result = agent._handle_system({"action": "load", "object": "memory"})
+        result = agent._intrinsics["system"]({"action": "load", "object": "memory"})
         assert result["status"] == "ok"
         assert result["diff"]["changed"] is True
         section = agent._prompt_manager.read_section("memory")
@@ -138,10 +138,10 @@ def test_system_load_empty_removes_section(tmp_path):
     try:
         memory_file = agent.working_dir / "system" / "memory.md"
         memory_file.write_text("some content")
-        agent._handle_system({"action": "load", "object": "memory"})
+        agent._intrinsics["system"]({"action": "load", "object": "memory"})
         assert agent._prompt_manager.read_section("memory") is not None
         memory_file.write_text("")
-        agent._handle_system({"action": "load", "object": "memory"})
+        agent._intrinsics["system"]({"action": "load", "object": "memory"})
         section = agent._prompt_manager.read_section("memory")
         assert section is None or section.strip() == ""
     finally:
@@ -152,7 +152,7 @@ def test_system_diff_no_changes(tmp_path):
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
     agent.start()
     try:
-        result = agent._handle_system({"action": "diff", "object": "memory"})
+        result = agent._intrinsics["system"]({"action": "diff", "object": "memory"})
         assert result["status"] == "ok"
         assert result["git_diff"] == ""
     finally:
@@ -163,8 +163,8 @@ def test_system_load_no_change_no_commit(tmp_path):
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
     agent.start()
     try:
-        agent._handle_system({"action": "load", "object": "memory"})
-        result = agent._handle_system({"action": "load", "object": "memory"})
+        agent._intrinsics["system"]({"action": "load", "object": "memory"})
+        result = agent._intrinsics["system"]({"action": "load", "object": "memory"})
         assert result["diff"]["changed"] is False
     finally:
         agent.stop()
@@ -172,14 +172,14 @@ def test_system_load_no_change_no_commit(tmp_path):
 
 def test_system_unknown_action(tmp_path):
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
-    result = agent._handle_system({"action": "view", "object": "memory"})
+    result = agent._intrinsics["system"]({"action": "view", "object": "memory"})
     assert "error" in result
     agent.stop(timeout=1.0)
 
 
 def test_system_unknown_object(tmp_path):
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
-    result = agent._handle_system({"action": "diff", "object": "role"})
+    result = agent._intrinsics["system"]({"action": "diff", "object": "role"})
     assert "error" in result
     agent.stop(timeout=1.0)
 
@@ -192,7 +192,7 @@ def test_system_creates_files_if_missing(tmp_path):
         system_dir = agent.working_dir / "system"
         if system_dir.exists():
             shutil.rmtree(system_dir)
-        result = agent._handle_system({"action": "diff", "object": "memory"})
+        result = agent._intrinsics["system"]({"action": "diff", "object": "memory"})
         assert result["status"] == "ok"
         assert (agent.working_dir / "system" / "memory.md").is_file()
     finally:

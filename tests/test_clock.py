@@ -25,12 +25,12 @@ def make_mock_service():
 
 
 def test_clock_in_all_intrinsics():
-    """Clock should be registered in ALL_INTRINSICS with handler=None."""
+    """Clock should be registered in ALL_INTRINSICS with a handle function."""
     assert "clock" in ALL_INTRINSICS
     info = ALL_INTRINSICS["clock"]
     assert "schema" in info
     assert "description" in info
-    assert info["handler"] is None
+    assert callable(info["handle"])
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@ def test_mail_arrived_event_exists(tmp_path):
 def test_clock_check_returns_time(tmp_path):
     """clock check should return current UTC time and unix timestamp."""
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
-    result = agent._handle_clock({"action": "check"})
+    result = agent._intrinsics["clock"]({"action": "check"})
 
     assert result["status"] == "ok"
     assert "utc" in result
@@ -79,7 +79,7 @@ def test_clock_wait_with_seconds(tmp_path):
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
 
     start = time.monotonic()
-    result = agent._handle_clock({"action": "wait", "seconds": 0.1})
+    result = agent._intrinsics["clock"]({"action": "wait", "seconds": 0.1})
     elapsed = time.monotonic() - start
 
     assert result["status"] == "ok"
@@ -100,7 +100,7 @@ def test_clock_wait_wakes_on_mail(tmp_path):
     t.start()
 
     start = time.monotonic()
-    result = agent._handle_clock({"action": "wait", "seconds": 10})
+    result = agent._intrinsics["clock"]({"action": "wait", "seconds": 10})
     elapsed = time.monotonic() - start
 
     assert result["status"] == "ok"
@@ -121,7 +121,7 @@ def test_clock_wait_indefinite_wakes_on_mail(tmp_path):
     t.start()
 
     start = time.monotonic()
-    result = agent._handle_clock({"action": "wait"})
+    result = agent._intrinsics["clock"]({"action": "wait"})
     elapsed = time.monotonic() - start
 
     assert result["status"] == "ok"
@@ -137,7 +137,7 @@ def test_clock_wait_caps_at_300(tmp_path):
     # We can't actually wait 300s in a test, so just verify the cap logic
     # by setting mail_arrived immediately
     agent._mail_arrived.set()
-    result = agent._handle_clock({"action": "wait", "seconds": 9999})
+    result = agent._intrinsics["clock"]({"action": "wait", "seconds": 9999})
     # Should wake immediately because mail_arrived is already set
     assert result["status"] == "ok"
 
@@ -154,7 +154,7 @@ def test_clock_wait_wakes_on_cancel(tmp_path):
     t.start()
 
     start = time.monotonic()
-    result = agent._handle_clock({"action": "wait", "seconds": 10})
+    result = agent._intrinsics["clock"]({"action": "wait", "seconds": 10})
     elapsed = time.monotonic() - start
 
     assert result["status"] == "ok"
@@ -166,12 +166,12 @@ def test_clock_wait_wakes_on_cancel(tmp_path):
 def test_clock_wait_negative_seconds(tmp_path):
     """clock wait with negative seconds should return error."""
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
-    result = agent._handle_clock({"action": "wait", "seconds": -5})
+    result = agent._intrinsics["clock"]({"action": "wait", "seconds": -5})
     assert "error" in result
 
 
 def test_clock_wait_unknown_action(tmp_path):
     """Unknown clock action should return error."""
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
-    result = agent._handle_clock({"action": "bogus"})
+    result = agent._intrinsics["clock"]({"action": "bogus"})
     assert "error" in result

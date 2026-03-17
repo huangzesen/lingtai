@@ -74,7 +74,7 @@ def test_clock_intrinsic_unchanged(tmp_path):
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
         capabilities=["conscience"],
     )
-    assert agent._intrinsics["clock"] == agent._handle_clock
+    assert callable(agent._intrinsics["clock"])
     agent.stop(timeout=1.0)
 
 

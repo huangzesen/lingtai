@@ -214,11 +214,11 @@ def test_mail_read_pops_fifo(tmp_path):
     agent._on_mail_received({"from": "a", "message": "first"})
     agent._on_mail_received({"from": "b", "message": "second"})
 
-    r1 = agent._handle_mail({"action": "read"})
+    r1 = agent._intrinsics["mail"]({"action": "read"})
     assert r1["message"] == "first"
     assert r1["remaining"] == 1
 
-    r2 = agent._handle_mail({"action": "read"})
+    r2 = agent._intrinsics["mail"]({"action": "read"})
     assert r2["message"] == "second"
     assert r2["remaining"] == 0
 
@@ -226,7 +226,7 @@ def test_mail_read_pops_fifo(tmp_path):
 def test_mail_read_empty_queue(tmp_path):
     """mail read on empty queue should return message=None."""
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
-    result = agent._handle_mail({"action": "read"})
+    result = agent._intrinsics["mail"]({"action": "read"})
     assert result["message"] is None
     assert result["remaining"] == 0
 

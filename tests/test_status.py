@@ -23,7 +23,7 @@ def test_status_in_all_intrinsics():
     info = ALL_INTRINSICS["status"]
     assert "schema" in info
     assert "description" in info
-    assert info["handler"] is None
+    assert callable(info["handle"])
 
 
 def test_status_wired_in_agent(tmp_path):
@@ -35,7 +35,7 @@ def test_status_show_returns_identity(tmp_path):
     agent = BaseAgent(agent_id="alice", service=make_mock_service(), base_dir=tmp_path)
     agent.start()
     try:
-        result = agent._handle_status({"action": "show"})
+        result = agent._intrinsics["status"]({"action": "show"})
         assert result["status"] == "ok"
         identity = result["identity"]
         assert identity["agent_id"] == "alice"
@@ -50,7 +50,7 @@ def test_status_show_returns_runtime(tmp_path):
     agent.start()
     try:
         time.sleep(0.1)
-        result = agent._handle_status({"action": "show"})
+        result = agent._intrinsics["status"]({"action": "show"})
         runtime = result["runtime"]
         assert "T" in runtime["started_at"]
         assert runtime["uptime_seconds"] >= 0.05
@@ -62,7 +62,7 @@ def test_status_show_returns_tokens(tmp_path):
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
     agent.start()
     try:
-        result = agent._handle_status({"action": "show"})
+        result = agent._intrinsics["status"]({"action": "show"})
         tokens = result["tokens"]
         assert "input_tokens" in tokens
         assert "output_tokens" in tokens
@@ -87,7 +87,7 @@ def test_status_show_with_mail_service(tmp_path):
     )
     agent.start()
     try:
-        result = agent._handle_status({"action": "show"})
+        result = agent._intrinsics["status"]({"action": "show"})
         assert result["identity"]["mail_address"] == "127.0.0.1:8301"
     finally:
         agent.stop()
@@ -95,7 +95,7 @@ def test_status_show_with_mail_service(tmp_path):
 
 def test_status_show_context_null_without_session(tmp_path):
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
-    result = agent._handle_status({"action": "show"})
+    result = agent._intrinsics["status"]({"action": "show"})
     ctx = result["tokens"]["context"]
     assert ctx["window_size"] is None
     assert ctx["usage_pct"] is None
@@ -103,14 +103,14 @@ def test_status_show_context_null_without_session(tmp_path):
 
 def test_status_unknown_action(tmp_path):
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
-    result = agent._handle_status({"action": "bogus"})
+    result = agent._intrinsics["status"]({"action": "bogus"})
     assert "error" in result
 
 
 def test_status_shutdown(tmp_path):
     """status(action='shutdown') should set the shutdown event."""
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
-    result = agent._handle_status({"action": "shutdown", "reason": "need bash"})
+    result = agent._intrinsics["status"]({"action": "shutdown", "reason": "need bash"})
     assert result["status"] == "ok"
     assert "Shutdown initiated" in result["message"]
     assert agent._shutdown.is_set()
