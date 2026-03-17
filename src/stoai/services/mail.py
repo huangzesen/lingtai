@@ -86,6 +86,7 @@ class TCPMailService(MailService):
         self._server_socket: socket.socket | None = None
         self._listener_thread: threading.Thread | None = None
         self._running = False
+        self._info_handler: Callable[[], dict] | None = None
 
     def send(self, address: str, message: dict) -> str | None:
         """Send a message to host:port. Returns None on success, error string on failure."""
@@ -166,6 +167,13 @@ class TCPMailService(MailService):
             if payload_data is None:
                 return
             payload = json.loads(payload_data.decode("utf-8"))
+
+            # TCP discovery: respond with agent info and close
+            if payload.get("_stoai") == "info" and self._info_handler:
+                info = self._info_handler()
+                resp = json.dumps(info, ensure_ascii=False).encode("utf-8")
+                conn.sendall(struct.pack(">I", len(resp)) + resp)
+                return
 
             # Persist to mailbox/inbox/ and decode attachments
             if self._working_dir is not None:

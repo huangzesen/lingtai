@@ -128,15 +128,14 @@ class BaseAgent:
         # Set by anima capability to prevent stop() from overwriting anima-managed memory.md
         self._anima_owns_memory = False
 
-        # Read manifest for resume (before prompt manager, so covenant can be restored)
-        manifest_covenant = self._workdir.read_manifest()
-        if not covenant and manifest_covenant:
-            covenant = manifest_covenant
-
         # Covenant and memory file paths
         system_dir = self._working_dir / "system"
         memory_file = system_dir / "memory.md"
         covenant_file = system_dir / "covenant.md"
+
+        # Resume: restore covenant from file if not provided by constructor
+        if not covenant and covenant_file.is_file():
+            covenant = covenant_file.read_text()
 
         # If constructor memory is provided and memory file doesn't exist, write it
         if memory and not memory_file.is_file():
@@ -160,16 +159,22 @@ class BaseAgent:
         if loaded_memory.strip():
             self._prompt_manager.write_section("memory", loaded_memory)
 
-        # Write manifest (without memory — it now lives in system/memory.md)
+        # Write manifest — stable identity only (no covenant, no runtime state)
         from datetime import datetime, timezone
+        self._started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         manifest_data = {
             "agent_id": self.agent_id,
-            "started_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "covenant": self._prompt_manager.read_section("covenant") or "",
+            "started_at": self._started_at,
+            "working_dir": str(self._working_dir),
+            "admin": self._admin,
         }
         if self._mail_service is not None and self._mail_service.address:
             manifest_data["address"] = self._mail_service.address
         self._workdir.write_manifest(manifest_data)
+
+        # Wire TCP discovery handler — returns live agent info on {"_stoai": "info"}
+        if self._mail_service is not None and hasattr(self._mail_service, '_info_handler'):
+            self._mail_service._info_handler = self._get_discovery_info
 
         # Mail FIFO queue — incoming messages consumed by read
         self._mail_queue: deque[dict] = deque()
@@ -220,6 +225,22 @@ class BaseAgent:
     # ------------------------------------------------------------------
     # Properties
     # ------------------------------------------------------------------
+
+    def _get_discovery_info(self) -> dict:
+        """Return live agent info for TCP discovery queries."""
+        info = {
+            "agent_id": self.agent_id,
+            "started_at": self._started_at,
+            "working_dir": str(self._working_dir),
+            "admin": self._admin,
+            "status": self._state.value,
+        }
+        if self._mail_service is not None and self._mail_service.address:
+            info["address"] = self._mail_service.address
+        # Capabilities (set by Agent subclass)
+        if hasattr(self, "_capabilities"):
+            info["capabilities"] = [name for name, _ in self._capabilities]
+        return info
 
     @property
     def is_idle(self) -> bool:
@@ -365,11 +386,11 @@ class BaseAgent:
                 memory_file.write_text(memory_content)
 
         # Persist final state and release lock
-        from datetime import datetime, timezone
         manifest_data = {
             "agent_id": self.agent_id,
-            "started_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "covenant": self._prompt_manager.read_section("covenant") or "",
+            "started_at": self._started_at,
+            "working_dir": str(self._working_dir),
+            "admin": self._admin,
         }
         if self._mail_service is not None and self._mail_service.address:
             manifest_data["address"] = self._mail_service.address
