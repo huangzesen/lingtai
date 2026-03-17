@@ -70,8 +70,8 @@ class DelegateManager:
         child_id = f"{parent.agent_id}_delegate_{port}"
 
         # Resolve role — override or copy parent
-        role = args.get("role") or parent._prompt_manager.read_section("role") or ""
-        ltm = args.get("ltm") or parent._prompt_manager.read_section("ltm") or ""
+        role = args.get("role") or parent._prompt_manager.read_section("covenant") or ""
+        ltm = args.get("ltm") or parent._prompt_manager.read_section("memory") or ""
 
         # Build capabilities dict from parent (excluding delegate to prevent recursion)
         requested = args.get("capabilities")

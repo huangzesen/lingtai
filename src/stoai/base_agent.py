@@ -208,7 +208,7 @@ class BaseAgent:
         if loaded_memory.strip():
             self._prompt_manager.write_section("memory", loaded_memory)
 
-        # Write manifest (without ltm — it now lives in system/ltm.md)
+        # Write manifest (without memory — it now lives in system/memory.md)
         self._write_manifest()
 
         # Mail FIFO queue — incoming messages consumed by read
@@ -780,7 +780,7 @@ class BaseAgent:
         """Initialize working directory as a git repo with opt-in tracking.
 
         Creates .gitignore (track nothing by default, whitelist system/),
-        system/ directory with role.md and ltm.md, and makes an initial commit.
+        system/ directory with covenant.md and memory.md, and makes an initial commit.
         Skips if .git exists.
         """
         git_dir = self._working_dir / ".git"
@@ -857,8 +857,8 @@ class BaseAgent:
     def _read_manifest(self) -> tuple[str, str]:
         """Read role and ltm from .agent.json. Returns ("", "") if not found.
 
-        Note: ltm is read for migration purposes only. New agents store ltm
-        in system/ltm.md, not in the manifest.
+        Note: ltm is read for migration purposes only. New agents store memory
+        in system/memory.md, not in the manifest.
         """
         path = self._working_dir / self._MANIFEST_FILE
         if not path.is_file():
