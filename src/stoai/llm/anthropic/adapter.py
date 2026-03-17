@@ -36,6 +36,7 @@ from ..base import (
 )
 from ..interface import ChatInterface
 from ..interface_converters import to_anthropic
+from ..streaming import StreamingAccumulator
 
 from .defaults import DEFAULTS  # noqa: F401 — re-exported for consumers
 
@@ -409,9 +410,7 @@ class AnthropicChatSession(ChatSession):
         clean_messages = _ensure_alternation(candidate_msgs)
         kwargs = self._build_request_kwargs(clean_messages)
 
-        text_parts, tool_calls, thoughts = [], [], []
-        _pending_tool = None
-        _thinking_parts: list[str] = []
+        acc = StreamingAccumulator()
 
         try:
             with self._client.messages.stream(**kwargs) as stream:
@@ -420,13 +419,7 @@ class AnthropicChatSession(ChatSession):
                     if etype == "content_block_start":
                         block = getattr(event, "content_block", None)
                         if block and getattr(block, "type", None) == "tool_use":
-                            _pending_tool = {
-                                "id": block.id,
-                                "name": block.name,
-                                "args_json": "",
-                            }
-                        elif block and getattr(block, "type", None) == "thinking":
-                            _thinking_parts = []
+                            acc.start_tool(id=block.id, name=block.name)
                     elif etype == "content_block_delta":
                         delta = getattr(event, "delta", None)
                         if delta is None:
@@ -435,38 +428,20 @@ class AnthropicChatSession(ChatSession):
                         if dtype == "text_delta":
                             t = getattr(delta, "text", "")
                             if t:
-                                text_parts.append(t)
+                                acc.add_text(t)
                                 if on_chunk:
                                     on_chunk(t)
                         elif dtype == "thinking_delta":
                             t = getattr(delta, "thinking", "")
                             if t:
-                                _thinking_parts.append(t)
+                                acc.add_thought(t)
                         elif dtype == "input_json_delta":
                             partial = getattr(delta, "partial_json", "")
-                            if partial and _pending_tool is not None:
-                                _pending_tool["args_json"] += partial
+                            if partial:
+                                acc.add_tool_args(partial)
                     elif etype == "content_block_stop":
-                        if _thinking_parts:
-                            thoughts.append("".join(_thinking_parts))
-                            _thinking_parts = []
-                        if _pending_tool is not None:
-                            try:
-                                args = (
-                                    json.loads(_pending_tool["args_json"])
-                                    if _pending_tool["args_json"]
-                                    else {}
-                                )
-                            except json.JSONDecodeError:
-                                args = {}
-                            tool_calls.append(
-                                ToolCall(
-                                    name=_pending_tool["name"],
-                                    args=args,
-                                    id=_pending_tool["id"],
-                                )
-                            )
-                            _pending_tool = None
+                        acc.finish_thought()
+                        acc.finish_tool()
 
                 final_message = stream.get_final_message()
         except Exception:
@@ -526,13 +501,7 @@ class AnthropicChatSession(ChatSession):
                     },
                 )
 
-        return LLMResponse(
-            text="".join(text_parts),
-            tool_calls=tool_calls,
-            usage=usage,
-            thoughts=thoughts,
-            raw=final_message,
-        )
+        return acc.finalize(usage=usage, raw=final_message)
 
     def commit_tool_results(self, tool_results: list) -> None:
         """Append tool results to interface without an API call."""

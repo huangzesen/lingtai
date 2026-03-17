@@ -25,6 +25,7 @@ from ..base import (
     UsageMetadata,
 )
 from ..interface import ChatInterface
+from ..streaming import StreamingAccumulator
 
 logger = get_logger()
 
@@ -437,9 +438,7 @@ class InteractionsChatSession(ChatSession):
         if self._interaction_id:
             kwargs["previous_interaction_id"] = self._interaction_id
 
-        text_parts: list[str] = []
-        tool_calls: list[ToolCall] = []
-        thoughts: list[str] = []
+        acc = StreamingAccumulator()
         usage = UsageMetadata()
         interaction_id: str | None = None
 
@@ -459,21 +458,19 @@ class InteractionsChatSession(ChatSession):
                 if dtype == "text":
                     t = getattr(delta, "text", None)
                     if t:
-                        text_parts.append(t)
+                        acc.add_text(t)
                         if on_chunk:
                             on_chunk(t)
                 elif dtype == "function_call":
-                    tool_calls.append(
-                        ToolCall(
-                            name=delta.name.removeprefix("default_api:"),
-                            args=dict(delta.arguments) if delta.arguments else {},
-                            id=getattr(delta, "id", None),
-                        )
-                    )
+                    acc.add_tool(ToolCall(
+                        name=delta.name.removeprefix("default_api:"),
+                        args=dict(delta.arguments) if delta.arguments else {},
+                        id=getattr(delta, "id", None),
+                    ))
                 elif dtype == "thought":
                     t = getattr(delta, "thought", None)
                     if t:
-                        thoughts.append(t)
+                        acc.add_thought(t)
 
             elif etype == "interaction.complete":
                 interaction_obj = getattr(event, "interaction", event)
@@ -488,25 +485,23 @@ class InteractionsChatSession(ChatSession):
                         cached_tokens=getattr(usage_obj, "total_cached_tokens", 0) or 0,
                     )
 
-        # Consolidate streaming thought deltas into one entry
-        if thoughts:
-            thoughts = ["".join(thoughts)]
-
         if interaction_id:
             self._interaction_id = interaction_id
 
+        result = acc.finalize(usage=usage)
+
         # Record model turn from accumulated outputs
         model_content = []
-        if thoughts:
+        if result.thoughts:
             model_content.append(
                 {
                     "type": "thought",
-                    "summary": [{"type": "text", "text": "".join(thoughts)}],
+                    "summary": [{"type": "text", "text": result.thoughts[0]}],
                 }
             )
-        if text_parts:
-            model_content.append({"type": "text", "text": "".join(text_parts)})
-        for tc in tool_calls:
+        if result.text:
+            model_content.append({"type": "text", "text": result.text})
+        for tc in result.tool_calls:
             model_content.append(
                 {
                     "type": "function_call",
@@ -518,13 +513,7 @@ class InteractionsChatSession(ChatSession):
         if model_content:
             self._client_history.append({"role": "model", "content": model_content})
 
-        return LLMResponse(
-            text="".join(text_parts),
-            tool_calls=tool_calls,
-            usage=usage,
-            thoughts=thoughts,
-            raw=None,
-        )
+        return result
 
     def commit_tool_results(self, tool_results: list) -> None:
         """Append tool results to client history without an API call."""

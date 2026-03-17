@@ -29,6 +29,7 @@ from ..base import (
 )
 from ..interface import ChatInterface, TextBlock, ToolCallBlock
 from ..interface_converters import to_openai
+from ..streaming import StreamingAccumulator
 
 logger = get_logger()
 
@@ -392,8 +393,7 @@ class OpenAIChatSession(ChatSession):
             if self._tool_choice:
                 kwargs["tool_choice"] = self._tool_choice
 
-        text_parts = []
-        _pending_tools = {}
+        acc = StreamingAccumulator()
         usage = UsageMetadata()
 
         # 3. Stream; revert interface on error
@@ -422,48 +422,30 @@ class OpenAIChatSession(ChatSession):
                 if delta is None:
                     continue
                 if delta.content:
-                    text_parts.append(delta.content)
+                    acc.add_text(delta.content)
                     if on_chunk:
                         on_chunk(delta.content)
                 if delta.tool_calls:
                     for tc in delta.tool_calls:
-                        idx = tc.index
-                        if idx not in _pending_tools:
-                            _pending_tools[idx] = {
-                                "id": tc.id or "",
-                                "name": (tc.function.name if tc.function else "") or "",
-                                "args_json": "",
-                            }
-                        if tc.id and not _pending_tools[idx]["id"]:
-                            _pending_tools[idx]["id"] = tc.id
-                        if (
-                            tc.function
-                            and tc.function.name
-                            and not _pending_tools[idx]["name"]
-                        ):
-                            _pending_tools[idx]["name"] = tc.function.name
-                        if tc.function and tc.function.arguments:
-                            _pending_tools[idx]["args_json"] += tc.function.arguments
+                        acc.add_tool_delta(
+                            tc.index,
+                            id=tc.id,
+                            name=(tc.function.name if tc.function else None),
+                            args_delta=(tc.function.arguments if tc.function else None),
+                        )
         except Exception:
             self._interface.drop_trailing(lambda e: e.role == "user")
             raise
 
-        # 4. Finalize tool calls
-        tool_calls = []
-        for idx in sorted(_pending_tools):
-            pt = _pending_tools[idx]
-            try:
-                args = json.loads(pt["args_json"]) if pt["args_json"] else {}
-            except json.JSONDecodeError:
-                args = {}
-            tool_calls.append(ToolCall(name=pt["name"], args=args, id=pt["id"]))
+        # 4. Finalize
+        acc.finish_all_tools()
+        result = acc.finalize(usage=usage)
 
         # 5. Record assistant response into interface
-        text = "".join(text_parts)
         blocks: list = []
-        if text:
-            blocks.append(TextBlock(text=text))
-        for tc in tool_calls:
+        if result.text:
+            blocks.append(TextBlock(text=result.text))
+        for tc in result.tool_calls:
             blocks.append(ToolCallBlock(id=tc.id, name=tc.name, args=tc.args))
         if not blocks:
             blocks.append(TextBlock(text=""))
@@ -478,7 +460,7 @@ class OpenAIChatSession(ChatSession):
             },
         )
 
-        return LLMResponse(text=text, tool_calls=tool_calls, usage=usage, raw=None)
+        return result
 
     # -- Context compaction ---------------------------------------------------
 
@@ -598,48 +580,24 @@ class OpenAIResponsesSession(ChatSession):
                 {"type": "compaction", "compact_threshold": self._compact_threshold}
             ]
 
-        text_parts, tool_calls, thoughts = [], [], []
+        acc = StreamingAccumulator()
         response_id = None
-        _pending_tool = None
         usage = UsageMetadata()
 
         stream = self._client.responses.create(**kwargs)
         for event in stream:
             if event.type == "response.output_text.delta":
-                text_parts.append(event.delta)
+                acc.add_text(event.delta)
                 if on_chunk:
                     on_chunk(event.delta)
             elif event.type == "response.function_call_arguments.delta":
-                if _pending_tool:
-                    _pending_tool["args_json"] += event.delta
+                acc.add_tool_args(event.delta)
             elif event.type == "response.output_item.added":
                 if getattr(event.item, "type", None) == "function_call":
-                    _pending_tool = {
-                        "call_id": event.item.call_id,
-                        "name": event.item.name,
-                        "args_json": "",
-                    }
+                    acc.start_tool(id=event.item.call_id, name=event.item.name)
             elif event.type == "response.output_item.done":
-                if (
-                    _pending_tool
-                    and getattr(event.item, "type", None) == "function_call"
-                ):
-                    try:
-                        args = (
-                            json.loads(_pending_tool["args_json"])
-                            if _pending_tool["args_json"]
-                            else {}
-                        )
-                    except json.JSONDecodeError:
-                        args = {}
-                    tool_calls.append(
-                        ToolCall(
-                            name=_pending_tool["name"],
-                            args=args,
-                            id=_pending_tool["call_id"],
-                        )
-                    )
-                    _pending_tool = None
+                if getattr(event.item, "type", None) == "function_call":
+                    acc.finish_tool()
             elif event.type == "response.completed":
                 response_id = event.response.id
                 if event.response.usage:
@@ -663,13 +621,7 @@ class OpenAIResponsesSession(ChatSession):
                     )
 
         self._response_id = response_id
-        return LLMResponse(
-            text="".join(text_parts),
-            tool_calls=tool_calls,
-            usage=usage,
-            thoughts=thoughts,
-            raw=None,
-        )
+        return acc.finalize(usage=usage)
 
     def get_history(self) -> list[dict]:
         """Return minimal state for session persistence (server-side)."""
