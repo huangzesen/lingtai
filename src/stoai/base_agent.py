@@ -14,7 +14,6 @@ Key concepts:
 from __future__ import annotations
 
 import json
-import os
 import queue
 from collections import deque
 import threading
