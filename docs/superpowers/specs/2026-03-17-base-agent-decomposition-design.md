@@ -1,0 +1,302 @@
+# BaseAgent Decomposition
+
+## Problem
+
+`base_agent.py` is a 1940-line monolith handling ~10 distinct responsibilities. This makes it hard to navigate, hard to test individual concerns in isolation, and hard to swap out subsystems.
+
+## Solution
+
+Decompose BaseAgent into four extracted components via composition, leaving BaseAgent as a ~500-line kernel coordinator.
+
+### New Module Structure
+
+```
+src/stoai/
+  base_agent.py          (~500 lines — kernel coordinator)
+  workdir.py             (NEW — WorkingDir class)
+  session.py             (NEW — SessionManager class)
+  tool_executor.py       (NEW — ToolExecutor class)
+  intrinsics/
+    mail.py              (add handle() function)
+    clock.py             (add handle() function)
+    status.py            (add handle() function)
+    system.py            (add handle() function)
+```
+
+## Component 1: `WorkingDir` (`workdir.py`)
+
+Owns the agent's working directory — filesystem locking, git initialization, manifest persistence, and git diff/commit operations.
+
+### Interface
+
+```python
+class WorkingDir:
+    def __init__(self, base_dir: Path, agent_id: str, git_enabled: bool = True): ...
+
+    @property
+    def path(self) -> Path: ...
+
+    # Lock lifecycle
+    def acquire_lock(self) -> None: ...
+    def release_lock(self) -> None: ...
+
+    # Git operations
+    def init_git(self) -> None: ...
+    def diff_and_commit(self, filepath: str, message: str) -> tuple[str, str | None]: ...
+
+    # Manifest
+    def read_manifest(self) -> tuple[str, str]: ...      # (covenant, memory)
+    def write_manifest(self, agent_id: str, covenant: str) -> None: ...
+```
+
+### What moves here
+
+- `_acquire_lock()`, `_release_lock()` and the cross-platform `_lock_fd`/`_unlock_fd` helpers
+- `_git_init_working_dir()`
+- `_git_diff_and_commit()`
+- `_read_manifest()`, `_write_manifest()`
+
+### Dependencies
+
+None on BaseAgent. Pure filesystem/subprocess operations on a `Path`. Also absorbs the `sys.platform` file-locking branch at module level.
+
+## Component 2: `SessionManager` (`session.py`)
+
+Owns the LLM chat session — creation, send/retry/reset, streaming, token tracking, and context compaction.
+
+### Interface
+
+```python
+class SessionManager:
+    def __init__(
+        self,
+        llm_service: LLMService,
+        config: AgentConfig,
+        prompt_manager: SystemPromptManager,
+        build_system_prompt_fn: Callable[[], str],
+        build_tool_schemas_fn: Callable[[], list[FunctionSchema]],
+    ): ...
+
+    @property
+    def chat(self) -> ChatSession | None: ...
+
+    # Core operations
+    def ensure_session(self) -> ChatSession: ...
+    def send(self, content: str, tools: list[FunctionSchema]) -> LLMResponse: ...
+    def send_streaming(self, content: str, tools: list[FunctionSchema], callbacks) -> LLMResponse: ...
+    def reset(self, failed_tool_calls: list, interface) -> None: ...
+
+    # Token tracking
+    def track_usage(self, response: LLMResponse) -> None: ...
+    def get_token_usage(self) -> dict: ...
+    def check_and_compact(self) -> None: ...
+    def update_token_decomposition(self) -> None: ...
+
+    # Persistence
+    def get_chat_state(self) -> dict | None: ...
+    def restore_chat(self, state: dict | None) -> None: ...
+    def restore_token_state(self, state: dict) -> None: ...
+```
+
+### What moves here
+
+- `_ensure_session()`
+- `_llm_send()` → `send()`
+- `_llm_send_streaming()` → `send_streaming()`
+- `_on_reset()` → `reset()`
+- `_check_and_compact()` → `check_and_compact()`
+- `_update_token_decomposition()` → `update_token_decomposition()`
+- `_track_usage()` → `track_usage()`
+- `get_token_usage()`
+- `get_chat_state()`, `restore_chat()`, `restore_token_state()`
+
+### Dependencies
+
+Receives `LLMService`, `AgentConfig`, `SystemPromptManager` at construction. Uses two callbacks (`build_system_prompt_fn`, `build_tool_schemas_fn`) to get current prompt/schemas without needing a reference to BaseAgent.
+
+### Design notes
+
+- `send()` encapsulates the timeout/retry/stale-interaction-recovery logic currently in `_llm_send()`
+- `reset()` encapsulates the rollback-on-server-error logic currently in `_on_reset()`
+- Token state (`_cumulative_input`, `_cumulative_output`, etc.) lives on SessionManager
+- Compaction logic calls `llm_service.compact()` and updates the session's interface
+
+## Component 3: `ToolExecutor` (`tool_executor.py`)
+
+Executes tool calls — decides sequential vs parallel, handles timing, error wrapping, guard checks, and intercept hooks.
+
+### Interface
+
+```python
+class ToolExecutor:
+    def __init__(
+        self,
+        dispatch_fn: Callable[[ToolCall], str],
+        guard: LoopGuard,
+        parallel_safe_tools: set[str],
+        logger_fn: Callable | None = None,
+    ): ...
+
+    def execute(
+        self,
+        tool_calls: list[ToolCall],
+        *,
+        on_result_hook: Callable | None = None,
+    ) -> list[dict]: ...
+```
+
+### What moves here
+
+- `_execute_single_tool()` → `_execute_single()`
+- `_execute_tools_sequential()` → `_execute_sequential()`
+- `_execute_tools_parallel()` → `_execute_parallel()`
+
+### What stays on BaseAgent
+
+- `_dispatch_tool()` — the 2-layer routing table (intrinsics + MCP handlers). This is passed to ToolExecutor as `dispatch_fn`.
+- `_process_response()` — the outer loop that calls `executor.execute()` and feeds results back to the LLM.
+
+### Dependencies
+
+Receives `dispatch_fn` (a closure over BaseAgent's tool tables), `LoopGuard`, and `parallel_safe_tools` at construction. No reference to BaseAgent.
+
+### Design notes
+
+- Single public method `execute()`. Internally decides sequential vs parallel based on tool call count and `parallel_safe_tools` membership.
+- `on_result_hook` replaces the current `_on_tool_result_hook` call — ToolExecutor calls it after each tool execution, and if it returns a non-None string, that string replaces the tool result (intercept pattern).
+- Error handling (UnknownToolError, guard blocks, exceptions) is encapsulated — results always come back as dicts with `result` or `error` fields.
+
+## Component 4: Intrinsic Handlers in `intrinsics/*.py`
+
+Each intrinsic module gains a `handle(agent, args) -> str` function alongside its existing `SCHEMA` and `DESCRIPTION`.
+
+### Pattern
+
+```python
+# intrinsics/mail.py
+# existing: SCHEMA, DESCRIPTION
+
+def handle(agent, args: dict) -> str:
+    """Handle mail intrinsic calls."""
+    action = args.get("action")
+    if action == "send":
+        return _send(agent, args)
+    elif action == "read":
+        return _read(agent)
+    raise ValueError(f"Unknown mail action: {action}")
+
+def _send(agent, args: dict) -> str:
+    # Body of current BaseAgent._mail_send
+    ...
+
+def _read(agent) -> str:
+    # Body of current BaseAgent._mail_read
+    ...
+```
+
+### What moves where
+
+| Current BaseAgent method | Destination |
+|---|---|
+| `_handle_mail`, `_mail_send`, `_mail_read` | `intrinsics/mail.py` |
+| `_handle_clock`, `_clock_check`, `_clock_wait` | `intrinsics/clock.py` |
+| `_handle_status`, `_status_shutdown`, `_status_show` | `intrinsics/status.py` |
+| `_handle_system`, `_system_diff`, `_system_load` | `intrinsics/system.py` |
+
+### Wiring in BaseAgent
+
+```python
+def _wire_intrinsics(self):
+    for name, mod in ALL_INTRINSICS.items():
+        if hasattr(mod, 'handle'):
+            self._intrinsic_handlers[name] = lambda args, m=mod: m.handle(self, args)
+```
+
+### Agent state accessed by handlers
+
+Each handler accesses agent state via the `agent` parameter. The specific attributes each handler needs:
+
+- **mail**: `agent._mail_service`, `agent._mail_queue`, `agent.agent_id`, `agent._log()`
+- **clock**: `agent._cancel_event`, `agent._mail_event`, `agent._state`
+- **status**: `agent.agent_id`, `agent._state`, `agent._session` (via SessionManager), `agent.get_token_usage()`, `agent._shutdown_requested`, `agent._workdir`
+- **system**: `agent._workdir` (for `diff_and_commit`), `agent.update_system_prompt()`, `agent._prompt_manager`
+
+This is an explicit dependency — each handler documents exactly what agent surface it touches.
+
+## What Stays on BaseAgent (~500 lines)
+
+### Initialization
+- `__init__` — creates `WorkingDir`, `SessionManager`, `ToolExecutor`, wires intrinsics, sets up mail queue and state
+
+### Lifecycle
+- `start()`, `stop()`
+
+### Main loop and message routing
+- `_run_loop()` — wait for inbox, process messages
+- `_handle_message()` — route by message type
+- `_handle_request()` — send to LLM, process response
+- `_process_response()` — tool call loop, delegates execution to ToolExecutor, feeds results back via SessionManager
+
+### Mail routing (MailService callbacks)
+- `_on_mail_received()`, `_on_normal_mail()`
+
+### State
+- `_set_state()`, `_log()`, properties (`is_idle`, `state`, `working_dir`)
+
+### Public API
+- `add_tool()`, `remove_tool()`, `override_intrinsic()`, `update_system_prompt()`
+- `send()`, `mail()`
+
+### Schema building
+- `_build_tool_schemas()`, `_build_system_prompt()` — these know about the agent's tool registry and prompt sections, so they stay here and are passed as callbacks to SessionManager
+
+### Hooks (overridable by subclasses)
+- `_pre_request()`, `_post_request()`, `_on_tool_result_hook()`, `_deliver_result()`
+
+### Session delegation (thin wrappers)
+- `get_chat_state()` → `self._session.get_chat_state()`
+- `restore_chat()` → `self._session.restore_chat()`
+- `restore_token_state()` → `self._session.restore_token_state()`
+- `get_token_usage()` → `self._session.get_token_usage()`
+
+## Dependency Flow
+
+```
+BaseAgent (kernel coordinator)
+  ├── owns WorkingDir        (no back-reference to agent)
+  ├── owns SessionManager    (no back-reference; callbacks for prompt/schemas)
+  ├── owns ToolExecutor      (no back-reference; dispatch_fn callback)
+  └── wires intrinsics       (handlers receive agent as explicit parameter)
+```
+
+No component imports or references BaseAgent. Communication is via:
+- Constructor injection (services, config, callbacks)
+- Return values
+- The `agent` parameter for intrinsic handlers (documented interface)
+
+## Migration Strategy
+
+Each extraction is independent and can be done as a separate commit. Order:
+
+1. **`WorkingDir`** — zero coupling to other extractions, simplest boundary
+2. **Intrinsic handlers** — zero coupling, mostly mechanical move
+3. **`ToolExecutor`** — zero coupling, clean dispatch_fn interface
+4. **`SessionManager`** — most intertwined with message loop, do last
+
+Each step: extract code → update BaseAgent to delegate → run full test suite → commit.
+
+## Testing Impact
+
+- Existing tests continue to work unchanged (BaseAgent's public API doesn't change)
+- New unit tests can be added for each component in isolation:
+  - `WorkingDir`: give it a temp directory, verify git init/manifest/lock behavior
+  - `ToolExecutor`: give it a mock dispatch function, verify sequential/parallel execution
+  - `SessionManager`: give it a mock LLMService, verify send/retry/reset/compaction
+  - Intrinsic handlers: give them a mock agent, verify each action
+
+## Non-goals
+
+- Not changing the `Agent` subclass or capabilities layer
+- Not changing any public API signatures
+- Not changing the tool dispatch model (2-layer intrinsics + MCP)
+- Not introducing async — this stays synchronous/threaded
