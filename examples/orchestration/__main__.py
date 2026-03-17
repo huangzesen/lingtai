@@ -44,7 +44,7 @@ You are the Admin, an orchestrator agent.
 - When delegating, ALWAYS pass capabilities explicitly:
   capabilities=["email", "bash", "file", "web_search", "vision", "anima"]
   This ensures subagents do NOT get conscience or delegate.
-- Generate a tailored covenant for each subagent (pass as role= in delegate).
+- Generate a tailored covenant for each subagent (pass as covenant= in delegate).
 - After spawning a subagent, broadcast its address to ALL existing subagents
   by emailing each one the updated peer list.
 
@@ -63,14 +63,14 @@ You are the Admin, an orchestrator agent.
 """
 
 
-def write_service_json(status: str = "running") -> None:
+def write_service_json(status: str = "running", started_at: str = "") -> None:
     """Write service.json with current state."""
     SERVICE_JSON.write_text(json.dumps({
         "pid": os.getpid(),
         "admin_address": f"127.0.0.1:{ADMIN_PORT}",
         "user_port": USER_PORT,
         "status": status,
-        "started_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "started_at": started_at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }, indent=2))
 
 
@@ -106,7 +106,7 @@ def main():
         working_dir=PLAYGROUND / "admin",
     )
 
-    policy = str(Path(__file__).parent.parent / "bash_policy.json")
+    policy = str(Path(__file__).parent.parent.parent / "src" / "stoai" / "capabilities" / "bash_policy.json")
 
     agent = Agent(
         agent_id="admin",
@@ -116,7 +116,7 @@ def main():
         base_dir=PLAYGROUND,
         streaming=True,
         admin=True,
-        role=COVENANT,
+        covenant=COVENANT,
         capabilities={
             "email": {},
             "bash": {"policy_file": policy},
@@ -130,7 +130,8 @@ def main():
     )
 
     agent.start()
-    write_service_json("running")
+    started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    write_service_json("running", started_at=started_at)
 
     print(f"Admin agent started. PID: {os.getpid()}")
     print(f"Service info: {SERVICE_JSON}")
@@ -149,7 +150,7 @@ def main():
     stop_event.wait()
 
     agent.stop(timeout=10.0)
-    write_service_json("stopped")
+    write_service_json("stopped", started_at=started_at)
     print("Done.")
 
 

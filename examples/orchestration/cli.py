@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import json
 import sys
-import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -123,9 +122,10 @@ def read_email(email_id: str) -> None:
     print(f"  Email not found: {email_id}")
 
 
-def send_email(admin_address: str, user_address: str, message: str) -> None:
+def send_email(admin_address: str, user_address: str, message: str,
+               mail_service: TCPMailService | None = None) -> None:
     """Send an email to the admin orchestrator."""
-    sender = TCPMailService()
+    sender = mail_service or TCPMailService()
     # Also save to user's sent/ folder
     sent_id = str(uuid4())
     sent_dir = USER_DIR / "mailbox" / "sent" / sent_id
@@ -157,8 +157,6 @@ def run_cli(admin_address: str, user_port: int) -> None:
 
     # Start TCPMailService to receive emails in real-time
     user_mail = TCPMailService(listen_port=user_port, working_dir=USER_DIR)
-    new_mail_event = threading.Event()
-
     def on_mail(payload: dict) -> None:
         sender = payload.get("from", "?")
         subject = payload.get("subject", "")
@@ -170,7 +168,6 @@ def run_cli(admin_address: str, user_port: int) -> None:
         if eid:
             print(f"  /read {eid}")
         print("> ", end="", flush=True)
-        new_mail_event.set()
 
     user_mail.listen(on_message=on_mail)
 
@@ -210,7 +207,7 @@ def run_cli(admin_address: str, user_port: int) -> None:
             elif line.startswith("/send "):
                 message = line[6:].strip()
                 if message:
-                    send_email(admin_address, user_address, message)
+                    send_email(admin_address, user_address, message, user_mail)
                 else:
                     print("  Usage: /send <message>")
             elif line.startswith("/"):
@@ -218,7 +215,7 @@ def run_cli(admin_address: str, user_port: int) -> None:
                 print("  Commands: /send /inbox /read /sent /quit")
             else:
                 # Bare text = shorthand for /send
-                send_email(admin_address, user_address, line)
+                send_email(admin_address, user_address, line, user_mail)
 
     except KeyboardInterrupt:
         print()
