@@ -27,3 +27,10 @@ plot_example.py
 scatter_plot.*
 test/
 playground
+
+# Web dashboard frontend build
+app/web/frontend/node_modules/
+app/web/frontend/dist/
+
+# Superpowers brainstorm sessions
+.superpowers/
