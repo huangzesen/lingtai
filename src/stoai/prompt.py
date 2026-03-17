@@ -8,6 +8,7 @@ BASE_PROMPT = """\
 
 Your text responses are your private diary — not visible to anyone. All external communication and actions are done through tools.
 Read your tool schemas carefully for capabilities, caveats and pipelines.
+Your role and long-term memory (LTM) sections below may be updated mid-session by the host or other agents.
 Automatic context compaction triggers at 80% of your context window — earlier conversation will be summarized to free space."""
 
 
