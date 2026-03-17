@@ -85,7 +85,6 @@ class BaseAgent:
         context: Any = None,
         admin: bool = False,
         streaming: bool = False,
-        logging_service: Any | None = None,
         covenant: str = "",
         memory: str = "",
     ):
@@ -106,14 +105,11 @@ class BaseAgent:
         self._workdir = WorkingDir(base_dir=base_dir, agent_id=agent_id)
         self._working_dir = self._workdir.path
 
-        # LoggingService: auto-create in working dir if not provided
-        if logging_service is not None:
-            self._log_service = logging_service
-        else:
-            from .services.logging import JSONLLoggingService
-            log_dir = self._working_dir / "logs"
-            log_dir.mkdir(exist_ok=True)
-            self._log_service = JSONLLoggingService(log_dir / "events.jsonl")
+        # LoggingService: always JSONL in working dir
+        from .services.logging import JSONLLoggingService
+        log_dir = self._working_dir / "logs"
+        log_dir.mkdir(exist_ok=True)
+        self._log_service = JSONLLoggingService(log_dir / "events.jsonl")
 
         # Acquire working directory lock
         self._workdir.acquire_lock()

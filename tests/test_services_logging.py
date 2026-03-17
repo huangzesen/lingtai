@@ -122,13 +122,9 @@ class TestBaseAgentLoggingIntegration:
         """Executing a tool logs tool_call and tool_result events."""
         from stoai.tool_executor import ToolExecutor
 
-        log_file = tmp_path / "agent.jsonl"
-        log_svc = JSONLLoggingService(log_file)
-
         agent = BaseAgent(
             agent_id="test",
             service=make_mock_service(),
-            logging_service=log_svc,
             base_dir=tmp_path,
         )
         agent.add_tool("greet", schema={"type": "object", "properties": {}}, handler=lambda args: {"status": "ok"})
@@ -146,10 +142,11 @@ class TestBaseAgentLoggingIntegration:
             logger_fn=agent._log,
         )
         executor.execute([tc], collected_errors=errors)
-        log_svc.close()
 
-        lines = log_file.read_text().strip().split("\n")
-        events = [json.loads(line) for line in lines]
+        # Log file should exist in working dir
+        log_file = tmp_path / "test" / "logs" / "events.jsonl"
+        assert log_file.is_file()
+        events = agent._log_service.get_events()
         types = [e["type"] for e in events]
         assert "tool_call" in types
         assert "tool_result" in types
@@ -159,7 +156,7 @@ class TestBaseAgentLoggingIntegration:
         assert all("ts" in e for e in events)
 
     def test_auto_logging_to_working_dir(self, tmp_path):
-        """Agent without explicit logging_service auto-creates one in working dir."""
+        """Agent always creates JSONL log in working dir."""
         from stoai.tool_executor import ToolExecutor
 
         agent = BaseAgent(
@@ -186,26 +183,19 @@ class TestBaseAgentLoggingIntegration:
         # Log file should exist in working dir
         log_file = tmp_path / "test" / "logs" / "events.jsonl"
         assert log_file.is_file()
-        lines = log_file.read_text().strip().split("\n")
-        events = [json.loads(line) for line in lines]
+        events = agent._log_service.get_events()
         types = [e["type"] for e in events]
         assert "tool_call" in types
 
     def test_state_change_logged(self, tmp_path):
         """State transitions are logged."""
-        log_file = tmp_path / "agent.jsonl"
-        log_svc = JSONLLoggingService(log_file)
-
         agent = BaseAgent(
             agent_id="test",
             service=make_mock_service(),
-            logging_service=log_svc,
             base_dir=tmp_path,
         )
         agent._set_state(AgentState.ACTIVE, reason="test")
-        log_svc.close()
 
-        lines = log_file.read_text().strip().split("\n")
-        events = [json.loads(line) for line in lines]
+        events = agent._log_service.get_events()
         state_events = [e for e in events if e["type"] == "agent_state"]
         assert len(state_events) >= 1

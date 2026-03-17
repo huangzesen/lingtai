@@ -38,7 +38,6 @@ if env_path.exists():
 from stoai import Agent, AgentConfig
 from stoai.llm import LLMService
 from stoai.services.mail import TCPMailService
-from stoai.services.logging import LoggingService
 
 
 # ---------------------------------------------------------------------------
@@ -66,35 +65,9 @@ def on_user_mail(payload: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Memory logging service — captures events for web UI polling
-# ---------------------------------------------------------------------------
-
-class MemoryLoggingService(LoggingService):
-    """Stores events in memory for the web UI to poll."""
-
-    def __init__(self):
-        self._events: list[dict] = []
-        self._lock = threading.Lock()
-
-    def log(self, event: dict) -> None:
-        with self._lock:
-            self._events.append(event)
-
-    def get_events(self, since: int = 0) -> list[dict]:
-        with self._lock:
-            return self._events[since:]
-
-    def count(self) -> int:
-        with self._lock:
-            return len(self._events)
-
-
-loggers: dict[str, MemoryLoggingService] = {}
-
-
-# ---------------------------------------------------------------------------
 # HTML
 # ---------------------------------------------------------------------------
+
 
 USER_PORT = 8300
 
@@ -431,44 +404,56 @@ class ChatHandler(http.server.BaseHTTPRequestHandler):
 
         if self.path == "/diary":
             result = {}
-            for key, lg in loggers.items():
-                events = lg.get_events()
+            # Read from JSONL files in the working directories
+            # base_dir / agent_id / logs / events.jsonl
+            agent_ids = {"a": "alice", "b": "bob", "c": "charlie"}
+            for key, agent_id in agent_ids.items():
+                log_file = base_dir / agent_id / "logs" / "events.jsonl"
                 entries = []
-                for e in events:
-                    etype = e.get("type", "")
-                    if etype == "diary":
-                        entries.append({"type": "diary", "time": e.get("ts", 0), "text": e.get("text", "")})
-                    elif etype == "thinking":
-                        entries.append({"type": "thinking", "time": e.get("ts", 0), "text": e.get("text", "")})
-                    elif etype == "tool_call":
-                        entries.append({"type": "tool_call", "time": e.get("ts", 0),
-                                        "tool": e.get("tool_name", ""), "args": e.get("tool_args", {})})
-                    elif etype == "tool_reasoning":
-                        entries.append({"type": "reasoning", "time": e.get("ts", 0),
-                                        "tool": e.get("tool", ""), "text": e.get("reasoning", "")})
-                    elif etype == "tool_result":
-                        entries.append({"type": "tool_result", "time": e.get("ts", 0),
-                                        "tool": e.get("tool_name", ""), "status": e.get("status", "")})
-                    elif etype == "email_sent":
-                        to = e.get("to") or e.get("address", "")
-                        if isinstance(to, list):
-                            to = ", ".join(to)
-                        entries.append({"type": "email_out", "time": e.get("ts", 0),
-                                        "to": to, "subject": e.get("subject", ""),
-                                        "message": e.get("message", ""), "status": e.get("status", "")})
-                    elif etype == "email_received":
-                        entries.append({"type": "email_in", "time": e.get("ts", 0),
-                                        "from": e.get("sender", ""), "subject": e.get("subject", ""),
-                                        "message": e.get("message", "")})
-                    elif etype == "cancel_received":
-                        entries.append({"type": "cancel_received", "time": e.get("ts", 0),
-                                        "from": e.get("sender", ""), "subject": e.get("subject", "")})
-                    elif etype == "cancel_diary":
-                        entries.append({"type": "cancel_diary", "time": e.get("ts", 0),
-                                        "text": e.get("text", "")})
+                if log_file.exists():
+                    with open(log_file, "r") as f:
+                        for line in f:
+                            line = line.strip()
+                            if not line: continue
+                            try:
+                                e = json.loads(line)
+                            except: continue
+                            
+                            etype = e.get("type", "")
+                            if etype == "diary":
+                                entries.append({"type": "diary", "time": e.get("ts", 0), "text": e.get("text", "")})
+                            elif etype == "thinking":
+                                entries.append({"type": "thinking", "time": e.get("ts", 0), "text": e.get("text", "")})
+                            elif etype == "tool_call":
+                                entries.append({"type": "tool_call", "time": e.get("ts", 0),
+                                                "tool": e.get("tool_name", ""), "args": e.get("tool_args", {})})
+                            elif etype == "tool_reasoning":
+                                entries.append({"type": "reasoning", "time": e.get("ts", 0),
+                                                "tool": e.get("tool", ""), "text": e.get("reasoning", "")})
+                            elif etype == "tool_result":
+                                entries.append({"type": "tool_result", "time": e.get("ts", 0),
+                                                "tool": e.get("tool_name", ""), "status": e.get("status", "")})
+                            elif etype == "email_sent":
+                                to = e.get("to") or e.get("address", "")
+                                if isinstance(to, list):
+                                    to = ", ".join(to)
+                                entries.append({"type": "email_out", "time": e.get("ts", 0),
+                                                "to": to, "subject": e.get("subject", ""),
+                                                "message": e.get("message", ""), "status": e.get("status", "")})
+                            elif etype == "email_received":
+                                entries.append({"type": "email_in", "time": e.get("ts", 0),
+                                                "from": e.get("sender", ""), "subject": e.get("subject", ""),
+                                                "message": e.get("message", "")})
+                            elif etype == "cancel_received":
+                                entries.append({"type": "cancel_received", "time": e.get("ts", 0),
+                                                "from": e.get("sender", ""), "subject": e.get("subject", "")})
+                            elif etype == "cancel_diary":
+                                entries.append({"type": "cancel_diary", "time": e.get("ts", 0),
+                                                "text": e.get("text", "")})
                 result[key] = entries
             self._json(result)
             return
+
 
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -564,12 +549,10 @@ def main():
     base_dir = Path(".")
 
     # Agent A (Alice)
-    loggers["a"] = MemoryLoggingService()
     mail_a = TCPMailService(listen_port=8301, working_dir=base_dir / "alice")
     agent_a = Agent(
         agent_id="alice", service=llm, mail_service=mail_a,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
-        logging_service=loggers["a"], admin=True,
         role=(
             "Your name is Alice. Your address is 127.0.0.1:8301.\n\n"
             f"{AGENT_PROMPT}\n\n"
@@ -581,13 +564,12 @@ def main():
         capabilities=["email", "web_search"],
     )
 
+
     # Agent B (Bob)
-    loggers["b"] = MemoryLoggingService()
     mail_b = TCPMailService(listen_port=8302, working_dir=base_dir / "bob")
     agent_b = Agent(
         agent_id="bob", service=llm, mail_service=mail_b,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
-        logging_service=loggers["b"],
         role=(
             "Your name is Bob. Your address is 127.0.0.1:8302.\n\n"
             f"{AGENT_PROMPT}\n\n"
@@ -600,12 +582,10 @@ def main():
     )
 
     # Agent C (Charlie)
-    loggers["c"] = MemoryLoggingService()
     mail_c = TCPMailService(listen_port=8303, working_dir=base_dir / "charlie")
     agent_c = Agent(
         agent_id="charlie", service=llm, mail_service=mail_c,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
-        logging_service=loggers["c"],
         role=(
             "Your name is Charlie. Your address is 127.0.0.1:8303.\n\n"
             f"{AGENT_PROMPT}\n\n"
@@ -616,6 +596,7 @@ def main():
         ),
         capabilities=["email", "web_search"],
     )
+
 
     agent_a.start()
     agent_b.start()

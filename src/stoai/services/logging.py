@@ -51,6 +51,23 @@ class JSONLLoggingService(LoggingService):
             self._file.write(line + "\n")
             self._file.flush()
 
+    def get_events(self) -> list[dict]:
+        """Read all events from the JSONL file. Thread-safe."""
+        with self._lock:
+            # Re-read the file from start
+            if not self._path.exists():
+                return []
+            events = []
+            with open(self._path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            events.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            continue
+            return events
+
     def close(self) -> None:
         if not self._closed:
             self._closed = True

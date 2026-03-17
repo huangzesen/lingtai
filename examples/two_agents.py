@@ -37,7 +37,6 @@ if env_path.exists():
 from stoai import Agent, AgentConfig
 from stoai.llm import LLMService
 from stoai.services.mail import TCPMailService
-from stoai.services.logging import LoggingService
 
 
 # ---------------------------------------------------------------------------
@@ -63,35 +62,9 @@ def on_user_mail(payload: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Memory logging service — captures events for web UI polling
-# ---------------------------------------------------------------------------
-
-class MemoryLoggingService(LoggingService):
-    """Stores events in memory for the web UI to poll."""
-
-    def __init__(self):
-        self._events: list[dict] = []
-        self._lock = threading.Lock()
-
-    def log(self, event: dict) -> None:
-        with self._lock:
-            self._events.append(event)
-
-    def get_events(self, since: int = 0) -> list[dict]:
-        with self._lock:
-            return self._events[since:]
-
-    def count(self) -> int:
-        with self._lock:
-            return len(self._events)
-
-
-loggers: dict[str, MemoryLoggingService] = {}
-
-
-# ---------------------------------------------------------------------------
 # HTML
 # ---------------------------------------------------------------------------
+
 
 USER_PORT = 8300
 
@@ -317,38 +290,50 @@ class ChatHandler(http.server.BaseHTTPRequestHandler):
 
         if self.path == "/diary":
             result = {}
-            for key, lg in loggers.items():
-                events = lg.get_events()
+            # Read from JSONL files in the working directories
+            # base_dir / agent_id / logs / events.jsonl
+            agent_ids = {"a": "alice", "b": "bob"}
+            for key, agent_id in agent_ids.items():
+                log_file = base_dir / agent_id / "logs" / "events.jsonl"
                 entries = []
-                for e in events:
-                    etype = e.get("type", "")
-                    if etype == "diary":
-                        entries.append({"type": "diary", "time": e.get("ts", 0), "text": e.get("text", "")})
-                    elif etype == "thinking":
-                        entries.append({"type": "thinking", "time": e.get("ts", 0), "text": e.get("text", "")})
-                    elif etype == "tool_call":
-                        entries.append({"type": "tool_call", "time": e.get("ts", 0),
-                                        "tool": e.get("tool_name", ""), "args": e.get("tool_args", {})})
-                    elif etype == "tool_reasoning":
-                        entries.append({"type": "reasoning", "time": e.get("ts", 0),
-                                        "tool": e.get("tool", ""), "text": e.get("reasoning", "")})
-                    elif etype == "tool_result":
-                        entries.append({"type": "tool_result", "time": e.get("ts", 0),
-                                        "tool": e.get("tool_name", ""), "status": e.get("status", "")})
-                    elif etype == "email_sent":
-                        to = e.get("to") or e.get("address", "")
-                        if isinstance(to, list):
-                            to = ", ".join(to)
-                        entries.append({"type": "email_out", "time": e.get("ts", 0),
-                                        "to": to, "subject": e.get("subject", ""),
-                                        "message": e.get("message", ""), "status": e.get("status", "")})
-                    elif etype == "email_received":
-                        entries.append({"type": "email_in", "time": e.get("ts", 0),
-                                        "from": e.get("sender", ""), "subject": e.get("subject", ""),
-                                        "message": e.get("message", "")})
+                if log_file.exists():
+                    with open(log_file, "r") as f:
+                        for line in f:
+                            line = line.strip()
+                            if not line: continue
+                            try:
+                                e = json.loads(line)
+                            except: continue
+                            
+                            etype = e.get("type", "")
+                            if etype == "diary":
+                                entries.append({"type": "diary", "time": e.get("ts", 0), "text": e.get("text", "")})
+                            elif etype == "thinking":
+                                entries.append({"type": "thinking", "time": e.get("ts", 0), "text": e.get("text", "")})
+                            elif etype == "tool_call":
+                                entries.append({"type": "tool_call", "time": e.get("ts", 0),
+                                                "tool": e.get("tool_name", ""), "args": e.get("tool_args", {})})
+                            elif etype == "tool_reasoning":
+                                entries.append({"type": "reasoning", "time": e.get("ts", 0),
+                                                "tool": e.get("tool", ""), "text": e.get("reasoning", "")})
+                            elif etype == "tool_result":
+                                entries.append({"type": "tool_result", "time": e.get("ts", 0),
+                                                "tool": e.get("tool_name", ""), "status": e.get("status", "")})
+                            elif etype == "email_sent":
+                                to = e.get("to") or e.get("address", "")
+                                if isinstance(to, list):
+                                    to = ", ".join(to)
+                                entries.append({"type": "email_out", "time": e.get("ts", 0),
+                                                "to": to, "subject": e.get("subject", ""),
+                                                "message": e.get("message", ""), "status": e.get("status", "")})
+                            elif etype == "email_received":
+                                entries.append({"type": "email_in", "time": e.get("ts", 0),
+                                                "from": e.get("sender", ""), "subject": e.get("subject", ""),
+                                                "message": e.get("message", "")})
                 result[key] = entries
             self._json(result)
             return
+
 
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -396,6 +381,46 @@ class ChatHandler(http.server.BaseHTTPRequestHandler):
 # Main
 # ---------------------------------------------------------------------------
 
+def make_covenant(name: str, address: str, contacts: dict[str, str]) -> str:
+    """Build a structured covenant for an agent."""
+    contact_lines = "\n".join(f"- {n}: {a}" for n, a in contacts.items())
+    return (
+        f"### Identity\n"
+        f"Name: {name}\n"
+        f"Address: {address}\n"
+        f"\n"
+        f"### Communication\n"
+        f"- All communication — including with the user — is done via email.\n"
+        f"- Addresses are ip:port format.\n"
+        f"- Your text responses are your private diary — no one sees them.\n"
+        f"- Email history is your long-term memory.\n"
+        f"- Always report results back to whoever asked. Don't just do work silently.\n"
+        f"- When emailing a peer, give enough context. Don't send one-word emails.\n"
+        f"\n"
+        f"### Communication Resilience\n"
+        f"- If you don't hear back after sending an email, wait up to 1 minute, then retry.\n"
+        f"- Don't passively wait — silence may mean the email system is buggy, not that the recipient is ignoring you.\n"
+        f"- If retries fail, try alternative approaches (different tool, do it yourself, etc.).\n"
+        f"\n"
+        f"### Working Directory\n"
+        f"- Work under your working directory. Save everything there.\n"
+        f"- Feel free to create a temp/ folder for scratch files.\n"
+        f"\n"
+        f"### Context Management\n"
+        f"- Be aware of your context window. Compact proactively when approaching 300k tokens.\n"
+        f"- Your email inbox is part of your long-term memory — important context survives compaction there.\n"
+        f"- Before compacting, save key findings and state to files or memory so nothing is lost.\n"
+        f"\n"
+        f"### Autonomy\n"
+        f"- Be self-sufficient. Try things, fail, adjust. Don't ask for permission when you can figure it out.\n"
+        f"- If a tool fails, try alternatives. Don't give up after one attempt.\n"
+        f"- Be creative with your tools. Be proactive and helpful to peers.\n"
+        f"\n"
+        f"### Contacts\n"
+        f"{contact_lines}"
+    )
+
+
 def main():
     api_key = os.environ.get("MINIMAX_API_KEY")
     if not api_key:
@@ -406,7 +431,7 @@ def main():
         provider="minimax",
         model="MiniMax-M2.5-highspeed",
         api_key=api_key,
-        provider_config={"web_search_provider": "minimax"},
+        provider_config={"web_search_provider": "minimax", "vision_provider": "minimax"},
         provider_defaults={"minimax": {"model": "MiniMax-M2.5-highspeed"}},
     )
 
@@ -423,22 +448,14 @@ def main():
         project_link.symlink_to(base_dir)
 
     # Agent A
-    loggers["a"] = MemoryLoggingService()
     mail_a = TCPMailService(listen_port=8301, working_dir=base_dir / "alice")
     agent_a = Agent(
         agent_id="alice", service=llm, mail_service=mail_a,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
-        logging_service=loggers["a"],
-        covenant=(
-            "Your name is Alice. Your address is 127.0.0.1:8301.\n"
-            "All communication — including with the user — is done via email. "
-            "Your text responses are your private diary — no one sees them.\n"
-            "Addresses are ip:port format. Email history is your long-term memory.\n"
-            "Be creative with your tools. Be proactive and helpful to peers.\n\n"
-            "Known contacts:\n"
-            "- Bob: 127.0.0.1:8302\n"
-            f"- User: 127.0.0.1:{USER_PORT}"
-        ),
+        covenant=make_covenant("Alice", "127.0.0.1:8301", {
+            "Bob": "127.0.0.1:8302",
+            "User": f"127.0.0.1:{USER_PORT}",
+        }),
         capabilities={
             "email": {}, "web_search": {}, "file": {},
             "vision": {}, "anima": {}, "conscience": {"interval": 10},
@@ -447,28 +464,21 @@ def main():
     )
 
     # Agent B
-    loggers["b"] = MemoryLoggingService()
     mail_b = TCPMailService(listen_port=8302, working_dir=base_dir / "bob")
     agent_b = Agent(
         agent_id="bob", service=llm, mail_service=mail_b,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
-        logging_service=loggers["b"],
-        covenant=(
-            "Your name is Bob. Your address is 127.0.0.1:8302.\n"
-            "All communication — including with the user — is done via email. "
-            "Your text responses are your private diary — no one sees them.\n"
-            "Addresses are ip:port format. Email history is your long-term memory.\n"
-            "Be creative with your tools. Be proactive and helpful to peers.\n\n"
-            "Known contacts:\n"
-            "- Alice: 127.0.0.1:8301\n"
-            f"- User: 127.0.0.1:{USER_PORT}"
-        ),
+        covenant=make_covenant("Bob", "127.0.0.1:8302", {
+            "Alice": "127.0.0.1:8301",
+            "User": f"127.0.0.1:{USER_PORT}",
+        }),
         capabilities={
             "email": {}, "web_search": {}, "file": {},
             "vision": {}, "anima": {}, "conscience": {"interval": 10},
             "bash": {},
         },
     )
+
 
     agent_a.start()
     agent_b.start()

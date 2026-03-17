@@ -177,7 +177,7 @@ class TestEstimateContextTokens:
         iface = ChatInterface()
         iface.add_system("A" * 1000)
         estimate = iface.estimate_context_tokens()
-        assert estimate > 200  # 1000 chars / ~4 = ~250 tokens
+        assert estimate > 100  # 1000 chars / ~8 = ~125 tokens (Gemini) or ~4 = ~250 tokens (tiktoken)
 
 
 # ---------------------------------------------------------------------------

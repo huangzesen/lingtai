@@ -237,6 +237,7 @@ def test_email_blocks_identical_consecutive_send(tmp_path):
     mail_svc.send.return_value = None
     agent._mail_service = mail_svc
     mgr = agent.get_capability("email")
+    mgr._dup_free_passes = 1
 
     # First send — should work
     result = mgr.handle({
@@ -270,6 +271,7 @@ def test_email_blocks_identical_reply(tmp_path):
     mail_svc.send.return_value = None
     agent._mail_service = mail_svc
     mgr = agent.get_capability("email")
+    mgr._dup_free_passes = 1
 
     # Create an inbox email to reply to
     _make_inbox_email(agent.working_dir, sender="127.0.0.1:8888", subject="hello", message="hi there")
