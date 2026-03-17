@@ -42,4 +42,5 @@ def setup(agent: "BaseAgent") -> None:
         except Exception as e:
             return {"error": f"Glob failed: {e}"}
 
-    agent.add_tool("glob", schema=SCHEMA, handler=handle_glob, description=DESCRIPTION)
+    agent.add_tool("glob", schema=SCHEMA, handler=handle_glob, description=DESCRIPTION,
+                    system_prompt="Find files by name pattern.")

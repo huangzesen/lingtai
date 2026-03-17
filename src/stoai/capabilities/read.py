@@ -50,4 +50,5 @@ def setup(agent: "BaseAgent") -> None:
         numbered = "".join(f"{start + i + 1}\t{line}" for i, line in enumerate(selected))
         return {"content": numbered, "total_lines": len(lines), "lines_shown": len(selected)}
 
-    agent.add_tool("read", schema=SCHEMA, handler=handle_read, description=DESCRIPTION)
+    agent.add_tool("read", schema=SCHEMA, handler=handle_read, description=DESCRIPTION,
+                    system_prompt="Read file contents.")

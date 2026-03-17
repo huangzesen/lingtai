@@ -66,5 +66,6 @@ class WebSearchManager:
 def setup(agent: "BaseAgent", search_service: Any | None = None, **kwargs: Any) -> WebSearchManager:
     """Set up the web_search capability on an agent."""
     mgr = WebSearchManager(agent, search_service=search_service)
-    agent.add_tool("web_search", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
+    agent.add_tool("web_search", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
+                    system_prompt="Search the web for current information.")
     return mgr

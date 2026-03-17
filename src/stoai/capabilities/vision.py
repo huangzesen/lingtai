@@ -88,5 +88,6 @@ class VisionManager:
 def setup(agent: "BaseAgent", vision_service: Any | None = None, **kwargs: Any) -> VisionManager:
     """Set up the vision capability on an agent."""
     mgr = VisionManager(agent, vision_service=vision_service)
-    agent.add_tool("vision", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
+    agent.add_tool("vision", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
+                    system_prompt="Analyze and understand images.")
     return mgr

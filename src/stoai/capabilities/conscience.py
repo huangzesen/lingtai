@@ -67,8 +67,6 @@ SCHEMA = {
     "required": ["action"],
 }
 
-SYSTEM_PROMPT = None  # Injected dynamically by setup() with the actual interval
-
 DESCRIPTION = (
     "Your conscience — the inner voice born from time-awareness. "
     "'horme' toggles a periodic self-nudge on or off. "
@@ -212,15 +210,11 @@ class ConscienceManager:
 def setup(agent: "BaseAgent", interval: float = 300.0) -> ConscienceManager:
     """Set up the conscience capability on an agent."""
     mgr = ConscienceManager(agent, interval=interval)
-    agent.add_tool(
-        "conscience", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
-    )
     minutes = int(interval) // 60
     seconds = int(interval) % 60
     period = f"{minutes}m{seconds}s" if seconds else f"{minutes}m"
-    agent.update_system_prompt(
-        "capability:conscience",
-        f"Text inputs you receive may be your inner voice — conscience nudges every {period}.",
-        protected=True,
+    agent.add_tool(
+        "conscience", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
+        system_prompt=f"Text inputs may be your inner voice — nudges every {period}.",
     )
     return mgr

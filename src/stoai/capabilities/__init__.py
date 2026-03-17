@@ -65,11 +65,4 @@ def setup_capability(agent: "BaseAgent", name: str, **kwargs: Any) -> Any:
         raise ValueError(
             f"Capability module {name!r} does not export a setup() function"
         )
-    result = setup_fn(agent, **kwargs)
-
-    # Auto-inject system prompt section if the capability defines one
-    system_prompt = getattr(mod, "SYSTEM_PROMPT", None)
-    if system_prompt:
-        agent.update_system_prompt(f"capability:{name}", system_prompt, protected=True)
-
-    return result
+    return setup_fn(agent, **kwargs)

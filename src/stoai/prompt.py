@@ -43,14 +43,27 @@ class SystemPromptManager:
     def render(self) -> str:
         """Render all sections into a single system prompt string.
 
-        Ordering: capability:* sections first, then everything else.
+        Ordering: tools → covenant → rest → memory (always last).
         """
-        caps = []
-        rest = []
+        ordered: list[str] = []
+        priority = ["tools", "covenant"]
+
+        for key in priority:
+            entry = self._sections.get(key)
+            if entry:
+                ordered.append(f"## {key}\n{entry['content']}")
+
         for name, entry in self._sections.items():
-            bucket = caps if name.startswith("capability:") else rest
-            bucket.append(f"## {name}\n{entry['content']}")
-        return "\n\n".join(caps + rest)
+            if name in priority or name == "memory":
+                continue
+            ordered.append(f"## {name}\n{entry['content']}")
+
+        # Memory always last
+        mem = self._sections.get("memory")
+        if mem:
+            ordered.append(f"## memory\n{mem['content']}")
+
+        return "\n\n".join(ordered)
 
 
 BASE_PROMPT = """\

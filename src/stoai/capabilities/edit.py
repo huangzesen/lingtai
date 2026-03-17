@@ -57,4 +57,5 @@ def setup(agent: "BaseAgent") -> None:
             return {"error": f"Cannot write {path}: {e}"}
         return {"status": "ok", "replacements": count if replace_all else 1}
 
-    agent.add_tool("edit", schema=SCHEMA, handler=handle_edit, description=DESCRIPTION)
+    agent.add_tool("edit", schema=SCHEMA, handler=handle_edit, description=DESCRIPTION,
+                    system_prompt="Find-and-replace text in files.")

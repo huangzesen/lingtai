@@ -43,4 +43,5 @@ def setup(agent: "BaseAgent") -> None:
         except Exception as e:
             return {"error": f"Cannot write {path}: {e}"}
 
-    agent.add_tool("write", schema=SCHEMA, handler=handle_write, description=DESCRIPTION)
+    agent.add_tool("write", schema=SCHEMA, handler=handle_write, description=DESCRIPTION,
+                    system_prompt="Create or overwrite files.")

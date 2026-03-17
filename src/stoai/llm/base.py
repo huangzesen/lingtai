@@ -76,6 +76,7 @@ class FunctionSchema:
     name: str
     description: str
     parameters: dict
+    system_prompt: str = ""
 
     def to_dict(self) -> dict:
         return {"name": self.name, "description": self.description, "parameters": self.parameters}

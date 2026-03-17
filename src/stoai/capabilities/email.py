@@ -91,11 +91,6 @@ SCHEMA = {
     "required": ["action"],
 }
 
-SYSTEM_PROMPT = (
-    "All communication is done via email. "
-    "Your text responses are your private diary — no one else sees them."
-)
-
 DESCRIPTION = (
     "Full email client — filesystem-based mailbox with inbox/sent folders, "
     "reply, reply-all, CC/BCC, attachments, and regex search. "
@@ -548,5 +543,6 @@ def setup(agent: "BaseAgent") -> EmailManager:
     agent._on_normal_mail = mgr.on_normal_mail
     agent.add_tool(
         "email", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
+        system_prompt="Your only communication channel — with other agents and the user. Text responses are your private diary.",
     )
     return mgr

@@ -41,13 +41,13 @@ SCHEMA = {
             "enum": [
                 "update", "diff", "load",
                 "submit", "filter", "view", "consolidate", "delete",
-                "compact",
+                "compact", "forget",
             ],
             "description": (
                 "role: update | diff | load.\n"
                 "library: submit | filter | view | consolidate | delete.\n"
                 "memory: load | diff.\n"
-                "context: compact."
+                "context: compact | forget."
             ),
         },
         "title": {
@@ -213,7 +213,7 @@ class AnimaManager:
         "role": {"update", "diff", "load"},
         "library": {"submit", "filter", "view", "consolidate", "delete"},
         "memory": {"load", "diff"},
-        "context": {"compact"},
+        "context": {"compact", "forget"},
     }
 
     def handle(self, args: dict) -> dict:
@@ -510,7 +510,7 @@ class AnimaManager:
 
         agent_prompt = self._agent._chat.interface.current_system_prompt or ""
         ctx_window = self._agent._chat.context_window()
-        target_tokens = int(ctx_window * 0.2) if ctx_window > 0 else 2048
+        target_tokens = min(int(ctx_window * 0.2), 16384) if ctx_window > 0 else 2048
 
         def summarizer(text: str) -> str:
             prompt_parts = [COMPACTION_PROMPT]
@@ -557,6 +557,19 @@ class AnimaManager:
             "context_tokens": usage.get("ctx_total_tokens", 0),
         }
 
+    def _context_forget(self, args: dict) -> dict:
+        """Nuke the entire conversation context and start a fresh session."""
+        if self._agent._chat is None:
+            return {"error": "No active chat session."}
+
+        before_tokens = self._agent._chat.interface.estimate_context_tokens()
+        self._agent._session._chat = None
+        self._agent._session._interaction_id = None
+        self._agent._session.ensure_session()
+        self._agent._log("anima_forget", before_tokens=before_tokens)
+
+        return {"status": "ok", "freed_tokens": before_tokens}
+
 
 def setup(agent: "BaseAgent") -> AnimaManager:
     """Set up anima capability — self-knowledge management."""
@@ -578,5 +591,6 @@ def setup(agent: "BaseAgent") -> AnimaManager:
 
     agent.add_tool(
         "anima", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
+        system_prompt="Manage your identity, knowledge library, and memory.",
     )
     return mgr

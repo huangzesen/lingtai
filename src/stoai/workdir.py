@@ -103,6 +103,8 @@ class WorkingDir:
                 "!.gitignore\n"
                 "!system/\n"
                 "!system/**\n"
+                "!history/\n"
+                "!history/**\n"
                 "!logs/\n"
                 "!logs/**\n"
             )

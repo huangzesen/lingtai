@@ -230,5 +230,6 @@ def setup(
     if policy_summary:
         desc = f"{DESCRIPTION}\n\n{policy_summary}"
 
-    agent.add_tool("bash", schema=SCHEMA, handler=mgr.handle, description=desc)
+    agent.add_tool("bash", schema=SCHEMA, handler=mgr.handle, description=desc,
+                    system_prompt="Run shell commands.")
     return mgr

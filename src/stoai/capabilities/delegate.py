@@ -121,5 +121,6 @@ class DelegateManager:
 def setup(agent: "Agent") -> DelegateManager:
     """Set up the delegate capability on an agent."""
     mgr = DelegateManager(agent)
-    agent.add_tool("delegate", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
+    agent.add_tool("delegate", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
+                    system_prompt="Spawn a new agent and communicate via email.")
     return mgr

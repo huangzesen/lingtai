@@ -47,4 +47,5 @@ def setup(agent: "BaseAgent") -> None:
         except Exception as e:
             return {"error": f"Grep failed: {e}"}
 
-    agent.add_tool("grep", schema=SCHEMA, handler=handle_grep, description=DESCRIPTION)
+    agent.add_tool("grep", schema=SCHEMA, handler=handle_grep, description=DESCRIPTION,
+                    system_prompt="Search file contents by regex.")

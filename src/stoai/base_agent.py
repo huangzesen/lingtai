@@ -308,7 +308,7 @@ class BaseAgent:
         (system_dir / "system.md").write_text(self._build_system_prompt())
 
         # Restore chat session and token state from filesystem if available
-        chat_history_file = system_dir / "chat_history.json"
+        chat_history_file = self._working_dir / "history" / "chat_history.json"
         if chat_history_file.is_file():
             try:
                 state = json.loads(chat_history_file.read_text())
@@ -316,7 +316,7 @@ class BaseAgent:
                 self._log("session_restored")
             except Exception as e:
                 logger.warning(f"[{self.agent_id}] Failed to restore chat history: {e}")
-        status_file = system_dir / "status.json"
+        status_file = self._working_dir / "history" / "status.json"
         if status_file.is_file():
             try:
                 status_state = json.loads(status_file.read_text())
@@ -687,7 +687,21 @@ class BaseAgent:
     # ------------------------------------------------------------------
 
     def _build_system_prompt(self) -> str:
-        """Build the system prompt from base + sections."""
+        """Build the system prompt from base + sections + tool inventory."""
+        # Build tool inventory from SYSTEM_PROMPT constants
+        lines = []
+        for name in self._intrinsics:
+            info = ALL_INTRINSICS.get(name)
+            if info and info.get("system_prompt"):
+                lines.append(f"- {name}: {info['system_prompt']}")
+        for s in self._mcp_schemas:
+            sp = getattr(s, "system_prompt", None)
+            if sp:
+                lines.append(f"- {s.name}: {sp}")
+        if lines:
+            self._prompt_manager.write_section(
+                "tools", "\n".join(lines), protected=True
+            )
         return build_system_prompt(prompt_manager=self._prompt_manager)
 
     def _build_tool_schemas(self) -> list[FunctionSchema]:
@@ -757,6 +771,7 @@ class BaseAgent:
         schema: dict | None = None,
         handler: Callable[[dict], dict] | None = None,
         description: str = "",
+        system_prompt: str = "",
     ) -> None:
         """Register a dynamic tool."""
         if self._sealed:
@@ -771,6 +786,7 @@ class BaseAgent:
                     name=name,
                     description=description,
                     parameters=schema,
+                    system_prompt=system_prompt,
                 )
             )
         # Update the live session's tools if one exists
@@ -875,21 +891,22 @@ class BaseAgent:
         self._session.restore_token_state(state)
 
     def _persist_chat_history(self) -> None:
-        """Save chat history and status to system/ and git-commit."""
-        system_dir = self._working_dir / "system"
+        """Save chat history and status to history/ and git-commit."""
+        history_dir = self._working_dir / "history"
+        history_dir.mkdir(exist_ok=True)
         try:
             # Chat history
             state = self.get_chat_state()
             if state:
-                (system_dir / "chat_history.json").write_text(
+                (history_dir / "chat_history.json").write_text(
                     json.dumps(state, ensure_ascii=False)
                 )
             # Status (tokens, state, uptime)
-            (system_dir / "status.json").write_text(
+            (history_dir / "status.json").write_text(
                 json.dumps(self.status(), ensure_ascii=False, indent=2)
             )
-            self._workdir.diff_and_commit("system/chat_history.json", "chat_history")
-            self._workdir.diff_and_commit("system/status.json", "status")
+            self._workdir.diff_and_commit("history/chat_history.json", "chat_history")
+            self._workdir.diff_and_commit("history/status.json", "status")
         except Exception as e:
             logger.warning(f"[{self.agent_id}] Failed to persist session state: {e}")
 
