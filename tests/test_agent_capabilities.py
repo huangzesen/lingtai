@@ -1,10 +1,9 @@
-"""Tests for Agent — capabilities and tools layer."""
+"""Tests for Agent — capabilities layer."""
 from __future__ import annotations
 
 import pytest
 from unittest.mock import MagicMock
 from stoai.agent import Agent
-from stoai.types import MCPTool
 
 
 def make_mock_service():
@@ -48,19 +47,6 @@ def test_agent_capabilities_dict(tmp_path):
     agent.stop(timeout=1.0)
 
 
-def test_agent_tools_param(tmp_path):
-    """tools= registers MCP tools and populates _mcp_tool_names."""
-    handler = MagicMock(return_value={"ok": True})
-    tool = MCPTool(name="my_tool", schema={"type": "object", "properties": {}}, description="test", handler=handler)
-    agent = Agent(
-        agent_id="test", service=make_mock_service(), base_dir=tmp_path,
-        tools=[tool],
-    )
-    assert "my_tool" in agent._mcp_handlers
-    assert "my_tool" in agent._mcp_tool_names
-    agent.stop(timeout=1.0)
-
-
 def test_agent_get_capability(tmp_path):
     """get_capability() returns the manager instance."""
     agent = Agent(
@@ -85,19 +71,3 @@ def test_agent_seal_after_start(tmp_path):
             agent.add_tool("foo", schema={"type": "object", "properties": {}}, handler=lambda a: {}, description="x")
     finally:
         agent.stop(timeout=2.0)
-
-
-def test_agent_capabilities_and_tools(tmp_path):
-    """Both capabilities and tools can be used together."""
-    handler = MagicMock(return_value={"ok": True})
-    tool = MCPTool(name="my_tool", schema={"type": "object", "properties": {}}, description="test", handler=handler)
-    agent = Agent(
-        agent_id="test", service=make_mock_service(), base_dir=tmp_path,
-        capabilities=["vision"],
-        tools=[tool],
-    )
-    assert "vision" in agent._mcp_handlers
-    assert "my_tool" in agent._mcp_handlers
-    assert "my_tool" in agent._mcp_tool_names
-    assert "vision" not in agent._mcp_tool_names  # capability, not MCP tool
-    agent.stop(timeout=1.0)
