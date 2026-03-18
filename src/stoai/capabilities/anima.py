@@ -58,8 +58,11 @@ SCHEMA = {
         "summary": {
             "type": "string",
             "description": (
-                "Entry summary — 1-3 sentences. Used for filtering. "
-                "Required for library submit and consolidate."
+                "For library submit/consolidate: entry summary — 1-3 sentences, used for filtering. "
+                "For context compact: a briefing to your future self — the ONLY thing you will see "
+                "after compaction. Write what you are doing, what you have found, "
+                "what remains to be done, which library entries to retrieve, "
+                "and who you are working with (addresses). ~10000 tokens max."
             ),
         },
         "content": {
@@ -107,13 +110,6 @@ SCHEMA = {
                 "'supplementary': id + title + summary + content + supplementary."
             ),
         },
-        "prompt": {
-            "type": "string",
-            "description": (
-                "Compaction guidance — what to preserve, what to compress. "
-                "Required for context compact. Can be empty."
-            ),
-        },
     },
     "required": ["object", "action"],
 }
@@ -131,19 +127,22 @@ DESCRIPTION = (
     "Pipelines (workflows you've mastered). "
     "update to write your character (write your full profile, it replaces previous), "
     "diff to review changes, load to apply.\n"
-    "library: your knowledge archive — proactively insert knowledge for future "
-    "reference. This is part of you: your knowledge defines your expertise. "
-    "Academic style: title + summary + content (optional supplementary). "
+    "library: your external brain — persists across compactions, reboots, and kills. "
+    "Proactively deposit important findings, data, decisions, and discoveries here "
+    "throughout your work. Use filter/view to retrieve information anytime — "
+    "you don't need to load everything into system prompt. "
     "submit to add entries. filter to browse (returns id + title + summary, "
     "optional regex pattern and limit). view to read at depth "
     "(content or supplementary). consolidate to merge entries. "
-    "delete to remove. Be a thoughtful librarian — write clear titles, "
-    "concise summaries (1-3 sentences), and structured content (up to 500 words).\n"
+    "delete to remove. Write clear titles and concise summaries (1-3 sentences).\n"
     "memory: load selected library entries into active memory by IDs "
     "(injects id + title + content into system prompt and git commits).\n"
-    "context: compact to proactively free context space. "
-    "forget to nuke conversation history and start fresh "
-    "(email mailbox persists independently). "
+    "context: compact to self-compact — write a briefing to your future self. "
+    "Your conversation history is wiped and your prompt becomes the ONLY context you see. "
+    "Before compacting: deposit important data to library (your external brain — it persists). "
+    "Then write what you're doing, what's done, what's pending, "
+    "and which library entries to retrieve for context. "
+    "forget to nuke conversation history completely (you lose everything). "
     "Check usage via status show first.\n"
     "Workflow: filter to browse → view if you need detail → load to remember."
 )
@@ -502,62 +501,47 @@ class AnimaManager:
     # ------------------------------------------------------------------
 
     def _context_compact(self, args: dict) -> dict:
-        prompt = args.get("prompt")
-        if prompt is None:
-            return {"error": "prompt is required for context compact (can be empty)."}
+        """Agent self-compaction: summary IS the briefing, wipe + re-inject."""
+        summary = args.get("summary")
+        if summary is None:
+            return {"error": "summary is required — write a briefing to your future self."}
+        if not summary.strip():
+            return {"error": "summary cannot be empty — write what you need to remember."}
 
         if self._agent._chat is None:
             return {"error": "No active chat session to compact."}
 
-        from ..llm.service import COMPACTION_PROMPT
+        before_tokens = self._agent._chat.interface.estimate_context_tokens()
 
-        agent_prompt = self._agent._chat.interface.current_system_prompt or ""
-        ctx_window = self._agent._chat.context_window()
-        target_tokens = min(int(ctx_window * 0.2), 16384) if ctx_window > 0 else 2048
+        # Wipe context and start fresh session
+        self._agent._session._chat = None
+        self._agent._session._interaction_id = None
+        self._agent._session.ensure_session()
 
-        def summarizer(text: str) -> str:
-            prompt_parts = [COMPACTION_PROMPT]
-            if prompt:
-                prompt_parts.append(f"\nAgent guidance: {prompt}\n")
-            prompt_parts.append(
-                f"\nTarget summary length: ~{target_tokens} tokens "
-                f"(20% of {ctx_window} token context window).\n"
-            )
-            if agent_prompt:
-                prompt_parts.append(
-                    f"\nThe agent's role:\n{agent_prompt}\n\n"
-                    "Do your best to help this agent based on its role.\n"
-                )
-            prompt_parts.append(f"\nConversation history:\n{text}")
-            response = self._agent.service.generate(
-                "".join(prompt_parts),
-                temperature=0.1,
-                max_output_tokens=target_tokens,
-            )
-            return response.text.strip() if response and response.text else ""
-
-        # Force compaction with threshold=0.0
-        new_chat = self._agent.service.check_and_compact(
-            self._agent._chat,
-            summarizer=summarizer,
-            threshold=0.0,
-            provider=self._agent._config.provider,
+        # Inject the agent's summary as the opening context
+        from ..llm.interface import TextBlock
+        iface = self._agent._session._chat.interface
+        iface.add_user_message(f"[Previous conversation summary]\n{summary}")
+        iface.add_assistant_message(
+            [TextBlock(text="Understood. I have my previous context restored.")],
         )
-        if new_chat is not None:
-            before_tokens = self._agent._chat.interface.estimate_context_tokens()
-            after_tokens = new_chat.interface.estimate_context_tokens()
-            self._agent._chat = new_chat
-            self._agent._interaction_id = None
-            self._agent._log(
-                "anima_compact",
-                before_tokens=before_tokens,
-                after_tokens=after_tokens,
-            )
 
-        usage = self._agent.get_token_usage()
+        after_tokens = iface.estimate_context_tokens()
+
+        # Reset compaction warnings since agent just compacted
+        if hasattr(self._agent._session, "_compaction_warnings"):
+            self._agent._session._compaction_warnings = 0
+
+        self._agent._log(
+            "anima_compact",
+            before_tokens=before_tokens,
+            after_tokens=after_tokens,
+        )
+
         return {
             "status": "ok",
-            "context_tokens": usage.get("ctx_total_tokens", 0),
+            "before_tokens": before_tokens,
+            "after_tokens": after_tokens,
         }
 
     def _context_forget(self, args: dict) -> dict:

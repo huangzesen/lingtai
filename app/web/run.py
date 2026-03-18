@@ -108,7 +108,7 @@ def main(example_name: str | None = None):
         cfg = {}
 
     provider = cfg.get("provider", "minimax")
-    model = cfg.get("model", "MiniMax-M2.5-highspeed")
+    model = cfg.get("model", "MiniMax-M2.7-highspeed")
     base_url = cfg.get("base_url")
     max_rpm = cfg.get("max_rpm", 0)
     dashboard_port = cfg.get("dashboard_port", 8080)

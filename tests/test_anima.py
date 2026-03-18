@@ -289,7 +289,20 @@ def test_context_compact_requires_prompt(tmp_path):
     mgr = agent.get_capability("anima")
     result = mgr.handle({"object": "context", "action": "compact"})
     assert "error" in result
-    assert "prompt" in result["error"]
+    assert "summary" in result["error"]
+    agent.stop(timeout=1.0)
+
+
+def test_context_compact_rejects_empty_prompt(tmp_path):
+    """Compact with empty prompt should return error."""
+    agent = Agent(
+        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        capabilities=["anima"],
+    )
+    mgr = agent.get_capability("anima")
+    result = mgr.handle({"object": "context", "action": "compact", "summary": ""})
+    assert "error" in result
+    assert "empty" in result["error"]
     agent.stop(timeout=1.0)
 
 
@@ -300,9 +313,58 @@ def test_context_compact_no_session(tmp_path):
         capabilities=["anima"],
     )
     mgr = agent.get_capability("anima")
-    result = mgr.handle({"object": "context", "action": "compact", "prompt": ""})
+    result = mgr.handle({"object": "context", "action": "compact", "summary": "my briefing"})
     assert "error" in result
     agent.stop(timeout=1.0)
+
+
+def test_context_compact_uses_agent_summary(tmp_path):
+    """compact should wipe context and re-inject agent's prompt as summary."""
+    from stoai.llm.interface import ChatInterface, TextBlock
+
+    svc = make_mock_service()
+
+    # Make create_session return a mock with a real ChatInterface
+    def fake_create_session(**kwargs):
+        mock_chat = MagicMock()
+        iface = ChatInterface()
+        iface.add_system("You are helpful.")
+        mock_chat.interface = iface
+        mock_chat.context_window.return_value = 100_000
+        return mock_chat
+
+    svc.create_session.side_effect = fake_create_session
+
+    agent = Agent(
+        agent_name="test", service=svc, base_dir=tmp_path,
+        capabilities=["anima"],
+    )
+    agent.start()
+    try:
+        # Ensure a session exists with some content
+        agent._session.ensure_session()
+        agent._session._chat.interface.add_user_message("Hello, start working")
+        agent._session._chat.interface.add_assistant_message(
+            [TextBlock(text="OK, working on it.")],
+        )
+        before_tokens = agent._session._chat.interface.estimate_context_tokens()
+        assert before_tokens > 0
+
+        mgr = agent.get_capability("anima")
+        result = mgr.handle({
+            "object": "context",
+            "action": "compact",
+            "summary": "Key findings: X=42, Y=17. Current task: analyze dataset Z.",
+        })
+
+        assert result["status"] == "ok"
+        assert result["after_tokens"] < before_tokens or result["after_tokens"] >= 0
+        # The summary should be in the new conversation
+        iface = agent._session._chat.interface
+        entries = [e for e in iface.entries if e.role == "user"]
+        assert any("X=42" in str(e.content) for e in entries)
+    finally:
+        agent.stop()
 
 
 # ---------------------------------------------------------------------------

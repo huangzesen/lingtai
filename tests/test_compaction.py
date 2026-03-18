@@ -402,3 +402,103 @@ class TestGetContextLimit:
     def test_default_for_empty_string(self):
         """Empty model name gets default."""
         assert get_context_limit("") == 256_000
+
+
+# ---------------------------------------------------------------------------
+# Tests — Compaction pressure system in BaseAgent._handle_request
+# ---------------------------------------------------------------------------
+
+
+def _make_agent_with_anima(tmp_path):
+    """Create an Agent with anima capability and mocked LLM service."""
+    from stoai.agent import Agent
+
+    svc = MagicMock()
+    svc.get_adapter.return_value = MagicMock()
+    svc.provider = "gemini"
+    svc.model = "gemini-test"
+    return Agent(
+        agent_name="test",
+        service=svc,
+        base_dir=tmp_path,
+        capabilities=["anima"],
+    )
+
+
+def test_compaction_warning_injected_at_80_percent(tmp_path):
+    """At 80%+ context, a [system] warning should be prepended to content."""
+    agent = _make_agent_with_anima(tmp_path)
+    agent.start()
+    try:
+        # Mock session to report 85% context pressure
+        agent._session.get_context_pressure = lambda: 0.85
+        agent._session._compaction_warnings = 0
+
+        # Capture what gets sent to LLM
+        sent_content = []
+
+        def capture_send(content):
+            sent_content.append(content)
+            # Return a mock LLMResponse
+            resp = MagicMock()
+            resp.text = "ok"
+            resp.tool_calls = []
+            resp.usage = None
+            return resp
+
+        agent._session.send = capture_send
+
+        # Use _handle_request directly with a mock message
+        from stoai.message import _make_message, MSG_REQUEST
+        msg = _make_message(MSG_REQUEST, sender="test", content="do something")
+        agent._handle_request(msg)
+
+        assert len(sent_content) > 0
+        assert any("[system]" in c for c in sent_content)
+        assert any("compact" in c.lower() for c in sent_content)
+        assert agent._session._compaction_warnings == 1
+    finally:
+        agent.stop()
+
+
+def test_compaction_resets_warning_counter(tmp_path):
+    """After successful compact, warning counter should reset to 0."""
+    from stoai.agent import Agent
+    from stoai.llm.interface import ChatInterface
+
+    svc = MagicMock()
+    svc.get_adapter.return_value = MagicMock()
+    svc.provider = "gemini"
+    svc.model = "gemini-test"
+
+    def fake_create_session(**kwargs):
+        mock_chat = MagicMock()
+        iface = ChatInterface()
+        iface.add_system("You are helpful.")
+        mock_chat.interface = iface
+        mock_chat.context_window.return_value = 100_000
+        return mock_chat
+
+    svc.create_session.side_effect = fake_create_session
+
+    agent = Agent(
+        agent_name="test", service=svc, base_dir=tmp_path,
+        capabilities=["anima"],
+    )
+    agent.start()
+    try:
+        # Ensure a session exists
+        agent._session.ensure_session()
+        agent._session._compaction_warnings = 2  # simulate 2 warnings
+
+        mgr = agent.get_capability("anima")
+        result = mgr.handle({
+            "object": "context",
+            "action": "compact",
+            "summary": "My important context summary.",
+        })
+
+        assert result["status"] == "ok"
+        assert agent._session._compaction_warnings == 0
+    finally:
+        agent.stop()

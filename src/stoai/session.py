@@ -71,6 +71,9 @@ class SessionManager:
         self._token_decomp_dirty = True
         self._latest_input_tokens = 0
 
+        # Compaction pressure tracking
+        self._compaction_warnings: int = 0
+
         # Streaming state
         self._text_already_streamed = False
         self._intermediate_text_streamed = False
@@ -151,8 +154,6 @@ class SessionManager:
     def send(self, message: Any) -> LLMResponse:
         """Send a message to the LLM, reusing the persistent chat session."""
         self.ensure_session()
-
-        self._check_and_compact()
 
         self._log(
             "llm_call",
@@ -280,52 +281,15 @@ class SessionManager:
     # Compaction
     # ------------------------------------------------------------------
 
-    def _check_and_compact(self) -> None:
-        """Check context usage and compact messages if nearing the limit."""
+    def get_context_pressure(self) -> float:
+        """Return context usage as fraction (0.0 to 1.0). Returns 0.0 if unknown."""
         if self._chat is None:
-            return
-
-        from .llm.service import COMPACTION_PROMPT
-
-        agent_prompt = self._chat.interface.current_system_prompt or ""
+            return 0.0
         ctx_window = self._chat.context_window()
-        target_tokens = min(int(ctx_window * 0.2), 16384) if ctx_window > 0 else 2048
-
-        def summarizer(text: str) -> str:
-            prompt_parts = [COMPACTION_PROMPT]
-            prompt_parts.append(
-                f"\nTarget summary length: ~{target_tokens} tokens "
-                f"(20% of {ctx_window} token context window).\n"
-            )
-            if agent_prompt:
-                prompt_parts.append(
-                    f"\nThe agent's role:\n{agent_prompt}\n\n"
-                    "Do your best to help this agent based on its role.\n"
-                )
-            prompt_parts.append(f"\nConversation history:\n{text}")
-            response = self._llm_service.generate(
-                "".join(prompt_parts),
-                temperature=0.1,
-                max_output_tokens=target_tokens,
-            )
-            return response.text.strip() if response and response.text else ""
-
-        new_chat = self._llm_service.check_and_compact(
-            self._chat,
-            summarizer=summarizer,
-            threshold=0.8,
-            provider=self._config.provider,
-        )
-        if new_chat is not None:
-            before_tokens = self._chat.interface.estimate_context_tokens()
-            after_tokens = new_chat.interface.estimate_context_tokens()
-            self._chat = new_chat
-            self._interaction_id = None
-            self._log(
-                "compaction",
-                before_tokens=before_tokens,
-                after_tokens=after_tokens,
-            )
+        if ctx_window <= 0:
+            return 0.0
+        estimate = self._chat.interface.estimate_context_tokens()
+        return estimate / ctx_window if estimate > 0 else 0.0
 
     # ------------------------------------------------------------------
     # Token tracking

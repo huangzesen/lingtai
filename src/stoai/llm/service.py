@@ -150,21 +150,6 @@ def get_context_limit(model_name: str) -> int:
 
     return DEFAULT_CONTEXT_WINDOW
 
-COMPACTION_PROMPT = (
-    "You are compacting conversation history for an AI agent so it can "
-    "continue its session with less context. The most recent turns are "
-    "preserved separately — do NOT repeat them.\n\n"
-    "Preserve:\n"
-    "- ALL errors, failures, and their details verbatim\n"
-    "- Key decisions and user preferences\n"
-    "- Data labels, dataset names, column names, and identifiers\n"
-    "- Data that was fetched/computed and current state\n"
-    "- Tool calls and their results\n\n"
-    "Drop routine acknowledgments. "
-    "Output ONLY the summary, no commentary.\n"
-)
-
-
 def _generate_session_id() -> str:
     """Generate a unique stoai session ID."""
     return f"st_{uuid.uuid4().hex[:12]}"

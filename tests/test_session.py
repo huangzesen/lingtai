@@ -85,11 +85,11 @@ def test_send_tracks_usage():
     assert usage["api_calls"] == 1
 
 
-def test_send_calls_compaction_check():
+def test_send_does_not_call_compaction():
     sm, svc, _ = make_session_manager()
     sm.send("hello")
-    # check_and_compact is called during send
-    svc.check_and_compact.assert_called_once()
+    # Compaction is no longer auto-triggered from SessionManager.send()
+    svc.check_and_compact.assert_not_called()
 
 
 def test_send_stale_interaction_recovery():
@@ -234,37 +234,34 @@ def test_on_reset_passes_interface_to_new_session():
 
 
 # ------------------------------------------------------------------
-# _check_and_compact()
+# get_context_pressure()
 # ------------------------------------------------------------------
 
-def test_check_and_compact_no_session():
+def test_get_context_pressure_no_session():
     sm, svc, _ = make_session_manager()
-    # No session yet — should be a no-op
-    sm._check_and_compact()
-    svc.check_and_compact.assert_not_called()
+    # No session yet — should return 0.0
+    assert sm.get_context_pressure() == 0.0
 
 
-def test_check_and_compact_no_compaction_needed():
-    sm, svc, _ = make_session_manager()
-    sm.ensure_session()
-    svc.check_and_compact.return_value = None
-    sm._check_and_compact()
-    svc.check_and_compact.assert_called_once()
-
-
-def test_check_and_compact_replaces_session():
+def test_get_context_pressure_with_session():
     sm, svc, mock_session = make_session_manager()
     sm.ensure_session()
+    mock_session.context_window.return_value = 100_000
+    mock_session.interface.estimate_context_tokens.return_value = 85_000
+    pressure = sm.get_context_pressure()
+    assert pressure == 0.85
 
-    new_session = MagicMock()
-    new_session.interface.estimate_context_tokens.return_value = 2000
-    svc.check_and_compact.return_value = new_session
 
-    sm.interaction_id = "old-id"
-    sm._check_and_compact()
+def test_get_context_pressure_zero_window():
+    sm, svc, mock_session = make_session_manager()
+    sm.ensure_session()
+    mock_session.context_window.return_value = 0
+    assert sm.get_context_pressure() == 0.0
 
-    assert sm.chat is new_session
-    assert sm.interaction_id is None  # cleared after compaction
+
+def test_compaction_warnings_initialized():
+    sm, _, _ = make_session_manager()
+    assert sm._compaction_warnings == 0
 
 
 # ------------------------------------------------------------------
