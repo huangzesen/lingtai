@@ -30,21 +30,25 @@ from .server.main import create_app
 from .server.state import AppState
 
 
-def make_covenant(contacts: dict[str, str]) -> str:
-    """Build a structured covenant for an agent."""
+COVENANT = """\
+### Communication
+- All communication — including with the user — is done via email.
+- Addresses are ip:port format.
+- Your text responses are your private diary — no one sees them.
+- Email history is your long-term memory.
+- Always report results back to whoever asked. Don't just do work silently.
+- When emailing a peer, give enough context. Don't send one-word emails.
+"""
+
+
+def write_character(agent_dir: Path, contacts: dict[str, str]) -> None:
+    """Write initial character.md with contacts (friends)."""
     contact_lines = "\n".join(f"- {n}: {a}" for n, a in contacts.items())
-    return (
-        f"### Communication\n"
-        f"- All communication — including with the user — is done via email.\n"
-        f"- Addresses are ip:port format.\n"
-        f"- Your text responses are your private diary — no one sees them.\n"
-        f"- Email history is your long-term memory.\n"
-        f"- Always report results back to whoever asked. Don't just do work silently.\n"
-        f"- When emailing a peer, give enough context. Don't send one-word emails.\n"
-        f"\n"
-        f"### Contacts\n"
-        f"{contact_lines}"
-    )
+    system_dir = agent_dir / "system"
+    system_dir.mkdir(parents=True, exist_ok=True)
+    char_file = system_dir / "character.md"
+    if not char_file.is_file():
+        char_file.write_text(f"### Friends\n{contact_lines}\n")
 
 
 USER_PORT = 8300
@@ -79,6 +83,8 @@ def main():
     for a in AGENTS:
         # Each agent's contacts = all others + user (excluding self)
         contacts = {k: v for k, v in all_contacts.items() if k != a["name"]}
+        # Write character.md with friends before agent init
+        write_character(base_dir / a["id"], contacts)
         state.register_agent(
             key=a["key"],
             agent_name=a["id"],
@@ -90,7 +96,7 @@ def main():
                 "vision": {}, "anima": {}, "conscience": {"interval": 10},
                 "bash": {},
             },
-            covenant=make_covenant(contacts),
+            covenant=COVENANT,
         )
 
     app = create_app(state)

@@ -548,49 +548,40 @@ def main():
 
     base_dir = Path(".")
 
+    # Agent contacts
+    agents_info = {
+        "alice": {"port": 8301, "friends": {"Bob": "127.0.0.1:8302", "Charlie": "127.0.0.1:8303", "User": f"127.0.0.1:{USER_PORT}"}},
+        "bob":   {"port": 8302, "friends": {"Alice": "127.0.0.1:8301", "Charlie": "127.0.0.1:8303", "User": f"127.0.0.1:{USER_PORT}"}},
+        "charlie": {"port": 8303, "friends": {"Alice": "127.0.0.1:8301", "Bob": "127.0.0.1:8302", "User": f"127.0.0.1:{USER_PORT}"}},
+    }
+
     # Agent A (Alice)
     mail_a = TCPMailService(listen_port=8301, working_dir=base_dir / "alice")
+    contacts_a = "\n".join(f"- {n}: {a}" for n, a in agents_info["alice"]["friends"].items())
     agent_a = Agent(
         agent_name="alice", service=llm, mail_service=mail_a,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
-        role=(
-            f"{AGENT_PROMPT}\n\n"
-            "Known contacts:\n"
-            "- Bob: 127.0.0.1:8302\n"
-            "- Charlie: 127.0.0.1:8303\n"
-            f"- User: 127.0.0.1:{USER_PORT}"
-        ),
+        role=f"{AGENT_PROMPT}\n\nFriends:\n{contacts_a}",
         capabilities=["email", "web_search"],
     )
 
-
     # Agent B (Bob)
     mail_b = TCPMailService(listen_port=8302, working_dir=base_dir / "bob")
+    contacts_b = "\n".join(f"- {n}: {a}" for n, a in agents_info["bob"]["friends"].items())
     agent_b = Agent(
         agent_name="bob", service=llm, mail_service=mail_b,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
-        role=(
-            f"{AGENT_PROMPT}\n\n"
-            "Known contacts:\n"
-            "- Alice: 127.0.0.1:8301\n"
-            "- Charlie: 127.0.0.1:8303\n"
-            f"- User: 127.0.0.1:{USER_PORT}"
-        ),
+        role=f"{AGENT_PROMPT}\n\nFriends:\n{contacts_b}",
         capabilities=["email", "web_search"],
     )
 
     # Agent C (Charlie)
     mail_c = TCPMailService(listen_port=8303, working_dir=base_dir / "charlie")
+    contacts_c = "\n".join(f"- {n}: {a}" for n, a in agents_info["charlie"]["friends"].items())
     agent_c = Agent(
         agent_name="charlie", service=llm, mail_service=mail_c,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
-        role=(
-            f"{AGENT_PROMPT}\n\n"
-            "Known contacts:\n"
-            "- Alice: 127.0.0.1:8301\n"
-            "- Bob: 127.0.0.1:8302\n"
-            f"- User: 127.0.0.1:{USER_PORT}"
-        ),
+        role=f"{AGENT_PROMPT}\n\nFriends:\n{contacts_c}",
         capabilities=["email", "web_search"],
     )
 

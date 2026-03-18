@@ -382,15 +382,22 @@ class ChatHandler(http.server.BaseHTTPRequestHandler):
 # Main
 # ---------------------------------------------------------------------------
 
-def make_covenant(contacts: dict[str, str]) -> str:
-    """Build a structured covenant for an agent from a template file."""
+def load_covenant() -> str:
+    """Load covenant template (behavioral rules only, no identity or contacts)."""
     template_path = Path(__file__).parent.parent / "prompt" / "covenant" / "covenant.example.md"
-    contact_lines = "\n".join(f"- {n}: {a}" for n, a in contacts.items())
-    if not template_path.exists():
-        return f"### Contacts\n{contact_lines}"
+    if template_path.exists():
+        return template_path.read_text()
+    return ""
 
-    template = template_path.read_text()
-    return template.format(contact_lines=contact_lines)
+
+def write_character(agent_dir: Path, contacts: dict[str, str]) -> None:
+    """Write initial character.md with friends."""
+    contact_lines = "\n".join(f"- {n}: {a}" for n, a in contacts.items())
+    system_dir = agent_dir / "system"
+    system_dir.mkdir(parents=True, exist_ok=True)
+    char_file = system_dir / "character.md"
+    if not char_file.is_file():
+        char_file.write_text(f"### Friends\n{contact_lines}\n")
 
 
 def main():
@@ -419,15 +426,18 @@ def main():
     if not project_link.exists():
         project_link.symlink_to(base_dir)
 
+    covenant = load_covenant()
+
     # Agent A
+    write_character(base_dir / "alice", {
+        "Bob": "127.0.0.1:8302",
+        "User": f"127.0.0.1:{USER_PORT}",
+    })
     mail_a = TCPMailService(listen_port=8301, working_dir=base_dir / "alice")
     agent_a = Agent(
         agent_name="alice", service=llm, mail_service=mail_a,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
-        covenant=make_covenant({
-            "Bob": "127.0.0.1:8302",
-            "User": f"127.0.0.1:{USER_PORT}",
-        }),
+        covenant=covenant,
         capabilities={
             "email": {}, "web_search": {}, "file": {},
             "vision": {}, "anima": {}, "conscience": {"interval": 10},
@@ -436,14 +446,15 @@ def main():
     )
 
     # Agent B
+    write_character(base_dir / "bob", {
+        "Alice": "127.0.0.1:8301",
+        "User": f"127.0.0.1:{USER_PORT}",
+    })
     mail_b = TCPMailService(listen_port=8302, working_dir=base_dir / "bob")
     agent_b = Agent(
         agent_name="bob", service=llm, mail_service=mail_b,
         config=AgentConfig(max_turns=10), base_dir=base_dir,
-        covenant=make_covenant({
-            "Alice": "127.0.0.1:8301",
-            "User": f"127.0.0.1:{USER_PORT}",
-        }),
+        covenant=covenant,
         capabilities={
             "email": {}, "web_search": {}, "file": {},
             "vision": {}, "anima": {}, "conscience": {"interval": 10},

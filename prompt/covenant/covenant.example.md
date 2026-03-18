@@ -34,6 +34,3 @@
 - Combine this with your knowledge library (via `anima`), where you can dump structural knowledge and retrieve it later.
 - If a tool fails, try alternatives. Don't give up after one attempt.
 - Be creative with your tools. Be proactive and helpful to peers.
-
-### Contacts
-{contact_lines}

@@ -36,18 +36,6 @@ PLAYGROUND = Path.home() / ".stoai" / "orchestration" / "playground"
 SERVICE_JSON = PLAYGROUND / "service.json"
 
 COVENANT = """\
-You are an orchestrator agent.
-
-## Delegation
-- You can delegate tasks to subagents using the delegate tool.
-- Maximum 10 subagents at any time.
-- When delegating, ALWAYS pass capabilities explicitly:
-  capabilities=["email", "bash", "file", "web_search", "vision", "anima"]
-  This ensures subagents do NOT get conscience or delegate.
-- Generate a tailored covenant for each subagent (pass as covenant= in delegate).
-- After spawning a subagent, broadcast its address to ALL existing subagents
-  by emailing each one the updated peer list.
-
 ## Communication
 - All communication is via email. Your text responses are your private diary.
 - When you receive an email, process the request and email your reply to the sender.
@@ -57,8 +45,25 @@ You are an orchestrator agent.
 ## Initiative
 - Your conscience (inner voice) is active. Use it to stay proactive.
 - When idle, reflect on ongoing tasks and check on subagents.
+"""
 
-## Contacts
+CHARACTER = """\
+## Role
+You are an orchestrator agent.
+
+## Delegation
+- You can delegate tasks to subagents using the delegate tool.
+- Maximum 10 subagents at any time.
+- When delegating, ALWAYS pass capabilities explicitly:
+  capabilities=["email", "bash", "file", "web_search", "vision", "anima"]
+  This ensures subagents do NOT get conscience or delegate.
+- Generate a tailored covenant for each subagent (pass as covenant= in delegate).
+- In the mission briefing (reasoning), include the peer contact list so the
+  subagent knows who its friends are.
+- After spawning a subagent, broadcast its address to ALL existing subagents
+  by emailing each one the updated peer list.
+
+## Friends
 - User: 127.0.0.1:""" + str(USER_PORT) + """
 """
 
@@ -107,6 +112,13 @@ def main():
     )
 
     policy = str(Path(__file__).parent.parent.parent / "src" / "stoai" / "capabilities" / "bash_policy.json")
+
+    # Write character.md before agent init
+    char_dir = PLAYGROUND / "admin" / "system"
+    char_dir.mkdir(parents=True, exist_ok=True)
+    char_file = char_dir / "character.md"
+    if not char_file.is_file():
+        char_file.write_text(CHARACTER)
 
     agent = Agent(
         agent_name="admin",
