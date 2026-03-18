@@ -76,7 +76,7 @@ class DelegateManager:
 
         # Resolve covenant — override or copy parent
         covenant = args.get("covenant") or parent._prompt_manager.read_section("covenant") or ""
-        memory = args.get("memory") or parent._prompt_manager.read_section("memory") or ""
+        memory = args.get("memory", "")
 
         # Build capabilities dict from parent (excluding delegate to prevent recursion)
         requested = args.get("capabilities")
