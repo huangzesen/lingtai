@@ -62,6 +62,7 @@ export interface GraphNode extends NodeObject {
   color: string;
   status: "active" | "sleeping";
   type: "admin" | "agent" | "user";
+  _volume?: number;
 }
 
 export interface GraphLink extends LinkObject {

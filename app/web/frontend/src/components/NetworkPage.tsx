@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph3D, { type ForceGraphMethods } from "react-force-graph-3d";
 import * as THREE from "three";
 import SpriteText from "three-spritetext";
+import { forceRadial } from "d3-force-3d";
 import type { GraphNode, GraphLink, NodeActivity } from "../types";
 
 const GLOW_COLORS: Record<NodeActivity["type"], string> = {
@@ -27,6 +28,7 @@ export function NetworkPage({ graphData, nodeActivity, lightMode }: NetworkPageP
   const materialsRef = useRef<Map<string, THREE.MeshStandardMaterial>>(new Map());
   const animRef = useRef<number>(0);
   const [viewMode, setViewMode] = useState<"comm" | "activity">("comm");
+  const [layoutMode, setLayoutMode] = useState<"default" | "volume" | "cluster">("default");
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 
   // Container sizing with ResizeObserver
@@ -105,6 +107,52 @@ export function NetworkPage({ graphData, nodeActivity, lightMode }: NetworkPageP
     animRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animRef.current);
   }, []);
+
+  // Precompute max volume and max link count for layout modes
+  const maxVolume = useMemo(
+    () => Math.max(...graphData.nodes.map((n) => n._volume || 0), 1),
+    [graphData.nodes]
+  );
+  const maxLinkCount = useMemo(
+    () => Math.max(...graphData.links.map((l) => l.count), 1),
+    [graphData.links]
+  );
+
+  // Apply layout forces when layoutMode changes
+  useEffect(() => {
+    const fg = fgRef.current;
+    if (!fg) return;
+
+    if (layoutMode === "volume") {
+      fg.d3Force(
+        "radial",
+        forceRadial((node: GraphNode) => {
+          const normalized = (node._volume || 0) / maxVolume;
+          return 120 * (1 - normalized);
+        }).strength(0.4)
+      );
+      const charge = fg.d3Force("charge");
+      if (charge && typeof charge.strength === "function") charge.strength(-30);
+      const link = fg.d3Force("link");
+      if (link && typeof link.strength === "function") link.strength(null);
+    } else if (layoutMode === "cluster") {
+      fg.d3Force("radial", null);
+      const link = fg.d3Force("link");
+      if (link && typeof link.strength === "function") {
+        link.strength((l: GraphLink) => 0.3 + 0.7 * (l.count / maxLinkCount));
+      }
+      const charge = fg.d3Force("charge");
+      if (charge && typeof charge.strength === "function") charge.strength(-80);
+    } else {
+      fg.d3Force("radial", null);
+      const charge = fg.d3Force("charge");
+      if (charge && typeof charge.strength === "function") charge.strength(-30);
+      const link = fg.d3Force("link");
+      if (link && typeof link.strength === "function") link.strength(null);
+    }
+
+    fg.d3ReheatSimulation();
+  }, [layoutMode, maxVolume, maxLinkCount]);
 
   // Custom node rendering
   const nodeThreeObject = useCallback((node: GraphNode) => {
@@ -198,27 +246,68 @@ export function NetworkPage({ graphData, nodeActivity, lightMode }: NetworkPageP
         d3VelocityDecay={0.3}
       />
 
-      {/* View toggle button */}
-      <button
-        onClick={() => setViewMode((m) => (m === "comm" ? "activity" : "comm"))}
+      {/* Control panel */}
+      <div
         style={{
           position: "absolute",
-          top: 16,
-          right: 16,
-          padding: "6px 14px",
-          background: viewMode === "comm" ? "rgba(26, 58, 92, 0.8)" : "rgba(240, 165, 0, 0.8)",
-          color: "#fff",
-          border: "1px solid rgba(255,255,255,0.2)",
-          borderRadius: 6,
-          cursor: "pointer",
-          fontSize: 13,
-          fontWeight: 600,
-          backdropFilter: "blur(8px)",
+          top: 12,
+          right: 12,
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          alignItems: "flex-end",
           zIndex: 10,
         }}
       >
-        {viewMode === "comm" ? "Communication" : "Activity"}
-      </button>
+        {/* View mode row */}
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <span style={{ color: "#555", fontSize: 9, textTransform: "uppercase", letterSpacing: 1, marginRight: 2 }}>View</span>
+          {(["comm", "activity"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setViewMode(m)}
+              style={{
+                padding: "4px 10px",
+                background: viewMode === m ? "rgba(233, 69, 96, 0.6)" : "rgba(15, 52, 96, 0.8)",
+                color: "#e0e0e0",
+                border: `1px solid ${viewMode === m ? "#e94560" : "#1a3a5c"}`,
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: 11,
+                fontFamily: "'Courier New', monospace",
+              }}
+            >
+              {m === "comm" ? "Communication" : "Activity"}
+            </button>
+          ))}
+        </div>
+        {/* Layout mode row */}
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <span style={{ color: "#555", fontSize: 9, textTransform: "uppercase", letterSpacing: 1, marginRight: 2 }}>Layout</span>
+          {([
+            ["default", "Default"],
+            ["volume", "Email Volume"],
+            ["cluster", "Contact Cluster"],
+          ] as const).map(([l, label]) => (
+            <button
+              key={l}
+              onClick={() => setLayoutMode(l)}
+              style={{
+                padding: "4px 10px",
+                background: layoutMode === l ? "rgba(233, 69, 96, 0.6)" : "rgba(15, 52, 96, 0.8)",
+                color: "#e0e0e0",
+                border: `1px solid ${layoutMode === l ? "#e94560" : "#1a3a5c"}`,
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: 11,
+                fontFamily: "'Courier New', monospace",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

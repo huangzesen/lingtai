@@ -77,6 +77,18 @@ export function useNetwork(
     links.push({ source, target, count });
   }
 
+  // Compute per-node email volume for layout modes
+  const volumeMap: Record<string, number> = {};
+  for (const link of links) {
+    const src = typeof link.source === "string" ? link.source : link.source.id;
+    const tgt = typeof link.target === "string" ? link.target : link.target.id;
+    volumeMap[src] = (volumeMap[src] || 0) + link.count;
+    volumeMap[tgt] = (volumeMap[tgt] || 0) + link.count;
+  }
+  for (const node of nodes) {
+    node._volume = volumeMap[node.id] || 0;
+  }
+
   // Track node activity for glow animation
   useEffect(() => {
     const newEvents = entries.filter(
