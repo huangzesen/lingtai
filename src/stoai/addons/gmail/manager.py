@@ -112,6 +112,9 @@ class GmailManager:
         self._gmail_service = gmail_service
         self._tcp_alias = tcp_alias
         self._bridge = None  # set by setup() before start()
+        # Duplicate send protection — maps address → (message_text, count)
+        self._last_sent: dict[str, tuple[str, int]] = {}
+        self._dup_free_passes = 2
 
     @property
     def _mailbox_dir(self) -> Path:
@@ -321,6 +324,24 @@ class GmailManager:
         if not to_list:
             return {"error": "address is required"}
 
+        # Block identical consecutive messages to the same recipient.
+        duplicates = [
+            addr for addr in to_list
+            if (prev := self._last_sent.get(addr)) is not None
+            and prev[0] == message_text
+            and prev[1] >= self._dup_free_passes
+        ]
+        if duplicates:
+            return {
+                "status": "blocked",
+                "warning": (
+                    "Identical message already sent to: "
+                    f"{', '.join(duplicates)}. "
+                    "This looks like a repetitive loop — "
+                    "think twice before sending."
+                ),
+            }
+
         sender = self._gmail_service.address or "unknown"
 
         base_payload = {
@@ -353,6 +374,14 @@ class GmailManager:
         (sent_dir / "message.json").write_text(
             json.dumps(sent_record, indent=2, default=str)
         )
+
+        # Track last sent message per recipient for duplicate detection.
+        for addr in to_list:
+            prev = self._last_sent.get(addr)
+            if prev is not None and prev[0] == message_text:
+                self._last_sent[addr] = (message_text, prev[1] + 1)
+            else:
+                self._last_sent[addr] = (message_text, 1)
 
         self._agent._log(
             "gmail_sent", to=to_list, subject=subject, message=message_text,

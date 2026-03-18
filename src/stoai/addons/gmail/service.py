@@ -196,6 +196,7 @@ class GoogleMailService(MailService):
 
         payload: dict = {
             "from": from_addr,
+            "to": [self._gmail_address],
             "subject": subject,
             "message": body,
             "_mailbox_id": msg_id,

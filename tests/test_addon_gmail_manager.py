@@ -70,6 +70,54 @@ def test_every_response_has_meta(tmp_path):
     assert "tcp_alias" in result
 
 
+def test_on_gmail_received_notifies_agent(tmp_path):
+    """on_gmail_received should enqueue a notification to the agent inbox."""
+    agent = MagicMock()
+    agent._working_dir = tmp_path
+    svc = MagicMock()
+    svc.address = "agent@gmail.com"
+    mgr = GmailManager(agent, gmail_service=svc, tcp_alias="127.0.0.1:8399")
+
+    payload = {
+        "_mailbox_id": "test-123",
+        "from": "user@gmail.com",
+        "subject": "hello",
+        "message": "hi there",
+    }
+    mgr.on_gmail_received(payload)
+
+    # Should have enqueued a message
+    agent.inbox.put.assert_called_once()
+    msg = agent.inbox.put.call_args[0][0]
+    assert hasattr(msg, "_email_notification")
+    assert msg._email_notification["email_id"] == "test-123"
+    assert msg._email_notification["sender"] == "user@gmail.com"
+    # Should have logged
+    agent._log.assert_called_once()
+
+
+def test_duplicate_send_blocked(tmp_path):
+    """Sending the same message 3+ times should be blocked."""
+    agent = MagicMock()
+    agent._working_dir = tmp_path
+    svc = MagicMock()
+    svc.address = "agent@gmail.com"
+    svc.send.return_value = None
+    mgr = GmailManager(agent, gmail_service=svc, tcp_alias="127.0.0.1:8399")
+
+    args = {"action": "send", "address": "user@gmail.com", "subject": "x", "message": "same"}
+
+    # First two sends should succeed (free passes)
+    r1 = mgr.handle(args)
+    assert r1["status"] == "delivered"
+    r2 = mgr.handle(args)
+    assert r2["status"] == "delivered"
+
+    # Third identical send should be blocked
+    r3 = mgr.handle(args)
+    assert r3["status"] == "blocked"
+
+
 def test_start_stop_lifecycle(tmp_path):
     agent = MagicMock()
     agent._working_dir = tmp_path

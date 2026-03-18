@@ -12,6 +12,7 @@ venv/
 .worktrees/
 .claude/
 app/web/config.json
+app/email/config.json
 .playwright-mcp/
 
 # Agent runtime artifacts (working dirs from examples)
