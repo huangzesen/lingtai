@@ -6,11 +6,15 @@ const POLL_MS = 1500;
 export function useDiary(agents: AgentInfo[]) {
   const [entries, setEntries] = useState<DiaryEvent[]>([]);
   const sinceRef = useRef(0);
+  const agentsRef = useRef(agents);
+  agentsRef.current = agents;
 
+  // Stable effect — only starts once, reads agents from ref
   useEffect(() => {
-    if (agents.length === 0) return;
-
     const poll = async () => {
+      const currentAgents = agentsRef.current;
+      if (currentAgents.length === 0) return;
+
       try {
         const since = sinceRef.current;
         const resp = await fetch(`/api/diary?since=${since}`);
@@ -18,13 +22,13 @@ export function useDiary(agents: AgentInfo[]) {
 
         const allNew: DiaryEvent[] = [];
         for (const [key, agentEntries] of Object.entries(data)) {
-          const agent = agents.find((a) => a.key === key);
-          if (!agent) continue;
+          const agent = currentAgents.find((a) => a.key === key);
+          const name = agent?.name || key;
           for (const e of agentEntries as DiaryEvent[]) {
             allNew.push({
               ...e,
               agent_key: key,
-              agent_name: agent.name,
+              agent_name: name,
             });
           }
         }
@@ -46,7 +50,7 @@ export function useDiary(agents: AgentInfo[]) {
     const id = setInterval(poll, POLL_MS);
     poll();
     return () => clearInterval(id);
-  }, [agents]);
+  }, []); // stable — never re-runs
 
   return entries;
 }

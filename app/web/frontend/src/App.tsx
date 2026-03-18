@@ -16,7 +16,7 @@ export default function App() {
   const { agents, keyToName, addressToName } = useAgents();
   const { receivedEmails, sentMessages, addSent } = useInbox();
   const entries = useDiary(agents);
-  const { nodes, edges, particles } = useNetwork(
+  const { graphData, nodeActivity } = useNetwork(
     agents,
     entries,
     sentMessages,
@@ -57,7 +57,7 @@ export default function App() {
         />
       </div>
       <div className={`flex-1 flex overflow-hidden ${activePage !== "network" ? "hidden" : ""}`}>
-        <NetworkPage nodes={nodes} edges={edges} particles={particles} lightMode={lightMode} />
+        <NetworkPage graphData={graphData} nodeActivity={nodeActivity} lightMode={lightMode} />
       </div>
     </div>
   );

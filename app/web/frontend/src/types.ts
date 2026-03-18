@@ -54,33 +54,25 @@ export interface SentMessage {
 
 /** Network visualization types */
 
-export interface NetworkNode {
+import type { NodeObject, LinkObject } from 'react-force-graph-3d';
+
+export interface GraphNode extends NodeObject {
   id: string;
   name: string;
   color: string;
   status: "active" | "sleeping";
   type: "admin" | "agent" | "user";
-  x?: number;
-  y?: number;
-  vx?: number;
-  vy?: number;
-  fx?: number | null;
-  fy?: number | null;
 }
 
-export interface NetworkEdge {
-  source: string | NetworkNode;
-  target: string | NetworkNode;
+export interface GraphLink extends LinkObject {
+  source: string | GraphNode;
+  target: string | GraphNode;
   count: number;
 }
 
-export interface Particle {
-  id: string;
-  source: string;
-  target: string;
-  color: string;
-  startTime: number;
-  duration: number;
+export interface NodeActivity {
+  type: "thinking" | "tool" | "diary";
+  time: number;
 }
 
 /** Agent accent colors — indexed by agent order. */
@@ -108,6 +100,12 @@ export const TAG_COLORS: Record<DiaryEventType, [string, string]> = {
   cancel_diary: ["#3a2a1a", "#f0a500"],
   unknown: ["#2a2a2a", "#888888"],
 };
+
+export const ALL_DIARY_EVENT_TYPES: DiaryEventType[] = [
+  "diary", "thinking", "tool_call", "reasoning",
+  "tool_result", "email_out", "email_in",
+  "cancel_received", "cancel_diary", "unknown",
+];
 
 /** Tag display labels. */
 export const TAG_LABELS: Record<DiaryEventType, string> = {

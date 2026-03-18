@@ -2,14 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import type {
   AgentInfo,
   DiaryEvent,
-  NetworkNode,
-  NetworkEdge,
-  Particle,
+  GraphNode,
+  GraphLink,
+  NodeActivity,
   SentMessage,
 } from "../types";
 import { AGENT_COLORS } from "../types";
 
-const PARTICLE_DURATION = 2000; // 2 seconds, regardless of line length
+const ACTIVITY_MAX_EVENTS = 5;
+const ACTIVITY_MAX_AGE_MS = 10_000;
 
 export function useNetwork(
   agents: AgentInfo[],
@@ -17,11 +18,12 @@ export function useNetwork(
   sentMessages: SentMessage[],
   userPort: number
 ) {
-  const [particles, setParticles] = useState<Particle[]>([]);
   const lastSeenTsRef = useRef(0);
+  const activityRef = useRef<Map<string, NodeActivity[]>>(new Map());
+  const [nodeActivity, setNodeActivity] = useState<Map<string, NodeActivity[]>>(new Map());
 
   // Build node list: agents + user
-  const nodes: NetworkNode[] = agents.map((a, i) => ({
+  const nodes: GraphNode[] = agents.map((a, i) => ({
     id: a.key,
     name: a.name,
     color: AGENT_COLORS[i % AGENT_COLORS.length],
@@ -43,10 +45,10 @@ export function useNetwork(
   }
   addrToNodeId[`127.0.0.1:${userPort}`] = "user";
 
-  // Build edges from diary entries
+  // Build directed edges from diary entries
   const edgeMap = new Map<string, number>();
   const addEdge = (from: string, to: string) => {
-    const key = [from, to].sort().join("-");
+    const key = `${from}->${to}`;
     edgeMap.set(key, (edgeMap.get(key) || 0) + 1);
   };
 
@@ -65,81 +67,61 @@ export function useNetwork(
     }
   }
 
-  // Also count sent messages from user
   for (const s of sentMessages) {
     addEdge("user", s.to);
   }
 
-  const edges: NetworkEdge[] = [];
+  const links: GraphLink[] = [];
   for (const [key, count] of edgeMap) {
-    const [source, target] = key.split("-");
-    edges.push({ source, target, count });
+    const [source, target] = key.split("->");
+    links.push({ source, target, count });
   }
 
-  // Spawn particles for new email events
+  // Track node activity for glow animation
   useEffect(() => {
     const newEvents = entries.filter(
-      (e) =>
-        e.time > lastSeenTsRef.current &&
-        (e.type === "email_out" || e.type === "email_in")
+      (e) => e.time > lastSeenTsRef.current
     );
 
-    if (newEvents.length > 0) {
-      lastSeenTsRef.current = Math.max(...newEvents.map((e) => e.time));
+    if (newEvents.length === 0) return;
+    lastSeenTsRef.current = Math.max(...newEvents.map((e) => e.time));
 
-      const newParticles: Particle[] = [];
-      for (const e of newEvents) {
-        if (e.type === "email_out" && e.to) {
-          const fromId = e.agent_key;
-          const agentIdx = agents.findIndex((a) => a.key === fromId);
-          const color =
-            AGENT_COLORS[agentIdx % AGENT_COLORS.length] || "#e94560";
-          for (const addr of e.to.split(", ")) {
-            const toId = addrToNodeId[addr.trim()];
-            if (toId && toId !== fromId) {
-              newParticles.push({
-                id: `${e.time}-${fromId}-${toId}-${Math.random()}`,
-                source: fromId,
-                target: toId,
-                color,
-                startTime: performance.now(),
-                duration: PARTICLE_DURATION,
-              });
-            }
-          }
+    const now = Date.now();
+    const activity = activityRef.current;
+
+    for (const e of newEvents) {
+      let activityType: NodeActivity["type"] | null = null;
+      if (e.type === "thinking") activityType = "thinking";
+      else if (e.type === "tool_call") activityType = "tool";
+      else if (e.type === "diary") activityType = "diary";
+
+      if (activityType && e.agent_key) {
+        const nodeEvents = activity.get(e.agent_key) || [];
+        nodeEvents.push({ type: activityType, time: now });
+        // Keep only last N events
+        if (nodeEvents.length > ACTIVITY_MAX_EVENTS) {
+          nodeEvents.splice(0, nodeEvents.length - ACTIVITY_MAX_EVENTS);
         }
-        if (e.type === "email_in" && e.from) {
-          const toId = e.agent_key;
-          const fromId = addrToNodeId[e.from];
-          if (fromId && fromId !== toId) {
-            const agentIdx = agents.findIndex((a) => a.key === fromId);
-            const color =
-              AGENT_COLORS[agentIdx % AGENT_COLORS.length] || "#e94560";
-            newParticles.push({
-              id: `${e.time}-${fromId}-${toId}-${Math.random()}`,
-              source: fromId,
-              target: toId,
-              color,
-              startTime: performance.now(),
-              duration: PARTICLE_DURATION,
-            });
-          }
-        }
-      }
-
-      if (newParticles.length > 0) {
-        setParticles((prev) => [...prev, ...newParticles]);
-
-        // Schedule cleanup after particles expire
-        setTimeout(() => {
-          const cutoff = performance.now();
-          setParticles((prev) =>
-            prev.filter((p) => cutoff - p.startTime < p.duration)
-          );
-        }, PARTICLE_DURATION + 100);
+        activity.set(e.agent_key, nodeEvents);
       }
     }
-  }, [entries, agents]);
 
-  return { nodes, edges, particles };
+    // Prune old entries
+    const cutoff = now - ACTIVITY_MAX_AGE_MS;
+    for (const [nodeId, events] of activity) {
+      const fresh = events.filter((ev) => ev.time > cutoff);
+      if (fresh.length === 0) {
+        activity.delete(nodeId);
+      } else {
+        activity.set(nodeId, fresh);
+      }
+    }
+
+    // Update state with a new Map (trigger re-render)
+    setNodeActivity(new Map(activity));
+  }, [entries]);
+
+  const graphData = { nodes, links };
+
+  return { graphData, nodeActivity };
 }

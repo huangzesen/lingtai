@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AgentInfo, DiaryEvent } from "../types";
+import type { AgentInfo, DiaryEvent, DiaryEventType } from "../types";
+import { ALL_DIARY_EVENT_TYPES } from "../types";
 import { DiaryEntry } from "./DiaryEntry";
 import { DiaryTabs } from "./DiaryTabs";
 
@@ -11,21 +12,39 @@ interface DiaryPanelProps {
 
 export function DiaryPanel({ agents, entries, addressToName }: DiaryPanelProps) {
   const [activeTab, setActiveTab] = useState("all");
+  const [activeTypes, setActiveTypes] = useState<Set<DiaryEventType>>(
+    new Set(ALL_DIARY_EVENT_TYPES)
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleToggleType = (type: DiaryEventType) => {
+    setActiveTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  };
 
   const filtered = useMemo(
     () =>
-      activeTab === "all"
-        ? entries
-        : entries.filter((e) => e.agent_key === activeTab),
-    [entries, activeTab]
+      entries
+        .filter(e => activeTab === "all" || e.agent_key === activeTab)
+        .filter(e => activeTypes.has(e.type)),
+    [entries, activeTab, activeTypes]
   );
 
+  const lastEntryTimeRef = useRef(0);
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (entries.length === 0) return;
+    const lastTime = entries[entries.length - 1].time;
+    if (lastTime > lastEntryTimeRef.current) {
+      lastEntryTimeRef.current = lastTime;
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
     }
-  }, [filtered]);
+  }, [entries]);
 
   return (
     <div className="flex-1 flex flex-col bg-panel-dark">
@@ -33,6 +52,8 @@ export function DiaryPanel({ agents, entries, addressToName }: DiaryPanelProps) 
         agents={agents}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        activeTypes={activeTypes}
+        onToggleType={handleToggleType}
       />
       <div
         ref={scrollRef}
@@ -46,6 +67,11 @@ export function DiaryPanel({ agents, entries, addressToName }: DiaryPanelProps) 
             addressToName={addressToName}
           />
         ))}
+        {filtered.length === 0 && (
+          <div className="text-center text-text-dim text-xs py-4">
+            No events match current filters
+          </div>
+        )}
       </div>
     </div>
   );
