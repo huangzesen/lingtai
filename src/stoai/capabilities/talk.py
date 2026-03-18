@@ -121,17 +121,25 @@ def _extract_url(text: str) -> str | None:
     return match.group(0).rstrip("']") if match else None
 
 
+def _auto_create_mcp_client(**kwargs: Any) -> "MCPClient":
+    """Create a MiniMax media MCP client for this capability."""
+    from ..llm.minimax.mcp_media_client import create_minimax_media_client
+    return create_minimax_media_client(
+        api_key=kwargs.get("api_key"),
+        api_host=kwargs.get("api_host"),
+    )
+
+
 def setup(agent: "BaseAgent", **kwargs: Any) -> TalkManager:
     """Set up the talk capability on an agent.
 
-    Requires ``mcp_client`` kwarg — a connected MiniMax MCP client instance.
+    Accepts ``mcp_client`` kwarg for an explicit MCP client.
+    If not provided, auto-creates one connected to the full ``minimax-mcp``
+    server (requires ``MINIMAX_API_KEY`` env var).
     """
     mcp_client = kwargs.get("mcp_client")
     if mcp_client is None:
-        raise ValueError(
-            "talk capability requires mcp_client kwarg — "
-            "pass a connected MiniMax MCP client"
-        )
+        mcp_client = _auto_create_mcp_client(**kwargs)
     mgr = TalkManager(working_dir=agent.working_dir, mcp_client=mcp_client)
     agent.add_tool("talk", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
     return mgr
