@@ -111,6 +111,8 @@ class WorkingDir:
                 "!conscience/**\n"
                 "!mailbox/\n"
                 "!mailbox/**\n"
+                "!mcp/\n"
+                "!mcp/**\n"
             )
 
             system_dir = self._path / "system"

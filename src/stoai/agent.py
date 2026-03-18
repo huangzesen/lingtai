@@ -42,6 +42,9 @@ class Agent(BaseAgent):
     ):
         super().__init__(*args, **kwargs)
 
+        # Auto-load MCP servers from working directory
+        self._load_mcp_from_workdir()
+
         # Expand groups and normalize to dict
         if isinstance(capabilities, list):
             from .capabilities import expand_groups
@@ -91,6 +94,53 @@ class Agent(BaseAgent):
         mgr = setup_capability(self, name, **kwargs)
         self._capability_managers[name] = mgr
         return mgr
+
+    def _load_mcp_from_workdir(self) -> None:
+        """Auto-load MCP servers declared in working_dir/mcp/servers.json.
+
+        Format:
+            {
+              "server-name": {
+                "command": "xhelio-spice-mcp",
+                "args": [],
+                "env": {}
+              }
+            }
+
+        The file is created by setup agents or manually. Each server's
+        tools are auto-registered via connect_mcp().
+        """
+        import json
+
+        mcp_config = self._working_dir / "mcp" / "servers.json"
+        if not mcp_config.is_file():
+            return
+
+        try:
+            servers = json.loads(mcp_config.read_text())
+        except (json.JSONDecodeError, OSError):
+            return
+
+        if not isinstance(servers, dict):
+            return
+
+        from .logging import get_logger
+        logger = get_logger()
+
+        for name, cfg in servers.items():
+            if not isinstance(cfg, dict) or "command" not in cfg:
+                continue
+            try:
+                tools = self.connect_mcp(
+                    command=cfg["command"],
+                    args=cfg.get("args"),
+                    env=cfg.get("env"),
+                )
+                logger.info("[%s] MCP %s: loaded %d tools (%s)",
+                            self.agent_name, name, len(tools), ", ".join(tools))
+            except Exception as e:
+                logger.warning("[%s] MCP %s: failed to load: %s",
+                               self.agent_name, name, e)
 
     def get_capability(self, name: str) -> Any:
         """Return the manager instance for a registered capability, or None."""
