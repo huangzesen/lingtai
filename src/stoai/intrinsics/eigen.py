@@ -182,7 +182,7 @@ def context_forget(agent) -> dict:
     return _context_molt(agent, {
         "summary": (
             "[System-initiated molt — you ignored 5 warnings.]\n"
-            "Your previous conversation was wiped. "
-            "Check your email inbox and library (filter/view) for context."
+            "Context wiped by system. Check persistent knowledge "
+            "(mail, email, library) to recover context."
         ),
     })
