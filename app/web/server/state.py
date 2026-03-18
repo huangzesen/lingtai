@@ -67,6 +67,7 @@ class AppState:
         capabilities: list | dict | None = None,
         covenant: str = "",
         config: AgentConfig | None = None,
+        admin: bool = False,
     ) -> AgentEntry:
         """Create Agent + TCPMailService, wire together, store in registry."""
         working_dir = self.base_dir / agent_name
@@ -79,6 +80,7 @@ class AppState:
             base_dir=self.base_dir,
             covenant=covenant,
             capabilities=capabilities or ["email", "web_search"],
+            admin=admin,
         )
         entry = AgentEntry(
             agent_name=agent_name,
