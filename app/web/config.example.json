@@ -23,6 +23,18 @@
       "api_key_env": "OPEN_ROUTER_API_KEY",
       "base_url": "https://openrouter.ai/api/v1",
       "model": "anthropic/claude-sonnet-4.6"
+    },
+    "deepseek": {
+      "api_compat": "openai",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "base_url": "https://api.deepseek.com",
+      "model": "deepseek-chat"
+    },
+    "ollama": {
+      "api_compat": "openai",
+      "api_key_env": "OLLAMA_API_KEY",
+      "base_url": "http://localhost:11434/v1",
+      "model": "llama3"
     }
   },
 

@@ -11,6 +11,7 @@ venv/
 .env
 .worktrees/
 .claude/
+app/web/config.json
 
 # Agent runtime artifacts (working dirs from examples)
 alice/

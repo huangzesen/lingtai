@@ -164,9 +164,43 @@ class DelegateManager:
         return port
 
 
+def _build_schema(agent: "Agent") -> dict:
+    """Build delegate schema with available providers from LLMService."""
+    import copy
+    schema = copy.deepcopy(SCHEMA)
+
+    # Available providers = whatever is configured in provider_defaults
+    available = sorted(agent.service._provider_defaults.keys())
+    if not available:
+        # At minimum the main provider is available
+        available = [agent.service.provider]
+
+    # Collect known models per provider
+    provider_models: list[str] = []
+    for pname, pdefaults in agent.service._provider_defaults.items():
+        m = pdefaults.get("model", "")
+        if m:
+            provider_models.append(f"{pname}: {m}")
+
+    schema["properties"]["provider"]["description"] = (
+        f"LLM provider for the new agent (optional, default = same as parent). "
+        f"Available: {', '.join(available)}."
+    )
+    schema["properties"]["provider"]["enum"] = available
+
+    if provider_models:
+        schema["properties"]["model"]["description"] = (
+            f"LLM model for the new agent (optional, default = same as parent). "
+            f"Known: {'; '.join(provider_models)}."
+        )
+
+    return schema
+
+
 def setup(agent: "Agent") -> DelegateManager:
     """Set up the delegate capability on an agent."""
     mgr = DelegateManager(agent)
-    agent.add_tool("delegate", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
+    schema = _build_schema(agent)
+    agent.add_tool("delegate", schema=schema, handler=mgr.handle, description=DESCRIPTION,
                     system_prompt="Spawn a new agent and communicate via email.")
     return mgr
