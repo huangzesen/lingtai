@@ -73,8 +73,8 @@ def _wait(agent, args: dict) -> dict:
     agent._log("clock_wait_start", seconds=seconds)
 
     if agent._cancel_event.is_set():
-        agent._log("clock_wait_end", reason="cancelled", waited=0.0)
-        return {"status": "ok", "reason": "cancelled", "waited": 0.0}
+        agent._log("clock_wait_end", reason="silenced", waited=0.0)
+        return {"status": "ok", "reason": "silenced", "waited": 0.0}
     if agent._mail_arrived.is_set():
         agent._log("clock_wait_end", reason="mail_arrived", waited=0.0)
         return {"status": "ok", "reason": "mail_arrived", "waited": 0.0}
@@ -88,8 +88,8 @@ def _wait(agent, args: dict) -> dict:
         waited = time.monotonic() - t0
 
         if agent._cancel_event.is_set():
-            agent._log("clock_wait_end", reason="cancelled", waited=waited)
-            return {"status": "ok", "reason": "cancelled", "waited": waited}
+            agent._log("clock_wait_end", reason="silenced", waited=waited)
+            return {"status": "ok", "reason": "silenced", "waited": waited}
 
         if agent._mail_arrived.is_set():
             agent._log("clock_wait_end", reason="mail_arrived", waited=waited)

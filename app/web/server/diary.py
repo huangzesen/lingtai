@@ -97,15 +97,17 @@ def _map_event(etype: str, e: dict, ts: float) -> dict | None:
             "message": e.get("message", ""),
         }
 
-    if etype == "cancel_received":
+    if etype == "silence_received":
         return {
-            "type": "cancel_received", "time": ts,
+            "type": "silence_received", "time": ts,
             "from": e.get("sender", ""),
-            "subject": e.get("subject", ""),
         }
 
-    if etype == "cancel_diary":
-        return {"type": "cancel_diary", "time": ts, "text": e.get("text", "")}
+    if etype == "kill_received":
+        return {
+            "type": "kill_received", "time": ts,
+            "from": e.get("sender", ""),
+        }
 
     # Unknown event — include as raw JSON for debugging
     if etype in ("agent_state", "error", "shutdown_requested"):

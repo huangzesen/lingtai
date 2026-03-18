@@ -20,7 +20,6 @@ export function DiaryEntry({ event, agents, addressToName }: DiaryEntryProps) {
   switch (event.type) {
     case "diary":
     case "thinking":
-    case "cancel_diary":
     case "unknown":
       content = event.text || "";
       break;
@@ -67,9 +66,14 @@ export function DiaryEntry({ event, agents, addressToName }: DiaryEntryProps) {
       );
       break;
     }
-    case "cancel_received": {
+    case "silence_received": {
       const fromName = addressToName[event.from || ""] || event.from || "";
-      content = `by ${fromName}${event.subject ? ` — ${event.subject}` : ""}`;
+      content = `by ${fromName}`;
+      break;
+    }
+    case "kill_received": {
+      const fromName = addressToName[event.from || ""] || event.from || "";
+      content = `by ${fromName}`;
       break;
     }
   }

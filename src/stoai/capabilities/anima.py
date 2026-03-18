@@ -1,7 +1,7 @@
 """Anima capability — self-knowledge management.
 
 Upgrades the system intrinsic (like email upgrades mail).
-Adds evolving role (covenant + character), structured memory,
+Adds evolving identity (covenant + character), structured memory,
 and on-demand context compaction.
 
 Usage:
@@ -27,9 +27,9 @@ SCHEMA = {
     "properties": {
         "object": {
             "type": "string",
-            "enum": ["role", "library", "memory", "context"],
+            "enum": ["character", "library", "memory", "context"],
             "description": (
-                "role: your evolving character — what makes you special.\n"
+                "character: your evolving identity — what makes you special.\n"
                 "library: your knowledge archive (system/library.json).\n"
                 "memory: your active working memory "
                 "(system/memory.md, loaded from library).\n"
@@ -44,7 +44,7 @@ SCHEMA = {
                 "compact", "forget",
             ],
             "description": (
-                "role: update | diff | load.\n"
+                "character: update | diff | load.\n"
                 "library: submit | filter | view | consolidate | delete.\n"
                 "memory: load | diff.\n"
                 "context: compact | forget."
@@ -67,7 +67,7 @@ SCHEMA = {
         "content": {
             "type": "string",
             "description": (
-                "Text content — for role update (character), "
+                "Text content — for character update (your identity profile), "
                 "library submit/consolidate (main body, up to 500 words), "
                 "or other actions that accept text."
             ),
@@ -123,10 +123,14 @@ SCHEMA = {
 DESCRIPTION = (
     "Self-knowledge management — identity, knowledge library, active memory, "
     "and context control.\n"
-    "role: your character — what makes you *you*. This is your evolving identity: "
-    "your personality, expertise, working style, and goals. Be active about "
+    "character: your evolving identity — what makes you *you*. "
+    "Your personality, expertise, working style, and goals. Be active about "
     "updating this — your character is what distinguishes you from other agents. "
     "A well-developed character improves your autonomy and effectiveness. "
+    "Consider structuring your character with sections like: "
+    "Expertise (what you're good at), Tools & Packages (what you use), "
+    "MCP Servers (what services you interface with), "
+    "Pipelines (workflows you've mastered). "
     "update to write your character (write your full profile, it replaces previous), "
     "diff to review changes, load to apply.\n"
     "library: your knowledge archive — proactively insert knowledge for future "
@@ -149,7 +153,7 @@ DESCRIPTION = (
 
 
 class AnimaManager:
-    """Self-knowledge manager — role, memory, context."""
+    """Self-knowledge manager — character, memory, context."""
 
     def __init__(self, agent: "BaseAgent"):
         self._agent = agent
@@ -219,7 +223,7 @@ class AnimaManager:
     # ------------------------------------------------------------------
 
     _VALID_ACTIONS: dict[str, set[str]] = {
-        "role": {"update", "diff", "load"},
+        "character": {"update", "diff", "load"},
         "library": {"submit", "filter", "view", "consolidate", "delete"},
         "memory": {"load", "diff"},
         "context": {"compact", "forget"},
@@ -246,20 +250,20 @@ class AnimaManager:
         return method(args)
 
     # ------------------------------------------------------------------
-    # Role actions
+    # Character actions
     # ------------------------------------------------------------------
 
-    def _role_update(self, args: dict) -> dict:
+    def _character_update(self, args: dict) -> dict:
         content = args.get("content", "")
         self._character_path.parent.mkdir(exist_ok=True)
         self._character_path.write_text(content)
         return {"status": "ok", "path": str(self._character_path)}
 
-    def _role_diff(self, _args: dict) -> dict:
+    def _character_diff(self, _args: dict) -> dict:
         diff_text = self._agent._workdir.diff("system/character.md")
         return {"status": "ok", "path": str(self._character_path), "git_diff": diff_text}
 
-    def _role_load(self, _args: dict) -> dict:
+    def _character_load(self, _args: dict) -> dict:
         # Read both files and concatenate
         covenant = ""
         if self._covenant_path.is_file():
@@ -291,7 +295,7 @@ class AnimaManager:
         )
 
         self._agent._log(
-            "anima_role_load",
+            "anima_character_load",
             changed=commit_hash is not None,
         )
 

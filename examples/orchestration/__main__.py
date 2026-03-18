@@ -127,7 +127,7 @@ def main():
         config=AgentConfig(max_turns=20),
         base_dir=PLAYGROUND,
         streaming=True,
-        admin=True,
+        admin={"silence": True, "kill": True},
         covenant=COVENANT,
         capabilities={
             "email": {},

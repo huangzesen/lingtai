@@ -40,9 +40,9 @@ SCHEMA = {
                 "reply_all: reply to all recipients (requires email_id, message). "
                 "search: regex search mailbox (requires query, optional folder). "
                 "contacts: list all contacts. "
-                "add_contact: add/update contact (requires agent_id, agent_name, address; optional note). "
-                "remove_contact: remove contact (requires agent_id). "
-                "edit_contact: update contact fields (requires agent_id; optional agent_name, address, note)."
+                "add_contact: add/update contact (requires address, name; optional note). "
+                "remove_contact: remove contact (requires address). "
+                "edit_contact: update contact fields (requires address; optional name, note)."
             ),
         },
         "address": {
@@ -89,17 +89,19 @@ SCHEMA = {
         },
         "type": {
             "type": "string",
-            "enum": ["normal", "cancel"],
+            "enum": ["normal", "silence", "kill"],
             "description": (
                 "Mail type (for send). 'normal' (default) is regular mail. "
-                "'cancel' stops the target agent immediately (requires admin privilege)."
+                "'silence' interrupts the target agent and puts it to idle "
+                "(revives on next email; requires admin privilege). "
+                "'kill' hard-stops the target agent (requires admin privilege). "
+                "To revive after kill: re-delegate with the SAME agent name "
+                "(preserves working directory, character, and mailbox). "
+                "The revived agent gets a NEW address — "
+                "update your contacts after re-delegating."
             ),
         },
-        "agent_id": {
-            "type": "string",
-            "description": "Contact's agent ID (for add_contact, remove_contact, edit_contact)",
-        },
-        "agent_name": {
+        "name": {
             "type": "string",
             "description": "Contact's human-readable name (for add_contact, edit_contact)",
         },
@@ -120,8 +122,8 @@ DESCRIPTION = (
     "'reply'/'reply_all' to respond. "
     "'search' to find emails by regex (searches from, subject, message). "
     "'contacts' to list saved contacts. "
-    "'add_contact' to register a peer (agent_id, agent_name, address, optional note). "
-    "'remove_contact' to delete a contact by agent_id. "
+    "'add_contact' to register a peer (address, name, optional note). "
+    "'remove_contact' to delete a contact by address. "
     "'edit_contact' to update fields on an existing contact. "
     "Attachments are stored alongside emails in the mailbox. "
     "Etiquette: a short acknowledgement is fine, but do not reply to "
@@ -132,8 +134,9 @@ DESCRIPTION = (
 class EmailManager:
     """Filesystem-based email manager — reads/writes mailbox/ directory."""
 
-    def __init__(self, agent: "BaseAgent"):
+    def __init__(self, agent: "BaseAgent", *, private_mode: bool = False):
         self._agent = agent
+        self._private_mode = private_mode
         # Track consecutive identical sends per recipient to block loops.
         # Maps address → (message_text, count).
         self._last_sent: dict[str, tuple[str, int]] = {}
@@ -276,8 +279,8 @@ class EmailManager:
         bcc = args.get("bcc") or []
 
         # Privilege gate: only admin agents can send non-normal mail
-        if mail_type != "normal" and not self._agent._admin:
-            return {"error": f"Not authorized to send type={mail_type!r} mail (requires admin=True)"}
+        if mail_type != "normal" and not self._agent._admin.get(mail_type):
+            return {"error": f"Not authorized to send type={mail_type!r} mail (requires admin.{mail_type}=True)"}
 
         if isinstance(raw_address, str):
             to_list = [raw_address] if raw_address else []
@@ -307,6 +310,19 @@ class EmailManager:
                     "think twice before sending."
                 ),
             }
+
+        # Private mode: block sends to addresses not in contacts.
+        if self._private_mode:
+            contact_addresses = {c["address"] for c in self._load_contacts()}
+            not_in_contacts = [a for a in all_targets if a not in contact_addresses]
+            if not_in_contacts:
+                return {
+                    "error": (
+                        "Private mode: recipient not in contacts: "
+                        f"{', '.join(not_in_contacts)}. "
+                        "Register them first with add_contact."
+                    ),
+                }
 
         sender = self._agent._mail_service.address or self._agent.agent_id
 
@@ -570,58 +586,52 @@ class EmailManager:
         return {"status": "ok", "contacts": self._load_contacts()}
 
     def _add_contact(self, args: dict) -> dict:
-        agent_id = args.get("agent_id", "")
-        agent_name = args.get("agent_name", "")
         address = args.get("address", "")
-        if not agent_id:
-            return {"error": "agent_id is required"}
-        if not agent_name:
-            return {"error": "agent_name is required"}
+        name = args.get("name", "")
         if not address:
             return {"error": "address is required"}
+        if not name:
+            return {"error": "name is required"}
         note = args.get("note", "")
 
         contacts = self._load_contacts()
-        # Upsert by agent_id
+        # Upsert by address
         for c in contacts:
-            if c["agent_id"] == agent_id:
-                c["agent_name"] = agent_name
-                c["address"] = address
+            if c["address"] == address:
+                c["name"] = name
                 c["note"] = note
                 self._save_contacts(contacts)
                 return {"status": "updated", "contact": c}
-        entry = {"agent_id": agent_id, "agent_name": agent_name, "address": address, "note": note}
+        entry = {"address": address, "name": name, "note": note}
         contacts.append(entry)
         self._save_contacts(contacts)
         return {"status": "added", "contact": entry}
 
     def _remove_contact(self, args: dict) -> dict:
-        agent_id = args.get("agent_id", "")
-        if not agent_id:
-            return {"error": "agent_id is required"}
+        address = args.get("address", "")
+        if not address:
+            return {"error": "address is required"}
         contacts = self._load_contacts()
-        new_contacts = [c for c in contacts if c["agent_id"] != agent_id]
+        new_contacts = [c for c in contacts if c["address"] != address]
         if len(new_contacts) == len(contacts):
-            return {"error": f"Contact not found: {agent_id}"}
+            return {"error": f"Contact not found: {address}"}
         self._save_contacts(new_contacts)
-        return {"status": "removed", "agent_id": agent_id}
+        return {"status": "removed", "address": address}
 
     def _edit_contact(self, args: dict) -> dict:
-        agent_id = args.get("agent_id", "")
-        if not agent_id:
-            return {"error": "agent_id is required"}
+        address = args.get("address", "")
+        if not address:
+            return {"error": "address is required"}
         contacts = self._load_contacts()
         for c in contacts:
-            if c["agent_id"] == agent_id:
-                if "agent_name" in args:
-                    c["agent_name"] = args["agent_name"]
-                if "address" in args:
-                    c["address"] = args["address"]
+            if c["address"] == address:
+                if "name" in args:
+                    c["name"] = args["name"]
                 if "note" in args:
                     c["note"] = args["note"]
                 self._save_contacts(contacts)
                 return {"status": "updated", "contact": c}
-        return {"error": f"Contact not found: {agent_id}"}
+        return {"error": f"Contact not found: {address}"}
 
     # ------------------------------------------------------------------
     # Receive interception
@@ -631,8 +641,8 @@ class EmailManager:
         """Handle normal mail — save to mailbox and notify agent.
 
         Replaces BaseAgent._on_normal_mail when the email capability is active.
-        Cancel-type emails never reach this method — they are handled by
-        BaseAgent._on_mail_received before delegation.
+        Silence-type and kill-type emails never reach this method — they are
+        handled by BaseAgent._on_mail_received before delegation.
         """
         # Use _mailbox_id from mail service, or fall back to generating one
         email_id = payload.get("_mailbox_id") or str(uuid4())
@@ -668,9 +678,9 @@ class EmailManager:
         self._agent.inbox.put(msg)
 
 
-def setup(agent: "BaseAgent") -> EmailManager:
+def setup(agent: "BaseAgent", *, private_mode: bool = False) -> EmailManager:
     """Set up email capability — filesystem-based mailbox."""
-    mgr = EmailManager(agent)
+    mgr = EmailManager(agent, private_mode=private_mode)
     agent.override_intrinsic("mail")  # remove mail tool; email reimplements fully
     agent._on_normal_mail = mgr.on_normal_mail
     agent.add_tool(

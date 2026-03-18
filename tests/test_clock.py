@@ -142,15 +142,15 @@ def test_clock_wait_caps_at_300(tmp_path):
     assert result["status"] == "ok"
 
 
-def test_clock_wait_wakes_on_cancel(tmp_path):
-    """clock wait should wake when cancel event is set."""
+def test_clock_wait_wakes_on_silence(tmp_path):
+    """clock wait should wake when cancel event is set (silence mail)."""
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
 
-    def fire_cancel():
+    def fire_silence():
         time.sleep(0.1)
         agent._cancel_event.set()
 
-    t = threading.Thread(target=fire_cancel, daemon=True)
+    t = threading.Thread(target=fire_silence, daemon=True)
     t.start()
 
     start = time.monotonic()
@@ -158,7 +158,7 @@ def test_clock_wait_wakes_on_cancel(tmp_path):
     elapsed = time.monotonic() - start
 
     assert result["status"] == "ok"
-    assert result["reason"] == "cancelled"
+    assert result["reason"] == "silenced"
     assert elapsed < 5
     t.join(timeout=1)
 

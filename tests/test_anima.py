@@ -48,34 +48,34 @@ def test_anima_manager_accessible(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_role_update_writes_character(tmp_path):
+def test_character_update_writes_character(tmp_path):
     agent = Agent(
         agent_name="test", service=make_mock_service(), base_dir=tmp_path,
         covenant="You are helpful",
         capabilities=["anima"],
     )
     mgr = agent.get_capability("anima")
-    result = mgr.handle({"object": "role", "action": "update", "content": "I am a PDF specialist"})
+    result = mgr.handle({"object": "character", "action": "update", "content": "I am a PDF specialist"})
     assert result["status"] == "ok"
     character = (agent.working_dir / "system" / "character.md").read_text()
     assert character == "I am a PDF specialist"
     agent.stop(timeout=1.0)
 
 
-def test_role_update_empty_clears_character(tmp_path):
+def test_character_update_empty_clears_character(tmp_path):
     agent = Agent(
         agent_name="test", service=make_mock_service(), base_dir=tmp_path,
         capabilities=["anima"],
     )
     mgr = agent.get_capability("anima")
-    mgr.handle({"object": "role", "action": "update", "content": "something"})
-    mgr.handle({"object": "role", "action": "update", "content": ""})
+    mgr.handle({"object": "character", "action": "update", "content": "something"})
+    mgr.handle({"object": "character", "action": "update", "content": ""})
     character = (agent.working_dir / "system" / "character.md").read_text()
     assert character == ""
     agent.stop(timeout=1.0)
 
 
-def test_role_diff(tmp_path):
+def test_character_diff(tmp_path):
     agent = Agent(
         agent_name="test", service=make_mock_service(), base_dir=tmp_path,
         capabilities=["anima"],
@@ -83,15 +83,15 @@ def test_role_diff(tmp_path):
     agent.start()
     try:
         mgr = agent.get_capability("anima")
-        mgr.handle({"object": "role", "action": "update", "content": "new character"})
-        result = mgr.handle({"object": "role", "action": "diff"})
+        mgr.handle({"object": "character", "action": "update", "content": "new character"})
+        result = mgr.handle({"object": "character", "action": "diff"})
         assert result["status"] == "ok"
         assert "new character" in result["git_diff"]
     finally:
         agent.stop()
 
 
-def test_role_load_combines_covenant_and_character(tmp_path):
+def test_character_load_combines_covenant_and_character(tmp_path):
     agent = Agent(
         agent_name="test", service=make_mock_service(), base_dir=tmp_path,
         covenant="You are helpful",
@@ -100,8 +100,8 @@ def test_role_load_combines_covenant_and_character(tmp_path):
     agent.start()
     try:
         mgr = agent.get_capability("anima")
-        mgr.handle({"object": "role", "action": "update", "content": "I specialize in PDFs"})
-        mgr.handle({"object": "role", "action": "load"})
+        mgr.handle({"object": "character", "action": "update", "content": "I specialize in PDFs"})
+        mgr.handle({"object": "character", "action": "load"})
         section = agent._prompt_manager.read_section("covenant")
         assert "You are helpful" in section
         assert "I specialize in PDFs" in section
@@ -332,7 +332,7 @@ def test_invalid_action_for_object(tmp_path):
         capabilities=["anima"],
     )
     mgr = agent.get_capability("anima")
-    result = mgr.handle({"object": "role", "action": "submit"})
+    result = mgr.handle({"object": "character", "action": "submit"})
     assert "error" in result
     assert "update" in result["error"]  # should list valid actions
     agent.stop(timeout=1.0)
@@ -371,6 +371,7 @@ def test_anima_schema_has_library_fields():
     assert "depth" in props
     assert props["depth"]["enum"] == ["content", "supplementary"]
     # object enum should include library
+    assert "character" in props["object"]["enum"]
     assert "library" in props["object"]["enum"]
 
 

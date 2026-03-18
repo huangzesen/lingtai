@@ -571,3 +571,98 @@ def test_email_removes_mail_intrinsic(tmp_path):
     # But email tool should exist
     assert "email" in agent._mcp_handlers
     agent.stop(timeout=1.0)
+
+
+# ---------------------------------------------------------------------------
+# Private mode
+# ---------------------------------------------------------------------------
+
+def test_email_private_mode_blocks_send_to_non_contact(tmp_path):
+    """Private mode should block sends to addresses not in contacts."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities={"email": {"private_mode": True}})
+    mail_svc = MagicMock()
+    mail_svc.address = "me"
+    mail_svc.send.return_value = None
+    agent._mail_service = mail_svc
+    mgr = agent.get_capability("email")
+    result = mgr.handle({"action": "send", "address": "stranger", "message": "hi"})
+    assert "error" in result
+    assert "Private mode" in result["error"]
+    assert "stranger" in result["error"]
+
+
+def test_email_private_mode_allows_send_to_contact(tmp_path):
+    """Private mode should allow sends to registered contacts."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities={"email": {"private_mode": True}})
+    mail_svc = MagicMock()
+    mail_svc.address = "me"
+    mail_svc.send.return_value = None
+    agent._mail_service = mail_svc
+    mgr = agent.get_capability("email")
+    # Register contact first
+    mgr.handle({"action": "add_contact", "name": "Alice", "address": "alice:8000"})
+    result = mgr.handle({"action": "send", "address": "alice:8000", "message": "hi"})
+    assert result["status"] == "delivered"
+
+
+def test_email_private_mode_blocks_reply_to_non_contact(tmp_path):
+    """Private mode should block reply to addresses not in contacts."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities={"email": {"private_mode": True}})
+    mail_svc = MagicMock()
+    mail_svc.address = "me"
+    mail_svc.send.return_value = None
+    agent._mail_service = mail_svc
+    mgr = agent.get_capability("email")
+    eid = _make_inbox_email(agent.working_dir, sender="stranger", subject="hi", message="hello")
+    result = mgr.handle({"action": "reply", "email_id": eid, "message": "reply"})
+    assert "error" in result
+    assert "Private mode" in result["error"]
+
+
+def test_email_private_mode_blocks_cc_to_non_contact(tmp_path):
+    """Private mode should block if any CC address is not in contacts."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities={"email": {"private_mode": True}})
+    mail_svc = MagicMock()
+    mail_svc.address = "me"
+    mail_svc.send.return_value = None
+    agent._mail_service = mail_svc
+    mgr = agent.get_capability("email")
+    mgr.handle({"action": "add_contact", "name": "Alice", "address": "alice:8000"})
+    result = mgr.handle({
+        "action": "send", "address": "alice:8000", "message": "hi",
+        "cc": ["unknown:9000"],
+    })
+    assert "error" in result
+    assert "unknown:9000" in result["error"]
+
+
+def test_email_private_mode_off_allows_anyone(tmp_path):
+    """Without private mode, sends to any address should work."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities=["email"])
+    mail_svc = MagicMock()
+    mail_svc.address = "me"
+    mail_svc.send.return_value = None
+    agent._mail_service = mail_svc
+    mgr = agent.get_capability("email")
+    result = mgr.handle({"action": "send", "address": "anyone", "message": "hi"})
+    assert result["status"] == "delivered"
+
+
+def test_email_private_mode_receive_unrestricted(tmp_path):
+    """Private mode should not block receiving emails."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities={"email": {"private_mode": True}})
+    mgr = agent.get_capability("email")
+    mgr.on_normal_mail({
+        "_mailbox_id": "abc",
+        "from": "stranger",
+        "to": ["me"],
+        "subject": "hi",
+        "message": "can you hear me",
+    })
+    assert not agent.inbox.empty()

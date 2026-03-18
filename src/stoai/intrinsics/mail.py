@@ -30,10 +30,13 @@ SCHEMA = {
         },
         "type": {
             "type": "string",
-            "enum": ["normal", "cancel"],
+            "enum": ["normal", "silence", "kill"],
             "description": (
                 "Mail type (for send). 'normal' (default) is regular mail. "
-                "'cancel' stops the target agent immediately (requires admin privilege)."
+                "'silence' interrupts the target agent and puts it to idle "
+                "(revives on next email; requires admin privilege). "
+                "'kill' hard-stops the target agent permanently "
+                "(requires admin privilege)."
             ),
         },
     },
@@ -67,8 +70,8 @@ def _send(agent, args: dict) -> dict:
     message_text = args.get("message", "")
     mail_type = args.get("type", "normal")
 
-    if mail_type != "normal" and not agent._admin:
-        return {"status": "error", "message": f"Not authorized to send type={mail_type!r} mail (requires admin=True)"}
+    if mail_type != "normal" and not agent._admin.get(mail_type):
+        return {"status": "error", "message": f"Not authorized to send type={mail_type!r} mail (requires admin.{mail_type}=True)"}
 
     if not address:
         return {"status": "error", "message": "address is required"}

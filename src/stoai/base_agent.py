@@ -83,7 +83,7 @@ class BaseAgent:
         config: AgentConfig | None = None,
         base_dir: str | Path,
         context: Any = None,
-        admin: bool = False,
+        admin: dict | None = None,
         streaming: bool = False,
         covenant: str = "",
         memory: str = "",
@@ -94,9 +94,8 @@ class BaseAgent:
         self.service = service
         self._config = config or AgentConfig()
         self._context = context
-        self._admin = admin
+        self._admin = admin or {}
         self._cancel_event = threading.Event()
-        self._cancel_mail: dict | None = None
         self._started_at: str = ""
         self._uptime_anchor: float | None = None  # set in start(), None means not started
 
@@ -436,7 +435,8 @@ class BaseAgent:
     def _on_mail_received(self, payload: dict) -> None:
         """Callback for MailService — routes by mail type.
 
-        Cancel-type emails bypass the queue and set the cancel event directly.
+        silence-type emails set the cancel event (interrupt current work).
+        kill-type emails signal shutdown (hard stop).
         Normal emails are delegated to ``_on_normal_mail`` (which capabilities
         like email can replace).
 
@@ -445,14 +445,33 @@ class BaseAgent:
         """
         mail_type = payload.get("type", "normal")
 
-        if mail_type == "cancel":
-            self._cancel_mail = payload
+        if mail_type == "silence":
             self._cancel_event.set()
+            # Deactivate conscience if present (Agent layer has _capability_managers)
+            cap_managers = getattr(self, "_capability_managers", {})
+            conscience = cap_managers.get("conscience")
+            if conscience is not None:
+                conscience.stop()
             self._log(
-                "cancel_received",
+                "silence_received",
                 sender=payload.get("from", "unknown"),
-                subject=payload.get("subject", ""),
             )
+            return
+
+        if mail_type == "kill":
+            self._cancel_event.set()
+            self._shutdown.set()
+            self._log(
+                "kill_received",
+                sender=payload.get("from", "unknown"),
+            )
+            # Run stop() in a separate thread to avoid deadlocking
+            # the mail listener thread (stop() joins the agent thread).
+            threading.Thread(
+                target=self.stop,
+                daemon=True,
+                name=f"kill-{self.agent_name}",
+            ).start()
             return
 
         self._on_normal_mail(payload)
@@ -653,6 +672,8 @@ class BaseAgent:
 
         Returns a result dict: {"text": ..., "failed": ..., "errors": [...]}.
         """
+        # Clear any stale cancel event from a previous silence.
+        self._cancel_event.clear()
         guard = self._executor.guard
         collected_text_parts: list[str] = []
         collected_errors: list[str] = []
@@ -672,7 +693,8 @@ class BaseAgent:
                 break
 
             if self._cancel_event.is_set():
-                return self._handle_cancel_diary()
+                self._cancel_event.clear()
+                return {"text": "", "failed": False, "errors": []}
 
             stop_reason = guard.check_limit(len(response.tool_calls))
             if stop_reason:
@@ -722,20 +744,6 @@ class BaseAgent:
             "text": final_text,
             "failed": has_errors and no_useful_output,
             "errors": collected_errors,
-        }
-
-    def _handle_cancel_diary(self) -> dict:
-        """Handle cancellation triggered by a cancel email.
-
-        Immediately stops — no extra LLM call.
-        """
-        cancel_mail = self._cancel_mail
-        self._cancel_event.clear()
-        self._cancel_mail = None
-        return {
-            "text": "",
-            "failed": False,
-            "errors": [],
         }
 
     # ------------------------------------------------------------------

@@ -38,6 +38,14 @@ SCHEMA = {
             "items": {"type": "string"},
             "description": "Capability names for the new agent (optional, default = same as parent minus delegate)",
         },
+        "admin": {
+            "type": "object",
+            "description": (
+                "Admin privileges for the new agent (optional, default = none). "
+                "Dict of privilege name to boolean, e.g. {\"silence\": true}. "
+                "Only grant privileges the child needs to manage its own children."
+            ),
+        },
     },
     "required": ["name"],
 }
@@ -93,6 +101,7 @@ class DelegateManager:
         mail_svc = TCPMailService(listen_port=port, working_dir=delegate_working_dir)
 
         # Create delegate agent
+        admin = args.get("admin") or {}
         delegate = Agent(
             agent_name=child_name,
             service=parent.service,
@@ -103,6 +112,7 @@ class DelegateManager:
             covenant=covenant,
             memory=memory,
             capabilities=caps,
+            admin=admin,
         )
         delegate.start()
 
