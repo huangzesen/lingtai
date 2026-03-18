@@ -60,11 +60,11 @@ Replace lines 504-561 with:
 ```python
 def _context_compact(self, args: dict) -> dict:
     """Agent self-compaction: prompt IS the summary, wipe + re-inject."""
-    summary = args.get("prompt")
+    summary = args.get("summary")
     if summary is None:
-        return {"error": "prompt is required — write your context summary."}
+        return {"error": "summary is required — write your context summary."}
     if not summary.strip():
-        return {"error": "prompt cannot be empty — write what you need to remember."}
+        return {"error": "summary cannot be empty — write what you need to remember."}
 
     if self._agent._chat is None:
         return {"error": "No active chat session to compact."}
@@ -105,20 +105,23 @@ def _context_compact(self, args: dict) -> dict:
 
 - [ ] **Step 4: Update SCHEMA prompt description**
 
-In SCHEMA `"prompt"` field (line ~110-116), change to:
+In SCHEMA, rename the `"prompt"` field to `"summary"` (line ~110-116), change to:
 
 ```python
-"prompt": {
+"summary": {
     "type": "string",
     "description": (
         "A briefing to your future self — this is the ONLY thing you will see "
         "after compaction. Write what you are doing, what you have found, "
-        "what remains to be done, which library entries to load for context, "
+        "what remains to be done, which library entries to retrieve for context, "
         "and who you are working with (addresses). "
+        "Budget: up to ~20% of your context window. Be thorough but concise. "
         "Required for context compact."
     ),
 },
 ```
+
+Also remove the old `"prompt"` field from SCHEMA entirely.
 
 - [ ] **Step 5: Update DESCRIPTION for context section**
 
@@ -292,7 +295,7 @@ if pressure >= 0.8 and has_anima:
             f"Compact NOW or lose everything next turn. "
             f"Write your briefing: what you're doing, what's done, what's pending, "
             f"which library entries to load. "
-            f"anima(object=context, action=compact, prompt=<briefing>).\n\n{content}"
+            f"anima(object=context, action=compact, summary=<briefing>).\n\n{content}"
         )
     elif warnings >= 3:
         remaining = 5 - warnings
@@ -310,7 +313,7 @@ if pressure >= 0.8 and has_anima:
             f"countdown {remaining} turns until auto-wipe. "
             f"Start tidying up: save important findings to library (anima submit). "
             f"When ready, self-compact with a briefing to your future self: "
-            f"anima(object=context, action=compact, prompt=<briefing>). "
+            f"anima(object=context, action=compact, summary=<briefing>). "
             f"Your prompt is the ONLY thing you will see after compaction — "
             f"include what you're doing, what's done, what's pending, "
             f"and which library entries to load.\n\n{content}"
@@ -395,7 +398,7 @@ COVENANT = """\
 
 ### Context Management
 - Your library (anima, object=library) is your external brain — it persists across compactions, reboots, and even kills. Proactively deposit important findings, data, and decisions there throughout your work via anima(object=library, action=submit). Retrieve anytime via anima(object=library, action=filter/view).
-- Self-compact anytime you want a clean slate for an important task via anima(object=context, action=compact, prompt=<briefing>). Forced compaction triggers at 80% context — you get a 5-turn countdown, then auto-wipe.
+- Self-compact anytime you want a clean slate for an important task via anima(object=context, action=compact, summary=<briefing>). Forced compaction triggers at 80% context — you get a 5-turn countdown, then auto-wipe.
 - When self-compacting: deposit to library first, then write a briefing to your future self (the ONLY thing you will see after). Include what you're doing, what's done, what's pending, and which library entries to retrieve.
 """
 ```
