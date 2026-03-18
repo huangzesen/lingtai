@@ -237,7 +237,7 @@ export function NetworkPage({ graphData, nodeActivity, pendingEmails, lightMode 
           linkOpacity={viewMode === "activity" ? 0.05 : 0.6}
           linkDirectionalParticles={0}
           linkDirectionalParticleWidth={4}
-          linkDirectionalParticleSpeed={0.02}
+          linkDirectionalParticleSpeed={0.005}
           linkDirectionalParticleColor={() => "#4ecdc4"}
           d3AlphaDecay={0.02}
           d3VelocityDecay={0.3}
