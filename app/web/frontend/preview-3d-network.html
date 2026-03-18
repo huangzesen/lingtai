@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>StoAI 3D Network Preview</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a1a; overflow: hidden; font-family: 'Courier New', monospace; }
+    #controls {
+      position: fixed; top: 16px; right: 16px; z-index: 10;
+      display: flex; flex-direction: column; gap: 6px; align-items: flex-end;
+    }
+    .control-row { display: flex; gap: 6px; }
+    .control-label {
+      color: #555; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;
+      padding-right: 4px; align-self: center;
+    }
+    #controls button {
+      background: rgba(15, 52, 96, 0.8); color: #e0e0e0; border: 1px solid #1a3a5c;
+      padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 11px;
+      font-family: 'Courier New', monospace; transition: all 0.2s;
+    }
+    #controls button:hover { background: rgba(30, 80, 140, 0.9); }
+    #controls button.active { background: rgba(233, 69, 96, 0.6); border-color: #e94560; }
+    #title {
+      position: fixed; top: 16px; left: 20px; z-index: 10;
+      color: #e94560; font-size: 18px; font-weight: bold;
+      text-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+    }
+    #subtitle {
+      position: fixed; top: 40px; left: 20px; z-index: 10;
+      color: #888; font-size: 11px;
+    }
+    #stats {
+      position: fixed; bottom: 16px; left: 20px; z-index: 10;
+      color: #4ecdc4; font-size: 11px;
+    }
+    #layout-info {
+      position: fixed; bottom: 16px; right: 20px; z-index: 10;
+      color: #555; font-size: 10px; text-align: right;
+    }
+  </style>
+  <!-- UMD builds: THREE v0.160 still has global UMD build -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three-spritetext@1.8.2"></script>
+  <script src="https://unpkg.com/three-forcegraph@1.43.5"></script>
+  <script src="https://unpkg.com/3d-force-graph@1.73.3"></script>
+  <script src="https://unpkg.com/d3-force-3d@3"></script>
+</head>
+<body>
+  <div id="title">StoAI</div>
+  <div id="subtitle">3D Agent Network — Preview (mock data)</div>
+  <div id="controls">
+    <div class="control-row">
+      <span class="control-label">View</span>
+      <button id="btn-comm" class="active" onclick="setMode('comm')">Communication</button>
+      <button id="btn-activity" onclick="setMode('activity')">Activity</button>
+      <button onclick="spawnBurst()">Simulate Burst</button>
+    </div>
+    <div class="control-row">
+      <span class="control-label">Layout</span>
+      <button id="btn-layout-default" class="active" onclick="setLayout('default')">Default</button>
+      <button id="btn-layout-volume" onclick="setLayout('volume')">Email Volume</button>
+      <button id="btn-layout-cluster" onclick="setLayout('cluster')">Contact Cluster</button>
+    </div>
+  </div>
+  <div id="stats"></div>
+  <div id="layout-info"></div>
+  <div id="graph"></div>
+
+  <script>
+    const AGENT_COLORS = [
+      '#e94560', '#4ecdc4', '#f0a500', '#6bcb77',
+      '#b06bcb', '#6b9bcb', '#cb6bb5', '#cbc76b'
+    ];
+    const GLOW_COLORS = { thinking: '#f0a500', tool: '#6b9bcb', diary: '#6bcb77' };
+
+    const agents = [
+      { id: 'alice', name: 'Alice', type: 'admin', group: 'research' },
+      { id: 'bob', name: 'Bob', type: 'agent', group: 'research' },
+      { id: 'carol', name: 'Carol', type: 'agent', group: 'research' },
+      { id: 'dave', name: 'Dave', type: 'agent', group: 'research' },
+      { id: 'eve', name: 'Eve', type: 'agent', group: 'research' },
+      { id: 'frank', name: 'Frank', type: 'admin', group: 'engineering' },
+      { id: 'grace', name: 'Grace', type: 'agent', group: 'engineering' },
+      { id: 'henry', name: 'Henry', type: 'agent', group: 'engineering' },
+      { id: 'iris', name: 'Iris', type: 'agent', group: 'engineering' },
+      { id: 'jack', name: 'Jack', type: 'agent', group: 'engineering' },
+      { id: 'kate', name: 'Kate', type: 'agent', group: 'engineering' },
+      { id: 'leo', name: 'Leo', type: 'admin', group: 'analytics' },
+      { id: 'mia', name: 'Mia', type: 'agent', group: 'analytics' },
+      { id: 'noah', name: 'Noah', type: 'agent', group: 'analytics' },
+      { id: 'olivia', name: 'Olivia', type: 'agent', group: 'analytics' },
+      { id: 'pete', name: 'Pete', type: 'agent', group: 'solo' },
+      { id: 'quinn', name: 'Quinn', type: 'agent', group: 'solo' },
+    ];
+
+    const nodes = [
+      ...agents.map((a, i) => ({
+        id: a.id, name: a.name, type: a.type, group: a.group,
+        color: AGENT_COLORS[i % AGENT_COLORS.length],
+        status: Math.random() > 0.2 ? 'active' : 'sleeping',
+      })),
+      { id: 'user', name: 'You', type: 'user', group: 'user', color: '#e94560', status: 'active' }
+    ];
+
+    const links = [];
+    function addLink(s, t, c) {
+      links.push({ source: s, target: t, count: c, _particles: c > 3 ? 2 : 1 });
+    }
+    addLink('alice','bob',12); addLink('alice','carol',8); addLink('alice','dave',6);
+    addLink('bob','carol',15); addLink('bob','eve',4); addLink('carol','dave',7);
+    addLink('dave','eve',9); addLink('eve','alice',3);
+    addLink('frank','grace',10); addLink('frank','henry',14); addLink('frank','iris',5);
+    addLink('grace','henry',8); addLink('grace','jack',6); addLink('henry','iris',11);
+    addLink('iris','kate',7); addLink('jack','kate',13); addLink('kate','frank',4);
+    addLink('leo','mia',9); addLink('leo','noah',7); addLink('leo','olivia',5);
+    addLink('mia','noah',12); addLink('noah','olivia',6); addLink('olivia','mia',3);
+    addLink('alice','frank',3); addLink('frank','leo',2); addLink('alice','leo',1);
+    addLink('bob','grace',2); addLink('carol','mia',1); addLink('henry','noah',2);
+    addLink('user','alice',5); addLink('user','frank',3); addLink('user','leo',2);
+    addLink('alice','user',2); addLink('frank','user',1);
+    addLink('pete','alice',1); addLink('quinn','frank',1); addLink('pete','quinn',2);
+
+    // ── Precompute per-node email volume ──
+    const emailVolume = {};
+    for (const n of nodes) emailVolume[n.id] = 0;
+    for (const l of links) {
+      emailVolume[l.source] = (emailVolume[l.source] || 0) + l.count;
+      emailVolume[l.target] = (emailVolume[l.target] || 0) + l.count;
+    }
+    const maxVolume = Math.max(...Object.values(emailVolume), 1);
+    // Attach to nodes for force access
+    for (const n of nodes) n._volume = emailVolume[n.id] || 0;
+
+    let mode = 'comm';
+    let layout = 'default';
+    const nodeMaterials = {};
+    const nodeActivity = {};
+
+    // Canvas-based label sprite
+    function makeLabel(text, color) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 256; canvas.height = 64;
+      ctx.font = 'bold 28px Courier New';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = color;
+      ctx.fillText(text, 128, 32);
+      const tex = new THREE.CanvasTexture(canvas);
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+      const spr = new THREE.Sprite(mat);
+      spr.scale.set(14, 3.5, 1);
+      return spr;
+    }
+
+    const Graph = ForceGraph3D()(document.getElementById('graph'))
+      .graphData({ nodes, links })
+      .backgroundColor('#0a0a1a')
+      .width(window.innerWidth)
+      .height(window.innerHeight)
+      .nodeId('id')
+      .nodeLabel(n => {
+        const vol = n._volume || 0;
+        return `${n.name} (${n.status}) [${n.type}] — ${vol} emails`;
+      })
+      .nodeThreeObject(node => {
+        const group = new THREE.Group();
+        const geom = node.type === 'user'
+          ? new THREE.OctahedronGeometry(6)
+          : new THREE.SphereGeometry(5, 16, 12);
+        const color = new THREE.Color(node.color);
+        const mat = new THREE.MeshStandardMaterial({
+          color: 0x111122, emissive: color,
+          emissiveIntensity: node.status === 'active' ? 0.8 : 0.2,
+          roughness: 0.4, metalness: 0.3,
+        });
+        group.add(new THREE.Mesh(geom, mat));
+        nodeMaterials[node.id] = mat;
+
+        if (node.type === 'admin') {
+          const shell = new THREE.Mesh(
+            new THREE.IcosahedronGeometry(8, 0),
+            new THREE.MeshBasicMaterial({ color: node.color, wireframe: true, transparent: true, opacity: 0.3 })
+          );
+          group.add(shell);
+        }
+
+        group.add(new THREE.PointLight(node.color, node.status === 'active' ? 0.5 : 0.1, 30));
+
+        const label = makeLabel(node.name, node.color);
+        label.position.set(0, 9, 0);
+        group.add(label);
+
+        return group;
+      })
+      .nodeThreeObjectExtend(false)
+      .linkColor(() => '#1a3a5c')
+      .linkWidth(link => Math.min(0.5 + link.count * 0.15, 3))
+      .linkOpacity(0.6)
+      .linkCurvature(0.15)
+      .linkDirectionalParticles(link => mode === 'comm' ? link._particles : 0)
+      .linkDirectionalParticleWidth(2.5)
+      .linkDirectionalParticleSpeed(0.012)
+      .linkDirectionalParticleColor(link => {
+        const sid = typeof link.source === 'object' ? link.source.id : link.source;
+        return (nodes.find(n => n.id === sid) || {}).color || '#e94560';
+      })
+      .linkDirectionalArrowLength(3)
+      .linkDirectionalArrowRelPos(1)
+      .linkDirectionalArrowColor(() => '#1a3a5c')
+      .d3AlphaDecay(0.02)
+      .d3VelocityDecay(0.3);
+
+    // ── Layout modes ──
+    const LAYOUT_DESCRIPTIONS = {
+      default: 'Standard force-directed — balanced spacing',
+      volume: 'Email Volume — high-traffic nodes pulled to center',
+      cluster: 'Contact Cluster — frequent communicators group tightly',
+    };
+
+    function setLayout(l) {
+      layout = l;
+      // Update button states
+      document.getElementById('btn-layout-default').className = l === 'default' ? 'active' : '';
+      document.getElementById('btn-layout-volume').className = l === 'volume' ? 'active' : '';
+      document.getElementById('btn-layout-cluster').className = l === 'cluster' ? 'active' : '';
+      document.getElementById('layout-info').textContent = LAYOUT_DESCRIPTIONS[l];
+
+      if (l === 'volume') {
+        // Radial force: high-volume nodes → center (small radius), low-volume → outside
+        Graph.d3Force('radial', d3.forceRadial(
+          node => {
+            const normalizedVolume = (node._volume || 0) / maxVolume;
+            return 120 * (1 - normalizedVolume);
+          }
+        ).strength(0.4));
+        Graph.d3Force('charge').strength(-30);
+        const linkForce = Graph.d3Force('link');
+        if (linkForce && linkForce.strength) linkForce.strength(null);
+      } else if (l === 'cluster') {
+        Graph.d3Force('radial', null);
+        const maxCount = Math.max(...links.map(lk => lk.count), 1);
+        const linkForce = Graph.d3Force('link');
+        if (linkForce && linkForce.strength) {
+          linkForce.strength(link => 0.3 + 0.7 * ((link.count || 0) / maxCount));
+        }
+        Graph.d3Force('charge').strength(-80);
+      } else {
+        Graph.d3Force('radial', null);
+        Graph.d3Force('charge').strength(-30);
+        const linkForce = Graph.d3Force('link');
+        if (linkForce && linkForce.strength) linkForce.strength(null);
+      }
+
+      // Re-heat simulation to animate the transition
+      Graph.d3ReheatSimulation();
+    }
+
+    // Set initial layout info
+    document.getElementById('layout-info').textContent = LAYOUT_DESCRIPTIONS['default'];
+
+    // ── View modes ──
+    function setMode(m) {
+      mode = m;
+      document.getElementById('btn-comm').className = m === 'comm' ? 'active' : '';
+      document.getElementById('btn-activity').className = m === 'activity' ? 'active' : '';
+      Graph.linkOpacity(m === 'comm' ? 0.6 : 0.08)
+        .linkDirectionalParticles(l => m === 'comm' ? l._particles : 0);
+    }
+
+    // ── Glow animation ──
+    (function animateGlow() {
+      const now = Date.now();
+      for (const [id, mat] of Object.entries(nodeMaterials)) {
+        const recent = (nodeActivity[id] || []).filter(a => now - a.time < 3000);
+        if (recent.length > 0 && mode === 'activity') {
+          const latest = recent[recent.length - 1];
+          const intensity = 1.5 * (1 - (now - latest.time) / 3000);
+          mat.emissive.lerp(new THREE.Color(GLOW_COLORS[latest.type] || '#fff'), 0.1);
+          mat.emissiveIntensity = Math.max(mat.emissiveIntensity, intensity);
+        } else {
+          const node = nodes.find(n => n.id === id);
+          if (node) {
+            mat.emissive.lerp(new THREE.Color(node.color), 0.05);
+            mat.emissiveIntensity += ((node.status === 'active' ? 0.8 : 0.2) - mat.emissiveIntensity) * 0.05;
+          }
+        }
+      }
+      requestAnimationFrame(animateGlow);
+    })();
+
+    // ── Simulate activity ──
+    setInterval(() => {
+      const types = ['thinking', 'tool', 'diary'];
+      for (const a of agents.filter(() => Math.random() > 0.6)) {
+        (nodeActivity[a.id] = nodeActivity[a.id] || []).push({
+          type: types[~~(Math.random() * 3)], time: Date.now()
+        });
+        nodeActivity[a.id] = nodeActivity[a.id].filter(x => Date.now() - x.time < 10000);
+      }
+    }, 2000);
+
+    function spawnBurst() {
+      const picked = [...links].sort(() => Math.random() - 0.5).slice(0, 8);
+      picked.forEach(l => l._particles = 6);
+      Graph.linkDirectionalParticles(l => mode === 'comm' ? l._particles : 0);
+      setTimeout(() => {
+        picked.forEach(l => l._particles = l.count > 3 ? 2 : 1);
+        Graph.linkDirectionalParticles(l => mode === 'comm' ? l._particles : 0);
+      }, 4000);
+    }
+
+    // ── Stats ──
+    setInterval(() => {
+      const a = nodes.filter(n => n.status === 'active').length;
+      document.getElementById('stats').textContent = `${nodes.length} nodes · ${links.length} links · ${a} active`;
+    }, 1000);
+
+    window.addEventListener('resize', () => Graph.width(window.innerWidth).height(window.innerHeight));
+  </script>
+</body>
+</html>

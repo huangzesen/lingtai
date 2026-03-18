@@ -54,6 +54,19 @@ export interface NodeActivity {
 Replace the hook to output the new format. Key changes:
 
 1. **Output type** changes to `{ graphData: { nodes: GraphNode[], links: GraphLink[] }, nodeActivity: Map<string, NodeActivity[]> }`
+1b. After building links, compute per-node email volume and attach as `_volume`:
+   ```ts
+   const volumeMap: Record<string, number> = {};
+   for (const link of graphLinks) {
+     const src = typeof link.source === 'string' ? link.source : link.source.id;
+     const tgt = typeof link.target === 'string' ? link.target : link.target.id;
+     volumeMap[src] = (volumeMap[src] || 0) + link.count;
+     volumeMap[tgt] = (volumeMap[tgt] || 0) + link.count;
+   }
+   for (const node of graphNodes) {
+     node._volume = volumeMap[node.id] || 0;
+   }
+   ```
 2. **Directed edges**: Remove the `[from, to].sort().join("-")` pattern. Instead use `${from}->${to}` as the key (directed). This means Alice→Bob and Bob→Alice are separate links.
 3. **Remove** all `Particle`/`Pulse` state, `useState`, `setTimeout` cleanup
 4. **Add** `nodeActivity` tracking: maintain a `Map<string, NodeActivity[]>` that tracks last 5 events per node. Only store events where `type` is `thinking`, `tool_call`, or `diary`. Map `tool_call` → `"tool"` in the activity type. Prune entries older than 10 seconds.
@@ -139,15 +152,57 @@ Add animated glow based on `nodeActivity`:
 
 ### Step 7: View toggle (Communication vs Activity)
 
-Add a floating toggle button over the 3D canvas:
+Add floating control buttons over the 3D canvas:
 
-1. Add `useState<'comm' | 'activity'>('comm')` to NetworkPage
-2. Render a small HTML button absolutely positioned top-right over the canvas
+1. Add `useState<'comm' | 'activity'>('comm')` for view mode
+2. Render control buttons absolutely positioned top-right over the canvas, in two rows:
+   - Row 1 (View): Communication | Activity
+   - Row 2 (Layout): Default | Email Volume | Contact Cluster
 3. In Communication mode: normal link opacity, particles visible
 4. In Activity mode: `linkOpacity={0.05}`, `linkDirectionalParticles={0}`, enhanced node glow
 5. Pass mode to the glow animation loop to intensify glow in activity mode
 
-**Verify**: Toggle switches between modes. Camera position preserved across toggles.
+**Verify**: View toggle switches between modes. Camera position preserved across toggles.
+
+### Step 7b: Layout toggle (Default vs Email Volume vs Contact Cluster)
+
+Add layout reorganization via d3-force manipulation:
+
+1. Add `useState<'default' | 'volume' | 'cluster'>('default')` for layout mode
+2. Store a `useRef` to the ForceGraph3D instance (via `ref` prop)
+3. Precompute per-node email volume in `useNetwork` hook — add `_volume: number` to each `GraphNode` (sum of all link counts where node is source or target)
+4. Implement `setLayout` function that swaps d3 forces at runtime:
+
+   **Email Volume mode:**
+   ```ts
+   graphRef.current.d3Force('radial', d3.forceRadial(
+     (node: GraphNode) => maxRadius * (1 - (node._volume || 0) / maxVolume)
+   ).strength(0.4));
+   graphRef.current.d3Force('charge').strength(-30);
+   graphRef.current.d3ReheatSimulation();
+   ```
+
+   **Contact Cluster mode:**
+   ```ts
+   graphRef.current.d3Force('radial', null);
+   graphRef.current.d3Force('link').strength(
+     (link: GraphLink) => 0.3 + 0.7 * (link.count / maxCount)
+   );
+   graphRef.current.d3Force('charge').strength(-80);
+   graphRef.current.d3ReheatSimulation();
+   ```
+
+   **Default mode:**
+   ```ts
+   graphRef.current.d3Force('radial', null);
+   graphRef.current.d3Force('charge').strength(-30);
+   graphRef.current.d3Force('link').strength(null);
+   graphRef.current.d3ReheatSimulation();
+   ```
+
+5. Wire layout buttons to `setLayout` calls
+
+**Verify**: Click each layout button. Nodes smoothly animate into the new arrangement. Email Volume pulls high-traffic nodes to center. Contact Cluster groups frequent communicators. Default restores balanced spacing.
 
 ### Step 8: Update `App.tsx`
 

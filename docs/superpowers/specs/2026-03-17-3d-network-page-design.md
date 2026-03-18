@@ -130,24 +130,85 @@ All other event types (`email_out`, `email_in`, `reasoning`, `tool_result`, `can
 
 ## View Toggle: Communication vs Activity
 
-Overlay button (top-right corner of the 3D view, floating HTML div positioned absolute over the canvas):
+Overlay controls (top-right corner of the 3D view, floating HTML div positioned absolute over the canvas).
 
-Toggle state stored as local `useState` in `NetworkPage`.
+Two rows of controls:
+1. **View mode** — Communication vs Activity (visual appearance)
+2. **Layout mode** — Default vs Email Volume vs Contact Cluster (node positioning)
 
-### Communication Mode (default)
+All toggle state stored as local `useState` in `NetworkPage`.
+
+### View: Communication Mode (default)
 - Edges weighted by message count (width + opacity)
 - Directional particles visible
-- Force layout groups highly-connected nodes closer
 - `linkDirectionalParticles` active
 
-### Activity Mode
+### View: Activity Mode
 - Node glow intensity driven by recent event frequency
 - Edges dimmed (`linkOpacity: 0.05`)
 - `linkDirectionalParticles` set to 0 (hidden)
 - Glow colors: thinking=yellow (`#f0a500`), tool=blue (`#6b9bcb`), diary=green (`#6bcb77`)
-- Force layout uses same params (no simulation reset needed — just visual changes)
 
-Switching modes preserves camera position (only visual props change, no `graphData` mutation).
+Switching view modes preserves camera position (only visual props change, no `graphData` mutation).
+
+## Layout Toggle: Default vs Email Volume vs Contact Cluster
+
+### Layout: Default
+- Standard d3-force-3d force-directed layout
+- Default charge strength (`-30`), default link strength
+- Balanced spacing, no bias
+
+### Layout: Email Volume (centripetal)
+- Adds a `d3.forceRadial` force: nodes with high total email volume are pulled toward the center, low-traffic nodes drift to the periphery
+- Radial distance = `maxRadius * (1 - normalizedVolume)` — high volume → small radius (center), low volume → large radius (outside)
+- Radial force strength: `0.4`
+- Charge weakened to `-30` so radial force dominates
+- Requires precomputing per-node total email volume (sum of all link counts involving that node)
+
+### Layout: Contact Cluster
+- No radial force
+- Link force strength proportional to message count: `0.3 + 0.7 * (count / maxCount)` — heavy communicators pull tight, sparse communicators stay loose
+- Charge increased to `-80` so unconnected nodes push far away
+- Result: natural clusters of frequently-communicating agents, with sparse cross-cluster links stretched
+
+### Implementation via `d3Force()`
+
+`react-force-graph-3d` exposes the d3-force simulation via `.d3Force(name, force)`. Layout changes are applied by swapping forces at runtime and calling `.d3ReheatSimulation()` to animate the transition:
+
+```ts
+// Email Volume mode
+graphRef.current.d3Force('radial', d3.forceRadial(
+  (node: GraphNode) => maxRadius * (1 - node._volume / maxVolume)
+).strength(0.4));
+graphRef.current.d3Force('charge').strength(-30);
+graphRef.current.d3ReheatSimulation();
+
+// Contact Cluster mode
+graphRef.current.d3Force('radial', null);
+graphRef.current.d3Force('link').strength(
+  (link: GraphLink) => 0.3 + 0.7 * (link.count / maxCount)
+);
+graphRef.current.d3Force('charge').strength(-80);
+graphRef.current.d3ReheatSimulation();
+
+// Default mode
+graphRef.current.d3Force('radial', null);
+graphRef.current.d3Force('charge').strength(-30);
+graphRef.current.d3Force('link').strength(null);  // reset to d3 default
+graphRef.current.d3ReheatSimulation();
+```
+
+### Data Requirements
+
+`useNetwork` hook must compute and attach `_volume` to each `GraphNode`:
+```ts
+// Total email volume per node (sum of all link counts where node is source or target)
+node._volume = links
+  .filter(l => l.source === node.id || l.target === node.id)
+  .reduce((sum, l) => sum + l.count, 0);
+```
+
+Add `_volume: number` to `GraphNode` interface.
 
 ## useNetwork Hook Changes
 
