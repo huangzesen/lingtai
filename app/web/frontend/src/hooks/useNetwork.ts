@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   AgentInfo,
   DiaryEvent,
@@ -133,7 +133,14 @@ export function useNetwork(
     setNodeActivity(new Map(activity));
   }, [entries]);
 
-  const graphData = { nodes, links };
+  // Memoize graphData to avoid reinitializing the force simulation on every render.
+  // react-force-graph-3d tears down and recreates the simulation when graphData identity changes.
+  const graphData = useMemo(
+    () => ({ nodes, links }),
+    // Stable key: agent count + link count + total message volume
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [agents.length, links.length, links.reduce((s, l) => s + l.count, 0)]
+  );
 
   return { graphData, nodeActivity };
 }

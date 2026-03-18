@@ -56,9 +56,11 @@ export default function App() {
           addressToName={addressToName}
         />
       </div>
-      <div className={`flex-1 flex overflow-hidden ${activePage !== "network" ? "hidden" : ""}`}>
-        <NetworkPage graphData={graphData} nodeActivity={nodeActivity} lightMode={lightMode} />
-      </div>
+      {activePage === "network" && (
+        <div className="flex-1 flex overflow-hidden">
+          <NetworkPage graphData={graphData} nodeActivity={nodeActivity} lightMode={lightMode} />
+        </div>
+      )}
     </div>
   );
 }
