@@ -727,43 +727,13 @@ class BaseAgent:
     def _handle_cancel_diary(self) -> dict:
         """Handle cancellation triggered by a cancel email.
 
-        Sends one final LLM call asking the agent to write a diary entry
-        summarizing its work, then returns the diary text as the response.
+        Immediately stops — no extra LLM call.
         """
         cancel_mail = self._cancel_mail
         self._cancel_event.clear()
-
-        diary_text = ""
-        if cancel_mail and self._chat:
-            sender = cancel_mail.get("from", "unknown")
-            subject = cancel_mail.get("subject", "")
-            message = cancel_mail.get("message", "")
-
-            prompt = (
-                f"[CANCELLED] You have been stopped by a cancel email.\n"
-                f"From: {sender}\n"
-                f"Subject: {subject}\n"
-                f"Message: {message}\n\n"
-                f"Write a brief diary entry summarizing what you were working on "
-                f"and where you left off, so you can resume later."
-            )
-            try:
-                response = self._chat.send(prompt)
-                diary_text = response.text or ""
-                self._log("cancel_diary", text=diary_text)
-            except Exception as exc:
-                logger.warning(
-                    "[%s] Diary LLM call failed during cancel: %s",
-                    self.agent_name, exc,
-                )
-                diary_text = (
-                    f"[Cancelled by {sender}] "
-                    f"Diary generation failed: {exc}"
-                )
-
         self._cancel_mail = None
         return {
-            "text": diary_text,
+            "text": "",
             "failed": False,
             "errors": [],
         }
