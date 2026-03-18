@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace external-LLM compaction with agent self-compaction — the agent writes its own context summary, which gets injected into a fresh session. Automatic warnings at 80% context with forced forget after 2 ignored warnings.
+**Goal:** Replace external-LLM compaction with agent self-compaction — the agent writes its own context summary, which gets injected into a fresh session. Automatic warnings at 80% context with forced forget after 5 ignored warnings. Agents are encouraged to save important findings to library before compacting.
 
-**Architecture:** Two changes: (1) rewrite `anima._context_compact` so the agent's `prompt` IS the summary (no external LLM call), and (2) add a compaction pressure system in `SessionManager` that prepends `[system]` warnings to messages when context exceeds 80%, escalating to auto-forget after 2 ignored warnings.
+**Architecture:** Two changes: (1) rewrite `anima._context_compact` so the agent's `prompt` IS the summary (no external LLM call), and (2) add a compaction pressure system in `BaseAgent._handle_request` that prepends `[system]` warnings to messages when context exceeds 80%, escalating from gentle reminders (1-2) to urgent warnings (3-4) to final warning (5) to auto-forget (6+).
 
 **Tech Stack:** Python, existing stoai internals (SessionManager, AnimaManager, ChatInterface)
 
@@ -251,38 +251,46 @@ pressure = self._session.get_context_pressure()
 if pressure >= 0.8 and has_anima:
     self._session._compaction_warnings += 1
     warnings = self._session._compaction_warnings
-    if warnings > 2:
-        # Auto-forget — agent ignored 2 warnings
-        self._log("auto_forget", reason="ignored 2 compaction warnings", pressure=pressure)
+    if warnings > 5:
+        # Auto-forget — agent ignored 5 warnings
+        self._log("auto_forget", reason="ignored 5 compaction warnings", pressure=pressure)
         anima = cap_managers.get("anima")
         if anima is not None:
             anima._context_forget({})
         else:
-            # No anima — do a raw session reset
             self._session._chat = None
             self._session._interaction_id = None
             self._session.ensure_session()
         self._session._compaction_warnings = 0
         content = (
             f"[system] Your conversation history was wiped because you ignored "
-            f"2 compaction warnings. Check your email inbox and library for context. "
+            f"5 compaction warnings. Check your email inbox and library for context. "
             f"Start fresh.\n\n{content}"
         )
-    elif warnings == 2:
+    elif warnings == 5:
         content = (
-            f"[system] FINAL WARNING — Your context is {pressure:.0%} full. "
-            f"You MUST call anima(object=context, action=compact, prompt=<your summary>) NOW. "
-            f"Write everything you need to remember. "
-            f"If you do not compact on this turn, your entire conversation history "
-            f"will be wiped and you will lose everything.\n\n{content}"
+            f"[system] ⏳ FINAL WARNING — countdown 0. Your context is {pressure:.0%} full. "
+            f"You MUST compact NOW or your entire conversation history will be wiped. "
+            f"Save critical findings to library (anima submit), then "
+            f"call anima(object=context, action=compact, prompt=<your summary>).\n\n{content}"
+        )
+    elif warnings >= 3:
+        remaining = 5 - warnings
+        content = (
+            f"[system] ⏳ Context pressure: {pressure:.0%} full — "
+            f"countdown {remaining} {'turn' if remaining == 1 else 'turns'} until auto-wipe. "
+            f"Save important findings to your library NOW (anima submit), then compact. "
+            f"Call anima(object=context, action=compact, prompt=<your summary>).\n\n{content}"
         )
     else:
+        remaining = 5 - warnings
         content = (
-            f"[system] Context pressure: {pressure:.0%} full. "
-            f"You should compact soon to avoid losing context. "
+            f"[system] ⏳ Context pressure: {pressure:.0%} full — "
+            f"countdown {remaining} turns until auto-wipe. "
+            f"Consider saving important data to your library (anima submit) "
+            f"and compacting soon. "
             f"Call anima(object=context, action=compact, prompt=<your summary>) — "
-            f"write a summary of everything important. "
-            f"You have 2 turns before auto-forget wipes your history.\n\n{content}"
+            f"write a summary of everything important.\n\n{content}"
         )
 
 content = f"[Current time: {current_time}]\n\n{content}"
@@ -364,9 +372,9 @@ COVENANT = """\
 
 ### Context Management
 - Check your context usage periodically (status show).
-- When context exceeds 60%, proactively compact: write a thorough summary of everything important and call anima(object=context, action=compact, prompt=<summary>).
-- Before compacting, save critical findings to your library (anima submit).
-- If you receive a [system] compaction warning, compact IMMEDIATELY — you have 2 turns before your history is wiped.
+- When context exceeds 60%, proactively compact: save important findings to your library first (anima submit), then write a thorough summary and call anima(object=context, action=compact, prompt=<summary>).
+- Your library persists across compactions — anything saved there is safe. Use it to deposit important data, findings, and decisions before compacting.
+- If you receive a [system] compaction warning, you have a 5-turn countdown before your history is wiped. Don't panic — use the turns to save to library, then compact.
 """
 ```
 
