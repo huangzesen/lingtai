@@ -170,17 +170,27 @@ def _build_schema(agent: "Agent") -> dict:
     schema = copy.deepcopy(SCHEMA)
 
     # Available providers = whatever is configured in provider_defaults
-    available = sorted(agent.service._provider_defaults.keys())
+    try:
+        defaults = agent.service._provider_defaults
+        available = sorted(str(k) for k in defaults.keys() if isinstance(k, str))
+    except (AttributeError, TypeError):
+        available = []
     if not available:
-        # At minimum the main provider is available
-        available = [agent.service.provider]
+        try:
+            available = [str(agent.service.provider)]
+        except (AttributeError, TypeError):
+            available = []
 
     # Collect known models per provider
     provider_models: list[str] = []
-    for pname, pdefaults in agent.service._provider_defaults.items():
-        m = pdefaults.get("model", "")
-        if m:
-            provider_models.append(f"{pname}: {m}")
+    try:
+        for pname, pdefaults in agent.service._provider_defaults.items():
+            if isinstance(pdefaults, dict):
+                m = pdefaults.get("model", "")
+                if m:
+                    provider_models.append(f"{pname}: {m}")
+    except (AttributeError, TypeError):
+        pass
 
     schema["properties"]["provider"]["description"] = (
         f"LLM provider for the new agent (optional, default = same as parent). "

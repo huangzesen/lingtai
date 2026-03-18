@@ -100,7 +100,11 @@ class TestSetupTalk:
         assert isinstance(mgr, TalkManager)
         agent.add_tool.assert_called_once()
 
-    def test_setup_requires_mcp_client(self, tmp_path):
+    def test_setup_auto_creates_mcp_client(self, tmp_path, monkeypatch):
+        """Without explicit mcp_client, setup auto-creates one."""
+        from stoai.llm.minimax import mcp_media_client
+        mock_client = MagicMock()
+        monkeypatch.setattr(mcp_media_client, "create_minimax_media_client", lambda **kw: mock_client)
         agent = make_mock_agent(tmp_path)
-        with pytest.raises(ValueError, match="mcp_client"):
-            setup_talk(agent)
+        mgr = setup_talk(agent)
+        assert isinstance(mgr, TalkManager)
