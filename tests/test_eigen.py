@@ -190,7 +190,7 @@ def test_eigen_forget_wipes_context(tmp_path):
 
         result = context_forget(agent)
         assert result["status"] == "ok"
-        assert result["freed_tokens"] > 0
+        assert result["before_tokens"] > 0
     finally:
         agent.stop()
 

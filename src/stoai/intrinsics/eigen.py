@@ -2,10 +2,10 @@
 
 Objects:
     memory — edit/load system/memory.md (agent's working notes)
-    context — molt (molt with briefing)
+    context — molt (shed context, keep a briefing)
 
-Internal (not exposed to agent):
-    context_forget — nuclear wipe, used by auto-forget only
+Internal:
+    context_forget — forced molt with system message (after ignored warnings)
 """
 from __future__ import annotations
 
@@ -174,17 +174,15 @@ def _context_molt(agent, args: dict) -> dict:
 
 
 def context_forget(agent) -> dict:
-    """Nuclear context wipe. Internal only — not exposed in SCHEMA.
+    """Forced molt with system message. Internal only — not exposed in SCHEMA.
 
     Called by base_agent auto-forget after ignored molt warnings.
+    Same mechanism as molt, just with a system-authored summary.
     """
-    if agent._chat is None:
-        return {"error": "No active chat session."}
-
-    before_tokens = agent._chat.interface.estimate_context_tokens()
-    agent._session._chat = None
-    agent._session._interaction_id = None
-    agent._session.ensure_session()
-    agent._log("eigen_forget", before_tokens=before_tokens)
-
-    return {"status": "ok", "freed_tokens": before_tokens}
+    return _context_molt(agent, {
+        "summary": (
+            "[System-initiated molt — you ignored 5 warnings.]\n"
+            "Your previous conversation was wiped. "
+            "Check your email inbox and library (filter/view) for context."
+        ),
+    })
