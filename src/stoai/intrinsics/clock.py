@@ -1,19 +1,19 @@
-"""Clock intrinsic — time awareness and synchronization.
+"""Clock intrinsic — synchronization.
 
 Actions:
-    check — get current UTC time
-    wait  — sleep for N seconds, or block until a message arrives (wakes early on incoming message)
+    wait — sleep for N seconds, or block until a message arrives (wakes early on incoming message)
 """
 from __future__ import annotations
+
+import time
 
 SCHEMA = {
     "type": "object",
     "properties": {
         "action": {
             "type": "string",
-            "enum": ["check", "wait"],
+            "enum": ["wait"],
             "description": (
-                "check: get the current UTC time. "
                 "wait: pause execution. If seconds is given, waits up to that many seconds "
                 "(wakes early if a message arrives). If seconds is omitted, blocks until a message arrives."
             ),
@@ -21,7 +21,7 @@ SCHEMA = {
         "seconds": {
             "type": "number",
             "description": (
-                "Maximum seconds to wait (for action=wait). "
+                "Maximum seconds to wait. "
                 "If omitted, waits indefinitely until a message arrives. "
                 "Capped at 300."
             ),
@@ -30,35 +30,20 @@ SCHEMA = {
     "required": ["action"],
 }
 DESCRIPTION = (
-    "Time awareness and synchronization. "
-    "'check' returns current UTC time. "
+    "Synchronization. "
     "'wait' pauses execution — specify 'seconds' for a timed sleep, "
     "or omit it to block until an incoming message arrives. "
     "A timed wait also wakes early if a message arrives."
 )
 
-import time
-
 
 def handle(agent, args: dict) -> dict:
-    """Handle clock tool — time check and wait/sync."""
-    action = args.get("action", "check")
-    if action == "check":
-        return _check(agent)
-    elif action == "wait":
+    """Handle clock tool — wait/sync."""
+    action = args.get("action", "wait")
+    if action == "wait":
         return _wait(agent, args)
     else:
         return {"status": "error", "message": f"Unknown clock action: {action}"}
-
-
-def _check(agent) -> dict:
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
-    return {
-        "status": "ok",
-        "utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "unix": now.timestamp(),
-    }
 
 
 def _wait(agent, args: dict) -> dict:

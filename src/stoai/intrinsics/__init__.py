@@ -14,7 +14,7 @@ ALL_INTRINSICS = {
     },
     "clock": {
         "schema": clock.SCHEMA, "description": clock.DESCRIPTION, "handle": clock.handle,
-        "system_prompt": "Check the current time and schedule future events.",
+        "system_prompt": "Pause execution and wait for messages or timeouts.",
     },
     "status": {
         "schema": status.SCHEMA, "description": status.DESCRIPTION, "handle": status.handle,

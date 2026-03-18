@@ -52,24 +52,6 @@ def test_mail_arrived_event_exists(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# check action
-# ---------------------------------------------------------------------------
-
-
-def test_clock_check_returns_time(tmp_path):
-    """clock check should return current UTC time and unix timestamp."""
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
-    result = agent._intrinsics["clock"]({"action": "check"})
-
-    assert result["status"] == "ok"
-    assert "utc" in result
-    assert "unix" in result
-    assert isinstance(result["unix"], float)
-    # UTC string should be ISO format
-    assert "T" in result["utc"]
-
-
-# ---------------------------------------------------------------------------
 # wait action
 # ---------------------------------------------------------------------------
 
@@ -167,11 +149,11 @@ def test_clock_wait_negative_seconds(tmp_path):
     """clock wait with negative seconds should return error."""
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
     result = agent._intrinsics["clock"]({"action": "wait", "seconds": -5})
-    assert "error" in result
+    assert result["status"] == "error"
 
 
 def test_clock_wait_unknown_action(tmp_path):
     """Unknown clock action should return error."""
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
     result = agent._intrinsics["clock"]({"action": "bogus"})
-    assert "error" in result
+    assert result["status"] == "error"

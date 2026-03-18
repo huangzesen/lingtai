@@ -104,7 +104,7 @@ def test_status_show_context_null_without_session(tmp_path):
 def test_status_unknown_action(tmp_path):
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
     result = agent._intrinsics["status"]({"action": "bogus"})
-    assert "error" in result
+    assert result["status"] == "error"
 
 
 def test_status_shutdown(tmp_path):

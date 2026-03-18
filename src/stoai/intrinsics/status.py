@@ -51,6 +51,7 @@ DESCRIPTION = (
 )
 
 import time
+from datetime import datetime, timezone
 
 
 def handle(agent, args: dict) -> dict:
@@ -119,6 +120,7 @@ def _show(agent) -> dict:
             "mail_address": mail_addr,
         },
         "runtime": {
+            "current_time": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "started_at": agent._started_at,
             "uptime_seconds": round(uptime, 1),
         },
