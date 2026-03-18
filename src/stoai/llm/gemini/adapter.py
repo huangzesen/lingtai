@@ -678,9 +678,11 @@ class GeminiAdapter(LLMAdapter):
     supports_web_search = True
     supports_vision = True
 
-    _default_model: str = "gemini-2.5-flash"
+    def __init__(self, api_key: str, timeout_ms: int = 300_000, max_rpm: int = 0,
+                 default_model: str = "gemini-3-flash-preview"):
+        from .defaults import DEFAULTS
+        cap_models = DEFAULTS.get("capability_models", {})
 
-    def __init__(self, api_key: str, timeout_ms: int = 300_000, max_rpm: int = 0):
         self._client = genai.Client(
             api_key=api_key,
             http_options=types.HttpOptions(
@@ -688,6 +690,12 @@ class GeminiAdapter(LLMAdapter):
                 retry_options=types.HttpRetryOptions(),
             ),
         )
+        self._default_model = default_model
+        self._model_web_search = cap_models.get("web_search", default_model)
+        self._model_vision = cap_models.get("vision", default_model)
+        self._model_image_gen = cap_models.get("image_gen", "gemini-2.5-flash-image")
+        self._model_tts = cap_models.get("tts", "gemini-2.5-flash-preview-tts")
+        self._model_transcribe = cap_models.get("transcribe", default_model)
         # When True, make_tool_result_message() produces Interactions API dicts
         # instead of Chat API Part objects.
         self._use_interactions: bool = False
@@ -922,7 +930,7 @@ class GeminiAdapter(LLMAdapter):
             tools=[types.Tool(google_search=types.GoogleSearch())],
         )
         raw = self._client.models.generate_content(
-            model=model or self._default_model,
+            model=model or self._model_web_search,
             contents=query,
             config=gen_config,
         )
@@ -948,13 +956,13 @@ class GeminiAdapter(LLMAdapter):
     ) -> LLMResponse:
         """One-shot vision via Gemini's multimodal API."""
         contents = self.make_multimodal_message(question, image_bytes, mime_type)
-        return self.generate_multimodal(model=model or self._default_model, contents=contents)
+        return self.generate_multimodal(model=model or self._model_vision, contents=contents)
 
     # -- Image generation -------------------------------------------------------
 
     def generate_image(self, prompt: str, model: str = "") -> bytes:
         """Text-to-image via Gemini's native image generation."""
-        effective_model = model or "gemini-2.5-flash-image"
+        effective_model = model or self._model_image_gen
         raw = self._client.models.generate_content(
             model=effective_model,
             contents=prompt,
@@ -973,7 +981,7 @@ class GeminiAdapter(LLMAdapter):
 
     def text_to_speech(self, text: str, model: str = "") -> bytes:
         """TTS via Gemini's speech generation models."""
-        effective_model = model or "gemini-2.5-flash-preview-tts"
+        effective_model = model or self._model_tts
         raw = self._client.models.generate_content(
             model=effective_model,
             contents=text,
@@ -993,7 +1001,7 @@ class GeminiAdapter(LLMAdapter):
     def transcribe(self, audio_bytes: bytes, model: str = "",
                     mime_type: str = "audio/wav") -> str:
         """Speech-to-text via Gemini's multimodal understanding."""
-        effective_model = model or self._default_model
+        effective_model = model or self._model_transcribe
         contents = [
             types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
             "Transcribe this audio verbatim. Return only the exact transcription text, nothing else.",

@@ -224,7 +224,8 @@ class LLMService:
         p = provider.lower()
         if p == "gemini":
             from .gemini.adapter import GeminiAdapter
-            return GeminiAdapter(**key_kw, **rpm_kw)
+            model_kw = {"default_model": self._model} if self._model else {}
+            return GeminiAdapter(**key_kw, **rpm_kw, **model_kw)
         elif p == "anthropic":
             from .anthropic.adapter import AnthropicAdapter
             return AnthropicAdapter(**key_kw, **url_kw, **rpm_kw)
