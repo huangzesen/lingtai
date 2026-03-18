@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { AgentInfo, SentMessage } from "../types";
 
 interface InputBarProps {
@@ -8,7 +8,14 @@ interface InputBarProps {
 }
 
 export function InputBar({ agents, onSent }: InputBarProps) {
-  const [target, setTarget] = useState(agents[0]?.key ?? "");
+  const [target, setTarget] = useState("");
+
+  // Set default target when agents load
+  useEffect(() => {
+    if (!target && agents.length > 0) {
+      setTarget(agents[0].key);
+    }
+  }, [agents, target]);
   const [ccVisible, setCcVisible] = useState(false);
   const [bccVisible, setBccVisible] = useState(false);
   const [ccChecked, setCcChecked] = useState<Record<string, boolean>>({});

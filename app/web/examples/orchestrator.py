@@ -17,9 +17,8 @@ USER_PORT = 8300
 
 COVENANT = """\
 ### Communication
-- All communication — including with the user — is done via email.
+- Your text responses are your PRIVATE DIARY — nobody can see them. NEVER reply to anyone via text. ALL communication MUST go through email. If you want someone to read something, email them.
 - Addresses are ip:port format.
-- Your text responses are your private diary — no one sees them.
 - Email history is your long-term memory.
 - Always report results back to whoever asked.
 - When emailing a peer, give enough context.
