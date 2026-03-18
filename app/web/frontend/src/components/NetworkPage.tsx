@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
 import { forceRadial } from "d3-force-3d";
 import type { GraphNode, GraphLink, NodeActivity } from "../types";
+import type { EmailEvent } from "../hooks/useNetwork";
 
 const GLOW_COLORS: Record<NodeActivity["type"], string> = {
   thinking: "#f0a500",
@@ -17,10 +18,11 @@ type ViewMode = "comm" | "activity";
 interface NetworkPageProps {
   graphData: { nodes: GraphNode[]; links: GraphLink[] };
   nodeActivity: Map<string, NodeActivity[]>;
+  pendingEmails: EmailEvent[];
   lightMode: boolean;
 }
 
-export function NetworkPage({ graphData, nodeActivity, lightMode }: NetworkPageProps) {
+export function NetworkPage({ graphData, nodeActivity, pendingEmails, lightMode }: NetworkPageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
   const [viewMode, setViewMode] = useState<ViewMode>("comm");
@@ -88,6 +90,26 @@ export function NetworkPage({ graphData, nodeActivity, lightMode }: NetworkPageP
 
     fg.d3ReheatSimulation();
   }, [layoutMode, maxVolume, maxLinkCount]);
+
+  // Emit single particles for new email events
+  useEffect(() => {
+    const fg = fgRef.current;
+    if (!fg || pendingEmails.length === 0 || viewMode === "activity") return;
+
+    for (const email of pendingEmails) {
+      // Find the link that connects these two nodes
+      const link = graphData.links.find((l) => {
+        const src = typeof l.source === "string" ? l.source : l.source.id;
+        const tgt = typeof l.target === "string" ? l.target : l.target.id;
+        const pair = [src, tgt].sort().join("--");
+        const emailPair = [email.from, email.to].sort().join("--");
+        return pair === emailPair;
+      });
+      if (link) {
+        fg.emitParticle(link);
+      }
+    }
+  }, [pendingEmails, viewMode, graphData.links]);
 
   // Custom node rendering on Canvas
   const nodeCanvasObject = useCallback(
@@ -213,14 +235,13 @@ export function NetworkPage({ graphData, nodeActivity, lightMode }: NetworkPageP
           linkColor={() => linkBaseColor}
           linkWidth={(link: GraphLink) => Math.min(0.5 + link.count * 0.3, 3)}
           linkOpacity={viewMode === "activity" ? 0.05 : 0.6}
-          linkDirectionalParticles={viewMode === "activity"
-            ? 0
-            : (link: GraphLink) => (link.count > 0 ? 2 : 0)
-          }
-          linkDirectionalParticleWidth={3}
-          linkDirectionalParticleSpeed={0.012}
+          linkDirectionalParticles={0}
+          linkDirectionalParticleWidth={4}
+          linkDirectionalParticleSpeed={0.02}
+          linkDirectionalParticleColor={() => "#4ecdc4"}
           d3AlphaDecay={0.02}
           d3VelocityDecay={0.3}
+          cooldownTicks={100}
           enableNodeDrag={true}
           enableZoomPanInteraction={true}
         />

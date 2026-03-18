@@ -12,6 +12,13 @@ import { AGENT_COLORS } from "../types";
 const ACTIVITY_MAX_EVENTS = 5;
 const ACTIVITY_MAX_AGE_MS = 10_000;
 
+/** Describes a single email event for particle emission. */
+export interface EmailEvent {
+  from: string;  // node id
+  to: string;    // node id
+  color: string; // sender color
+}
+
 export function useNetwork(
   agents: AgentInfo[],
   entries: DiaryEvent[],
@@ -21,6 +28,7 @@ export function useNetwork(
   const lastSeenTsRef = useRef(0);
   const activityRef = useRef<Map<string, NodeActivity[]>>(new Map());
   const [nodeActivity, setNodeActivity] = useState<Map<string, NodeActivity[]>>(new Map());
+  const [pendingEmails, setPendingEmails] = useState<EmailEvent[]>([]);
 
   // Build node list: agents + user
   const nodes: GraphNode[] = agents.map((a, i) => ({
@@ -44,6 +52,10 @@ export function useNetwork(
     addrToNodeId[a.address] = a.key;
   }
   addrToNodeId[`127.0.0.1:${userPort}`] = "user";
+
+  // Node color map for particle coloring
+  const nodeColorMap: Record<string, string> = {};
+  for (const n of nodes) nodeColorMap[n.id] = n.color;
 
   // Build undirected edges from diary entries (one line per pair)
   const edgeMap = new Map<string, number>();
@@ -89,7 +101,7 @@ export function useNetwork(
     node._volume = volumeMap[node.id] || 0;
   }
 
-  // Track node activity for glow animation
+  // Track node activity + emit email particles for new events
   useEffect(() => {
     const newEvents = entries.filter(
       (e) => e.time > lastSeenTsRef.current
@@ -100,8 +112,10 @@ export function useNetwork(
 
     const now = Date.now();
     const activity = activityRef.current;
+    const newEmails: EmailEvent[] = [];
 
     for (const e of newEvents) {
+      // Activity tracking
       let activityType: NodeActivity["type"] | null = null;
       if (e.type === "thinking") activityType = "thinking";
       else if (e.type === "tool_call") activityType = "tool";
@@ -110,16 +124,36 @@ export function useNetwork(
       if (activityType && e.agent_key) {
         const nodeEvents = activity.get(e.agent_key) || [];
         nodeEvents.push({ type: activityType, time: now });
-        // Keep only last N events
         if (nodeEvents.length > ACTIVITY_MAX_EVENTS) {
           nodeEvents.splice(0, nodeEvents.length - ACTIVITY_MAX_EVENTS);
         }
         activity.set(e.agent_key, nodeEvents);
       }
+
+      // Email particle emission (only for email_out to avoid duplicates)
+      if (e.type === "email_out" && e.to) {
+        const fromId = e.agent_key;
+        for (const addr of e.to.split(", ")) {
+          const toId = addrToNodeId[addr.trim()];
+          if (toId && toId !== fromId) {
+            newEmails.push({
+              from: fromId,
+              to: toId,
+              color: nodeColorMap[fromId] || "#e94560",
+            });
+          }
+        }
+      }
     }
 
-    // Prune old entries
+    // Prune old activity entries
     const cutoff = now - ACTIVITY_MAX_AGE_MS;
+    for (const [, events] of activity) {
+      const fresh = events.filter((ev) => ev.time > cutoff);
+      if (fresh.length === 0) {
+        activity.delete(events === activity.get("") ? "" : "");
+      }
+    }
     for (const [nodeId, events] of activity) {
       const fresh = events.filter((ev) => ev.time > cutoff);
       if (fresh.length === 0) {
@@ -129,18 +163,27 @@ export function useNetwork(
       }
     }
 
-    // Update state with a new Map (trigger re-render)
     setNodeActivity(new Map(activity));
+    if (newEmails.length > 0) {
+      setPendingEmails(newEmails);
+    }
   }, [entries]);
 
-  // Memoize graphData to avoid reinitializing the force simulation on every render.
-  // react-force-graph-3d tears down and recreates the simulation when graphData identity changes.
+  // Memoize graphData — only change when agent set or link topology changes.
+  // Use a stable key based on node IDs + link keys (not counts) to avoid
+  // re-rendering the whole graph when email counts increment.
+  const nodeKey = agents.map((a) => a.key).sort().join(",");
+  const linkKey = links.map((l) => {
+    const src = typeof l.source === "string" ? l.source : l.source.id;
+    const tgt = typeof l.target === "string" ? l.target : l.target.id;
+    return `${src}--${tgt}`;
+  }).sort().join(",");
+
   const graphData = useMemo(
     () => ({ nodes, links }),
-    // Stable key: agent count + link count + total message volume
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agents.length, links.length, links.reduce((s, l) => s + l.count, 0)]
+    [nodeKey, linkKey]
   );
 
-  return { graphData, nodeActivity };
+  return { graphData, nodeActivity, pendingEmails };
 }
