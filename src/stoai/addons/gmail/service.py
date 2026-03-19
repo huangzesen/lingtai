@@ -8,13 +8,16 @@ from __future__ import annotations
 import imaplib
 import json
 import logging
+import mimetypes
 import re
 import smtplib
 import threading
 import time
 from datetime import datetime, timezone
-from email import policy as email_policy
+from email import encoders, policy as email_policy
 from email.header import decode_header
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr, parseaddr
 from pathlib import Path
@@ -137,13 +140,39 @@ class GoogleMailService(MailService):
         """Send an email via Gmail SMTP.  Returns None on success, error string on failure."""
         subject = message.get("subject", "")
         body = message.get("message", "")
+        attachments: list[str] = message.get("attachments", [])
 
         # Reject empty emails
-        if not subject and not body:
-            return "Cannot send empty email (no subject and no message)"
+        if not subject and not body and not attachments:
+            return "Cannot send empty email (no subject, no message, and no attachments)"
+
+        # Validate attachment paths before building the message
+        for filepath in attachments:
+            path = Path(filepath)
+            if not path.is_file():
+                return f"Attachment not found: {filepath}"
 
         try:
-            mime_msg = MIMEText(body, "plain", "utf-8")
+            if attachments:
+                mime_msg = MIMEMultipart()
+                mime_msg.attach(MIMEText(body, "plain", "utf-8"))
+                for filepath in attachments:
+                    path = Path(filepath)
+                    content_type, _ = mimetypes.guess_type(str(path))
+                    if content_type is None:
+                        content_type = "application/octet-stream"
+                    maintype, subtype = content_type.split("/", 1)
+                    part = MIMEBase(maintype, subtype)
+                    part.set_payload(path.read_bytes())
+                    encoders.encode_base64(part)
+                    part.add_header(
+                        "Content-Disposition", "attachment",
+                        filename=path.name,
+                    )
+                    mime_msg.attach(part)
+            else:
+                mime_msg = MIMEText(body, "plain", "utf-8")
+
             mime_msg["From"] = formataddr(("", self._gmail_address))
             mime_msg["To"] = address
             mime_msg["Subject"] = subject
