@@ -904,19 +904,6 @@ class GeminiAdapter(LLMAdapter):
             content=result,
         )
 
-    def make_multimodal_message(
-        self, text: str, image_bytes: bytes, mime_type: str = "image/png"
-    ) -> list:
-        """Build a Gemini multimodal message (image + text as Part list).
-
-        Gemini's send_message() already accepts a list of Parts, so
-        GeminiChatSession.send() needs no changes.
-        """
-        return [
-            types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-            types.Part.from_text(text=text),
-        ]
-
     def is_quota_error(self, exc: Exception) -> bool:
         if isinstance(exc, genai_errors.ClientError):
             return getattr(exc, "code", None) == 429 or "RESOURCE_EXHAUSTED" in str(exc)
@@ -955,7 +942,10 @@ class GeminiAdapter(LLMAdapter):
         mime_type: str = "image/png",
     ) -> LLMResponse:
         """One-shot vision via Gemini's multimodal API."""
-        contents = self.make_multimodal_message(question, image_bytes, mime_type)
+        contents = [
+            types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+            types.Part.from_text(text=question),
+        ]
         return self.generate_multimodal(model=model or self._model_vision, contents=contents)
 
     # -- Image generation -------------------------------------------------------

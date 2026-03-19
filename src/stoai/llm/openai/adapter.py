@@ -9,7 +9,6 @@ This is the **only** module that imports the ``openai`` package.
 
 from __future__ import annotations
 
-import base64
 import json
 import uuid
 from typing import Any
@@ -213,17 +212,6 @@ class OpenAIChatSession(ChatSession):
         # 1. Record user input into interface
         if isinstance(message, str):
             self._interface.add_user_message(message)
-        elif isinstance(message, dict):
-            # Pre-built message (e.g., multimodal from make_multimodal_message)
-            text = ""
-            content = message.get("content", "")
-            if isinstance(content, str):
-                text = content
-            elif isinstance(content, list):
-                text = " ".join(
-                    part.get("text", "") for part in content if part.get("type") == "text"
-                )
-            self._interface.add_user_message(text)
         elif isinstance(message, list):
             # Tool results — list of ToolResultBlock instances
             self._interface.add_tool_results(message)
@@ -361,16 +349,6 @@ class OpenAIChatSession(ChatSession):
         # 1. Record user input into interface
         if isinstance(message, str):
             self._interface.add_user_message(message)
-        elif isinstance(message, dict):
-            text = ""
-            content = message.get("content", "")
-            if isinstance(content, str):
-                text = content
-            elif isinstance(content, list):
-                text = " ".join(
-                    part.get("text", "") for part in content if part.get("type") == "text"
-                )
-            self._interface.add_user_message(text)
         elif isinstance(message, list):
             self._interface.add_tool_results(message)
         else:
@@ -860,29 +838,6 @@ class OpenAIAdapter(LLMAdapter):
             name=tool_name,
             content=result,
         )
-
-    def make_multimodal_message(
-        self, text: str, image_bytes: bytes, mime_type: str = "image/png"
-    ) -> dict:
-        """Build an OpenAI multimodal message (image_url + text content blocks).
-
-        Returns a pre-built user message dict that can be passed directly
-        to OpenAIChatSession.send() via the dict path.
-        """
-        b64 = base64.b64encode(image_bytes).decode("utf-8")
-        return {
-            "role": "user",
-            "content": [
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:{mime_type};base64,{b64}",
-                        "detail": "high",
-                    },
-                },
-                {"type": "text", "text": text},
-            ],
-        }
 
     def is_quota_error(self, exc: Exception) -> bool:
         """Check if the exception is an OpenAI rate-limit error."""

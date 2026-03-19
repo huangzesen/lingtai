@@ -118,7 +118,6 @@ def test_gated_call_on_adapter():
         def create_chat(self, *a, **kw): pass
         def generate(self, *a, **kw): pass
         def make_tool_result_message(self, *a, **kw): pass
-        def make_multimodal_message(self, *a, **kw): pass
         def is_quota_error(self, exc): return False
 
     # With gate

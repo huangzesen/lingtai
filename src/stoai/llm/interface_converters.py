@@ -12,7 +12,6 @@ from typing import Any
 
 from stoai_kernel.llm.interface import (
     ContentBlock,
-    ImageBlock,
     ChatInterface,
     TextBlock,
     ThinkingBlock,
@@ -64,12 +63,6 @@ def _to_anthropic_block(block: ContentBlock) -> dict:
         if sig:
             d["signature"] = sig
         return d
-    elif isinstance(block, ImageBlock):
-        import base64
-        return {
-            "type": "image",
-            "source": {"type": "base64", "media_type": block.mime_type, "data": base64.b64encode(block.data).decode("utf-8")},
-        }
     raise ValueError(f"Unknown block type: {type(block)}")
 
 
@@ -116,10 +109,6 @@ def _from_anthropic_block(b: dict) -> ContentBlock:
         if sig:
             pd = {"anthropic": {"signature": sig}}
         return ThinkingBlock(text=b.get("thinking", ""), provider_data=pd)
-    elif btype == "image":
-        import base64
-        src = b.get("source", {})
-        return ImageBlock(data=base64.b64decode(src.get("data", "")), mime_type=src.get("media_type", "image/png"))
     return TextBlock(text=str(b))
 
 
@@ -174,10 +163,6 @@ def to_openai(iface: ChatInterface) -> list[dict]:
 def _to_openai_block(block: ContentBlock) -> dict:
     if isinstance(block, TextBlock):
         return {"type": "text", "text": block.text}
-    elif isinstance(block, ImageBlock):
-        import base64
-        b64 = base64.b64encode(block.data).decode("utf-8")
-        return {"type": "image_url", "image_url": {"url": f"data:{block.mime_type};base64,{b64}", "detail": "high"}}
     return {"type": "text", "text": str(block)}
 
 
@@ -254,9 +239,6 @@ def _to_gemini_block(block: ContentBlock) -> dict:
         if block.text:
             d["summary"] = [{"type": "text", "text": block.text}]
         return d
-    elif isinstance(block, ImageBlock):
-        import base64
-        return {"type": "inline_data", "data": base64.b64encode(block.data).decode("ascii"), "mime_type": block.mime_type}
     return {"type": "text", "text": str(block)}
 
 

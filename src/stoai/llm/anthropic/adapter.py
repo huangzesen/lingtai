@@ -13,7 +13,6 @@ Key Anthropic API differences from OpenAI/Gemini:
 
 from __future__ import annotations
 
-import base64
 import json
 import uuid
 from collections.abc import Callable
@@ -371,33 +370,6 @@ class AnthropicChatSession(ChatSession):
         # Record user input into interface first
         if isinstance(message, str):
             self._interface.add_user_message(message)
-        elif isinstance(message, dict):
-            # Multimodal dict — extract text and image for interface recording
-            content = message.get("content", "")
-            image_bytes = None
-            mime_type = "image/png"
-            if isinstance(content, str):
-                text_for_interface = content
-            elif isinstance(content, list):
-                text_parts_input = []
-                for b in content:
-                    if isinstance(b, dict):
-                        if b.get("type") == "text":
-                            text_parts_input.append(b.get("text", ""))
-                        elif b.get("type") == "image" and "source" in b:
-                            src = b["source"]
-                            if src.get("type") == "base64":
-                                import base64 as _b64
-                                image_bytes = _b64.b64decode(src.get("data", ""))
-                                mime_type = src.get("media_type", "image/png")
-                text_for_interface = "\n".join(text_parts_input) if text_parts_input else ""
-            else:
-                text_for_interface = str(content)
-            self._interface.add_user_message(
-                text_for_interface,
-                image_bytes=image_bytes,
-                mime_type=mime_type,
-            )
         elif isinstance(message, list):
             # list of ToolResultBlock
             self._interface.add_tool_results(message)
@@ -722,30 +694,6 @@ class AnthropicAdapter(LLMAdapter):
             name=tool_name,
             content=result,
         )
-
-    def make_multimodal_message(
-        self, text: str, image_bytes: bytes, mime_type: str = "image/png"
-    ) -> dict:
-        """Build an Anthropic multimodal message (image + text content blocks).
-
-        Returns a pre-built user message dict that can be passed directly
-        to AnthropicChatSession.send() via the dict path.
-        """
-        b64 = base64.b64encode(image_bytes).decode("utf-8")
-        return {
-            "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": mime_type,
-                        "data": b64,
-                    },
-                },
-                {"type": "text", "text": text},
-            ],
-        }
 
     def is_quota_error(self, exc: Exception) -> bool:
         """Check if the exception is an Anthropic rate-limit error."""

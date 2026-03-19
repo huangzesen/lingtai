@@ -103,8 +103,3 @@ class MiniMaxAdapter(AnthropicAdapter):
                 return LLMResponse(text="")
         return self._gated_call(_do_vision)
 
-    def make_multimodal_message(
-        self, text: str, image_bytes: bytes, mime_type: str = "image/png"
-    ) -> dict:
-        logger.warning("MiniMax Anthropic-compatible API does not support inline image input — use generate_vision instead")
-        return {"role": "user", "content": [{"type": "text", "text": text}]}
