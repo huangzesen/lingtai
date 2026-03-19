@@ -537,3 +537,49 @@ def test_add_tool_works_before_start(tmp_path):
     agent.add_tool("foo", schema={"type": "object", "properties": {}}, handler=lambda args: {"ok": True}, description="test")
     assert "foo" in agent._mcp_handlers
     agent.stop(timeout=1.0)
+
+
+# ---------------------------------------------------------------------------
+# _concat_queued_messages
+# ---------------------------------------------------------------------------
+
+def test_queued_messages_concatenated(tmp_path):
+    """Multiple queued messages should be concatenated into one."""
+    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    msg1 = _make_message(MSG_REQUEST, "system", "[system] 1 new message in mail box.\n  From: alice — hello")
+    msg2 = _make_message(MSG_REQUEST, "system", "[system] 1 new message in mail box.\n  From: bob — world")
+    msg3 = _make_message(MSG_REQUEST, "system", "[system] 1 new message in gmail box.\n  From: charlie — meeting")
+    agent.inbox.put(msg1)
+    agent.inbox.put(msg2)
+    agent.inbox.put(msg3)
+
+    first = agent.inbox.get()
+    result = agent._concat_queued_messages(first)
+    assert "alice" in result.content
+    assert "bob" in result.content
+    assert "charlie" in result.content
+    assert result.sender == "system"
+    assert agent.inbox.empty()
+
+
+def test_single_message_not_modified(tmp_path):
+    """A single message with nothing queued should pass through unchanged."""
+    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    original = _make_message(MSG_REQUEST, "alice", "hello")
+    result = agent._concat_queued_messages(original)
+    assert result is original
+
+
+def test_concat_preserves_first_sender(tmp_path):
+    """Concatenated result keeps the first message's sender."""
+    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    msg1 = _make_message(MSG_REQUEST, "alice", "task for you")
+    msg2 = _make_message(MSG_REQUEST, "system", "[system] 1 new message in mail box.")
+    agent.inbox.put(msg1)
+    agent.inbox.put(msg2)
+
+    first = agent.inbox.get()
+    result = agent._concat_queued_messages(first)
+    assert "task for you" in result.content
+    assert "mail box" in result.content
+    assert result.sender == "alice"

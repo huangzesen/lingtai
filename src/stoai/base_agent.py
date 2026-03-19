@@ -512,12 +512,6 @@ class BaseAgent:
 
         self._log("mail_received", sender=sender, subject=subject, message=message)
         msg = _make_message(MSG_REQUEST, "system", notification)
-        msg._mail_notification = {
-            "email_id": email_id,
-            "sender": sender,
-            "subject": subject,
-            "preview": preview,
-        }
         self.inbox.put(msg)
 
     def _set_state(self, new_state: AgentState, reason: str = "") -> None:
@@ -555,7 +549,7 @@ class BaseAgent:
                     msg = self.inbox.get(timeout=self._inbox_timeout)
                 except queue.Empty:
                     continue
-                msg = self._collapse_email_notifications(msg)
+                msg = self._concat_queued_messages(msg)
                 self._set_state(AgentState.ACTIVE, reason=f"received {msg.type}")
                 try:
                     self._handle_message(msg)
@@ -620,45 +614,30 @@ class BaseAgent:
 
         self._log("nirvana_complete", tools=list(self._mcp_handlers.keys()))
 
-    def _collapse_email_notifications(self, msg: Message) -> Message:
-        """Collapse consecutive mail notification messages into one."""
-        if msg._mail_notification is None:
-            return msg
+    def _concat_queued_messages(self, msg: Message) -> Message:
+        """Drain any additional queued messages and concatenate into one.
 
-        notifications = [msg._mail_notification]
-        requeue: list[Message] = []
-
+        If nothing else is queued, returns the original message unchanged.
+        Otherwise, joins all message contents with blank lines and returns
+        a new merged message. Non-string content is converted via str().
+        """
+        extra: list[Message] = []
         while True:
             try:
                 queued = self.inbox.get_nowait()
             except queue.Empty:
                 break
-            if queued._mail_notification is not None:
-                notifications.append(queued._mail_notification)
-            else:
-                requeue.append(queued)
+            extra.append(queued)
 
-        for m in requeue:
-            self.inbox.put(m)
-
-        if len(notifications) == 1:
+        if not extra:
             return msg
 
-        lines = [f"[{len(notifications)} new messages arrived]", ""]
-        for i, n in enumerate(notifications, 1):
-            lines.append(
-                f'{i}. From {n["sender"]} — Subject: {n["subject"]}\n'
-                f'   Preview: {n["preview"]}...\n'
-                f'   ID: {n["email_id"]}'
-            )
-        lines.append("")
-        lines.append(
-            'Use mail(action="check") to see your inbox, or '
-            'mail(action="read", id=["..."]) to read a specific message.'
-        )
-        merged_content = "\n".join(lines)
-        merged = _make_message(MSG_REQUEST, "system", merged_content)
-        self._log("mail_notifications_collapsed", count=len(notifications))
+        all_msgs = [msg] + extra
+        parts = [m.content if isinstance(m.content, str) else str(m.content)
+                 for m in all_msgs]
+        merged_content = "\n\n".join(parts)
+        merged = _make_message(MSG_REQUEST, msg.sender, merged_content)
+        self._log("messages_concatenated", count=len(all_msgs))
         return merged
 
     # ------------------------------------------------------------------

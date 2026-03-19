@@ -92,9 +92,6 @@ def test_on_gmail_received_notifies_agent(tmp_path):
     assert msg.sender == "system"
     assert "gmail box" in msg.content
     assert 'gmail(action="check")' in msg.content
-    assert hasattr(msg, "_mail_notification")
-    assert msg._mail_notification["email_id"] == "test-123"
-    assert msg._mail_notification["sender"] == "user@gmail.com"
     # Should have logged
     agent._log.assert_called_once()
     # Should have signaled mail arrival
