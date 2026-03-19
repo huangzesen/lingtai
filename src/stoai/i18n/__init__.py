@@ -10,6 +10,7 @@ Mirrors stoai_kernel.i18n for the capability layer.
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from pathlib import Path
 
 _DIR = Path(__file__).parent
@@ -27,7 +28,6 @@ def _load(lang: str) -> dict[str, str]:
 
 
 def t(lang: str, key: str, **kwargs) -> str:
-    from collections import defaultdict
     table = _load(lang)
     value = table.get(key)
     if value is None and lang != "en":

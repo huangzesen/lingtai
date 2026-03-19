@@ -7,17 +7,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..i18n import t
+
 if TYPE_CHECKING:
     from stoai_kernel.base_agent import BaseAgent
 
 
 def get_description(lang: str = "en") -> str:
-    from ..i18n import t
     return t(lang, "edit.description")
 
 
 def get_schema(lang: str = "en") -> dict:
-    from ..i18n import t
     return {
         "type": "object",
         "properties": {

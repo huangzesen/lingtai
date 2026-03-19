@@ -16,18 +16,18 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..i18n import t
+
 if TYPE_CHECKING:
     from stoai_kernel.base_agent import BaseAgent
 
 _DEFAULT_POLICY_FILE = Path(__file__).parent / "bash_policy.json"
 
 def get_description(lang: str = "en") -> str:
-    from ..i18n import t
     return t(lang, "bash.description")
 
 
 def get_schema(lang: str = "en") -> dict:
-    from ..i18n import t
     return {
         "type": "object",
         "properties": {

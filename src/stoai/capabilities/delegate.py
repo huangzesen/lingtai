@@ -21,16 +21,16 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..i18n import t
+
 if TYPE_CHECKING:
     from ..agent import Agent
 
 def get_description(lang: str = "en") -> str:
-    from ..i18n import t
     return t(lang, "delegate.description")
 
 
 def get_schema(lang: str = "en") -> dict:
-    from ..i18n import t
     return {
         "type": "object",
         "properties": {
@@ -262,7 +262,6 @@ class DelegateManager:
 def _build_schema(agent: "Agent") -> dict:
     """Build delegate schema with available providers from LLMService."""
     import copy
-    from ..i18n import t
     lang = agent._config.language
     schema = copy.deepcopy(get_schema(lang))
 
