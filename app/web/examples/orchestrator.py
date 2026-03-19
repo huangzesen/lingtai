@@ -84,7 +84,7 @@ def setup(llm: LLMService, base_dir: Path) -> AppState:
             "bash": {}, "delegate": {},
         },
         covenant=COVENANT,
-        config=AgentConfig(max_turns=20),
+        config=AgentConfig(max_turns=100, flow_delay=5.0, language="zh"),
         admin={"silence": True, "kill": True},
     )
 
