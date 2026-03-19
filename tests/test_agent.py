@@ -283,15 +283,6 @@ def test_make_message():
     assert msg.id.startswith("msg_")
 
 
-def test_message_reply_event():
-    event = threading.Event()
-    msg = _make_message(MSG_REQUEST, "user", "hello", reply_event=event)
-    assert msg._reply_event is event
-    msg._reply_value = {"text": "world"}
-    event.set()
-    assert event.is_set()
-
-
 # ---------------------------------------------------------------------------
 # Tool dispatch
 # ---------------------------------------------------------------------------
@@ -390,9 +381,9 @@ def test_status(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_send_fires_message(tmp_path):
-    """send(wait=False) should put a message in the inbox."""
+    """send() should put a message in the inbox."""
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
-    agent.send("hello", wait=False)
+    agent.send("hello")
     assert not agent.inbox.empty()
     msg = agent.inbox.get_nowait()
     assert "hello" in msg.content

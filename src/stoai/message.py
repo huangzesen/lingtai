@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -23,8 +22,6 @@ class Message:
         content:   Payload — str for requests, dict for structured data.
         reply_to:  Links back to original message.
         timestamp: ``time.monotonic()`` when created.
-        _reply_event: Internal Event for callers waiting on a result.
-        _reply_value: Internal slot for the agent's response.
     """
 
     type: str
@@ -33,8 +30,6 @@ class Message:
     id: str = field(default_factory=lambda: f"msg_{uuid4().hex[:12]}")
     reply_to: str | None = None
     timestamp: float = field(default_factory=time.monotonic)
-    _reply_event: threading.Event | None = field(default=None, repr=False)
-    _reply_value: Any = field(default=None, repr=False)
 
 
 def _make_message(
@@ -43,7 +38,6 @@ def _make_message(
     content: Any,
     *,
     reply_to: str | None = None,
-    reply_event: threading.Event | None = None,
 ) -> Message:
     # Prepend UTC timestamp to string content so the agent sees when each message arrived
     if isinstance(content, str):
@@ -56,5 +50,4 @@ def _make_message(
         sender=sender,
         content=content,
         reply_to=reply_to,
-        _reply_event=reply_event,
     )

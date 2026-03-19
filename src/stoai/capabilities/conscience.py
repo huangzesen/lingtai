@@ -198,7 +198,7 @@ class ConscienceManager:
         self._commit_nudge(prompt)
 
         # Send the nudge
-        self._agent.send(prompt, sender="conscience", wait=False)
+        self._agent.send(prompt, sender="conscience")
 
         with self._lock:
             if self._horme_active:

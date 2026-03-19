@@ -560,13 +560,6 @@ class BaseAgent:
                         exc_info=True,
                     )
                     self._log("error", source="message_handler", message=err_desc)
-                    if msg._reply_event:
-                        msg._reply_value = {
-                            "text": f"Internal error: {err_desc}",
-                            "failed": True,
-                            "errors": [err_desc],
-                        }
-                        msg._reply_event.set()
                 finally:
                     self._persist_chat_history()
                     self._set_state(AgentState.SLEEPING, reason="all done")
@@ -729,7 +722,6 @@ class BaseAgent:
         response = self._session.send(content)
         result = self._process_response(response)
         self._post_request(msg, result)
-        self._deliver_result(msg, result)
 
     def _get_guard_limits(self) -> tuple[int, int, int]:
         """Return (max_total_calls, dup_free_passes, dup_hard_block).
@@ -1052,37 +1044,15 @@ class BaseAgent:
         self,
         content: str | dict,
         sender: str = "user",
-        wait: bool = True,
-        timeout: float = 300.0,
-    ) -> dict | None:
-        """Send a message to the agent.
+    ) -> None:
+        """Send a message to the agent (fire-and-forget).
 
         Args:
             content: Message content.
             sender: Message sender.
-            wait: If True, block until result. If False, fire-and-forget.
-            timeout: Max time to wait for result (only if wait=True).
-
-        Returns:
-            If wait=True: result dict {"text": ..., "failed": ..., "errors": [...]}.
-            If wait=False: None.
         """
-        reply_event = threading.Event() if wait else None
-        msg = _make_message(MSG_REQUEST, sender, content, reply_event=reply_event)
+        msg = _make_message(MSG_REQUEST, sender, content)
         self.inbox.put(msg)
-
-        if not wait:
-            return None
-
-        if not reply_event.wait(timeout=timeout):
-            return {
-                "text": f"Timeout after {timeout}s waiting for {self.agent_id}",
-                "failed": True,
-                "errors": ["timeout"],
-            }
-        if msg._reply_value is None:
-            return {"text": "", "failed": True, "errors": ["no reply"]}
-        return msg._reply_value
 
     # ------------------------------------------------------------------
     # Session persistence (delegates to SessionManager)
@@ -1148,7 +1118,7 @@ class BaseAgent:
         return msg.content if isinstance(msg.content, str) else json.dumps(msg.content)
 
     def _post_request(self, msg: Message, result: dict) -> None:
-        """Called after _process_response, before _deliver_result.
+        """Called after _process_response.
 
         Override in subclasses for post-processing.
         """
@@ -1163,12 +1133,3 @@ class BaseAgent:
         """
         return None
 
-    # ------------------------------------------------------------------
-    # Result delivery
-    # ------------------------------------------------------------------
-
-    def _deliver_result(self, msg: Message, result: dict) -> None:
-        """Deliver result to a waiting caller."""
-        if msg._reply_event:
-            msg._reply_value = result
-            msg._reply_event.set()

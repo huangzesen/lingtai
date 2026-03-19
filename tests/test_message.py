@@ -12,11 +12,3 @@ def test_make_message():
     assert msg.sender == "user"
     assert "hello" in msg.content
     assert msg.id.startswith("msg_")
-    assert msg._reply_event is None
-
-
-def test_message_reply_event():
-    import threading
-    evt = threading.Event()
-    msg = _make_message(MSG_REQUEST, "user", "test", reply_event=evt)
-    assert msg._reply_event is evt

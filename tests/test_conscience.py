@@ -219,7 +219,6 @@ def test_nudge_fires_when_idle(tmp_path):
     call_args = mock_send.call_args
     assert call_args[0][0] == DEFAULT_PROMPT
     assert call_args[1]["sender"] == "conscience"
-    assert call_args[1]["wait"] is False
     agent.stop(timeout=2.0)
 
 

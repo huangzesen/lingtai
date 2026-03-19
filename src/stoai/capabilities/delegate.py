@@ -149,7 +149,7 @@ class DelegateManager:
 
         # Send reasoning as first prompt (mission briefing)
         if reasoning:
-            delegate.send(reasoning, sender=parent.agent_id, wait=False)
+            delegate.send(reasoning, sender=parent.agent_id)
 
         address = mail_svc.address
         return {"status": "ok", "address": address, "agent_id": delegate.agent_id, "agent_name": delegate.agent_name}
