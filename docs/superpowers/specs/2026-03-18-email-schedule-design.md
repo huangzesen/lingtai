@@ -8,7 +8,9 @@ Agents need a way to send recurring messages — heartbeats, periodic status rep
 
 ### Schema
 
-A new `schedule` property on the email tool schema. When `schedule` is present, it takes over routing (top-level `action` is ignored).
+A new `schedule` property on the email tool schema. When `schedule` is present, it takes over routing (top-level `action` is ignored). The top-level `required` changes from `["action"]` to `[]` — `action` is validated inside `handle()` when `schedule` is absent.
+
+`handle()` checks for `schedule` first, before dispatching on `action`.
 
 ```json
 "schedule": {
@@ -44,21 +46,23 @@ Requires all normal send parameters (address, message, subject, cc, bcc, attachm
 1. Validate send params (same as `_send`).
 2. Generate a `schedule_id` (uuid4 hex, 12 chars).
 3. Persist schedule record to `mailbox/schedules/{schedule_id}/schedule.json`.
-4. Spawn a daemon thread that loops:
-   - Call `_send()` with the stored payload + schedule metadata.
-   - Update `sent` count and `last_sent_at` in the schedule JSON.
-   - Sleep for `interval` seconds.
-   - Before each iteration, re-read the schedule JSON and check `cancelled`.
-   - Exit when `sent == count` or `cancelled == true`.
-5. Return `{"status": "scheduled", "schedule_id": "...", "interval": N, "count": N}`.
+4. Create a `threading.Event` for this schedule (stored in `self._schedule_events[schedule_id]`).
+5. Spawn a daemon thread that loops:
+   - Increment `sent` count in the schedule JSON (at-most-once — increment before send).
+   - Call `self._send()` with the stored payload + `_schedule` metadata.
+   - Update `last_sent_at` in the schedule JSON.
+   - Wait on the cancel event for `interval` seconds (`event.wait(interval)`).
+   - If the event is set, exit.
+   - Exit when `sent == count`.
+6. Return `{"status": "scheduled", "schedule_id": "...", "interval": N, "count": N}`.
 
 #### `schedule.action = "cancel"`
 
 Requires `schedule.schedule_id`.
 
 1. Load `mailbox/schedules/{schedule_id}/schedule.json`.
-2. Set `cancelled: true`, write back.
-3. The daemon thread picks up the flag on its next iteration check and exits.
+2. Set `cancelled: true`, write back atomically (write-to-temp + `os.replace`).
+3. If a `threading.Event` exists for this schedule (in-memory), set it — the daemon thread wakes immediately and exits.
 4. Return `{"status": "cancelled", "schedule_id": "..."}`.
 
 #### `schedule.action = "list"`
@@ -67,13 +71,15 @@ No required params.
 
 1. Scan `mailbox/schedules/*/schedule.json`.
 2. Return list of schedules with status, progress, and computed fields.
-3. Each entry includes: `schedule_id`, `interval`, `count`, `sent`, `cancelled`, `created_at`, `last_sent_at`, and a summary of the send payload (to, subject).
+3. Each entry includes: `schedule_id`, `interval`, `count`, `sent`, `cancelled`, `created_at`, `last_sent_at`, `active` (true if `sent < count` and not `cancelled`), and a summary of the send payload (to, subject).
 
 ### Storage
 
 ```
 mailbox/schedules/{schedule_id}/schedule.json
 ```
+
+All writes use atomic file operations (write-to-temp + `os.replace`).
 
 ```json
 {
@@ -97,7 +103,7 @@ mailbox/schedules/{schedule_id}/schedule.json
 
 ### Schedule Metadata on Each Send
 
-Each email dispatched by a schedule carries a `_schedule` object in the payload, so recipients (and the duplicate guard) can identify it as part of a scheduled sequence:
+The schedule daemon calls `self._send({**stored_payload, '_schedule': {...}})`. Each email dispatched carries a `_schedule` object in the payload:
 
 ```json
 {
@@ -118,19 +124,29 @@ Each email dispatched by a schedule carries a `_schedule` object in the payload,
 
 ### Duplicate Guard Bypass
 
-The existing duplicate guard in `EmailManager._send()` tracks consecutive identical messages per recipient. Scheduled sends carry `_schedule` metadata — the guard skips any send that has a `_schedule` key in the args, since repetition is intentional.
+In `_send()`, the duplicate guard checks `if args.get('_schedule'):` and skips the duplicate check when present — scheduled repetition is intentional.
+
+### Cancellation Mechanism
+
+Two-layer cancellation:
+
+1. **In-memory**: `threading.Event` per schedule stored in `self._schedule_events`. `cancel` sets the event, daemon thread's `event.wait(interval)` returns immediately. This handles the fast path.
+2. **On-disk**: `cancelled: true` in `schedule.json`. This handles recovery — if the process restarts, resumed schedules check this flag.
 
 ### Recovery on Start
 
 During `setup()`, scan `mailbox/schedules/*/schedule.json`. For any schedule where `sent < count` and `cancelled == false`:
 
 - Compute how many sends remain.
+- Create a new `threading.Event` for this schedule.
 - Spawn a new daemon thread to continue from where it left off (`sent` is already tracked).
 - The first send happens immediately (no initial delay — the agent was down, so catches up), then resumes the normal interval cadence.
 
+**Delivery semantics**: at-most-once. The `sent` counter is incremented before `_send()` is called. If the process crashes after incrementing but before sending, that iteration is skipped on recovery. For heartbeat/status use cases, a missed beat is preferable to a duplicate.
+
 ### Schema Description Update
 
-Add to the email tool's action enum description:
+Add to the email tool's DESCRIPTION and action description:
 
 ```
 "Pass a 'schedule' object instead of 'action' for recurring sends. "
@@ -179,10 +195,11 @@ Add to the email tool's action enum description:
 - `cancel` without `schedule_id`: `{"error": "schedule.schedule_id is required"}`
 - `cancel` on non-existent schedule: `{"error": "Schedule not found: {id}"}`
 - `cancel` on already-cancelled or completed schedule: `{"status": "already_stopped", "schedule_id": "..."}`
+- Missing `action` when `schedule` is not present: `{"error": "action is required"}`
 
 ## Files to Modify
 
-- `src/stoai/capabilities/email.py` — add `schedule` property to SCHEMA, handle routing in `EmailManager.handle()`, implement `_schedule_create`, `_schedule_cancel`, `_schedule_list`, recovery logic in `setup()`, duplicate guard bypass.
+- `src/stoai/capabilities/email.py` — add `schedule` property to SCHEMA, change `required` from `["action"]` to `[]`, check for `schedule` first in `handle()`, implement `_schedule_create`, `_schedule_cancel`, `_schedule_list`, add `_schedule_events` dict and recovery logic in `setup()`, duplicate guard bypass in `_send()`.
 
 ## Files NOT Modified
 
