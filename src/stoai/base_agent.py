@@ -199,7 +199,7 @@ class BaseAgent:
             if hasattr(self._mail_service, '_info_handler'):
                 self._mail_service._info_handler = self._get_discovery_info
 
-        self._mail_arrived = threading.Event()  # set when normal mail arrives; clock wait uses this
+        self._mail_arrived = threading.Event()  # set when normal mail arrives; system sleep uses this
 
         # Mailbox identity — capabilities override these to change notification text.
         # _mailbox_name: human label ("mail box", "email box", "gmail box")
@@ -567,17 +567,17 @@ class BaseAgent:
                     self._persist_chat_history()
                     self._set_state(AgentState.SLEEPING, reason="all done")
 
-            # Check for nirvana (rebirth) before exiting
-            if getattr(self, "_nirvana_requested", False):
-                self._nirvana_requested = False
-                self._perform_nirvana()
+            # Check for restart (rebirth) before exiting
+            if getattr(self, "_restart_requested", False):
+                self._restart_requested = False
+                self._perform_restart()
                 self._shutdown.clear()
                 continue  # re-enter the message loop
             break  # normal shutdown — exit
 
-    def _perform_nirvana(self) -> None:
+    def _perform_restart(self) -> None:
         """Rebirth: close old MCP clients, reload from working dir, reset session."""
-        self._log("nirvana_start")
+        self._log("restart_start")
 
         # Close existing MCP clients
         for client in getattr(self, "_mcp_clients", []):
@@ -608,7 +608,7 @@ class BaseAgent:
         # Reset session so next message creates fresh one with new tools
         self._session.chat = None
 
-        self._log("nirvana_complete", tools=list(self._mcp_handlers.keys()))
+        self._log("restart_complete", tools=list(self._mcp_handlers.keys()))
 
     def _concat_queued_messages(self, msg: Message) -> Message:
         """Drain any additional queued messages and concatenate into one.
