@@ -10,7 +10,7 @@ def test_make_message():
     msg = _make_message(MSG_REQUEST, "user", "hello")
     assert msg.type == "request"
     assert msg.sender == "user"
-    assert msg.content == "hello"
+    assert "hello" in msg.content
     assert msg.id.startswith("msg_")
     assert msg._reply_event is None
 

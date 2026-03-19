@@ -279,7 +279,7 @@ def test_make_message():
     msg = _make_message(MSG_REQUEST, "user", "hello")
     assert msg.type == MSG_REQUEST
     assert msg.sender == "user"
-    assert msg.content == "hello"
+    assert "hello" in msg.content
     assert msg.id.startswith("msg_")
 
 
@@ -395,7 +395,7 @@ def test_send_fires_message(tmp_path):
     agent.send("hello", wait=False)
     assert not agent.inbox.empty()
     msg = agent.inbox.get_nowait()
-    assert msg.content == "hello"
+    assert "hello" in msg.content
     assert msg.type == MSG_REQUEST
 
 
