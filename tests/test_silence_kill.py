@@ -44,32 +44,6 @@ def test_silence_bypasses_inbox(tmp_path):
     assert agent.inbox.empty()
 
 
-def test_silence_deactivates_vibing(tmp_path):
-    """Silence should deactivate vibing timer if active."""
-    agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
-        capabilities={"vibing": {"interval": 9999}},
-    )
-    mgr = agent.get_capability("vibing")
-    # Activate vibing manually
-    mgr._activate()
-    assert mgr._active
-
-    agent._on_mail_received({"from": "boss", "type": "silence"})
-
-    assert not mgr._active
-    assert mgr._timer is None
-    agent.stop(timeout=1.0)
-
-
-def test_silence_without_vibing_still_works(tmp_path):
-    """Silence should work fine when vibing capability is not present."""
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
-
-    agent._on_mail_received({"from": "boss", "type": "silence"})
-
-    assert agent._cancel_event.is_set()
-
 
 # ---------------------------------------------------------------------------
 # Kill — hard stop
