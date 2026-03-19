@@ -24,67 +24,53 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..agent import Agent
 
-SCHEMA = {
-    "type": "object",
-    "properties": {
-        "name": {
-            "type": "string",
-            "description": "Name for the delegatee (required, e.g. 'researcher', 'analyst')",
-        },
-        "covenant": {
-            "type": "string",
-            "description": "Covenant override for the delegatee (optional, default = copy parent)",
-        },
-        "memory": {
-            "type": "string",
-            "description": "Memory / context to inject (optional)",
-        },
-        "capabilities": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "Capability names for the delegatee (optional, default = same as delegator minus delegate)",
-        },
-        "admin": {
-            "type": "object",
-            "description": (
-                "Admin privileges granted to the delegatee (optional, default = none). "
-                "Dict of privilege name to boolean, e.g. {\"silence\": true}. "
-                "Only grant privileges the peer needs."
-            ),
-        },
-        "provider": {
-            "type": "string",
-            "description": (
-                "LLM provider for the delegatee (optional, default = same as delegator). "
-                "Use a provider name defined in config, e.g. 'minimax', 'gemini', 'openrouter'."
-            ),
-        },
-        "model": {
-            "type": "string",
-            "description": (
-                "LLM model for the delegatee (optional, default = same as delegator). "
-                "e.g. 'gemini-3-flash-preview', 'anthropic/claude-sonnet-4.6'."
-            ),
-        },
-    },
-    "required": ["name"],
-}
+def get_description(lang: str = "en") -> str:
+    from ..i18n import t
+    return t(lang, "delegate.description")
 
-DESCRIPTION = (
-    "Delegate responsibility to a peer agent. "
-    "Each delegatee runs on its own TCP port with its own conversation. "
-    "Use mail or email to communicate with delegatees. "
-    "If the named peer already exists and is idle, re-sends the mission "
-    "briefing to re-activate it.  If stuck or errored, advises to revive "
-    "via email.  If stopped, spawns fresh (preserving the working dir). "
-    "All delegations are recorded in an append-only ledger at "
-    "delegates/ledger.jsonl — read it with the file read tool to review "
-    "past delegations: who was entrusted, what mission, what privileges "
-    "and capabilities were granted. Check the ledger before re-delegating. "
-    "IMPORTANT: The reasoning field is sent as the first message "
-    "to the peer — write a thorough mission briefing: what to do, why, "
-    "what context is needed, and what to report back."
-)
+
+def get_schema(lang: str = "en") -> dict:
+    from ..i18n import t
+    return {
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": t(lang, "delegate.name"),
+            },
+            "covenant": {
+                "type": "string",
+                "description": t(lang, "delegate.covenant"),
+            },
+            "memory": {
+                "type": "string",
+                "description": t(lang, "delegate.memory"),
+            },
+            "capabilities": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": t(lang, "delegate.capabilities"),
+            },
+            "admin": {
+                "type": "object",
+                "description": t(lang, "delegate.admin"),
+            },
+            "provider": {
+                "type": "string",
+                "description": t(lang, "delegate.provider"),
+            },
+            "model": {
+                "type": "string",
+                "description": t(lang, "delegate.model"),
+            },
+        },
+        "required": ["name"],
+    }
+
+
+# Backward compat
+SCHEMA = get_schema("en")
+DESCRIPTION = get_description("en")
 
 
 class DelegateManager:
@@ -125,19 +111,20 @@ class DelegateManager:
     # ------------------------------------------------------------------
 
     def _live_status(self, name: str) -> str:
-        """Get live status of a delegatee: active/idle/stuck/error/stopped."""
+        """Get live status of a delegatee from the kernel's AgentState."""
+        from stoai_kernel.state import AgentState
         peer = self._peers.get(name)
         if peer is None:
             return "stopped"
         if peer._thread is None or not peer._thread.is_alive():
             return "stopped"
-        if peer._state.value == "active":
+        state = peer._state
+        if state == AgentState.ACTIVE:
             return "active"
-        reason = getattr(peer, "_sleep_reason", "idle")
-        if reason == "stuck":
-            return "stuck"
-        elif reason == "error":
+        if state == AgentState.ERROR:
             return "error"
+        if state == AgentState.DEAD:
+            return "stopped"
         return "idle"
 
     # ------------------------------------------------------------------
@@ -177,7 +164,7 @@ class DelegateManager:
                     "agent_name": existing.agent_name,
                     "message": f"'{peer_name}' was idle — sent new mission briefing.",
                 }
-            elif status in ("stuck", "error"):
+            elif status == "error":
                 return {
                     "status": status,
                     "agent_name": peer_name,
@@ -187,7 +174,8 @@ class DelegateManager:
                         f"(use email to kill it first, then delegate again)."
                     ),
                 }
-            # stopped — fall through to spawn fresh
+            # stopped — clean up stale reference before spawning fresh
+            self._peers.pop(peer_name, None)
 
         # Resolve delegation parameters
         covenant = args.get("covenant") or parent._prompt_manager.read_section("covenant") or ""
@@ -219,6 +207,7 @@ class DelegateManager:
             model=peer_model,
             retry_timeout=parent._config.retry_timeout,
             thinking_budget=parent._config.thinking_budget,
+            language=parent._config.language,
         )
 
         delegate = Agent(
@@ -273,7 +262,9 @@ class DelegateManager:
 def _build_schema(agent: "Agent") -> dict:
     """Build delegate schema with available providers from LLMService."""
     import copy
-    schema = copy.deepcopy(SCHEMA)
+    from ..i18n import t
+    lang = agent._config.language
+    schema = copy.deepcopy(get_schema(lang))
 
     try:
         defaults = agent.service._provider_defaults
@@ -296,16 +287,14 @@ def _build_schema(agent: "Agent") -> dict:
     except (AttributeError, TypeError):
         pass
 
-    schema["properties"]["provider"]["description"] = (
-        f"LLM provider for the delegatee (optional, default = same as delegator). "
-        f"Available: {', '.join(available)}."
+    schema["properties"]["provider"]["description"] = t(
+        lang, "delegate.provider_dynamic", available=", ".join(available)
     )
     schema["properties"]["provider"]["enum"] = available
 
     if provider_models:
-        schema["properties"]["model"]["description"] = (
-            f"LLM model for the delegatee (optional, default = same as delegator). "
-            f"Known: {'; '.join(provider_models)}."
+        schema["properties"]["model"]["description"] = t(
+            lang, "delegate.model_dynamic", known="; ".join(provider_models)
         )
 
     return schema
@@ -313,7 +302,8 @@ def _build_schema(agent: "Agent") -> dict:
 
 def setup(agent: "Agent") -> DelegateManager:
     """Set up the delegate capability on an agent."""
+    lang = agent._config.language
     mgr = DelegateManager(agent)
     schema = _build_schema(agent)
-    agent.add_tool("delegate", schema=schema, handler=mgr.handle, description=DESCRIPTION)
+    agent.add_tool("delegate", schema=schema, handler=mgr.handle, description=get_description(lang))
     return mgr

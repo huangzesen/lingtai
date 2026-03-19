@@ -20,137 +20,76 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from stoai_kernel.base_agent import BaseAgent
 
-SCHEMA = {
-    "type": "object",
-    "properties": {
-        "object": {
-            "type": "string",
-            "enum": ["character", "library", "memory", "context"],
-            "description": (
-                "character: your evolving identity — what makes you special.\n"
-                "library: your knowledge archive (system/library.json).\n"
-                "memory: your active working memory "
-                "(system/memory.md, constructed from library + notes).\n"
-                "context: your conversation context window."
-            ),
-        },
-        "action": {
-            "type": "string",
-            "enum": [
-                "update", "diff", "load",
-                "submit", "filter", "view", "consolidate", "delete",
-                "construct", "molt",
-            ],
-            "description": (
-                "character: update | diff | load.\n"
-                "library: submit | filter | view | consolidate | delete.\n"
-                "memory: construct | load.\n"
-                "context: molt."
-            ),
-        },
-        "title": {
-            "type": "string",
-            "description": (
-                "Entry title — one line. "
-                "Required for library submit and consolidate."
-            ),
-        },
-        "summary": {
-            "type": "string",
-            "description": (
-                "For library submit/consolidate: entry summary — 1-3 sentences, used for filtering. "
-                "For context molt: a briefing to your future self — the ONLY thing you will see "
-                "after molt. Write what you are doing, what you have found, "
-                "what remains to be done, which library entries to retrieve, "
-                "and who you are working with (addresses). ~10000 tokens max."
-            ),
-        },
-        "content": {
-            "type": "string",
-            "description": (
-                "Text content — for character update (your identity profile), "
-                "library submit/consolidate (main body, up to 500 words), "
-                "or other actions that accept text."
-            ),
-        },
-        "supplementary": {
-            "type": "string",
-            "description": (
-                "Extended material for a library entry — unbounded. "
-                "Optional for library submit and consolidate. "
-                "Use when the content alone doesn't capture full detail."
-            ),
-        },
-        "ids": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": (
-                "Entry IDs — for library view, consolidate, delete, "
-                "memory load, and memory construct."
-            ),
-        },
-        "notes": {
-            "type": "string",
-            "description": (
-                "Free text notes to include in memory (for memory construct)."
-            ),
-        },
-        "pattern": {
-            "type": "string",
-            "description": (
-                "Regex pattern for library filter. "
-                "Searches across titles, summaries, and content. "
-                "Omit to list all entries."
-            ),
-        },
-        "limit": {
-            "type": "integer",
-            "description": "Maximum entries to return for library filter.",
-        },
-        "depth": {
-            "type": "string",
-            "enum": ["content", "supplementary"],
-            "description": (
-                "Depth for library view. "
-                "'content' (default): id + title + summary + content. "
-                "'supplementary': id + title + summary + content + supplementary."
-            ),
-        },
-    },
-    "required": ["object", "action"],
-}
+def get_description(lang: str = "en") -> str:
+    from ..i18n import t
+    return t(lang, "psyche.description")
 
-DESCRIPTION = (
-    "Self-knowledge management — identity, knowledge, memory, and context.\n"
-    "character: your evolving identity — what makes you *you*. "
-    "Your personality, expertise, working style, and goals. Be active about "
-    "updating this — your character is what distinguishes you from other agents. "
-    "A well-developed character improves your autonomy and effectiveness. "
-    "Consider structuring your character with sections like: "
-    "Expertise (what you're good at), Tools & Packages (what you use), "
-    "MCP Servers (what services you interface with), "
-    "Pipelines (workflows you've mastered). "
-    "update to write your character (write your full profile, it replaces previous), "
-    "diff to review changes, load to apply.\n"
-    "library: your external brain — persists across molts, reboots, and kills. "
-    "Proactively deposit important findings, data, decisions, and discoveries here "
-    "throughout your work. Use filter/view to retrieve information anytime — "
-    "you don't need to load everything into system prompt. "
-    "submit to add entries. filter to browse (returns id + title + summary, "
-    "optional regex pattern and limit). view to read at depth "
-    "(content or supplementary). consolidate to merge entries. "
-    "delete to remove. Write clear titles and concise summaries (1-3 sentences).\n"
-    "memory: construct your active memory from library entries + notes. "
-    "construct(ids=[...], notes='...') builds system/memory.md from selected library entries "
-    "and your free text. load injects it into your prompt.\n"
-    "context: molt to molt — write a briefing to your future self. "
-    "Your conversation history is wiped and your summary becomes the ONLY context you see. "
-    "Before molting: deposit important data to library (your external brain — it persists). "
-    "Then write what you're doing, what's done, what's pending, "
-    "and which library entries to retrieve for context. "
-    "Check usage via status show first.\n"
-    "Workflow: filter to browse → view if you need detail → construct to build memory → load to remember."
-)
+
+def get_schema(lang: str = "en") -> dict:
+    from ..i18n import t
+    return {
+        "type": "object",
+        "properties": {
+            "object": {
+                "type": "string",
+                "enum": ["character", "library", "memory", "context"],
+                "description": t(lang, "psyche.object"),
+            },
+            "action": {
+                "type": "string",
+                "enum": [
+                    "update", "diff", "load",
+                    "submit", "filter", "view", "consolidate", "delete",
+                    "construct", "molt",
+                ],
+                "description": t(lang, "psyche.action"),
+            },
+            "title": {
+                "type": "string",
+                "description": t(lang, "psyche.title"),
+            },
+            "summary": {
+                "type": "string",
+                "description": t(lang, "psyche.summary"),
+            },
+            "content": {
+                "type": "string",
+                "description": t(lang, "psyche.content"),
+            },
+            "supplementary": {
+                "type": "string",
+                "description": t(lang, "psyche.supplementary"),
+            },
+            "ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": t(lang, "psyche.ids"),
+            },
+            "notes": {
+                "type": "string",
+                "description": t(lang, "psyche.notes"),
+            },
+            "pattern": {
+                "type": "string",
+                "description": t(lang, "psyche.pattern"),
+            },
+            "limit": {
+                "type": "integer",
+                "description": t(lang, "psyche.limit"),
+            },
+            "depth": {
+                "type": "string",
+                "enum": ["content", "supplementary"],
+                "description": t(lang, "psyche.depth"),
+            },
+        },
+        "required": ["object", "action"],
+    }
+
+
+# Backward compat
+SCHEMA = get_schema("en")
+DESCRIPTION = get_description("en")
 
 
 class PsycheManager:
@@ -509,6 +448,7 @@ class PsycheManager:
 
 def setup(agent: "BaseAgent") -> PsycheManager:
     """Set up psyche capability — self-knowledge management."""
+    lang = agent._config.language
     eigen_handler = agent.override_intrinsic("eigen")
     agent._eigen_owns_memory = True
 
@@ -527,7 +467,6 @@ def setup(agent: "BaseAgent") -> PsycheManager:
             })
 
     agent.add_tool(
-        "psyche", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
-        system_prompt="Manage your identity, knowledge library, and memory.",
+        "psyche", schema=get_schema(lang), handler=mgr.handle, description=get_description(lang),
     )
     return mgr

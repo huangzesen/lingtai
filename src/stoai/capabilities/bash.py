@@ -21,33 +21,37 @@ if TYPE_CHECKING:
 
 _DEFAULT_POLICY_FILE = Path(__file__).parent / "bash_policy.json"
 
-SCHEMA = {
-    "type": "object",
-    "properties": {
-        "command": {
-            "type": "string",
-            "description": "The shell command to execute",
-        },
-        "timeout": {
-            "type": "number",
-            "description": "Timeout in seconds (default: 30)",
-            "default": 30,
-        },
-        "working_dir": {
-            "type": "string",
-            "description": "Working directory for the command (optional)",
-        },
-    },
-    "required": ["command"],
-}
+def get_description(lang: str = "en") -> str:
+    from ..i18n import t
+    return t(lang, "bash.description")
 
-DESCRIPTION = (
-    "Execute a shell command and return stdout/stderr. "
-    "You can run any program available on the system — Python scripts, "
-    "git, curl, package managers (pip install), data processing pipelines, "
-    "and more. Use this creatively to extend your capabilities beyond "
-    "your built-in tools. Returns exit code, stdout, and stderr."
-)
+
+def get_schema(lang: str = "en") -> dict:
+    from ..i18n import t
+    return {
+        "type": "object",
+        "properties": {
+            "command": {
+                "type": "string",
+                "description": t(lang, "bash.command"),
+            },
+            "timeout": {
+                "type": "number",
+                "description": t(lang, "bash.timeout"),
+                "default": 30,
+            },
+            "working_dir": {
+                "type": "string",
+                "description": t(lang, "bash.working_dir"),
+            },
+        },
+        "required": ["command"],
+    }
+
+
+# Backward compat
+SCHEMA = get_schema("en")
+DESCRIPTION = get_description("en")
 
 
 class BashPolicy:
@@ -221,16 +225,17 @@ def setup(
     else:
         policy = BashPolicy.from_file(str(_DEFAULT_POLICY_FILE))
 
+    lang = agent._config.language
+
     mgr = BashManager(
         policy=policy,
         working_dir=str(agent._working_dir),
     )
     # Build description with policy rules
-    desc = DESCRIPTION
+    desc = get_description(lang)
     policy_summary = policy.describe()
     if policy_summary:
-        desc = f"{DESCRIPTION}\n\n{policy_summary}"
+        desc = f"{desc}\n\n{policy_summary}"
 
-    agent.add_tool("bash", schema=SCHEMA, handler=mgr.handle, description=desc,
-                    system_prompt="Run shell commands.")
+    agent.add_tool("bash", schema=get_schema(lang), handler=mgr.handle, description=desc)
     return mgr

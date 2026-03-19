@@ -31,149 +31,111 @@ from stoai_kernel.intrinsics.mail import (
 if TYPE_CHECKING:
     from stoai_kernel.base_agent import BaseAgent
 
-SCHEMA = {
-    "type": "object",
-    "properties": {
-        "action": {
-            "type": "string",
-            "enum": [
-                "send", "check", "read", "reply", "reply_all", "search",
-                "archive", "delete",
-                "contacts", "add_contact", "remove_contact", "edit_contact",
-            ],
-            "description": (
-                "send: send with optional cc/bcc (requires address, message). "
-                "check: list mailbox (optional folder, n). "
-                "read: read emails by ID list (email_id=[id1, id2, ...]). "
-                "You are encouraged to read multiple relevant or even all unread emails and think before acting. "
-                "reply: reply to email (requires email_id, message). "
-                "reply_all: reply to all recipients (requires email_id, message). "
-                "search: regex search mailbox (requires query, optional folder). "
-                "archive: move email(s) from inbox to archive (requires email_id). "
-                "delete: remove email(s) from inbox or archive (requires email_id, optional folder). "
-                "contacts: list all contacts. "
-                "add_contact: add/update contact (requires address, name; optional note). "
-                "remove_contact: remove contact (requires address). "
-                "edit_contact: update contact fields (requires address; optional name, note)."
-            ),
-        },
-        "address": {
-            "oneOf": [
-                {"type": "string"},
-                {"type": "array", "items": {"type": "string"}},
-            ],
-            "description": "Target address(es) for send",
-        },
-        "cc": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "CC addresses — visible to all recipients",
-        },
-        "bcc": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "BCC addresses — hidden from other recipients",
-        },
-        "attachments": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "File paths to attach (for send)",
-        },
-        "subject": {"type": "string", "description": "Email subject line"},
-        "message": {"type": "string", "description": "Email body"},
-        "email_id": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "List of email IDs for read. For reply/reply_all, pass a single-element list.",
-        },
-        "n": {
-            "type": "integer",
-            "description": "Max recent emails to show (for check, default 10)",
-            "default": 10,
-        },
-        "query": {
-            "type": "string",
-            "description": "Regex pattern for search (matches from, subject, message)",
-        },
-        "folder": {
-            "type": "string",
-            "enum": ["inbox", "sent", "archive"],
-            "description": "Folder for check/search/read/delete. Default: inbox for check, both for search.",
-        },
-        "type": {
-            "type": "string",
-            "enum": ["normal", "silence", "kill"],
-            "description": (
-                "Mail type (for send). 'normal' (default) is regular mail. "
-                "'silence' interrupts the target agent and puts it to idle "
-                "(revives on next email; requires admin.silence privilege). "
-                "'kill' hard-stops the target agent (requires admin.kill privilege). "
-                "To revive after kill: re-delegate with the SAME agent name "
-                "(preserves working directory, character, and mailbox). "
-                "The revived agent gets a NEW address — "
-                "update your contacts after re-delegating."
-            ),
-        },
-        "name": {
-            "type": "string",
-            "description": "Contact's human-readable name (for add_contact, edit_contact)",
-        },
-        "note": {
-            "type": "string",
-            "description": "Free-text note about the contact (for add_contact, edit_contact)",
-        },
-        "schedule": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": ["create", "cancel", "list"],
-                    "description": (
-                        "create: start a recurring send (requires address, message + schedule.interval, schedule.count). "
-                        "cancel: stop a running schedule (requires schedule.schedule_id). "
-                        "list: show all schedules with progress."
-                    ),
-                },
-                "interval": {
-                    "type": "integer",
-                    "description": "Seconds between each send (for create)",
-                },
-                "count": {
-                    "type": "integer",
-                    "description": "Total number of sends (for create)",
-                },
-                "schedule_id": {
-                    "type": "string",
-                    "description": "Schedule ID (for cancel)",
+def get_description(lang: str = "en") -> str:
+    from ..i18n import t
+    return t(lang, "email.description")
+
+
+def get_schema(lang: str = "en") -> dict:
+    from ..i18n import t
+    return {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": [
+                    "send", "check", "read", "reply", "reply_all", "search",
+                    "archive", "delete",
+                    "contacts", "add_contact", "remove_contact", "edit_contact",
+                ],
+                "description": t(lang, "email.action"),
+            },
+            "address": {
+                "oneOf": [
+                    {"type": "string"},
+                    {"type": "array", "items": {"type": "string"}},
+                ],
+                "description": t(lang, "email.address"),
+            },
+            "cc": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": t(lang, "email.cc"),
+            },
+            "bcc": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": t(lang, "email.bcc"),
+            },
+            "attachments": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": t(lang, "email.attachments"),
+            },
+            "subject": {"type": "string", "description": t(lang, "email.subject")},
+            "message": {"type": "string", "description": t(lang, "email.message")},
+            "email_id": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": t(lang, "email.email_id"),
+            },
+            "n": {
+                "type": "integer",
+                "description": t(lang, "email.n"),
+                "default": 10,
+            },
+            "query": {
+                "type": "string",
+                "description": t(lang, "email.query"),
+            },
+            "folder": {
+                "type": "string",
+                "enum": ["inbox", "sent", "archive"],
+                "description": t(lang, "email.folder"),
+            },
+            "type": {
+                "type": "string",
+                "enum": ["normal", "silence", "kill"],
+                "description": t(lang, "email.type"),
+            },
+            "name": {
+                "type": "string",
+                "description": t(lang, "email.name"),
+            },
+            "note": {
+                "type": "string",
+                "description": t(lang, "email.note"),
+            },
+            "schedule": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["create", "cancel", "list"],
+                        "description": t(lang, "email.schedule_action"),
+                    },
+                    "interval": {
+                        "type": "integer",
+                        "description": t(lang, "email.schedule_interval"),
+                    },
+                    "count": {
+                        "type": "integer",
+                        "description": t(lang, "email.schedule_count"),
+                    },
+                    "schedule_id": {
+                        "type": "string",
+                        "description": t(lang, "email.schedule_id"),
+                    },
                 },
             },
         },
-    },
-    "required": [],
-}
+        "required": [],
+    }
 
-DESCRIPTION = (
-    "Full email client — filesystem-based mailbox with inbox/sent/archive folders, "
-    "reply, reply-all, CC/BCC, attachments, regex search, and contacts. "
-    "Use 'send' for outgoing email (optional delay for scheduled delivery). "
-    "'check' to list inbox, sent, or archive (optional folder param). "
-    "'read' to read by ID. "
-    "'reply'/'reply_all' to respond. "
-    "'search' to find emails by regex (searches from, subject, message). "
-    "'archive' to move emails from inbox to archive. "
-    "'delete' to remove emails from inbox or archive. "
-    "'contacts' to list saved contacts. "
-    "'add_contact' to register a peer (address, name, optional note). "
-    "'remove_contact' to delete a contact by address. "
-    "'edit_contact' to update fields on an existing contact. "
-    "Attachments are stored alongside emails in the mailbox. "
-    "Etiquette: a short acknowledgement is fine, but do not reply to "
-    "an acknowledgement — that creates pointless ping-pong. "
-    "Pass a 'schedule' object instead of 'action' for recurring sends. "
-    "schedule.action='create': start recurring send (requires address, message, schedule.interval, schedule.count). "
-    "schedule.action='cancel': stop a schedule (requires schedule.schedule_id). "
-    "schedule.action='list': show all schedules with progress."
-)
+
+# Backward compat
+SCHEMA = get_schema("en")
+DESCRIPTION = get_description("en")
 
 
 class EmailManager:
@@ -1054,13 +1016,13 @@ class EmailManager:
 
 def setup(agent: "BaseAgent", *, private_mode: bool = False) -> EmailManager:
     """Set up email capability — filesystem-based mailbox."""
+    lang = agent._config.language
     mgr = EmailManager(agent, private_mode=private_mode)
     agent.override_intrinsic("mail")  # remove mail tool; email reimplements fully
     agent._mailbox_name = "email box"
     agent._mailbox_tool = "email"
     agent.add_tool(
-        "email", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
-        system_prompt="Send, receive, reply, and search email.",
+        "email", schema=get_schema(lang), handler=mgr.handle, description=get_description(lang),
     )
     mgr.resume_schedules()
     return mgr
