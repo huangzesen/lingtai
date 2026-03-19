@@ -41,7 +41,7 @@ The Linux kernel analogy: `stoai-kernel` provides process scheduling (tool dispa
 
 | Layer | Modules | Purpose |
 |-------|---------|---------|
-| LLM adapters | `llm/` (all 10 provider directories + `interface_converters.py` + `_register.py`) | Adapter implementations, registered with kernel's `LLMService` |
+| LLM adapters | `llm/` (5 adapter directories: anthropic, openai, gemini, minimax, custom + `interface_converters.py` + `_register.py`). The `custom` adapter handles additional providers (deepseek, grok, qwen, glm, kimi) via `api_compat` routing. | Adapter implementations, registered with kernel's `LLMService` |
 | Agent | `agent.py` | Layer 2: capabilities dispatcher, imports `BaseAgent` from `stoai_kernel` |
 | Service ABCs + impls | `services/file_io.py`, `services/vision.py`, `services/search.py`, `services/mcp.py` | FileIO, Vision, Search, MCP — ABCs and default implementations |
 | Capabilities | `capabilities/` (all 16) | Composable agent tools |
@@ -108,11 +108,26 @@ def register_all_adapters():
         from .anthropic.adapter import AnthropicAdapter
         return AnthropicAdapter(**kw)
 
-    # ... etc for all 10 providers ...
+    def _openai(**kw):
+        from .openai.adapter import OpenAIAdapter
+        return OpenAIAdapter(**kw)
+
+    def _minimax(**kw):
+        from .minimax.adapter import MiniMaxAdapter
+        return MiniMaxAdapter(**kw)
+
+    def _custom(**kw):
+        from .custom.adapter import create_custom_adapter
+        return create_custom_adapter(**kw)
 
     LLMService.register_adapter("gemini", _gemini)
     LLMService.register_adapter("anthropic", _anthropic)
-    # ...
+    LLMService.register_adapter("openai", _openai)
+    LLMService.register_adapter("minimax", _minimax)
+
+    # Providers routed through the custom adapter (api_compat)
+    for name in ("deepseek", "grok", "qwen", "glm", "kimi"):
+        LLMService.register_adapter(name, _custom)
 ```
 
 Lazy import is preserved — adapter SDKs are only imported when first used.
@@ -220,11 +235,6 @@ stoai/
 │           ├── openai/
 │           ├── gemini/
 │           ├── minimax/
-│           ├── deepseek/
-│           ├── grok/
-│           ├── qwen/
-│           ├── glm/
-│           ├── kimi/
 │           └── custom/
 ├── tests/
 ├── pyproject.toml
@@ -239,15 +249,14 @@ stoai/
 name = "stoai"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["stoai-kernel"]
 
 [project.optional-dependencies]
-kernel = ["stoai-kernel"]
 gemini = ["google-genai>=1.0"]
 openai = ["openai>=1.0"]
 anthropic = ["anthropic>=0.40"]
 minimax = ["minimax>=0.1"]
-all = ["stoai[kernel,gemini,openai,anthropic,minimax]"]
+all = ["stoai[gemini,openai,anthropic,minimax]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -294,15 +303,74 @@ register_all_adapters()
 
 This ensures `from stoai import BaseAgent` continues to work. The split is invisible to existing users.
 
+## Prerequisite Refactors
+
+Before the split, several coupling points in `BaseAgent` must be resolved:
+
+### 1. Move FileIO auto-creation from BaseAgent to Agent
+
+Currently `BaseAgent.__init__()` auto-creates a `LocalFileIOService` if none is provided:
+
+```python
+# base_agent.py — current
+if file_io is not None:
+    self._file_io = file_io
+else:
+    from .services.file_io import LocalFileIOService
+    self._file_io = LocalFileIOService(root=self._working_dir)
+```
+
+This creates a kernel dependency on a non-kernel module. **Fix:** BaseAgent accepts `file_io=None` and leaves `_file_io` as `None`. Agent's `__init__()` handles the auto-creation. Capabilities that need `_file_io` already check for it or go through Agent.
+
+### 2. Move `connect_mcp()` from BaseAgent to Agent
+
+`BaseAgent.connect_mcp()` imports `MCPClient` from `services.mcp`, which stays in stoai. **Fix:** Move the method to Agent. MCP is an extension mechanism, not a kernel concern.
+
+### 3. Clean up AgentConfig
+
+`AgentConfig.bash_policy_file` is only used by the bash capability, not by any kernel code. **Fix:** Remove capability-specific fields from the kernel's `AgentConfig`. Capability-level config is passed via `capabilities={"bash": {"policy_file": ...}}` kwargs.
+
+### 4. Multimodal routing after LLMService cleanup
+
+After removing multimodal methods from `LLMService`, capabilities need a way to resolve which provider to use for each modality. Currently `LLMService` reads `_config` keys like `"vision_provider"`. **Fix:** Provider routing moves to the capabilities themselves — each capability receives its provider config via kwargs at setup time (e.g., `capabilities={"vision": {"provider": "gemini"}}`), then calls `service.get_adapter(provider)` directly.
+
+## Versioning Strategy
+
+Both packages start at `0.1.0`. During `0.x`:
+- No formal API stability guarantees — the kernel is still maturing
+- `stoai` pins `stoai-kernel` to compatible release ranges (`~=0.1.0`)
+- Breaking changes documented in changelogs
+
+At `1.0.0`:
+- Kernel's public API (BaseAgent, LLMAdapter, ChatSession, services ABCs, intrinsic handler signatures) becomes stable under SemVer
+- Internal attributes accessed by intrinsics are documented as part of the kernel contract
+- `stoai` uses `>=1.0,<2.0` range pins
+
+## Architectural Rules
+
+1. **Kernel must never import from stoai** — the dependency is strictly one-directional
+2. **Intrinsic-agent contract** — intrinsics access BaseAgent internals via duck-typing. The set of attributes intrinsics may access (`_working_dir`, `_mail_service`, `_log()`, `_shutdown`, `_chat`, `_session`, etc.) is a de-facto kernel API. Changes to these attributes require a kernel version bump.
+3. **`interface_converters.py` lives in stoai** — it depends only on kernel types but contains provider-specific logic. The kernel defines the canonical format; converters translate.
+
 ## Migration Strategy
 
-1. **Create `stoai-kernel` repo** — copy kernel modules, rename all internal imports to `stoai_kernel.*`
-2. **Refactor `LLMService`** — remove hardcoded adapter imports (replace with registry), remove multimodal methods
-3. **Update `stoai`** — add `stoai-kernel` as path dev dependency, remove kernel modules from `src/stoai/`, update imports
-4. **Update capabilities** — capabilities that used `LLMService` multimodal methods now call `service.get_adapter(provider)` directly
-5. **Add re-exports** in `stoai.__init__` for backward compatibility
-6. **Split tests** — kernel tests go to `stoai-kernel/tests/`, capability/agent tests stay
-7. **Verify** — `pip install -e ../stoai-kernel && pip install -e .` then `python -m pytest tests/`
+### Phase 1: Prerequisite refactors (in current monorepo, before split)
+
+1. **Move FileIO auto-creation** from `BaseAgent.__init__()` to `Agent.__init__()`
+2. **Move `connect_mcp()`** from `BaseAgent` to `Agent`
+3. **Clean up `AgentConfig`** — remove capability-specific fields
+4. **Refactor `LLMService`** — remove hardcoded adapter imports (replace with registry), remove multimodal methods
+5. **Update capabilities** — capabilities that used `LLMService` multimodal methods now resolve providers via kwargs and call `service.get_adapter(provider)` directly
+6. **Add adapter registration** — create `llm/_register.py`, call it from `stoai.__init__`
+7. **Verify** — all existing tests still pass
+
+### Phase 2: Extract kernel
+
+8. **Create `stoai-kernel` repo** — copy kernel modules, rename all internal imports to `stoai_kernel.*`
+9. **Update `stoai`** — add `stoai-kernel` as path dev dependency, remove kernel modules from `src/stoai/`, update imports from `stoai.*` to `stoai_kernel.*` where needed
+10. **Add re-exports** in `stoai.__init__` for backward compatibility
+11. **Split tests** — pure kernel tests (BaseAgent lifecycle, intrinsics, LLM protocol, mail/logging services) go to `stoai-kernel/tests/`. Integration tests that exercise Agent + capabilities stay in `stoai/tests/` and depend on `stoai-kernel`.
+12. **Verify** — `pip install -e ../stoai-kernel && pip install -e .` then run both test suites
 
 ## Third-Party Extension Points
 
