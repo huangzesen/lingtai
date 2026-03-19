@@ -12,3 +12,9 @@ def test_unknown_lang_falls_back_to_en():
 
 def test_unknown_key_returns_key():
     assert t("en", "nonexistent.key") == "nonexistent.key"
+
+
+def test_zh_simple_key():
+    result = t("zh", "read.description")
+    assert result != "read.description"  # not the fallback key
+    assert "文件" in result  # Chinese text present
