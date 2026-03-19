@@ -44,26 +44,26 @@ def test_silence_bypasses_inbox(tmp_path):
     assert agent.inbox.empty()
 
 
-def test_silence_deactivates_conscience(tmp_path):
-    """Silence should deactivate conscience timer if active."""
+def test_silence_deactivates_vibing(tmp_path):
+    """Silence should deactivate vibing timer if active."""
     agent = Agent(
         agent_name="test", service=make_mock_service(), base_dir=tmp_path,
-        capabilities={"conscience": {"interval": 9999}},
+        capabilities={"vibing": {"interval": 9999}},
     )
-    mgr = agent.get_capability("conscience")
-    # Activate conscience manually
+    mgr = agent.get_capability("vibing")
+    # Activate vibing manually
     mgr._activate()
-    assert mgr._horme_active
+    assert mgr._active
 
     agent._on_mail_received({"from": "boss", "type": "silence"})
 
-    assert not mgr._horme_active
+    assert not mgr._active
     assert mgr._timer is None
     agent.stop(timeout=1.0)
 
 
-def test_silence_without_conscience_still_works(tmp_path):
-    """Silence should work fine when conscience capability is not present."""
+def test_silence_without_vibing_still_works(tmp_path):
+    """Silence should work fine when vibing capability is not present."""
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
 
     agent._on_mail_received({"from": "boss", "type": "silence"})

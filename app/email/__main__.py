@@ -160,17 +160,17 @@ def main():
     if not char_file.is_file():
         char_file.write_text(character)
 
-    # Capabilities (inter-agent email + conscience + others)
+    # Capabilities (inter-agent email + vibing + others)
     capabilities = cfg.get("capabilities", {
         "email": {},
         "file": {},
         "web_search": {},
         "anima": {},
-        "conscience": {"interval": 30},
+        "vibing": {"interval": 30},
     })
-    # Ensure conscience is enabled with 30s interval
-    if "conscience" not in capabilities:
-        capabilities["conscience"] = {"interval": 30}
+    # Ensure vibing is enabled with 30s interval
+    if "vibing" not in capabilities:
+        capabilities["vibing"] = {"interval": 30}
 
     # Gmail addon
     addons = {
@@ -194,8 +194,8 @@ def main():
         "- Never go back and forth with courtesy emails.\n"
         "\n"
         "## Initiative\n"
-        "- FIRST THING: Turn on your conscience (inner voice) using conscience(action=\"horme\", enabled=true).\n"
-        "- Your conscience will nudge you periodically. Use it to stay proactive.\n"
+        "- FIRST THING: Turn on your inner voice using vibing(action=\"switch\", enabled=true).\n"
+        "- Your vibing will nudge you periodically. Use it to stay proactive.\n"
         "- Regularly check your gmail inbox for new or unreplied emails.\n"
         "- When idle, use gmail(action=\"check\") to see if anything needs attention.\n"
         "- If you find unreplied emails, read and respond to them.\n"

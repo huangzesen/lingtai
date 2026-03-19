@@ -38,8 +38,8 @@ them to specialized subagents that you spawn.
 ## Delegation
 - Use the delegate tool to spawn subagents for specific tasks.
 - Give each subagent a descriptive name (e.g. "researcher", "analyst").
-- Do NOT give subagents the conscience capability — it interferes with silence/kill.
-  Always pass capabilities explicitly without conscience:
+- Do NOT give subagents the vibing capability — it interferes with silence/kill.
+  Always pass capabilities explicitly without vibing:
   capabilities=["email", "bash", "file", "web_search", "vision", "psyche"]
 - In the mission briefing (reasoning), include:
   - What to do and why
@@ -83,7 +83,7 @@ def setup(llm: LLMService, base_dir: Path) -> AppState:
         llm=llm,
         capabilities={
             "email": {}, "web_search": {}, "file": {},
-            "vision": {}, "psyche": {}, "conscience": {"interval": 30},
+            "vision": {}, "psyche": {}, "vibing": {"interval": 30},
             "bash": {}, "delegate": {},
         },
         covenant=COVENANT,
