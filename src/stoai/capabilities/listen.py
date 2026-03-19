@@ -15,48 +15,33 @@ if TYPE_CHECKING:
 
 logger = get_logger()
 
-SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "audio_path": {
-            "type": "string",
-            "description": "Path to the audio file (mp3, wav, etc.)",
-        },
-        "action": {
-            "type": "string",
-            "enum": ["transcribe", "appreciate"],
-            "description": (
-                "Choose the action:\n"
-                "- 'transcribe': Speech-to-text using a local Whisper model. "
-                "Best for spoken word and clear speech. "
-                "Works on singing but lyrics may be inaccurate — "
-                "misheard words are common with sung vocals.\n"
-                "- 'appreciate': Music analysis using signal processing (librosa). "
-                "Returns structured data: estimated key, tempo/BPM, "
-                "frequency band energy, spectral characteristics (brightness, "
-                "bandwidth), dynamics/energy contour over time, and beat regularity. "
-                "These are numerical measurements, not subjective descriptions — "
-                "it is your job to interpret the numbers into a meaningful critique. "
-                "Best for music and sound design. "
-                "Not useful for speech — it will give you spectral data "
-                "but no semantic content.\n"
-                "If the analysis is insufficient for your needs, "
-                "you can always write your own scripts to dig deeper."
-            ),
-        },
-    },
-    "required": ["audio_path", "action"],
-}
+def get_description(lang: str = "en") -> str:
+    from ..i18n import t
+    return t(lang, "listen.description")
 
-DESCRIPTION = (
-    "Listen to audio: transcribe speech or appreciate music. "
-    "Transcribe uses a local Whisper model (best for speech; lyrics from "
-    "singing may be inaccurate). "
-    "Appreciate uses signal processing to extract musical features "
-    "(key, tempo, timbre, dynamics — best for music; not useful for speech). "
-    "Both run locally with no API cost. "
-    "If the built-in analysis is not enough, write your own scripts to go deeper."
-)
+
+def get_schema(lang: str = "en") -> dict:
+    from ..i18n import t
+    return {
+        "type": "object",
+        "properties": {
+            "audio_path": {
+                "type": "string",
+                "description": t(lang, "listen.audio_path"),
+            },
+            "action": {
+                "type": "string",
+                "enum": ["transcribe", "appreciate"],
+                "description": t(lang, "listen.action"),
+            },
+        },
+        "required": ["audio_path", "action"],
+    }
+
+
+# Backward compat
+SCHEMA: dict[str, Any] = get_schema("en")
+DESCRIPTION = get_description("en")
 
 
 class ListenManager:
@@ -260,6 +245,7 @@ def setup(agent: "BaseAgent", **kwargs: Any) -> ListenManager:
     No external service needed — both backends run locally.
     Optional kwargs: whisper_model (str, default 'base').
     """
+    lang = agent._config.language
     mgr = ListenManager(working_dir=agent.working_dir)
-    agent.add_tool("listen", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
+    agent.add_tool("listen", schema=get_schema(lang), handler=mgr.handle, description=get_description(lang))
     return mgr

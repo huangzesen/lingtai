@@ -14,20 +14,25 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from stoai_kernel.base_agent import BaseAgent
 
-SCHEMA = {
-    "type": "object",
-    "properties": {
-        "query": {"type": "string", "description": "Search query"},
-    },
-    "required": ["query"],
-}
+def get_description(lang: str = "en") -> str:
+    from ..i18n import t
+    return t(lang, "web_search.description")
 
-DESCRIPTION = (
-    "Search the web for current information. "
-    "Use for real-time data, recent events, documentation, "
-    "or anything beyond your training knowledge. "
-    "Returns ranked search results with titles, URLs, and snippets."
-)
+
+def get_schema(lang: str = "en") -> dict:
+    from ..i18n import t
+    return {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": t(lang, "web_search.query")},
+        },
+        "required": ["query"],
+    }
+
+
+# Backward compat
+SCHEMA = get_schema("en")
+DESCRIPTION = get_description("en")
 
 
 class WebSearchManager:
@@ -87,7 +92,7 @@ class WebSearchManager:
 def setup(agent: "BaseAgent", search_service: Any | None = None,
           provider: str | None = None, **kwargs: Any) -> WebSearchManager:
     """Set up the web_search capability on an agent."""
+    lang = agent._config.language
     mgr = WebSearchManager(agent, search_service=search_service, web_search_provider=provider)
-    agent.add_tool("web_search", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
-                    system_prompt="Search the web for current information.")
+    agent.add_tool("web_search", schema=get_schema(lang), handler=mgr.handle, description=get_description(lang))
     return mgr

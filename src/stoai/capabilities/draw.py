@@ -16,28 +16,32 @@ if TYPE_CHECKING:
 
 logger = get_logger()
 
-SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "prompt": {
-            "type": "string",
-            "description": "Description of the image to generate",
-        },
-        "aspect_ratio": {
-            "type": "string",
-            "description": "Aspect ratio (e.g. '1:1', '16:9', '9:16'). Default: '1:1'",
-        },
-    },
-    "required": ["prompt"],
-}
+def get_description(lang: str = "en") -> str:
+    from ..i18n import t
+    return t(lang, "draw.description")
 
-DESCRIPTION = (
-    "Generate an image from a text description. "
-    "Provide a detailed prompt — the more specific, the better the result. "
-    "Supports various aspect ratios (1:1, 16:9, 9:16, 4:3, etc.). "
-    "Output: JPEG image saved to media/images/ in your working directory. "
-    "Combine with vision to generate an image and then analyze or critique it."
-)
+
+def get_schema(lang: str = "en") -> dict:
+    from ..i18n import t
+    return {
+        "type": "object",
+        "properties": {
+            "prompt": {
+                "type": "string",
+                "description": t(lang, "draw.prompt"),
+            },
+            "aspect_ratio": {
+                "type": "string",
+                "description": t(lang, "draw.aspect_ratio"),
+            },
+        },
+        "required": ["prompt"],
+    }
+
+
+# Backward compat
+SCHEMA: dict[str, Any] = get_schema("en")
+DESCRIPTION = get_description("en")
 
 
 class DrawManager:
@@ -131,6 +135,7 @@ def setup(agent: "BaseAgent", **kwargs: Any) -> DrawManager:
     mcp_client = kwargs.get("mcp_client")
     if mcp_client is None:
         mcp_client = _auto_create_mcp_client(**kwargs)
+    lang = agent._config.language
     mgr = DrawManager(working_dir=agent.working_dir, mcp_client=mcp_client)
-    agent.add_tool("draw", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
+    agent.add_tool("draw", schema=get_schema(lang), handler=mgr.handle, description=get_description(lang))
     return mgr

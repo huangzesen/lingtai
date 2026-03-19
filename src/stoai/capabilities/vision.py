@@ -15,25 +15,30 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from stoai_kernel.base_agent import BaseAgent
 
-SCHEMA = {
-    "type": "object",
-    "properties": {
-        "image_path": {"type": "string", "description": "Path to the image file"},
-        "question": {
-            "type": "string",
-            "description": "Question about the image",
-            "default": "Describe this image.",
-        },
-    },
-    "required": ["image_path"],
-}
+def get_description(lang: str = "en") -> str:
+    from ..i18n import t
+    return t(lang, "vision.description")
 
-DESCRIPTION = (
-    "Analyze an image using the LLM's vision capabilities. "
-    "Supports JPEG, PNG, and WebP. Ask any question about the image — "
-    "describe contents, read text, interpret charts, identify objects, "
-    "assess style or mood. Combine with draw to generate then analyze images."
-)
+
+def get_schema(lang: str = "en") -> dict:
+    from ..i18n import t
+    return {
+        "type": "object",
+        "properties": {
+            "image_path": {"type": "string", "description": t(lang, "vision.image_path")},
+            "question": {
+                "type": "string",
+                "description": t(lang, "vision.question"),
+                "default": "Describe this image.",
+            },
+        },
+        "required": ["image_path"],
+    }
+
+
+# Backward compat
+SCHEMA = get_schema("en")
+DESCRIPTION = get_description("en")
 
 _MIME_BY_EXT: dict[str, str] = {
     ".png": "image/png",
@@ -108,7 +113,7 @@ class VisionManager:
 def setup(agent: "BaseAgent", vision_service: Any | None = None,
           provider: str | None = None, **kwargs: Any) -> VisionManager:
     """Set up the vision capability on an agent."""
+    lang = agent._config.language
     mgr = VisionManager(agent, vision_service=vision_service, vision_provider=provider)
-    agent.add_tool("vision", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
-                    system_prompt="Analyze and understand images.")
+    agent.add_tool("vision", schema=get_schema(lang), handler=mgr.handle, description=get_description(lang))
     return mgr

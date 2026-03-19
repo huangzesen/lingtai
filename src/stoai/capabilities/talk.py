@@ -12,37 +12,40 @@ if TYPE_CHECKING:
 
 logger = get_logger()
 
-SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "text": {
-            "type": "string",
-            "description": "Text to convert to speech",
-        },
-        "voice_id": {
-            "type": "string",
-            "description": "Voice to use (optional). Use list_voices to see options.",
-        },
-        "emotion": {
-            "type": "string",
-            "description": "Emotion for the speech (e.g. 'happy', 'sad', 'neutral'). Default: 'happy'",
-        },
-        "speed": {
-            "type": "number",
-            "description": "Speech speed multiplier (e.g. 0.5 for slow, 2.0 for fast). Default: 1.0",
-        },
-    },
-    "required": ["text"],
-}
+def get_description(lang: str = "en") -> str:
+    from ..i18n import t
+    return t(lang, "talk.description")
 
-DESCRIPTION = (
-    "Convert text to speech audio. "
-    "Produces natural-sounding speech in multiple voices and emotions. "
-    "Output: MP3 file saved to media/audio/ in your working directory. "
-    "Supports voice selection, emotion control (happy, sad, neutral), "
-    "and speed adjustment. Use for narration, announcements, or "
-    "giving your output a voice."
-)
+
+def get_schema(lang: str = "en") -> dict:
+    from ..i18n import t
+    return {
+        "type": "object",
+        "properties": {
+            "text": {
+                "type": "string",
+                "description": t(lang, "talk.text"),
+            },
+            "voice_id": {
+                "type": "string",
+                "description": t(lang, "talk.voice_id"),
+            },
+            "emotion": {
+                "type": "string",
+                "description": t(lang, "talk.emotion"),
+            },
+            "speed": {
+                "type": "number",
+                "description": t(lang, "talk.speed"),
+            },
+        },
+        "required": ["text"],
+    }
+
+
+# Backward compat
+SCHEMA: dict[str, Any] = get_schema("en")
+DESCRIPTION = get_description("en")
 
 
 class TalkManager:
@@ -140,6 +143,7 @@ def setup(agent: "BaseAgent", **kwargs: Any) -> TalkManager:
     mcp_client = kwargs.get("mcp_client")
     if mcp_client is None:
         mcp_client = _auto_create_mcp_client(**kwargs)
+    lang = agent._config.language
     mgr = TalkManager(working_dir=agent.working_dir, mcp_client=mcp_client)
-    agent.add_tool("talk", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
+    agent.add_tool("talk", schema=get_schema(lang), handler=mgr.handle, description=get_description(lang))
     return mgr

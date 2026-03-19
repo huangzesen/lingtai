@@ -12,32 +12,32 @@ if TYPE_CHECKING:
 
 logger = get_logger()
 
-SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "prompt": {
-            "type": "string",
-            "description": "Description of the music style, mood, and genre to generate",
-        },
-        "lyrics": {
-            "type": "string",
-            "description": (
-                "Lyrics for the song. Required by the music model. "
-                "Use empty string or instrumental placeholders like "
-                "'La la la' for instrumental-style tracks."
-            ),
-        },
-    },
-    "required": ["prompt", "lyrics"],
-}
+def get_description(lang: str = "en") -> str:
+    from ..i18n import t
+    return t(lang, "compose.description")
 
-DESCRIPTION = (
-    "Generate music from a text description and lyrics. "
-    "Provide a prompt describing the style/mood/genre and lyrics for the vocals. "
-    "For instrumental-style tracks, use placeholder lyrics like 'La la la'. "
-    "Output: MP3 file (up to 5 minutes) saved to media/music/ in your working directory. "
-    "Combine with listen (appreciate) to analyze the generated music."
-)
+
+def get_schema(lang: str = "en") -> dict:
+    from ..i18n import t
+    return {
+        "type": "object",
+        "properties": {
+            "prompt": {
+                "type": "string",
+                "description": t(lang, "compose.prompt"),
+            },
+            "lyrics": {
+                "type": "string",
+                "description": t(lang, "compose.lyrics"),
+            },
+        },
+        "required": ["prompt", "lyrics"],
+    }
+
+
+# Backward compat
+SCHEMA: dict[str, Any] = get_schema("en")
+DESCRIPTION = get_description("en")
 
 
 class ComposeManager:
@@ -136,6 +136,7 @@ def setup(agent: "BaseAgent", **kwargs: Any) -> ComposeManager:
     mcp_client = kwargs.get("mcp_client")
     if mcp_client is None:
         mcp_client = _auto_create_mcp_client(**kwargs)
+    lang = agent._config.language
     mgr = ComposeManager(working_dir=agent.working_dir, mcp_client=mcp_client)
-    agent.add_tool("compose", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION)
+    agent.add_tool("compose", schema=get_schema(lang), handler=mgr.handle, description=get_description(lang))
     return mgr
