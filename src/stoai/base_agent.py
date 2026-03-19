@@ -115,12 +115,8 @@ class BaseAgent:
         self._workdir.acquire_lock()
 
         # --- Wire services ---
-        # FileIOService: auto-create LocalFileIOService for backward compat
-        if file_io is not None:
-            self._file_io = file_io
-        else:
-            from .services.file_io import LocalFileIOService
-            self._file_io = LocalFileIOService(root=self._working_dir)
+        # FileIOService: optional, provided by Agent or host
+        self._file_io = file_io
 
         # MailService: None means mail intrinsic disabled
         self._mail_service = mail_service

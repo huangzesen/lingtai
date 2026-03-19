@@ -33,6 +33,11 @@ class Agent(BaseAgent):
     ):
         super().__init__(*args, **kwargs)
 
+        # Auto-create FileIOService if not provided by host
+        if self._file_io is None:
+            from .services.file_io import LocalFileIOService
+            self._file_io = LocalFileIOService(root=self._working_dir)
+
         # Auto-load MCP servers from working directory
         self._load_mcp_from_workdir()
 

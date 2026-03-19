@@ -39,6 +39,12 @@ def test_agent_double_start(tmp_path):
     agent.stop(timeout=2.0)
 
 
+def test_base_agent_file_io_defaults_to_none(tmp_path):
+    """BaseAgent should have _file_io=None when no file_io is passed."""
+    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    assert agent._file_io is None
+
+
 # ---------------------------------------------------------------------------
 # Intrinsics filtering
 # ---------------------------------------------------------------------------
