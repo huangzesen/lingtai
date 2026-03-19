@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from stoai.agent import Agent
+from stoai.capabilities.vision import VisionManager
 
 
 def make_mock_service():
@@ -23,18 +24,27 @@ def test_vision_added_by_capability(tmp_path):
     assert "vision" in agent._mcp_handlers
 
 
-def test_vision_analyzes_image(tmp_path):
-    """Vision capability should analyze an image file."""
-    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
-                       capabilities=["vision"])
+def test_vision_analyzes_image_via_adapter(tmp_path):
+    """VisionManager should call adapter.generate_vision() directly."""
+    svc = make_mock_service()
+    adapter = MagicMock()
     mock_response = MagicMock()
     mock_response.text = "A cat sitting on a table"
-    agent.service.generate_vision = MagicMock(return_value=mock_response)
-    img_path = agent.working_dir / "test.png"
+    adapter.generate_vision.return_value = mock_response
+    svc.get_adapter.return_value = adapter
+    svc._get_provider_defaults.return_value = {"model": "gemini-test"}
+
+    agent = MagicMock()
+    agent.service = svc
+    agent._working_dir = tmp_path
+
+    mgr = VisionManager(agent, vision_provider="gemini")
+    img_path = tmp_path / "test.png"
     img_path.write_bytes(b"\x89PNG fake image data")
-    result = agent._mcp_handlers["vision"]({"image_path": str(img_path)})
+    result = mgr.handle({"image_path": str(img_path)})
     assert result["status"] == "ok"
     assert "cat" in result["analysis"]
+    adapter.generate_vision.assert_called_once()
 
 
 def test_vision_with_dedicated_service(tmp_path):
@@ -59,14 +69,33 @@ def test_vision_missing_image(tmp_path):
     assert result.get("status") == "error"
 
 
-def test_vision_relative_path(tmp_path):
-    """Vision should resolve relative paths against working directory."""
-    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
-                       capabilities=["vision"])
+def test_vision_relative_path_via_adapter(tmp_path):
+    """VisionManager should resolve relative paths against working directory."""
+    svc = make_mock_service()
+    adapter = MagicMock()
     mock_response = MagicMock()
     mock_response.text = "An image"
-    agent.service.generate_vision = MagicMock(return_value=mock_response)
-    img_path = agent.working_dir / "photo.png"
+    adapter.generate_vision.return_value = mock_response
+    svc.get_adapter.return_value = adapter
+    svc._get_provider_defaults.return_value = {"model": "gemini-test"}
+
+    agent = MagicMock()
+    agent.service = svc
+    agent._working_dir = tmp_path
+
+    mgr = VisionManager(agent, vision_provider="gemini")
+    img_path = tmp_path / "photo.png"
     img_path.write_bytes(b"\x89PNG fake")
-    result = agent._mcp_handlers["vision"]({"image_path": "photo.png"})
+    result = mgr.handle({"image_path": "photo.png"})
     assert result["status"] == "ok"
+
+
+def test_vision_no_provider_returns_error(tmp_path):
+    """Vision without provider or service should return a clear error."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities=["vision"])
+    img_path = agent.working_dir / "test.png"
+    img_path.write_bytes(b"\x89PNG fake")
+    result = agent._mcp_handlers["vision"]({"image_path": str(img_path)})
+    assert result["status"] == "error"
+    assert "provider" in result["message"].lower()
