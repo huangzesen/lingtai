@@ -60,19 +60,20 @@ class WebSearchManager:
                 pass  # Fall through to direct LLM call
 
         # Fall back to direct adapter call
-        if self._web_search_provider is None:
+        provider = self._web_search_provider or self._agent.service.provider
+        if provider is None:
             return {
                 "status": "error",
                 "message": "Web search provider not configured. Pass provider='...' in capability kwargs.",
             }
         try:
-            adapter = self._agent.service.get_adapter(self._web_search_provider)
+            adapter = self._agent.service.get_adapter(provider)
         except RuntimeError:
             return {
                 "status": "error",
-                "message": f"Web search provider {self._web_search_provider!r} not available.",
+                "message": f"Web search provider {provider!r} not available.",
             }
-        defaults = self._agent.service._get_provider_defaults(self._web_search_provider)
+        defaults = self._agent.service._get_provider_defaults(provider)
         model = defaults.get("model", "") if defaults else ""
         resp = adapter.web_search(query, model=model)
         if not resp.text:

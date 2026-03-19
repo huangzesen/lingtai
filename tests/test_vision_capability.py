@@ -90,12 +90,14 @@ def test_vision_relative_path_via_adapter(tmp_path):
     assert result["status"] == "ok"
 
 
-def test_vision_no_provider_returns_error(tmp_path):
-    """Vision without provider or service should return a clear error."""
+def test_vision_falls_back_to_main_provider(tmp_path):
+    """Vision without explicit provider should fall back to agent's main provider."""
     agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
                        capabilities=["vision"])
     img_path = agent.working_dir / "test.png"
     img_path.write_bytes(b"\x89PNG fake")
+    adapter = agent.service.get_adapter.return_value
+    adapter.generate_vision.return_value = MagicMock(text="a photo")
     result = agent._mcp_handlers["vision"]({"image_path": str(img_path)})
-    assert result["status"] == "error"
-    assert "provider" in result["message"].lower()
+    assert result["status"] == "ok"
+    agent.service.get_adapter.assert_called_with("gemini")

@@ -29,15 +29,6 @@ from stoai.llm import LLMService
 
 from .server.main import create_app
 
-# Maps addon name → LLMService provider_config key
-_ADDON_TO_PROVIDER_KEY = {
-    "web_search": "web_search_provider",
-    "vision": "vision_provider",
-    "draw": "image_provider",
-    "compose": "music_provider",
-    "talk": "tts_provider",
-}
-
 
 def _list_examples() -> list[str]:
     """List available example names."""
@@ -136,21 +127,14 @@ def main(example_name: str | None = None):
     if base_url:
         provider_defaults[provider]["base_url"] = base_url
 
-    # Build provider_config from addons, merge addon base_urls into provider_defaults
-    provider_config: dict = {}
+    # Merge addon base_urls into provider_defaults
     addons = cfg.get("addons", {})
-    for addon_name, addon_cfg in addons.items():
+    for addon_cfg in addons.values():
         if not isinstance(addon_cfg, dict):
             continue
         addon_provider = addon_cfg.get("provider")
-        if not addon_provider:
-            continue  # local-only (e.g. listen)
-        config_key = _ADDON_TO_PROVIDER_KEY.get(addon_name)
-        if config_key:
-            provider_config[config_key] = addon_provider
-        # Merge addon base_url into provider_defaults
         addon_url = addon_cfg.get("base_url")
-        if addon_url:
+        if addon_provider and addon_url:
             provider_defaults.setdefault(addon_provider, {})["base_url"] = addon_url
 
     # Pass all addon API keys to MiniMax MCP subprocess

@@ -68,10 +68,12 @@ def test_web_search_missing_query(tmp_path):
     assert result.get("status") == "error"
 
 
-def test_web_search_no_provider_returns_error(tmp_path):
-    """web_search without provider or service should return a clear error."""
+def test_web_search_falls_back_to_main_provider(tmp_path):
+    """web_search without explicit provider should fall back to agent's main provider."""
     agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
                        capabilities=["web_search"])
+    adapter = agent.service.get_adapter.return_value
+    adapter.web_search.return_value = MagicMock(text="search results")
     result = agent._mcp_handlers["web_search"]({"query": "test query"})
-    assert result["status"] == "error"
-    assert "provider" in result["message"].lower()
+    assert result["status"] == "ok"
+    agent.service.get_adapter.assert_called_with("gemini")

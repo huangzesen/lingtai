@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
+import ForceGraph2D from "react-force-graph-2d";
 import { forceRadial } from "d3-force-3d";
 import type { GraphNode, GraphLink, NodeActivity } from "../types";
 import type { EmailEvent } from "../hooks/useNetwork";
@@ -24,7 +24,8 @@ interface NetworkPageProps {
 
 export function NetworkPage({ graphData, nodeActivity, pendingEmails, lightMode }: NetworkPageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fgRef = useRef<any>(undefined);
   const [viewMode, setViewMode] = useState<ViewMode>("comm");
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("default");
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
@@ -232,9 +233,11 @@ export function NetworkPage({ graphData, nodeActivity, pendingEmails, lightMode 
             ctx.fillStyle = color;
             ctx.fill();
           }}
-          linkColor={() => linkBaseColor}
+          linkColor={() => {
+            const opacity = viewMode === "activity" ? 0.05 : 0.6;
+            return linkBaseColor + Math.round(opacity * 255).toString(16).padStart(2, "0");
+          }}
           linkWidth={(link: GraphLink) => Math.min(0.5 + link.count * 0.3, 3)}
-          linkOpacity={viewMode === "activity" ? 0.05 : 0.6}
           linkDirectionalParticles={0}
           linkDirectionalParticleWidth={4}
           linkDirectionalParticleSpeed={0.005}
@@ -243,7 +246,8 @@ export function NetworkPage({ graphData, nodeActivity, pendingEmails, lightMode 
           d3VelocityDecay={0.3}
           cooldownTicks={100}
           enableNodeDrag={true}
-          enableZoomPanInteraction={true}
+          enableZoomInteraction={true}
+          enablePanInteraction={true}
         />
       )}
 

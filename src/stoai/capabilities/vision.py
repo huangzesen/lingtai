@@ -79,21 +79,22 @@ class VisionManager:
                 pass  # Fall through to direct LLM call
 
         # Fall back to direct adapter call
-        if self._vision_provider is None:
+        provider = self._vision_provider or self._agent.service.provider
+        if provider is None:
             return {
                 "status": "error",
                 "message": "Vision provider not configured. Pass provider='...' in capability kwargs.",
             }
         try:
-            adapter = self._agent.service.get_adapter(self._vision_provider)
+            adapter = self._agent.service.get_adapter(provider)
         except RuntimeError:
             return {
                 "status": "error",
-                "message": f"Vision provider {self._vision_provider!r} not available.",
+                "message": f"Vision provider {provider!r} not available.",
             }
         image_bytes = path.read_bytes()
         mime = _MIME_BY_EXT.get(path.suffix.lower(), "image/png")
-        defaults = self._agent.service._get_provider_defaults(self._vision_provider)
+        defaults = self._agent.service._get_provider_defaults(provider)
         model = defaults.get("model", "") if defaults else ""
         response = adapter.generate_vision(question, image_bytes, model=model, mime_type=mime)
         if not response.text:
