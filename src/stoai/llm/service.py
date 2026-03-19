@@ -159,7 +159,7 @@ class LLMService:
     """Single entry point between backend and LLM providers.
 
     Responsibilities:
-    - Adapter factory: constructs the right adapter from config
+    - Adapter factory: constructs the right adapter via registry
     - Session registry: assigns stoai session IDs, tracks active sessions
     - One-shot gateway: routes generate() through the same tracking path
     - Token accounting: centralizes per-session usage tracking via interface
@@ -175,6 +175,17 @@ class LLMService:
     - ``provider_defaults``: dict mapping provider name to defaults dict
       (model, base_url, api_compat, etc.).  Defaults to empty dict.
     """
+
+    _adapter_registry: dict[str, Callable[..., LLMAdapter]] = {}
+
+    @classmethod
+    def register_adapter(cls, name: str, factory: Callable[..., LLMAdapter]) -> None:
+        """Register an adapter factory by provider name.
+
+        The factory receives keyword arguments: model, defaults, api_key,
+        base_url, max_rpm.
+        """
+        cls._adapter_registry[name.lower()] = factory
 
     def __init__(
         self,
@@ -198,7 +209,6 @@ class LLMService:
         self._sessions: dict[str, ChatSession] = {}
 
     def _create_adapter(self, provider: str, api_key: str | None, base_url: str | None) -> LLMAdapter:
-        # Build kwargs, omitting None values so adapters fall back to env vars
         key_kw: dict = {"api_key": api_key} if api_key is not None else {}
         defaults = self._get_provider_defaults(provider)
         effective_url = base_url or (defaults.get("base_url") if defaults else None)
@@ -207,27 +217,19 @@ class LLMService:
         rpm_kw: dict = {"max_rpm": max_rpm} if max_rpm > 0 else {}
 
         p = provider.lower()
-        if p == "gemini":
-            from .gemini.adapter import GeminiAdapter
-            model_kw = {"default_model": self._model} if self._model else {}
-            return GeminiAdapter(**key_kw, **rpm_kw, **model_kw)
-        elif p == "anthropic":
-            from .anthropic.adapter import AnthropicAdapter
-            return AnthropicAdapter(**key_kw, **url_kw, **rpm_kw)
-        elif p == "openai":
-            from .openai.adapter import OpenAIAdapter
-            return OpenAIAdapter(**key_kw, **url_kw, **rpm_kw)
-        elif p == "minimax":
-            from .minimax.adapter import MiniMaxAdapter
-            return MiniMaxAdapter(**key_kw, **url_kw, **rpm_kw)
-        else:
-            # All other providers go through the custom adapter
-            # (openai or anthropic compat, configured via provider_defaults)
-            from .custom.adapter import create_custom_adapter
-            compat = defaults.get("api_compat", "openai") if defaults else "openai"
-            return create_custom_adapter(
-                **key_kw, api_compat=compat, **url_kw, **rpm_kw,
+        factory = self._adapter_registry.get(p)
+        if factory is None:
+            raise RuntimeError(
+                f"No adapter registered for provider {provider!r}. "
+                f"Registered: {', '.join(sorted(self._adapter_registry)) or '(none)'}. "
+                f"If using stoai, ensure 'import stoai' runs before creating LLMService."
             )
+
+        return factory(
+            model=self._model,
+            defaults=defaults,
+            **key_kw, **url_kw, **rpm_kw,
+        )
 
     # --- Adapter cache ---
 
