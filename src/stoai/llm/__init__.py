@@ -1,6 +1,7 @@
 """LLM adapter layer — multi-provider support with kernel protocol re-exports."""
 
 from stoai_kernel.llm.base import LLMAdapter, ChatSession, LLMResponse, ToolCall, FunctionSchema
+from stoai_kernel.llm.interface import ChatInterface
 from stoai_kernel.llm.service import LLMService
 
 __all__ = [
@@ -9,6 +10,7 @@ __all__ = [
     "LLMResponse",
     "ToolCall",
     "FunctionSchema",
+    "ChatInterface",
     "LLMService",
 ]
 
