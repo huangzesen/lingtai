@@ -186,10 +186,15 @@ class EmailManager:
         # Maps address → (message_text, count).
         self._last_sent: dict[str, tuple[str, int]] = {}
         self._dup_free_passes = 2  # allow this many identical sends
+        self._schedule_events: dict[str, threading.Event] = {}
 
     @property
     def _mailbox_path(self) -> Path:
         return _mailbox_dir(self._agent)
+
+    @property
+    def _schedules_dir(self) -> Path:
+        return self._mailbox_path / "schedules"
 
     # ------------------------------------------------------------------
     # Filesystem helpers
@@ -342,13 +347,148 @@ class EmailManager:
             return {"error": f"Unknown schedule action: {action}"}
 
     def _schedule_create(self, args: dict, schedule: dict) -> dict:
-        return {"error": "not implemented"}
+        interval = schedule.get("interval")
+        count = schedule.get("count")
+        if interval is None or count is None:
+            return {"error": "schedule.interval and schedule.count are required"}
+        if interval <= 0 or count <= 0:
+            return {"error": "schedule.interval and schedule.count must be positive"}
+
+        raw_address = args.get("address", "")
+        if isinstance(raw_address, str):
+            to_list = [raw_address] if raw_address else []
+        else:
+            to_list = list(raw_address)
+        if not to_list:
+            return {"error": "address is required"}
+
+        send_payload = {
+            "address": args.get("address"),
+            "subject": args.get("subject", ""),
+            "message": args.get("message", ""),
+            "cc": args.get("cc") or [],
+            "bcc": args.get("bcc") or [],
+            "type": args.get("type", "normal"),
+        }
+        if args.get("attachments"):
+            send_payload["attachments"] = args["attachments"]
+
+        schedule_id = uuid4().hex[:12]
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        record = {
+            "schedule_id": schedule_id,
+            "send_payload": send_payload,
+            "interval": interval,
+            "count": count,
+            "sent": 0,
+            "cancelled": False,
+            "created_at": now,
+            "last_sent_at": None,
+        }
+
+        sched_dir = self._schedules_dir / schedule_id
+        sched_dir.mkdir(parents=True, exist_ok=True)
+        self._write_schedule(sched_dir / "schedule.json", record)
+        self._spawn_schedule_thread(schedule_id, record)
+
+        return {"status": "scheduled", "schedule_id": schedule_id, "interval": interval, "count": count}
 
     def _schedule_cancel(self, schedule: dict) -> dict:
         return {"error": "not implemented"}
 
     def _schedule_list(self) -> dict:
         return {"error": "not implemented"}
+
+    # ------------------------------------------------------------------
+    # Schedule helpers
+    # ------------------------------------------------------------------
+
+    def _write_schedule(self, path: Path, record: dict) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+        try:
+            os.write(fd, json.dumps(record, indent=2, default=str).encode())
+            os.close(fd)
+            os.replace(tmp, str(path))
+        except Exception:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+            raise
+
+    def _read_schedule(self, schedule_id: str) -> dict | None:
+        path = self._schedules_dir / schedule_id / "schedule.json"
+        if not path.is_file():
+            return None
+        try:
+            return json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    def _spawn_schedule_thread(self, schedule_id: str, record: dict) -> None:
+        event = threading.Event()
+        self._schedule_events[schedule_id] = event
+        t = threading.Thread(
+            target=self._schedule_loop,
+            args=(schedule_id, record, event),
+            name=f"schedule-{schedule_id}",
+            daemon=True,
+        )
+        t.start()
+
+    def _schedule_loop(self, schedule_id: str, record: dict, cancel_event: threading.Event) -> None:
+        interval = record["interval"]
+        count = record["count"]
+        send_payload = record["send_payload"]
+        sent = record["sent"]
+
+        for seq_0 in range(sent, count):
+            seq = seq_0 + 1  # 1-indexed
+
+            if cancel_event.is_set():
+                break
+
+            # Increment sent BEFORE sending (at-most-once)
+            sched_path = self._schedules_dir / schedule_id / "schedule.json"
+            current = self._read_schedule(schedule_id)
+            if current is None or current.get("cancelled"):
+                break
+            current["sent"] = seq
+            self._write_schedule(sched_path, current)
+
+            # Build send args with _schedule metadata
+            now = datetime.now(timezone.utc)
+            remaining = count - seq
+            estimated_finish = (now + timedelta(seconds=remaining * interval)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            schedule_meta = {
+                "schedule_id": schedule_id,
+                "seq": seq,
+                "total": count,
+                "interval": interval,
+                "scheduled_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "estimated_finish": estimated_finish,
+            }
+            send_args = {**send_payload, "_schedule": schedule_meta}
+            self._send(send_args)
+
+            # Update last_sent_at (re-read to preserve any concurrent cancel)
+            current = self._read_schedule(schedule_id)
+            if current is not None:
+                current["sent"] = seq
+                current["last_sent_at"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+                self._write_schedule(sched_path, current)
+                if current.get("cancelled"):
+                    break
+
+            # Wait for interval (or cancel)
+            if seq < count:
+                if cancel_event.wait(interval):
+                    break
+
+        self._schedule_events.pop(schedule_id, None)
 
     # ------------------------------------------------------------------
     # Send — deliver + save to sent/
@@ -375,14 +515,17 @@ class EmailManager:
         if not to_list:
             return {"error": "address is required"}
 
-        # Block identical consecutive messages
+        # Block identical consecutive messages (skip for scheduled sends)
         all_targets = to_list + cc + bcc
-        duplicates = [
-            addr for addr in all_targets
-            if (prev := self._last_sent.get(addr)) is not None
-            and prev[0] == message_text
-            and prev[1] >= self._dup_free_passes
-        ]
+        if args.get("_schedule"):
+            duplicates = []
+        else:
+            duplicates = [
+                addr for addr in all_targets
+                if (prev := self._last_sent.get(addr)) is not None
+                and prev[0] == message_text
+                and prev[1] >= self._dup_free_passes
+            ]
         if duplicates:
             return {
                 "status": "blocked",
@@ -454,6 +597,8 @@ class EmailManager:
         }
         if bcc:
             sent_record["bcc"] = bcc
+        if args.get("_schedule"):
+            sent_record["_schedule"] = args["_schedule"]
         (sent_dir / "message.json").write_text(
             json.dumps(sent_record, indent=2, default=str)
         )

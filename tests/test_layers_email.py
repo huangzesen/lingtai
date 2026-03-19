@@ -878,6 +878,141 @@ def test_email_schedule_unknown_action(tmp_path):
     assert "error" in result
 
 
+# ---------------------------------------------------------------------------
+# Schedule — create
+# ---------------------------------------------------------------------------
+
+def test_email_schedule_create_basic(tmp_path):
+    """schedule.create should persist schedule.json and return schedule_id."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities=["email"])
+    mail_svc = MagicMock()
+    mail_svc.address = "me"
+    mail_svc.send.return_value = None
+    agent._mail_service = mail_svc
+    mgr = agent.get_capability("email")
+    result = mgr.handle({
+        "address": "someone",
+        "subject": "Heartbeat",
+        "message": "alive",
+        "schedule": {"action": "create", "interval": 1, "count": 3},
+    })
+    assert result["status"] == "scheduled"
+    assert "schedule_id" in result
+    assert result["interval"] == 1
+    assert result["count"] == 3
+    # schedule.json should exist on disk
+    sched_dir = agent.working_dir / "mailbox" / "schedules" / result["schedule_id"]
+    assert (sched_dir / "schedule.json").is_file()
+    sched = json.loads((sched_dir / "schedule.json").read_text())
+    assert sched["count"] == 3
+    assert sched["sent"] == 0
+    assert sched["cancelled"] is False
+
+
+def test_email_schedule_create_sends_messages(tmp_path):
+    """schedule.create should send count messages with interval between them."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities=["email"])
+    mail_svc = MagicMock()
+    mail_svc.address = "me"
+    mail_svc.send.return_value = None
+    agent._mail_service = mail_svc
+    mgr = agent.get_capability("email")
+    result = mgr.handle({
+        "address": "someone",
+        "subject": "Beat",
+        "message": "ping",
+        "schedule": {"action": "create", "interval": 1, "count": 3},
+    })
+    sid = result["schedule_id"]
+    # Wait for all 3 sends (3 sends * 1s interval + buffer)
+    time.sleep(4.0)
+    # Should have sent 3 times
+    sched = json.loads((agent.working_dir / "mailbox" / "schedules" / sid / "schedule.json").read_text())
+    assert sched["sent"] == 3
+    # Sent folder should have 3 records
+    sent_dir = agent.working_dir / "mailbox" / "sent"
+    assert len(list(sent_dir.iterdir())) == 3
+
+
+def test_email_schedule_create_includes_metadata(tmp_path):
+    """Each scheduled send should include _schedule metadata."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities=["email"])
+    mail_svc = MagicMock()
+    mail_svc.address = "me"
+    mail_svc.send.return_value = None
+    agent._mail_service = mail_svc
+    mgr = agent.get_capability("email")
+    result = mgr.handle({
+        "address": "someone",
+        "message": "beat",
+        "schedule": {"action": "create", "interval": 1, "count": 2},
+    })
+    time.sleep(3.0)
+    # Check sent records for _schedule metadata
+    sent_dir = agent.working_dir / "mailbox" / "sent"
+    sent_msgs = []
+    for d in sent_dir.iterdir():
+        msg = json.loads((d / "message.json").read_text())
+        sent_msgs.append(msg)
+    # Sort by seq
+    sent_msgs.sort(key=lambda m: m.get("_schedule", {}).get("seq", 0))
+    assert len(sent_msgs) == 2
+    assert sent_msgs[0]["_schedule"]["seq"] == 1
+    assert sent_msgs[0]["_schedule"]["total"] == 2
+    assert sent_msgs[1]["_schedule"]["seq"] == 2
+    assert "estimated_finish" in sent_msgs[1]["_schedule"]
+    assert "schedule_id" in sent_msgs[0]["_schedule"]
+
+
+def test_email_schedule_create_missing_params(tmp_path):
+    """schedule.create without interval or count should error."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities=["email"])
+    mgr = agent.get_capability("email")
+    result = mgr.handle({
+        "address": "someone", "message": "hi",
+        "schedule": {"action": "create", "count": 3},
+    })
+    assert "error" in result
+    result = mgr.handle({
+        "address": "someone", "message": "hi",
+        "schedule": {"action": "create", "interval": 10},
+    })
+    assert "error" in result
+
+
+def test_email_schedule_create_invalid_params(tmp_path):
+    """schedule.create with non-positive interval or count should error."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities=["email"])
+    mgr = agent.get_capability("email")
+    result = mgr.handle({
+        "address": "someone", "message": "hi",
+        "schedule": {"action": "create", "interval": 0, "count": 3},
+    })
+    assert "error" in result
+    result = mgr.handle({
+        "address": "someone", "message": "hi",
+        "schedule": {"action": "create", "interval": 10, "count": -1},
+    })
+    assert "error" in result
+
+
+def test_email_schedule_create_missing_address(tmp_path):
+    """schedule.create without address should error."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities=["email"])
+    mgr = agent.get_capability("email")
+    result = mgr.handle({
+        "message": "hi",
+        "schedule": {"action": "create", "interval": 10, "count": 3},
+    })
+    assert "error" in result
+
+
 def test_email_private_mode_receive_unrestricted(tmp_path):
     """Private mode should not block receiving emails."""
     agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
