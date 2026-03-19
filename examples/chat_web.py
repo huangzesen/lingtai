@@ -174,10 +174,6 @@ def main():
         provider="minimax",
         model="MiniMax-M2.5-highspeed",
         api_key=api_key,
-        provider_config={
-            "web_search_provider": "minimax",
-            "vision_provider": "minimax",
-        },
         provider_defaults={
             "minimax": {"model": "MiniMax-M2.5-highspeed"},
         },

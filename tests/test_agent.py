@@ -28,7 +28,7 @@ def make_mock_service():
 def test_agent_starts_and_stops(tmp_path):
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
     agent.start()
-    assert agent.state == AgentState.SLEEPING
+    assert agent.state == AgentState.IDLE
     agent.stop(timeout=2.0)
 
 
@@ -36,7 +36,7 @@ def test_agent_double_start(tmp_path):
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
     agent.start()
     agent.start()  # should be no-op
-    assert agent.state == AgentState.SLEEPING
+    assert agent.state == AgentState.IDLE
     agent.stop(timeout=2.0)
 
 
@@ -58,7 +58,7 @@ def test_intrinsics_enabled_by_default(tmp_path):
     # File I/O is now a capability, not intrinsic
     assert "read" not in agent._intrinsics
     assert "write" not in agent._intrinsics
-    assert len(agent._intrinsics) == 3  # mail, system, eigen
+    assert len(agent._intrinsics) == 4  # mail, system, eigen, soul
 
 
 # ---------------------------------------------------------------------------
@@ -380,7 +380,7 @@ def test_status(tmp_path):
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
     s = agent.status()
     assert s["agent_name"] == "test"
-    assert s["state"] == "sleeping"
+    assert s["state"] == "idle"
     assert s["idle"] is True
     assert "tokens" in s
 

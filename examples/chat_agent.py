@@ -22,9 +22,8 @@ if env_path.exists():
             key, _, val = line.partition("=")
             os.environ.setdefault(key.strip(), val.strip().strip("'\""))
 
-from stoai import Agent, AgentConfig
+from stoai import Agent, AgentConfig, TCPMailService
 from stoai.llm import LLMService
-from stoai.services.mail import TCPMailService
 
 PORT = 8301
 
@@ -40,10 +39,6 @@ def main():
         provider="minimax",
         model="MiniMax-M2.5-highspeed",
         api_key=api_key,
-        provider_config={
-            "web_search_provider": "minimax",
-            "vision_provider": "minimax",
-        },
         provider_defaults={
             "minimax": {"model": "MiniMax-M2.5-highspeed"},
         },
@@ -51,7 +46,6 @@ def main():
 
     mail_svc = TCPMailService(listen_port=PORT)
 
-    policy = str(Path(__file__).parent / "bash_policy.json")
     agent = Agent(
         agent_name="assistant",
         service=llm,
@@ -59,8 +53,15 @@ def main():
         config=AgentConfig(max_turns=20),
         base_dir=".",
         streaming=True,
-        role="You are a helpful AI assistant.",
-        capabilities={"email": {}, "bash": {"policy_file": policy}, "file": {}},
+        capabilities={
+            "file": {},
+            "bash": {"yolo": True},
+            "email": {},
+            "vision": {},
+            "web_search": {},
+            "psyche": {},
+            "delegate": {},
+        },
     )
     agent.start()
 
@@ -84,9 +85,9 @@ def main():
                 "to": f"127.0.0.1:{PORT}",
                 "message": user_input,
             }
-            ok = sender.send(f"127.0.0.1:{PORT}", payload)
-            if not ok:
-                print("  [Failed to send]")
+            err = sender.send(f"127.0.0.1:{PORT}", payload)
+            if err is not None:
+                print(f"  [Failed to send: {err}]")
                 continue
 
             # Wait for agent to process (poll inbox for reply)

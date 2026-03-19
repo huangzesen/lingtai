@@ -127,10 +127,10 @@ def test_base_agent_has_no_file_intrinsics(tmp_path):
 
 
 def test_base_agent_kernel_only(tmp_path):
-    """BaseAgent should have exactly 3 intrinsics: mail, system, eigen."""
+    """BaseAgent should have exactly 4 intrinsics: mail, system, eigen, soul."""
     from stoai_kernel.base_agent import BaseAgent
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
-    assert set(agent._intrinsics.keys()) == {"mail", "system", "eigen"}
+    assert set(agent._intrinsics.keys()) == {"mail", "system", "eigen", "soul"}
     agent.stop(timeout=1.0)
 
 
