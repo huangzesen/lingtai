@@ -88,6 +88,42 @@ def _strip_html_tags(html: str) -> str:
     return re.sub(r"<[^>]+>", "", html)
 
 
+def _extract_attachments(msg) -> list[dict]:
+    """Extract file attachments from an email.Message.
+
+    Captures parts with Content-Disposition of 'attachment' or 'inline' (with filename).
+    Skips plain text/html body parts that have no Content-Disposition.
+    Returns list of {"filename": str, "data": bytes, "content_type": str}.
+    """
+    attachments: list[dict] = []
+    if not msg.is_multipart():
+        return attachments
+    for part in msg.walk():
+        content_disposition = str(part.get("Content-Disposition", ""))
+        if not content_disposition or content_disposition == "None":
+            continue
+        # Accept "attachment" or "inline" with a filename (common for images)
+        is_attachment = "attachment" in content_disposition
+        is_inline_file = "inline" in content_disposition and part.get_filename()
+        if not is_attachment and not is_inline_file:
+            continue
+        filename = part.get_filename()
+        if filename:
+            filename = _decode_header_value(filename)
+        if not filename:
+            ext = mimetypes.guess_extension(part.get_content_type() or "") or ".bin"
+            filename = f"attachment{ext}"
+        data = part.get_payload(decode=True)
+        if data is None:
+            continue
+        attachments.append({
+            "filename": filename,
+            "data": data,
+            "content_type": part.get_content_type() or "application/octet-stream",
+        })
+    return attachments
+
+
 # ---------------------------------------------------------------------------
 # GoogleMailService
 # ---------------------------------------------------------------------------
@@ -218,10 +254,31 @@ class GoogleMailService(MailService):
         from_addr: str,
         subject: str,
         body: str,
+        attachments: list[dict] | None = None,
     ) -> None:
-        """Build payload, persist to disk (if working_dir set), call on_message."""
+        """Build payload, persist to disk (if working_dir set), call on_message.
+
+        attachments: list of {"filename": str, "data": bytes, "content_type": str}
+        """
         msg_id = str(uuid4())
         received_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        attachment_meta: list[dict] = []
+
+        if self._working_dir is not None and attachments:
+            att_dir = self._working_dir / "gmail" / "inbox" / msg_id / "attachments"
+            att_dir.mkdir(parents=True, exist_ok=True)
+            for att in attachments:
+                filename = att["filename"]
+                data = att["data"]
+                filepath = att_dir / filename
+                filepath.write_bytes(data)
+                attachment_meta.append({
+                    "filename": filename,
+                    "path": str(filepath),
+                    "size": len(data),
+                    "content_type": att.get("content_type", "application/octet-stream"),
+                })
 
         payload: dict = {
             "from": from_addr,
@@ -230,6 +287,7 @@ class GoogleMailService(MailService):
             "message": body,
             "_mailbox_id": msg_id,
             "received_at": received_at,
+            "attachments": attachment_meta,
         }
 
         if self._working_dir is not None:
@@ -324,6 +382,7 @@ class GoogleMailService(MailService):
         _, from_addr = parseaddr(from_raw)
         subject = _decode_header_value(msg.get("Subject", ""))
         body = _extract_text_body(msg)
+        attachments = _extract_attachments(msg)
 
         # Filter by allowed senders
         if self._allowed_senders is not None:
@@ -331,7 +390,7 @@ class GoogleMailService(MailService):
                 logger.debug("Skipping email from non-allowed sender: %s", from_addr)
                 return
 
-        self._deliver_email(on_message, from_addr, subject, body)
+        self._deliver_email(on_message, from_addr, subject, body, attachments=attachments)
 
     # -- Internal: state persistence -----------------------------------------
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from stoai.addons.gmail.service import GoogleMailService
@@ -126,3 +127,119 @@ def test_send_with_missing_attachment():
     })
     assert result is not None  # error string
     assert "not found" in result.lower() or "not exist" in result.lower()
+
+
+def test_deliver_email_with_attachments(tmp_path):
+    """Inbound emails with attachments should save files to disk."""
+    svc = GoogleMailService(
+        gmail_address="agent@gmail.com",
+        gmail_password="test",
+        working_dir=tmp_path,
+    )
+    received = []
+
+    # Simulate an attachment list in the payload
+    svc._deliver_email(
+        lambda p: received.append(p),
+        "user@gmail.com", "hi", "hello",
+        attachments=[{"filename": "photo.png", "data": b"\x89PNG\r\n\x1a\n", "content_type": "image/png"}],
+    )
+
+    assert len(received) == 1
+    payload = received[0]
+    assert len(payload["attachments"]) == 1
+    att = payload["attachments"][0]
+    assert att["filename"] == "photo.png"
+    assert att["size"] == 8
+    # File should exist on disk
+    assert Path(att["path"]).is_file()
+    assert Path(att["path"]).read_bytes() == b"\x89PNG\r\n\x1a\n"
+
+
+def test_deliver_email_without_attachments_has_empty_list(tmp_path):
+    """Emails without attachments should have an empty attachments list."""
+    svc = GoogleMailService(
+        gmail_address="agent@gmail.com",
+        gmail_password="test",
+        working_dir=tmp_path,
+    )
+    received = []
+    svc._deliver_email(lambda p: received.append(p), "user@gmail.com", "hi", "hello")
+
+    assert len(received) == 1
+    assert received[0]["attachments"] == []
+
+
+# ---------------------------------------------------------------------------
+# _extract_attachments tests
+# ---------------------------------------------------------------------------
+
+from email.mime.multipart import MIMEMultipart as StdMIMEMultipart
+from email.mime.base import MIMEBase as StdMIMEBase
+from email.mime.text import MIMEText as StdMIMEText
+from email import encoders as std_encoders
+
+from stoai.addons.gmail.service import _extract_attachments
+
+
+def test_extract_attachments_from_multipart():
+    """_extract_attachments should extract attachment parts from a MIME message."""
+    msg = StdMIMEMultipart()
+    msg.attach(StdMIMEText("hello", "plain"))
+    att = StdMIMEBase("image", "png")
+    att.set_payload(b"\x89PNG\r\n\x1a\n")
+    std_encoders.encode_base64(att)
+    att.add_header("Content-Disposition", "attachment", filename="photo.png")
+    msg.attach(att)
+
+    result = _extract_attachments(msg)
+    assert len(result) == 1
+    assert result[0]["filename"] == "photo.png"
+    assert result[0]["content_type"] == "image/png"
+    assert result[0]["data"] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_extract_attachments_inline_with_filename():
+    """Inline parts with a filename (common for images) should also be extracted."""
+    msg = StdMIMEMultipart()
+    msg.attach(StdMIMEText("see image", "plain"))
+    att = StdMIMEBase("image", "jpeg")
+    att.set_payload(b"\xff\xd8\xff")
+    std_encoders.encode_base64(att)
+    att.add_header("Content-Disposition", "inline", filename="photo.jpg")
+    msg.attach(att)
+
+    result = _extract_attachments(msg)
+    assert len(result) == 1
+    assert result[0]["filename"] == "photo.jpg"
+
+
+def test_extract_attachments_skips_plain_text():
+    """Plain text/html parts without Content-Disposition should be skipped."""
+    msg = StdMIMEMultipart()
+    msg.attach(StdMIMEText("hello", "plain"))
+    msg.attach(StdMIMEText("<b>hello</b>", "html"))
+
+    result = _extract_attachments(msg)
+    assert result == []
+
+
+def test_extract_attachments_fallback_filename():
+    """Attachments without a filename should get a generated one."""
+    msg = StdMIMEMultipart()
+    att = StdMIMEBase("application", "pdf")
+    att.set_payload(b"%PDF-1.4")
+    std_encoders.encode_base64(att)
+    att.add_header("Content-Disposition", "attachment")  # no filename
+    msg.attach(att)
+
+    result = _extract_attachments(msg)
+    assert len(result) == 1
+    assert result[0]["filename"].startswith("attachment")
+
+
+def test_extract_attachments_non_multipart():
+    """Non-multipart messages should return empty list."""
+    msg = StdMIMEText("just text", "plain")
+    result = _extract_attachments(msg)
+    assert result == []
