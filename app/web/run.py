@@ -173,7 +173,6 @@ def main(example_name: str | None = None):
         model=model,
         api_key=api_key,
         base_url=base_url,
-        provider_config=provider_config,
         provider_defaults=provider_defaults,
         key_resolver=key_resolver,
     )
