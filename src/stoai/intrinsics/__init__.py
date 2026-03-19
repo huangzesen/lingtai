@@ -10,7 +10,7 @@ from . import mail, clock, status, eigen
 ALL_INTRINSICS = {
     "mail": {
         "schema": mail.SCHEMA, "description": mail.DESCRIPTION, "handle": mail.handle,
-        "system_prompt": "Send and receive messages to other agents and users.",
+        "system_prompt": "Send and receive messages. Check inbox, read, search, delete. Send to yourself to take persistent notes.",
     },
     "clock": {
         "schema": clock.SCHEMA, "description": clock.DESCRIPTION, "handle": clock.handle,

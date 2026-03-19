@@ -682,7 +682,7 @@ class EmailManager:
         from ..message import _make_message, MSG_REQUEST
         self._agent._log("email_received", sender=sender, to=to, cc=cc, subject=subject, message=message)
         msg = _make_message(MSG_REQUEST, sender, notification)
-        msg._email_notification = {
+        msg._mail_notification = {
             "email_id": email_id,
             "sender": sender,
             "subject": subject,

@@ -161,20 +161,20 @@ def test_mail_to_bad_address(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_mail_inbox_wiring(tmp_path):
-    """_on_mail_received should enqueue in FIFO and notify agent inbox."""
+    """_on_mail_received should notify agent inbox."""
     agent = BaseAgent(agent_name="receiver", service=make_mock_service(), base_dir=tmp_path)
     agent._on_mail_received({
+        "_mailbox_id": "test-id-123",
         "from": "127.0.0.1:9999",
         "to": "127.0.0.1:8301",
         "message": "inbox test",
     })
     assert not agent.inbox.empty()
     msg = agent.inbox.get_nowait()
-    assert "inbox test" in msg.content  # full message in notification
+    assert "inbox test" in msg.content
     assert msg.sender == "127.0.0.1:9999"
-    # Should be in FIFO queue
-    assert len(agent._mail_queue) == 1
-    assert agent._mail_queue[0]["message"] == "inbox test"
+    assert msg._mail_notification is not None
+    assert msg._mail_notification["email_id"] == "test-id-123"
 
 
 def test_mail_start_wires_listener(tmp_path):

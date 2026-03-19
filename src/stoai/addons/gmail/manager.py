@@ -212,7 +212,7 @@ class GmailManager:
             "gmail_received", sender=sender, subject=subject, message=message,
         )
         msg = _make_message(MSG_REQUEST, sender, notification)
-        msg._email_notification = {
+        msg._mail_notification = {
             "email_id": email_id,
             "sender": sender,
             "subject": subject,

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import json
 import queue
-from collections import deque
 import threading
 import time
 from pathlib import Path
@@ -200,9 +199,6 @@ class BaseAgent:
             if hasattr(self._mail_service, '_info_handler'):
                 self._mail_service._info_handler = self._get_discovery_info
 
-        # Mail FIFO queue — incoming messages consumed by read
-        self._mail_queue: deque[dict] = deque()
-        self._mail_queue_lock = threading.Lock()
         self._mail_arrived = threading.Event()  # set when normal mail arrives; clock wait uses this
 
         # MCP tool handlers
@@ -484,37 +480,38 @@ class BaseAgent:
         self._on_normal_mail(payload)
 
     def _on_normal_mail(self, payload: dict) -> None:
-        """Handle a normal mail — enqueue in FIFO and notify agent.
+        """Handle a normal mail — notify agent via inbox.
 
-        Capabilities (e.g. email) replace this method to provide richer
-        mail handling (mailbox, notifications, etc.).
+        The message is already persisted to mailbox/inbox/ by MailService.
+        This method only signals arrival and sends a notification.
+        Capabilities (e.g. email) may replace this method.
         """
-        from datetime import datetime, timezone
+        from uuid import uuid4
 
+        email_id = payload.get("_mailbox_id") or str(uuid4())
         sender = payload.get("from", "unknown")
         subject = payload.get("subject", "")
         message = payload.get("message", "")
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        entry = {
-            "from": sender,
-            "to": payload.get("to", ""),
-            "subject": subject,
-            "message": message,
-            "time": timestamp,
-        }
-        with self._mail_queue_lock:
-            self._mail_queue.append(entry)
         self._mail_arrived.set()
 
-        # Notify agent with full content inline
+        preview = message[:200].replace("\n", " ")
         notification = (
             f'[Mail from {sender}]\n'
-            f'Subject: {subject}\n'
-            f'{message}'
+            f'  Subject: {subject}\n'
+            f'  Preview: {preview}...\n'
+            f'  ID: {email_id}\n'
+            f'Use mail(action="read", id=["{email_id}"]) to read full message.'
         )
+
         self._log("mail_received", sender=sender, subject=subject, message=message)
         msg = _make_message(MSG_REQUEST, sender, notification)
+        msg._mail_notification = {
+            "email_id": email_id,
+            "sender": sender,
+            "subject": subject,
+            "preview": preview,
+        }
         self.inbox.put(msg)
 
     def _set_state(self, new_state: AgentState, reason: str = "") -> None:
@@ -618,17 +615,11 @@ class BaseAgent:
         self._log("nirvana_complete", tools=list(self._mcp_handlers.keys()))
 
     def _collapse_email_notifications(self, msg: Message) -> Message:
-        """Collapse consecutive email notification messages into one.
-
-        If *msg* is an email notification, drain any additional email
-        notifications already queued and merge them into a single message.
-        Non-email messages found in the queue are put back.
-        """
-        if msg._email_notification is None:
+        """Collapse consecutive mail notification messages into one."""
+        if msg._mail_notification is None:
             return msg
 
-        # Collect all email notifications that are already queued
-        notifications = [msg._email_notification]
+        notifications = [msg._mail_notification]
         requeue: list[Message] = []
 
         while True:
@@ -636,21 +627,18 @@ class BaseAgent:
                 queued = self.inbox.get_nowait()
             except queue.Empty:
                 break
-            if queued._email_notification is not None:
-                notifications.append(queued._email_notification)
+            if queued._mail_notification is not None:
+                notifications.append(queued._mail_notification)
             else:
                 requeue.append(queued)
 
-        # Put non-email messages back (preserving order)
         for m in requeue:
             self.inbox.put(m)
 
         if len(notifications) == 1:
-            # Only the original — return as-is
             return msg
 
-        # Build a merged notification
-        lines = [f"[{len(notifications)} new emails arrived]", ""]
+        lines = [f"[{len(notifications)} new messages arrived]", ""]
         for i, n in enumerate(notifications, 1):
             lines.append(
                 f'{i}. From {n["sender"]} — Subject: {n["subject"]}\n'
@@ -659,12 +647,12 @@ class BaseAgent:
             )
         lines.append("")
         lines.append(
-            'Use email(action="check") to see your inbox, or '
-            'email(action="read", email_id="...") to read a specific email.'
+            'Use mail(action="check") to see your inbox, or '
+            'mail(action="read", id=["..."]) to read a specific message.'
         )
         merged_content = "\n".join(lines)
         merged = _make_message(MSG_REQUEST, "system", merged_content)
-        self._log("email_notifications_collapsed", count=len(notifications))
+        self._log("mail_notifications_collapsed", count=len(notifications))
         return merged
 
     # ------------------------------------------------------------------

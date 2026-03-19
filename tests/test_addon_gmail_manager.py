@@ -89,9 +89,9 @@ def test_on_gmail_received_notifies_agent(tmp_path):
     # Should have enqueued a message
     agent.inbox.put.assert_called_once()
     msg = agent.inbox.put.call_args[0][0]
-    assert hasattr(msg, "_email_notification")
-    assert msg._email_notification["email_id"] == "test-123"
-    assert msg._email_notification["sender"] == "user@gmail.com"
+    assert hasattr(msg, "_mail_notification")
+    assert msg._mail_notification["email_id"] == "test-123"
+    assert msg._mail_notification["sender"] == "user@gmail.com"
     # Should have logged
     agent._log.assert_called_once()
 

@@ -33,16 +33,15 @@ def test_silence_sets_cancel_event(tmp_path):
     assert agent._cancel_event.is_set()
 
 
-def test_silence_bypasses_mail_queue(tmp_path):
-    """Silence-type email should NOT enter the normal mail queue."""
+def test_silence_bypasses_inbox(tmp_path):
+    """Silence-type email should NOT enter the agent inbox."""
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
-    initial_count = len(agent._mail_queue)
 
     agent._on_mail_received({
         "from": "boss", "to": "test", "type": "silence",
     })
 
-    assert len(agent._mail_queue) == initial_count
+    assert agent.inbox.empty()
 
 
 def test_silence_deactivates_conscience(tmp_path):
@@ -90,14 +89,13 @@ def test_kill_sets_shutdown_and_cancel(tmp_path):
     assert agent._cancel_event.is_set()
 
 
-def test_kill_bypasses_mail_queue(tmp_path):
-    """Kill-type email should NOT enter the normal mail queue."""
+def test_kill_bypasses_inbox(tmp_path):
+    """Kill-type email should NOT enter the agent inbox."""
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
-    initial_count = len(agent._mail_queue)
 
     agent._on_mail_received({"from": "boss", "type": "kill"})
 
-    assert len(agent._mail_queue) == initial_count
+    assert agent.inbox.empty()
 
 
 def test_kill_stops_running_agent(tmp_path):
@@ -234,43 +232,39 @@ def test_non_admin_cannot_send_kill_via_email(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_normal_email_queued(tmp_path):
-    """Normal-type email should go through the regular queue path."""
+def test_normal_email_notifies_inbox(tmp_path):
+    """Normal-type mail should send a notification to agent inbox."""
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
-    initial_count = len(agent._mail_queue)
-
     agent._on_mail_received({
+        "_mailbox_id": "test123",
         "from": "colleague", "to": "test", "subject": "hello",
         "message": "hi there", "type": "normal",
     })
-
-    assert len(agent._mail_queue) == initial_count + 1
+    assert not agent.inbox.empty()
     assert not agent._cancel_event.is_set()
 
 
 def test_missing_type_defaults_to_normal(tmp_path):
     """Mail without a type field should be treated as normal."""
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
-    initial_count = len(agent._mail_queue)
 
     agent._on_mail_received({
         "from": "colleague", "to": "test", "message": "hi",
     })
 
-    assert len(agent._mail_queue) == initial_count + 1
+    assert not agent.inbox.empty()
     assert not agent._cancel_event.is_set()
 
 
 def test_unrecognized_type_treated_as_normal(tmp_path):
     """Unrecognized mail type should be treated as normal."""
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
-    initial_count = len(agent._mail_queue)
 
     agent._on_mail_received({
         "from": "someone", "type": "bogus", "message": "test",
     })
 
-    assert len(agent._mail_queue) == initial_count + 1
+    assert not agent.inbox.empty()
 
 
 def test_non_admin_can_send_normal_mail(tmp_path):
