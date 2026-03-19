@@ -202,7 +202,7 @@ class GmailManager:
 
         preview = message[:100].replace("\n", " ")
         notification = (
-            f'[system] 1 new message in gmail box.\n'
+            f'[system] New message in gmail box.\n'
             f'  From: {sender}\n'
             f'  Subject: {subject}\n'
             f'  Sent at: {sent_at}\n'
