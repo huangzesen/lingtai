@@ -23,51 +23,18 @@ def test_adapter_base_class_has_no_multimodal_methods():
         assert not hasattr(LLMAdapter, method), f"LLMAdapter still has {method}"
 
 
-def test_generate_image_no_provider():
-    """generate_image raises RuntimeError when image_provider not configured."""
+def test_llm_service_has_no_multimodal_methods():
+    """LLMService should not define multimodal routing methods."""
     from stoai.llm.service import LLMService
-    from unittest.mock import MagicMock, patch
-    import pytest
-    with patch.object(LLMService, '_create_adapter', return_value=MagicMock()):
-        svc = LLMService("gemini", "gemini-test", key_resolver=lambda p: "key", provider_defaults={})
-    with pytest.raises(RuntimeError, match="image_provider"):
-        svc.generate_image("a cat")
+    for method in ("web_search", "generate_vision", "make_multimodal_message",
+                   "generate_image", "generate_music", "text_to_speech",
+                   "transcribe", "analyze_audio"):
+        assert not hasattr(LLMService, method), f"LLMService still has {method}"
 
 
-def test_generate_image_routes_to_adapter():
-    """generate_image routes to the configured adapter."""
+def test_llm_service_has_no_provider_config():
+    """LLMService should not accept provider_config parameter."""
+    import inspect
     from stoai.llm.service import LLMService
-    from unittest.mock import MagicMock, patch
-    adapter = MagicMock()
-    adapter.generate_image.return_value = b"PNG_BYTES"
-    with patch.object(LLMService, '_create_adapter', return_value=MagicMock()):
-        svc = LLMService(
-            "gemini", "gemini-test",
-            key_resolver=lambda p: "key",
-            provider_defaults={"minimax": {"model": "mm-img"}},
-        )
-    svc._config["image_provider"] = "minimax"
-    svc._adapters[("minimax", None)] = adapter
-    result = svc.generate_image("a cat")
-    assert result == b"PNG_BYTES"
-    adapter.generate_image.assert_called_once_with("a cat", model="mm-img")
-
-
-def test_text_to_speech_no_provider():
-    from stoai.llm.service import LLMService
-    from unittest.mock import MagicMock, patch
-    import pytest
-    with patch.object(LLMService, '_create_adapter', return_value=MagicMock()):
-        svc = LLMService("gemini", "gemini-test", key_resolver=lambda p: "key", provider_defaults={})
-    with pytest.raises(RuntimeError, match="tts_provider"):
-        svc.text_to_speech("hello")
-
-
-def test_transcribe_no_provider():
-    from stoai.llm.service import LLMService
-    from unittest.mock import MagicMock, patch
-    import pytest
-    with patch.object(LLMService, '_create_adapter', return_value=MagicMock()):
-        svc = LLMService("gemini", "gemini-test", key_resolver=lambda p: "key", provider_defaults={})
-    with pytest.raises(RuntimeError, match="audio_provider"):
-        svc.transcribe(b"audio")
+    sig = inspect.signature(LLMService.__init__)
+    assert "provider_config" not in sig.parameters
