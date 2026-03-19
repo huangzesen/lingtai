@@ -1237,6 +1237,51 @@ def test_email_schedule_recovery_skips_cancelled(tmp_path):
     assert final["sent"] == 2
 
 
+# ---------------------------------------------------------------------------
+# Schedule — end-to-end
+# ---------------------------------------------------------------------------
+
+def test_email_schedule_end_to_end(tmp_path):
+    """Full lifecycle: create → sends happen → list shows progress → cancel → list shows cancelled."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities=["email"])
+    mail_svc = MagicMock()
+    mail_svc.address = "me"
+    mail_svc.send.return_value = None
+    agent._mail_service = mail_svc
+    mgr = agent.get_capability("email")
+
+    # Create
+    result = mgr.handle({
+        "address": "peer",
+        "subject": "Status",
+        "message": "System OK",
+        "schedule": {"action": "create", "interval": 1, "count": 5},
+    })
+    assert result["status"] == "scheduled"
+    sid = result["schedule_id"]
+
+    # Let 2 sends happen
+    time.sleep(2.5)
+
+    # List — should be active with some progress
+    listing = mgr.handle({"schedule": {"action": "list"}})
+    entry = [s for s in listing["schedules"] if s["schedule_id"] == sid][0]
+    assert entry["active"] is True
+    assert entry["sent"] >= 2
+
+    # Cancel
+    cancel = mgr.handle({"schedule": {"action": "cancel", "schedule_id": sid}})
+    assert cancel["status"] == "cancelled"
+
+    # List — should show cancelled
+    listing = mgr.handle({"schedule": {"action": "list"}})
+    entry = [s for s in listing["schedules"] if s["schedule_id"] == sid][0]
+    assert entry["active"] is False
+    assert entry["cancelled"] is True
+    assert entry["sent"] < 5
+
+
 def test_email_private_mode_receive_unrestricted(tmp_path):
     """Private mode should not block receiving emails."""
     agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
