@@ -19,6 +19,7 @@ export interface Email {
 }
 
 export type DiaryEventType =
+  | "text_input"
   | "diary"
   | "thinking"
   | "tool_call"
@@ -90,6 +91,7 @@ export const AGENT_COLORS = [
 
 /** Diary event tag colors: [background, text]. */
 export const TAG_COLORS: Record<DiaryEventType, [string, string]> = {
+  text_input: ["#2a2a1a", "#c0a040"],
   diary: ["#1a3a1a", "#6bcb77"],
   thinking: ["#3a3a1a", "#cbc76b"],
   tool_call: ["#1a1a3a", "#6b9bcb"],
@@ -103,13 +105,14 @@ export const TAG_COLORS: Record<DiaryEventType, [string, string]> = {
 };
 
 export const ALL_DIARY_EVENT_TYPES: DiaryEventType[] = [
-  "diary", "thinking", "tool_call", "reasoning",
+  "text_input", "diary", "thinking", "tool_call", "reasoning",
   "tool_result", "email_out", "email_in",
   "silence_received", "kill_received", "unknown",
 ];
 
 /** Tag display labels. */
 export const TAG_LABELS: Record<DiaryEventType, string> = {
+  text_input: "input",
   diary: "diary",
   thinking: "thinking",
   tool_call: "tool",

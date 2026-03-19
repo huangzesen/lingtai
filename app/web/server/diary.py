@@ -43,6 +43,9 @@ def parse_diary(log_file: Path, since: float = 0.0) -> list[dict]:
 
 def _map_event(etype: str, e: dict, ts: float) -> dict | None:
     """Map a JSONL event to the frontend diary entry format."""
+    if etype == "text_input":
+        return {"type": "text_input", "time": ts, "text": e.get("text", "")}
+
     if etype == "diary":
         return {"type": "diary", "time": ts, "text": e.get("text", "")}
 

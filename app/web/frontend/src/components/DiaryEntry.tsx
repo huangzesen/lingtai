@@ -18,6 +18,7 @@ export function DiaryEntry({ event, agents, addressToName }: DiaryEntryProps) {
   let content: React.ReactNode = null;
 
   switch (event.type) {
+    case "text_input":
     case "diary":
     case "thinking":
     case "unknown":
