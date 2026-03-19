@@ -5,20 +5,16 @@ Each intrinsic has:
 - DESCRIPTION: human-readable description
 - handle: handler function(agent, args) -> dict
 """
-from . import mail, clock, status, eigen
+from . import mail, system, eigen
 
 ALL_INTRINSICS = {
     "mail": {
         "schema": mail.SCHEMA, "description": mail.DESCRIPTION, "handle": mail.handle,
         "system_prompt": "Send and receive messages. Check inbox, read, search, delete. Send to yourself to take persistent notes.",
     },
-    "clock": {
-        "schema": clock.SCHEMA, "description": clock.DESCRIPTION, "handle": clock.handle,
-        "system_prompt": "Pause execution and wait for messages or timeouts.",
-    },
-    "status": {
-        "schema": status.SCHEMA, "description": status.DESCRIPTION, "handle": status.handle,
-        "system_prompt": "Inspect your own state, token usage, and shut yourself down.",
+    "system": {
+        "schema": system.SCHEMA, "description": system.DESCRIPTION, "handle": system.handle,
+        "system_prompt": "Runtime, lifecycle, and synchronization. Inspect your state, sleep, shut down, or restart.",
     },
     "eigen": {
         "schema": eigen.SCHEMA, "description": eigen.DESCRIPTION, "handle": eigen.handle,
