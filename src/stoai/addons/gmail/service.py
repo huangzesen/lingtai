@@ -269,12 +269,20 @@ class GoogleMailService(MailService):
             att_dir = self._working_dir / "gmail" / "inbox" / msg_id / "attachments"
             att_dir.mkdir(parents=True, exist_ok=True)
             for att in attachments:
-                filename = att["filename"]
+                filename = Path(att["filename"]).name or "attachment.bin"
                 data = att["data"]
                 filepath = att_dir / filename
+                # Deduplicate: add counter if file already exists
+                if filepath.exists():
+                    stem = filepath.stem
+                    suffix = filepath.suffix
+                    counter = 1
+                    while filepath.exists():
+                        filepath = att_dir / f"{stem}_{counter}{suffix}"
+                        counter += 1
                 filepath.write_bytes(data)
                 attachment_meta.append({
-                    "filename": filename,
+                    "filename": filepath.name,
                     "path": str(filepath),
                     "size": len(data),
                     "content_type": att.get("content_type", "application/octet-stream"),

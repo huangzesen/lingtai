@@ -238,6 +238,52 @@ def test_extract_attachments_fallback_filename():
     assert result[0]["filename"].startswith("attachment")
 
 
+def test_deliver_email_sanitizes_attachment_filename(tmp_path):
+    """Filenames with path traversal should be sanitized to basename."""
+    svc = GoogleMailService(
+        gmail_address="agent@gmail.com",
+        gmail_password="test",
+        working_dir=tmp_path,
+    )
+    received = []
+    svc._deliver_email(
+        lambda p: received.append(p),
+        "user@gmail.com", "hi", "hello",
+        attachments=[{"filename": "../../evil.sh", "data": b"malicious", "content_type": "application/x-sh"}],
+    )
+    att = received[0]["attachments"][0]
+    assert att["filename"] == "evil.sh"
+    # File must be inside the attachments dir, not escaped
+    assert "attachments" in att["path"]
+    assert Path(att["path"]).parent.name == "attachments"
+
+
+def test_deliver_email_deduplicates_attachment_filenames(tmp_path):
+    """Two attachments with the same name should not overwrite each other."""
+    svc = GoogleMailService(
+        gmail_address="agent@gmail.com",
+        gmail_password="test",
+        working_dir=tmp_path,
+    )
+    received = []
+    svc._deliver_email(
+        lambda p: received.append(p),
+        "user@gmail.com", "hi", "hello",
+        attachments=[
+            {"filename": "report.pdf", "data": b"first", "content_type": "application/pdf"},
+            {"filename": "report.pdf", "data": b"second", "content_type": "application/pdf"},
+        ],
+    )
+    atts = received[0]["attachments"]
+    assert len(atts) == 2
+    # Names must differ
+    names = [a["filename"] for a in atts]
+    assert names[0] != names[1]
+    # Both files must exist on disk with distinct content
+    assert Path(atts[0]["path"]).read_bytes() == b"first"
+    assert Path(atts[1]["path"]).read_bytes() == b"second"
+
+
 def test_extract_attachments_non_multipart():
     """Non-multipart messages should return empty list."""
     msg = StdMIMEText("just text", "plain")
