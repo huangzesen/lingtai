@@ -394,10 +394,72 @@ class EmailManager:
         return {"status": "scheduled", "schedule_id": schedule_id, "interval": interval, "count": count}
 
     def _schedule_cancel(self, schedule: dict) -> dict:
-        return {"error": "not implemented"}
+        schedule_id = schedule.get("schedule_id")
+        if not schedule_id:
+            return {"error": "schedule.schedule_id is required"}
+
+        record = self._read_schedule(schedule_id)
+        if record is None:
+            return {"error": f"Schedule not found: {schedule_id}"}
+
+        # Already done?
+        if record.get("cancelled") or record.get("sent", 0) >= record.get("count", 0):
+            return {"status": "already_stopped", "schedule_id": schedule_id}
+
+        # Set cancelled on disk
+        record["cancelled"] = True
+        sched_path = self._schedules_dir / schedule_id / "schedule.json"
+        self._write_schedule(sched_path, record)
+
+        # Signal in-memory event
+        event = self._schedule_events.get(schedule_id)
+        if event is not None:
+            event.set()
+
+        return {"status": "cancelled", "schedule_id": schedule_id}
 
     def _schedule_list(self) -> dict:
-        return {"error": "not implemented"}
+        schedules_dir = self._schedules_dir
+        if not schedules_dir.is_dir():
+            return {"status": "ok", "schedules": []}
+
+        entries = []
+        for sched_dir in schedules_dir.iterdir():
+            if not sched_dir.is_dir():
+                continue
+            sched_file = sched_dir / "schedule.json"
+            if not sched_file.is_file():
+                continue
+            try:
+                record = json.loads(sched_file.read_text())
+            except (json.JSONDecodeError, OSError):
+                continue
+
+            payload = record.get("send_payload", {})
+            address = payload.get("address", "")
+            if isinstance(address, list):
+                address = ", ".join(address)
+
+            sent = record.get("sent", 0)
+            count = record.get("count", 0)
+            cancelled = record.get("cancelled", False)
+            active = sent < count and not cancelled
+
+            entries.append({
+                "schedule_id": record.get("schedule_id", sched_dir.name),
+                "to": address,
+                "subject": payload.get("subject", ""),
+                "interval": record.get("interval", 0),
+                "count": count,
+                "sent": sent,
+                "cancelled": cancelled,
+                "created_at": record.get("created_at", ""),
+                "last_sent_at": record.get("last_sent_at"),
+                "active": active,
+            })
+
+        entries.sort(key=lambda e: e.get("created_at", ""), reverse=True)
+        return {"status": "ok", "schedules": entries}
 
     # ------------------------------------------------------------------
     # Schedule helpers
