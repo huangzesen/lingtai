@@ -33,9 +33,15 @@ DESCRIPTION = (
 class WebSearchManager:
     """Handles web_search tool calls."""
 
-    def __init__(self, agent: "BaseAgent", search_service: Any | None = None) -> None:
+    def __init__(
+        self,
+        agent: "BaseAgent",
+        search_service: Any | None = None,
+        web_search_provider: str | None = None,
+    ) -> None:
         self._agent = agent
         self._search_service = search_service
+        self._web_search_provider = web_search_provider
 
     def handle(self, args: dict) -> dict:
         query = args.get("query")
@@ -53,19 +59,34 @@ class WebSearchManager:
             except NotImplementedError:
                 pass  # Fall through to direct LLM call
 
-        # Fall back to direct LLM grounding call
-        resp = self._agent.service.web_search(query)
+        # Fall back to direct adapter call
+        if self._web_search_provider is None:
+            return {
+                "status": "error",
+                "message": "Web search provider not configured. Pass provider='...' in capability kwargs.",
+            }
+        try:
+            adapter = self._agent.service.get_adapter(self._web_search_provider)
+        except RuntimeError:
+            return {
+                "status": "error",
+                "message": f"Web search provider {self._web_search_provider!r} not available.",
+            }
+        defaults = self._agent.service._get_provider_defaults(self._web_search_provider)
+        model = defaults.get("model", "") if defaults else ""
+        resp = adapter.web_search(query, model=model)
         if not resp.text:
             return {
                 "status": "error",
-                "message": "Web search returned no results. The web search provider may not be configured.",
+                "message": "Web search returned no results.",
             }
         return {"status": "ok", "results": resp.text}
 
 
-def setup(agent: "BaseAgent", search_service: Any | None = None, **kwargs: Any) -> WebSearchManager:
+def setup(agent: "BaseAgent", search_service: Any | None = None,
+          provider: str | None = None, **kwargs: Any) -> WebSearchManager:
     """Set up the web_search capability on an agent."""
-    mgr = WebSearchManager(agent, search_service=search_service)
+    mgr = WebSearchManager(agent, search_service=search_service, web_search_provider=provider)
     agent.add_tool("web_search", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
                     system_prompt="Search the web for current information.")
     return mgr

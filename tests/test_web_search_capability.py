@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from stoai.agent import Agent
+from stoai.capabilities.web_search import WebSearchManager
 
 
 def make_mock_service():
@@ -23,16 +24,24 @@ def test_web_search_added_by_capability(tmp_path):
     assert "web_search" in agent._mcp_handlers
 
 
-def test_web_search_returns_results(tmp_path):
-    """web_search capability should return search results."""
-    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
-                       capabilities=["web_search"])
-    mock_response = MagicMock()
-    mock_response.text = "Python is a programming language..."
-    agent.service.web_search = MagicMock(return_value=mock_response)
-    result = agent._mcp_handlers["web_search"]({"query": "what is python"})
+def test_web_search_calls_adapter_directly():
+    """WebSearchManager should call adapter.web_search() directly."""
+    from stoai.llm.base import LLMResponse
+
+    svc = MagicMock()
+    adapter = MagicMock()
+    adapter.web_search.return_value = LLMResponse(text="Python is a programming language...")
+    svc.get_adapter.return_value = adapter
+    svc._get_provider_defaults.return_value = {"model": "gemini-test"}
+
+    agent = MagicMock()
+    agent.service = svc
+
+    mgr = WebSearchManager(agent, web_search_provider="gemini")
+    result = mgr.handle({"query": "what is python"})
     assert result["status"] == "ok"
     assert "Python" in result["results"]
+    adapter.web_search.assert_called_once()
 
 
 def test_web_search_with_dedicated_service(tmp_path):
@@ -57,3 +66,12 @@ def test_web_search_missing_query(tmp_path):
                        capabilities=["web_search"])
     result = agent._mcp_handlers["web_search"]({"query": ""})
     assert result.get("status") == "error"
+
+
+def test_web_search_no_provider_returns_error(tmp_path):
+    """web_search without provider or service should return a clear error."""
+    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+                       capabilities=["web_search"])
+    result = agent._mcp_handlers["web_search"]({"query": "test query"})
+    assert result["status"] == "error"
+    assert "provider" in result["message"].lower()
