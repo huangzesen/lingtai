@@ -46,9 +46,15 @@ _MIME_BY_EXT: dict[str, str] = {
 class VisionManager:
     """Handles vision tool calls."""
 
-    def __init__(self, agent: "BaseAgent", vision_service: Any | None = None) -> None:
+    def __init__(
+        self,
+        agent: "BaseAgent",
+        vision_service: Any | None = None,
+        vision_provider: str | None = None,
+    ) -> None:
         self._agent = agent
         self._vision_service = vision_service
+        self._vision_provider = vision_provider
 
     def handle(self, args: dict) -> dict:
         image_path = args.get("image_path", "")
@@ -72,22 +78,36 @@ class VisionManager:
             except NotImplementedError:
                 pass  # Fall through to direct LLM call
 
-        # Fall back to direct LLM multimodal call
+        # Fall back to direct adapter call
+        if self._vision_provider is None:
+            return {
+                "status": "error",
+                "message": "Vision provider not configured. Pass provider='...' in capability kwargs.",
+            }
+        try:
+            adapter = self._agent.service.get_adapter(self._vision_provider)
+        except RuntimeError:
+            return {
+                "status": "error",
+                "message": f"Vision provider {self._vision_provider!r} not available.",
+            }
         image_bytes = path.read_bytes()
         mime = _MIME_BY_EXT.get(path.suffix.lower(), "image/png")
-
-        response = self._agent.service.generate_vision(question, image_bytes, mime_type=mime)
+        defaults = self._agent.service._get_provider_defaults(self._vision_provider)
+        model = defaults.get("model", "") if defaults else ""
+        response = adapter.generate_vision(question, image_bytes, model=model, mime_type=mime)
         if not response.text:
             return {
                 "status": "error",
-                "message": "Vision analysis returned no response — vision provider may not be configured.",
+                "message": "Vision analysis returned no response.",
             }
         return {"status": "ok", "analysis": response.text}
 
 
-def setup(agent: "BaseAgent", vision_service: Any | None = None, **kwargs: Any) -> VisionManager:
+def setup(agent: "BaseAgent", vision_service: Any | None = None,
+          provider: str | None = None, **kwargs: Any) -> VisionManager:
     """Set up the vision capability on an agent."""
-    mgr = VisionManager(agent, vision_service=vision_service)
+    mgr = VisionManager(agent, vision_service=vision_service, vision_provider=provider)
     agent.add_tool("vision", schema=SCHEMA, handler=mgr.handle, description=DESCRIPTION,
                     system_prompt="Analyze and understand images.")
     return mgr

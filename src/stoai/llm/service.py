@@ -159,7 +159,7 @@ class LLMService:
     """Single entry point between backend and LLM providers.
 
     Responsibilities:
-    - Adapter factory: constructs the right adapter from config
+    - Adapter factory: constructs adapters via class-level registry
     - Session registry: assigns stoai session IDs, tracks active sessions
     - One-shot gateway: routes generate() through the same tracking path
     - Token accounting: centralizes per-session usage tracking via interface
@@ -176,20 +176,29 @@ class LLMService:
       (model, base_url, api_compat, etc.).  Defaults to empty dict.
     """
 
+    _adapter_registry: dict[str, Callable[..., LLMAdapter]] = {}
+
+    @classmethod
+    def register_adapter(cls, name: str, factory: Callable[..., LLMAdapter]) -> None:
+        """Register an adapter factory by provider name.
+
+        The factory receives keyword arguments: model, defaults, api_key,
+        base_url, max_rpm.
+        """
+        cls._adapter_registry[name.lower()] = factory
+
     def __init__(
         self,
         provider: str,
         model: str,
         api_key: str | None = None,
         base_url: str | None = None,
-        provider_config: dict | None = None,
         key_resolver: Callable[[str], str | None] | None = None,
         provider_defaults: dict | None = None,
     ) -> None:
         self._provider = provider.lower()
         self._model = model
         self._base_url = base_url
-        self._config = provider_config or {}
         self._key_resolver = key_resolver or (lambda p: os.environ.get(f"{p.upper()}_API_KEY"))
         self._provider_defaults = provider_defaults or {}
         self._adapters: dict[tuple[str, str | None], LLMAdapter] = {}
@@ -198,7 +207,6 @@ class LLMService:
         self._sessions: dict[str, ChatSession] = {}
 
     def _create_adapter(self, provider: str, api_key: str | None, base_url: str | None) -> LLMAdapter:
-        # Build kwargs, omitting None values so adapters fall back to env vars
         key_kw: dict = {"api_key": api_key} if api_key is not None else {}
         defaults = self._get_provider_defaults(provider)
         effective_url = base_url or (defaults.get("base_url") if defaults else None)
@@ -207,27 +215,19 @@ class LLMService:
         rpm_kw: dict = {"max_rpm": max_rpm} if max_rpm > 0 else {}
 
         p = provider.lower()
-        if p == "gemini":
-            from .gemini.adapter import GeminiAdapter
-            model_kw = {"default_model": self._model} if self._model else {}
-            return GeminiAdapter(**key_kw, **rpm_kw, **model_kw)
-        elif p == "anthropic":
-            from .anthropic.adapter import AnthropicAdapter
-            return AnthropicAdapter(**key_kw, **url_kw, **rpm_kw)
-        elif p == "openai":
-            from .openai.adapter import OpenAIAdapter
-            return OpenAIAdapter(**key_kw, **url_kw, **rpm_kw)
-        elif p == "minimax":
-            from .minimax.adapter import MiniMaxAdapter
-            return MiniMaxAdapter(**key_kw, **url_kw, **rpm_kw)
-        else:
-            # All other providers go through the custom adapter
-            # (openai or anthropic compat, configured via provider_defaults)
-            from .custom.adapter import create_custom_adapter
-            compat = defaults.get("api_compat", "openai") if defaults else "openai"
-            return create_custom_adapter(
-                **key_kw, api_compat=compat, **url_kw, **rpm_kw,
+        factory = self._adapter_registry.get(p)
+        if factory is None:
+            raise RuntimeError(
+                f"No adapter registered for provider {provider!r}. "
+                f"Registered: {', '.join(sorted(self._adapter_registry)) or '(none)'}. "
+                f"If using stoai, ensure 'import stoai' runs before creating LLMService."
             )
+
+        return factory(
+            model=self._model,
+            defaults=defaults,
+            **key_kw, **url_kw, **rpm_kw,
+        )
 
     # --- Adapter cache ---
 
@@ -273,100 +273,6 @@ class LLMService:
             adapter = self._create_adapter(provider, api_key, effective_base_url)
             self._adapters[cache_key] = adapter
             return adapter
-
-    # --- Capability routing ---
-
-    def web_search(self, query: str) -> LLMResponse:
-        """Web search — routed to configured web_search_provider."""
-        provider_name = self._config.get("web_search_provider")
-        if provider_name is None:
-            return LLMResponse(text="")
-        try:
-            adapter = self.get_adapter(provider_name)
-        except RuntimeError:
-            return LLMResponse(text="")
-        defaults = self._get_provider_defaults(provider_name)
-        model = defaults.get("model", "") if defaults else ""
-        return adapter.web_search(query, model=model)
-
-    def make_multimodal_message(
-        self, text: str, image_bytes: bytes, mime_type: str = "image/png"
-    ) -> dict | None:
-        """Vision — routed to configured vision_provider."""
-        provider_name = self._config.get("vision_provider")
-        if provider_name is None:
-            return None
-        try:
-            adapter = self.get_adapter(provider_name)
-        except RuntimeError:
-            return None
-        return adapter.make_multimodal_message(text, image_bytes, mime_type)
-
-    def generate_vision(self, question: str, image_bytes: bytes, mime_type: str = "image/png") -> LLMResponse:
-        """One-shot vision: send image + question, get text response.
-
-        Routes to the configured vision_provider.
-        """
-        provider_name = self._config.get("vision_provider")
-        if provider_name is None:
-            return LLMResponse(text="")
-        try:
-            adapter = self.get_adapter(provider_name)
-        except RuntimeError:
-            return LLMResponse(text="")
-        defaults = self._get_provider_defaults(provider_name)
-        model = defaults.get("model", "") if defaults else ""
-        return adapter.generate_vision(question, image_bytes, model=model, mime_type=mime_type)
-
-    def generate_image(self, prompt: str) -> bytes:
-        """Text-to-image — routed to configured image_provider."""
-        provider_name = self._config.get("image_provider")
-        if provider_name is None:
-            raise RuntimeError("No image_provider configured")
-        adapter = self.get_adapter(provider_name)
-        defaults = self._get_provider_defaults(provider_name)
-        model = defaults.get("model", "") if defaults else ""
-        return adapter.generate_image(prompt, model=model)
-
-    def generate_music(self, prompt: str, duration_seconds: float | None = None) -> bytes:
-        """Text-to-music — routed to configured music_provider."""
-        provider_name = self._config.get("music_provider")
-        if provider_name is None:
-            raise RuntimeError("No music_provider configured")
-        adapter = self.get_adapter(provider_name)
-        defaults = self._get_provider_defaults(provider_name)
-        model = defaults.get("model", "") if defaults else ""
-        return adapter.generate_music(prompt, model=model, duration_seconds=duration_seconds)
-
-    def text_to_speech(self, text: str) -> bytes:
-        """TTS — routed to configured tts_provider."""
-        provider_name = self._config.get("tts_provider")
-        if provider_name is None:
-            raise RuntimeError("No tts_provider configured")
-        adapter = self.get_adapter(provider_name)
-        defaults = self._get_provider_defaults(provider_name)
-        model = defaults.get("model", "") if defaults else ""
-        return adapter.text_to_speech(text, model=model)
-
-    def transcribe(self, audio_bytes: bytes) -> str:
-        """Speech-to-text — routed to configured audio_provider."""
-        provider_name = self._config.get("audio_provider")
-        if provider_name is None:
-            raise RuntimeError("No audio_provider configured")
-        adapter = self.get_adapter(provider_name)
-        defaults = self._get_provider_defaults(provider_name)
-        model = defaults.get("model", "") if defaults else ""
-        return adapter.transcribe(audio_bytes, model=model)
-
-    def analyze_audio(self, audio_bytes: bytes, prompt: str) -> str:
-        """Audio analysis — routed to configured audio_provider."""
-        provider_name = self._config.get("audio_provider")
-        if provider_name is None:
-            raise RuntimeError("No audio_provider configured")
-        adapter = self.get_adapter(provider_name)
-        defaults = self._get_provider_defaults(provider_name)
-        model = defaults.get("model", "") if defaults else ""
-        return adapter.analyze_audio(audio_bytes, prompt, model=model)
 
     def _get_provider_defaults(self, provider_name: str) -> dict | None:
         """Get defaults for a provider from the injected provider_defaults dict."""

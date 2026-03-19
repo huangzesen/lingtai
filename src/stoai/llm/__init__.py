@@ -13,3 +13,7 @@ __all__ = [
     "FunctionSchema",
     "LLMService",
 ]
+
+# Register built-in adapters on import
+from ._register import register_all_adapters as _register_all_adapters
+_register_all_adapters()

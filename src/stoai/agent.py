@@ -24,16 +24,6 @@ class Agent(BaseAgent):
         *args, **kwargs: Passed through to BaseAgent.
     """
 
-    # Maps capability name → LLMService provider_config key
-    _CAPABILITY_PROVIDER_KEYS: dict[str, str] = {
-        "web_search": "web_search_provider",
-        "vision": "vision_provider",
-        "draw": "image_provider",
-        "compose": "music_provider",
-        "talk": "tts_provider",
-        "listen": "audio_provider",
-    }
-
     def __init__(
         self,
         *args: Any,
@@ -62,23 +52,11 @@ class Agent(BaseAgent):
                     expanded_dict[name] = cap_kwargs
             capabilities = expanded_dict
 
-        # Extract per-capability provider overrides, apply to LLMService config
-        # Store providers separately so they survive pop() and replay in delegates
-        self._capability_providers: dict[str, str] = {}
-        if capabilities:
-            for name, cap_kwargs in capabilities.items():
-                cap_provider = cap_kwargs.pop("provider", None)
-                if cap_provider:
-                    self._capability_providers[name] = cap_provider
-                    config_key = self._CAPABILITY_PROVIDER_KEYS.get(name)
-                    if config_key:
-                        self.service._config[config_key] = cap_provider
-
         # Track for delegate replay
         self._capabilities: list[tuple[str, dict]] = []
         self._capability_managers: dict[str, Any] = {}
 
-        # Register capabilities
+        # Register capabilities — provider kwarg flows through to setup() naturally
         if capabilities:
             for name, cap_kwargs in capabilities.items():
                 self._setup_capability(name, **cap_kwargs)
