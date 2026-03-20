@@ -60,7 +60,7 @@ def main():
             "vision": {},
             "web_search": {},
             "psyche": {},
-            "delegate": {},
+            "avatar": {},
         },
     )
     agent.start()

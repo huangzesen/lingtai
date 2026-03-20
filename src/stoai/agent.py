@@ -75,7 +75,7 @@ class Agent(BaseAgent):
                     expanded_dict[name] = cap_kwargs
             capabilities = expanded_dict
 
-        # Track for delegate replay
+        # Track for avatar replay
         self._capabilities: list[tuple[str, dict]] = []
         self._capability_managers: dict[str, Any] = {}
 

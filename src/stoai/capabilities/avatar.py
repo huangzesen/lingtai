@@ -1,17 +1,17 @@
-"""Delegate capability — spawn peer agents on free TCP ports.
+"""Avatar capability — spawn peer agents on free TCP ports.
 
 Maintains an append-only ledger (delegates/ledger.jsonl) that records every
-delegation event.  Each line is a timestamped record of what was delegated,
+spawn event.  Each line is a timestamped record of what was spawned,
 to whom, with what mission, privileges, and capabilities.  The ledger is
 never mutated — only appended to.  It forms a responsibility map that the
-delegator can consult before re-delegating.
+parent can consult before spawning again.
 
 Lifecycle management (kill, revive) is handled by the email capability,
-not here.  The delegate tool's only job is to delegate.
+not here.  The avatar tool's only job is to spawn avatars (分身).
 
 Usage:
-    Agent(capabilities=["delegate"])
-    # delegate(name="researcher", ...)   — spawn or re-activate
+    Agent(capabilities=["avatar"])
+    # avatar(name="researcher", ...)   — spawn or re-activate
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from ..agent import Agent
 
 def get_description(lang: str = "en") -> str:
-    return t(lang, "delegate.description")
+    return t(lang, "avatar.description")
 
 
 def get_schema(lang: str = "en") -> dict:
@@ -36,32 +36,32 @@ def get_schema(lang: str = "en") -> dict:
         "properties": {
             "name": {
                 "type": "string",
-                "description": t(lang, "delegate.name"),
+                "description": t(lang, "avatar.name"),
             },
             "covenant": {
                 "type": "string",
-                "description": t(lang, "delegate.covenant"),
+                "description": t(lang, "avatar.covenant"),
             },
             "memory": {
                 "type": "string",
-                "description": t(lang, "delegate.memory"),
+                "description": t(lang, "avatar.memory"),
             },
             "capabilities": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": t(lang, "delegate.capabilities"),
+                "description": t(lang, "avatar.capabilities"),
             },
             "admin": {
                 "type": "object",
-                "description": t(lang, "delegate.admin"),
+                "description": t(lang, "avatar.admin"),
             },
             "provider": {
                 "type": "string",
-                "description": t(lang, "delegate.provider"),
+                "description": t(lang, "avatar.provider"),
             },
             "model": {
                 "type": "string",
-                "description": t(lang, "delegate.model"),
+                "description": t(lang, "avatar.model"),
             },
         },
         "required": ["name"],
@@ -73,11 +73,11 @@ SCHEMA = get_schema("en")
 DESCRIPTION = get_description("en")
 
 
-class DelegateManager:
-    """Delegates tasks to peer agents on free TCP ports.
+class AvatarManager:
+    """Spawns avatar (分身) peer agents on free TCP ports.
 
     Keeps an in-memory reference table for live status checks and an
-    append-only JSONL ledger on disk that records every delegation.
+    append-only JSONL ledger on disk that records every spawn.
     """
 
     def __init__(self, agent: "Agent"):
@@ -89,10 +89,10 @@ class DelegateManager:
     # ------------------------------------------------------------------
 
     def handle(self, args: dict) -> dict:
-        return self._delegate(args)
+        return self._spawn(args)
 
     # ------------------------------------------------------------------
-    # Ledger (append-only JSONL log of delegation events)
+    # Ledger (append-only JSONL log of avatar spawn events)
     # ------------------------------------------------------------------
 
     @property
@@ -111,7 +111,7 @@ class DelegateManager:
     # ------------------------------------------------------------------
 
     def _live_status(self, name: str) -> str:
-        """Get live status of a delegatee from the kernel's AgentState."""
+        """Get live status of an avatar from the kernel's AgentState."""
         from stoai_kernel.state import AgentState
         peer = self._peers.get(name)
         if peer is None:
@@ -128,16 +128,16 @@ class DelegateManager:
         return "idle"
 
     # ------------------------------------------------------------------
-    # Core delegation
+    # Core spawn
     # ------------------------------------------------------------------
 
-    def _delegate(self, args: dict) -> dict:
+    def _spawn(self, args: dict) -> dict:
         from ..agent import Agent
         from stoai_kernel.services.mail import TCPMailService
 
         parent = self._agent
         reasoning = args.get("_reasoning")
-        peer_name = args.get("name", "delegate")
+        peer_name = args.get("name", "avatar")
 
         # Check if this peer already exists and is live
         existing = self._peers.get(peer_name)
@@ -170,14 +170,14 @@ class DelegateManager:
                     "agent_name": peer_name,
                     "message": (
                         f"'{peer_name}' is {status}. "
-                        f"To revive: re-delegate with the SAME agent name "
-                        f"(use email to kill it first, then delegate again)."
+                        f"To revive: spawn a new avatar with the SAME agent name "
+                        f"(use email to kill it first, then spawn again)."
                     ),
                 }
             # stopped — clean up stale reference before spawning fresh
             self._peers.pop(peer_name, None)
 
-        # Resolve delegation parameters
+        # Resolve spawn parameters
         covenant = args.get("covenant") or parent._prompt_manager.read_section("covenant") or ""
         memory = args.get("memory", "")
         admin = args.get("admin") or {}
@@ -186,7 +186,7 @@ class DelegateManager:
         caps: dict[str, dict] = {}
         cap_names: list[str] = []
         for cap_name, cap_kwargs in parent._capabilities:
-            if cap_name == "delegate":
+            if cap_name == "avatar":
                 continue
             if requested is not None and cap_name not in requested:
                 continue
@@ -195,8 +195,8 @@ class DelegateManager:
 
         # Spawn peer agent
         port = self._get_free_port()
-        delegate_working_dir = parent._base_dir / peer_name
-        mail_svc = TCPMailService(listen_port=port, working_dir=delegate_working_dir)
+        avatar_working_dir = parent._base_dir / peer_name
+        mail_svc = TCPMailService(listen_port=port, working_dir=avatar_working_dir)
 
         from stoai_kernel.config import AgentConfig
         peer_provider = args.get("provider") or parent._config.provider
@@ -210,7 +210,7 @@ class DelegateManager:
             language=parent._config.language,
         )
 
-        delegate = Agent(
+        avatar = Agent(
             agent_name=peer_name,
             service=parent.service,
             mail_service=mail_svc,
@@ -222,18 +222,18 @@ class DelegateManager:
             capabilities=caps,
             admin=admin,
         )
-        delegate.start()
+        avatar.start()
 
         if reasoning:
-            delegate.send(reasoning, sender=parent.agent_id)
+            avatar.send(reasoning, sender=parent.agent_id)
 
         # Record
-        self._peers[peer_name] = delegate
+        self._peers[peer_name] = avatar
         address = mail_svc.address
         self._append_ledger(
-            "delegate", peer_name,
+            "avatar", peer_name,
             address=address,
-            agent_id=delegate.agent_id,
+            agent_id=avatar.agent_id,
             port=port,
             mission=reasoning or "",
             privileges=admin,
@@ -245,8 +245,8 @@ class DelegateManager:
         return {
             "status": "ok",
             "address": address,
-            "agent_id": delegate.agent_id,
-            "agent_name": delegate.agent_name,
+            "agent_id": avatar.agent_id,
+            "agent_name": avatar.agent_name,
         }
 
     @staticmethod
@@ -260,7 +260,7 @@ class DelegateManager:
 
 
 def _build_schema(agent: "Agent") -> dict:
-    """Build delegate schema with available providers from LLMService."""
+    """Build avatar schema with available providers from LLMService."""
     import copy
     lang = agent._config.language
     schema = copy.deepcopy(get_schema(lang))
@@ -287,22 +287,22 @@ def _build_schema(agent: "Agent") -> dict:
         pass
 
     schema["properties"]["provider"]["description"] = t(
-        lang, "delegate.provider_dynamic", available=", ".join(available)
+        lang, "avatar.provider_dynamic", available=", ".join(available)
     )
     schema["properties"]["provider"]["enum"] = available
 
     if provider_models:
         schema["properties"]["model"]["description"] = t(
-            lang, "delegate.model_dynamic", known="; ".join(provider_models)
+            lang, "avatar.model_dynamic", known="; ".join(provider_models)
         )
 
     return schema
 
 
-def setup(agent: "Agent") -> DelegateManager:
-    """Set up the delegate capability on an agent."""
+def setup(agent: "Agent") -> AvatarManager:
+    """Set up the avatar capability on an agent."""
     lang = agent._config.language
-    mgr = DelegateManager(agent)
+    mgr = AvatarManager(agent)
     schema = _build_schema(agent)
-    agent.add_tool("delegate", schema=schema, handler=mgr.handle, description=get_description(lang))
+    agent.add_tool("avatar", schema=schema, handler=mgr.handle, description=get_description(lang))
     return mgr

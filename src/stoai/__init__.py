@@ -10,7 +10,7 @@ from stoai_kernel.message import Message, MSG_REQUEST, MSG_USER_INPUT
 # Capabilities
 from .capabilities import setup_capability
 from .capabilities.bash import BashManager
-from .capabilities.delegate import DelegateManager
+from .capabilities.avatar import AvatarManager
 from .capabilities.email import EmailManager
 
 # Services
@@ -33,7 +33,7 @@ __all__ = [
     # Capabilities
     "setup_capability",
     "BashManager",
-    "DelegateManager",
+    "AvatarManager",
     "EmailManager",
     # Services
     "FileIOService",

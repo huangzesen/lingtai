@@ -32,7 +32,7 @@ def setup(llm: LLMService, base_dir: Path) -> AppState:
             "vision": {},
             "web_search": {},
             "psyche": {},
-            "delegate": {},
+            "avatar": {},
         },
         config=AgentConfig(max_turns=100, flow_delay=5.0, language="zh"),
     )

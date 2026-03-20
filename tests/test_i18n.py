@@ -130,7 +130,7 @@ import pytest
 
 _ALL_CAPABILITIES = [
     "read", "write", "edit", "glob", "grep",
-    "bash", "psyche", "delegate", "email",
+    "bash", "psyche", "avatar", "email",
     "vision", "web_search", "talk", "compose", "draw", "listen",
 ]
 
