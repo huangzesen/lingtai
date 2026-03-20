@@ -1,0 +1,11 @@
+{
+  "_comment": "Telegram bot config. Copy and fill in your bot token.",
+
+  "bot_token": "123456:ABC-DEF-your-token-here",
+  "_bot_token_note": "Get from @BotFather on Telegram",
+
+  "allowed_users": [123456789],
+  "_allowed_users_note": "Telegram user IDs. Get yours from @userinfobot. Remove to accept all.",
+
+  "poll_interval": 1.0
+}

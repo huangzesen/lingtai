@@ -3,18 +3,21 @@
 Adds a `telegram` tool with its own mailbox (working_dir/telegram/).
 Supports multiple bot accounts, text + images + documents, inline keyboards.
 
-Usage (single account):
+Usage (config file — recommended):
     agent = Agent(
-        capabilities=["email", "file"],
+        addons={"telegram": {"config": "telegram.json"}},
+    )
+
+Usage (inline, single account):
+    agent = Agent(
         addons={"telegram": {
             "bot_token": "123456:ABC-DEF...",
             "allowed_users": [111, 222],
         }},
     )
 
-Usage (multi-account):
+Usage (inline, multi-account):
     agent = Agent(
-        capabilities=["email", "file"],
         addons={"telegram": {
             "accounts": [
                 {"alias": "support", "bot_token": "123:ABC", "allowed_users": [111]},
@@ -25,6 +28,7 @@ Usage (multi-account):
 """
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -41,6 +45,7 @@ log = logging.getLogger(__name__)
 def setup(
     agent: "BaseAgent",
     *,
+    config: str | Path | None = None,
     accounts: list[dict] | None = None,
     bot_token: str | None = None,
     allowed_users: list[int] | None = None,
@@ -49,13 +54,35 @@ def setup(
 ) -> TelegramManager:
     """Set up Telegram addon — registers telegram tool, creates services.
 
+    Args:
+        config: Path to a JSON config file. Keys are the same as the kwargs
+                (bot_token, allowed_users, poll_interval, accounts).
+                Inline kwargs override config file values.
+
     Listeners are NOT started here — they start in TelegramManager.start(),
     which is called by Agent.start() via the addon lifecycle.
     """
+    # Load config file if provided — inline kwargs override file values
+    if config is not None:
+        config_path = Path(config)
+        if not config_path.is_file():
+            raise FileNotFoundError(f"Telegram config not found: {config_path}")
+        file_cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        if accounts is None:
+            accounts = file_cfg.get("accounts")
+        if bot_token is None:
+            bot_token = file_cfg.get("bot_token")
+        if allowed_users is None:
+            allowed_users = file_cfg.get("allowed_users")
+        if poll_interval == 1.0 and "poll_interval" in file_cfg:
+            poll_interval = file_cfg["poll_interval"]
+
     # Normalize single-account shorthand to accounts list
     if accounts is None:
         if bot_token is None:
-            raise ValueError("telegram addon requires 'bot_token' or 'accounts'")
+            raise ValueError(
+                "telegram addon requires 'config', 'bot_token', or 'accounts'"
+            )
         accounts = [{
             "alias": "default",
             "bot_token": bot_token,
