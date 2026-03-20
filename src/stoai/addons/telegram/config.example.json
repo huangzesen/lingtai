@@ -1,4 +1,12 @@
 {
+  "_help": [
+    "Telegram bot config. Copy to config.json and fill in.",
+    "",
+    "1. Talk to @BotFather on Telegram → /newbot → copy the token",
+    "2. To find your user ID, message @userinfobot on Telegram",
+    "3. Set allowed_users to your ID(s), or remove to accept all"
+  ],
+
   "bot_token": "123456:ABC-DEF-your-token-here",
   "allowed_users": [123456789],
   "poll_interval": 1.0
