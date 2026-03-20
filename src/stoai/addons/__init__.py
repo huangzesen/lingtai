@@ -10,7 +10,7 @@ lifecycle hooks --- called by Agent.start() and Agent.stop().
 Usage:
     agent = Agent(
         capabilities=["email", "file"],
-        addons={"gmail": {"gmail_address": "...", "gmail_password": "..."}},
+        addons={"imap": {"email_address": "...", "email_password": "..."}},
     )
 """
 from __future__ import annotations
@@ -22,7 +22,8 @@ if TYPE_CHECKING:
     from stoai_kernel.base_agent import BaseAgent
 
 _BUILTIN: dict[str, str] = {
-    "gmail": ".gmail",
+    "imap": ".imap",
+    "telegram": ".telegram",
 }
 
 
