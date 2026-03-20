@@ -95,10 +95,11 @@ DESCRIPTION = get_description("en")
 class PsycheManager:
     """Self-knowledge manager — character, library, memory, context."""
 
-    def __init__(self, agent: "BaseAgent", eigen_handler):
+    def __init__(self, agent: "BaseAgent", eigen_handler, *, library_limit: int | None = None):
         self._agent = agent
         self._working_dir = agent._working_dir
         self._eigen_handler = eigen_handler
+        self._max_entries = library_limit if library_limit is not None else self.DEFAULT_MAX_ENTRIES
 
         # Paths
         system_dir = self._working_dir / "system"
@@ -261,7 +262,7 @@ class PsycheManager:
     # Library actions
     # ------------------------------------------------------------------
 
-    MAX_ENTRIES = 20
+    DEFAULT_MAX_ENTRIES = 20
 
     def _library_submit(self, args: dict) -> dict:
         title = args.get("title", "").strip()
@@ -274,14 +275,14 @@ class PsycheManager:
             return {"error": "summary is required for library submit."}
         if not content:
             return {"error": "content is required for library submit."}
-        if len(self._entries) >= self.MAX_ENTRIES:
+        if len(self._entries) >= self._max_entries:
             return {
-                "error": f"Library is full ({self.MAX_ENTRIES} entries). "
+                "error": f"Library is full ({self._max_entries} entries). "
                 "Consolidate related entries first (library consolidate), "
                 "delete obsolete ones (library delete), or use supplementary "
                 "to pack more detail into existing entries.",
                 "entries": len(self._entries),
-                "max": self.MAX_ENTRIES,
+                "max": self._max_entries,
             }
         now = datetime.now(timezone.utc).isoformat()
         entry_id = self._make_id(title + content, now)
@@ -298,7 +299,7 @@ class PsycheManager:
             "status": "ok",
             "id": entry_id,
             "entries": len(self._entries),
-            "max": self.MAX_ENTRIES,
+            "max": self._max_entries,
         }
 
     def _library_filter(self, args: dict) -> dict:
@@ -462,13 +463,13 @@ class PsycheManager:
         return self._eigen_handler({"object": "context", "action": "molt", "summary": args.get("summary")})
 
 
-def setup(agent: "BaseAgent") -> PsycheManager:
+def setup(agent: "BaseAgent", *, library_limit: int | None = None) -> PsycheManager:
     """Set up psyche capability — self-knowledge management."""
     lang = agent._config.language
     eigen_handler = agent.override_intrinsic("eigen")
     agent._eigen_owns_memory = True
 
-    mgr = PsycheManager(agent, eigen_handler)
+    mgr = PsycheManager(agent, eigen_handler, library_limit=library_limit)
 
     # Migrate existing memory.md content to library as a seed entry
     memory_file = agent._working_dir / "system" / "memory.md"
