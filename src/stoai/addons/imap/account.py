@@ -198,7 +198,7 @@ class IMAPAccount:
         self._has_uidplus = False
 
         # Folder discovery
-        self._folders: dict[str, str] = {}  # name -> role
+        self._folders: dict[str, str | None] = {}  # name -> role (None = no role)
         self._folder_by_role: dict[str, str] = {}  # role -> name
 
         # IDLE interlock (erratum #4)
@@ -209,8 +209,8 @@ class IMAPAccount:
         # IDLE tag counter (erratum #3)
         self._tag_counter = 0
 
-        # State persistence — per-folder dict of int UIDs
-        self._processed_uids: dict[str, list[int]] = {}
+        # State persistence — per-folder set of int UIDs
+        self._processed_uids: dict[str, set[int]] = {}
 
         # Reconnect backoff steps (seconds)
         self._backoff_steps = [1, 2, 5, 10, 60]
@@ -246,8 +246,8 @@ class IMAPAccount:
         return self._has_uidplus
 
     @property
-    def folders(self) -> dict[str, str]:
-        """Map of folder name -> role. Roles: trash, sent, archive, drafts, junk, or ''."""
+    def folders(self) -> dict[str, str | None]:
+        """Map of folder name -> role. Roles: trash, sent, archive, drafts, junk, or None."""
         return dict(self._folders)
 
     # -- Connection ----------------------------------------------------------
@@ -316,7 +316,7 @@ class IMAPAccount:
         if status != "OK" or not data:
             return
 
-        folders: dict[str, str] = {}
+        folders: dict[str, str | None] = {}
         folder_by_role: dict[str, str] = {}
 
         for item in data:
@@ -328,7 +328,7 @@ class IMAPAccount:
                 continue
 
             # Try RFC 6154 special-use attributes first
-            role = ""
+            role: str | None = None
             for attr in attrs:
                 if attr in _SPECIAL_USE_ROLES:
                     role = _SPECIAL_USE_ROLES[attr]
@@ -337,7 +337,7 @@ class IMAPAccount:
             # Fall back to name heuristics
             if not role:
                 name_lower = name.lower()
-                role = _NAME_HEURISTICS.get(name_lower, "")
+                role = _NAME_HEURISTICS.get(name_lower)
 
             folders[name] = role
             if role and role not in folder_by_role:
@@ -386,8 +386,8 @@ class IMAPAccount:
         if not uids:
             return []
 
+        self._break_idle_if_needed()
         with self._lock:
-            self._break_idle_if_needed()
             imap = self._ensure_connected()
             imap.select(folder, readonly=True)
 
@@ -407,8 +407,8 @@ class IMAPAccount:
         Internally selects the last N UIDs via SEARCH ALL, then calls
         fetch_headers_by_uids.
         """
+        self._break_idle_if_needed()
         with self._lock:
-            self._break_idle_if_needed()
             imap = self._ensure_connected()
             imap.select(folder, readonly=True)
 
@@ -502,8 +502,8 @@ class IMAPAccount:
 
         Returns dict with: uid, from, to, subject, date, body, attachments, flags, email_id.
         """
+        self._break_idle_if_needed()
         with self._lock:
-            self._break_idle_if_needed()
             imap = self._ensure_connected()
             imap.select(folder, readonly=True)
 
@@ -574,8 +574,8 @@ class IMAPAccount:
         Multiple terms are AND-ed together.
         Quoted values: from:"John Doe" subject:"hello world"
         """
+        self._break_idle_if_needed()
         with self._lock:
-            self._break_idle_if_needed()
             imap = self._ensure_connected()
             imap.select(folder, readonly=True)
 
@@ -668,8 +668,8 @@ class IMAPAccount:
 
         action: "+FLAGS" to add, "-FLAGS" to remove, "FLAGS" to replace.
         """
+        self._break_idle_if_needed()
         with self._lock:
-            self._break_idle_if_needed()
             imap = self._ensure_connected()
             imap.select(folder)
 
@@ -697,8 +697,8 @@ class IMAPAccount:
 
     def move_message(self, folder: str, uid: str, dest_folder: str) -> bool:
         """Move a message to another folder. Uses MOVE if supported, else COPY+DELETE."""
+        self._break_idle_if_needed()
         with self._lock:
-            self._break_idle_if_needed()
             imap = self._ensure_connected()
             imap.select(folder)
 
@@ -724,8 +724,8 @@ class IMAPAccount:
             return self.move_message(folder, uid, trash)
         else:
             # Already in trash or no trash folder — flag deleted + expunge
+            self._break_idle_if_needed()
             with self._lock:
-                self._break_idle_if_needed()
                 imap = self._ensure_connected()
                 imap.select(folder)
                 imap.uid("STORE", uid, "+FLAGS", "(\\Deleted)")
@@ -954,8 +954,8 @@ class IMAPAccount:
         stop_event: threading.Event,
     ) -> None:
         """One poll cycle: NOOP, check new mail, sleep."""
+        self._break_idle_if_needed()
         with self._lock:
-            self._break_idle_if_needed()
             imap = self._ensure_connected()
             imap.select(folder)
             imap.noop()
@@ -980,8 +980,8 @@ class IMAPAccount:
         """
         new_headers: list[dict] = []
 
+        self._break_idle_if_needed()
         with self._lock:
-            self._break_idle_if_needed()
             imap = self._ensure_connected()
             imap.select(folder, readonly=True)
 
@@ -990,7 +990,7 @@ class IMAPAccount:
                 return
 
             uid_list = data[0].split()
-            processed_for_folder = set(self._processed_uids.get(folder, []))
+            processed_for_folder = self._processed_uids.get(folder, set())
             new_uids = []
             for uid_bytes in uid_list:
                 uid = uid_bytes.decode("ascii") if isinstance(uid_bytes, bytes) else str(uid_bytes)
@@ -1012,9 +1012,9 @@ class IMAPAccount:
 
             # Mark as processed
             if folder not in self._processed_uids:
-                self._processed_uids[folder] = []
+                self._processed_uids[folder] = set()
             for uid in new_uids:
-                self._processed_uids[folder].append(int(uid))
+                self._processed_uids[folder].add(int(uid))
             self._save_state()
 
         # Deliver OUTSIDE the lock (erratum #5)
@@ -1036,11 +1036,11 @@ class IMAPAccount:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
 
-            # processed_uids: {folder: [uid_ints]}
+            # processed_uids: {folder: set(uid_ints)}
             raw_uids = data.get("processed_uids", {})
             if isinstance(raw_uids, dict):
                 self._processed_uids = {
-                    folder: list(uid_list) for folder, uid_list in raw_uids.items()
+                    folder: set(uid_list) for folder, uid_list in raw_uids.items()
                 }
             else:
                 self._processed_uids = {}
@@ -1051,10 +1051,10 @@ class IMAPAccount:
                 self._folder_by_role = {}
                 for name, val in data["folders"].items():
                     if isinstance(val, dict):
-                        role = val.get("role", "")
+                        role = val.get("role") or None
                     else:
                         # Backward compat: bare string
-                        role = val if isinstance(val, str) else ""
+                        role = val if isinstance(val, str) and val else None
                     self._folders[name] = role
                     if role and role not in self._folder_by_role:
                         self._folder_by_role[role] = name
@@ -1087,17 +1087,19 @@ class IMAPAccount:
             return
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Trim each folder's UID list to last 2000
-        trimmed: dict[str, list[int]] = {}
-        for folder, uid_list in self._processed_uids.items():
-            sorted_uids = sorted(uid_list)
+        # Trim each folder's UID set to last 2000, serialize to sorted lists
+        trimmed_lists: dict[str, list[int]] = {}
+        trimmed_sets: dict[str, set[int]] = {}
+        for folder, uid_set in self._processed_uids.items():
+            sorted_uids = sorted(uid_set)
             if len(sorted_uids) > 2000:
                 sorted_uids = sorted_uids[-2000:]
-            trimmed[folder] = sorted_uids
-        self._processed_uids = trimmed
+            trimmed_lists[folder] = sorted_uids
+            trimmed_sets[folder] = set(sorted_uids)
+        self._processed_uids = trimmed_sets
 
-        # Folders as {name: {"role": role}} objects
-        folders_obj: dict[str, dict[str, str]] = {}
+        # Folders as {name: {"role": role}} objects (null for no role)
+        folders_obj: dict[str, dict[str, str | None]] = {}
         for name, role in self._folders.items():
             folders_obj[name] = {"role": role}
 
@@ -1109,7 +1111,7 @@ class IMAPAccount:
         }
 
         state = {
-            "processed_uids": trimmed,
+            "processed_uids": trimmed_lists,
             "folders": folders_obj,
             "capabilities": caps_obj,
         }

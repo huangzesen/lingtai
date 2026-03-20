@@ -369,7 +369,7 @@ def test_discover_folders_rfc6154(account, mock_imap):
     assert account._folders["Archive"] == "archive"
     assert account._folders["Drafts"] == "drafts"
     assert account._folders["Junk"] == "junk"
-    assert account._folders["INBOX"] == ""
+    assert account._folders["INBOX"] is None
 
     assert account.get_folder_by_role("sent") == "Sent"
     assert account.get_folder_by_role("trash") == "Trash"
@@ -731,9 +731,9 @@ def test_delete_message_already_in_trash_with_uidplus(account, mock_imap):
 # ---------------------------------------------------------------------------
 
 def test_list_folders(account):
-    account._folders = {"INBOX": "", "Sent": "sent", "Trash": "trash"}
+    account._folders = {"INBOX": None, "Sent": "sent", "Trash": "trash"}
     result = account.list_folders()
-    assert result == {"INBOX": "", "Sent": "sent", "Trash": "trash"}
+    assert result == {"INBOX": None, "Sent": "sent", "Trash": "trash"}
     # Verify it returns a copy
     result["New"] = "new"
     assert "New" not in account._folders
@@ -750,8 +750,8 @@ def test_state_persistence(tmp_path):
         email_password="secret",
         working_dir=tmp_path,
     )
-    acct1._processed_uids = {"INBOX": [1001, 1002, 1003]}
-    acct1._folders = {"INBOX": "", "Sent": "sent"}
+    acct1._processed_uids = {"INBOX": {1001, 1002, 1003}}
+    acct1._folders = {"INBOX": None, "Sent": "sent"}
     acct1._parse_capabilities("IMAP4rev1 IDLE MOVE")
     acct1._save_state()
 
@@ -762,8 +762,8 @@ def test_state_persistence(tmp_path):
     state_data = json.loads(state_path.read_text())
     # processed_uids: per-folder dict of int UIDs
     assert state_data["processed_uids"] == {"INBOX": [1001, 1002, 1003]}
-    # folders: {name: {"role": role}} objects
-    assert state_data["folders"]["INBOX"] == {"role": ""}
+    # folders: {name: {"role": role}} objects (null for no role)
+    assert state_data["folders"]["INBOX"] == {"role": None}
     assert state_data["folders"]["Sent"] == {"role": "sent"}
     # capabilities: boolean dict
     assert state_data["capabilities"] == {"idle": True, "move": True, "uidplus": False}
@@ -774,8 +774,8 @@ def test_state_persistence(tmp_path):
         email_password="secret",
         working_dir=tmp_path,
     )
-    assert acct2._processed_uids == {"INBOX": [1001, 1002, 1003]}
-    assert acct2._folders == {"INBOX": "", "Sent": "sent"}
+    assert acct2._processed_uids == {"INBOX": {1001, 1002, 1003}}
+    assert acct2._folders == {"INBOX": None, "Sent": "sent"}
     assert acct2.has_idle is True
     assert acct2.has_move is True
     assert acct2.has_uidplus is False
