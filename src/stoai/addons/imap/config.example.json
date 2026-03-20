@@ -1,0 +1,15 @@
+{
+  "_comment": "IMAP email config. Copy and fill in your credentials.",
+
+  "email_address": "your-agent@gmail.com",
+  "email_password": "xxxx xxxx xxxx xxxx",
+  "_email_note": "For Gmail, use an App Password (2FA required). myaccount.google.com → App Passwords",
+
+  "allowed_senders": ["your-personal@gmail.com"],
+
+  "imap_host": "imap.gmail.com",
+  "smtp_host": "smtp.gmail.com",
+
+  "poll_interval": 30,
+  "bridge_port": 8399
+}

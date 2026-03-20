@@ -3,9 +3,13 @@
 Adds an `imap` tool with its own mailbox (working_dir/imap/).
 An internal TCP bridge port lets other agents relay messages outward.
 
-Single-account usage:
+Usage (config file — recommended):
     agent = Agent(
-        capabilities=["email", "file"],
+        addons={"imap": {"config": "imap.json"}},
+    )
+
+Usage (inline, single account):
+    agent = Agent(
         addons={"imap": {
             "email_address": "agent@example.com",
             "email_password": "xxxx xxxx xxxx xxxx",
@@ -14,9 +18,8 @@ Single-account usage:
         }},
     )
 
-Multi-account usage:
+Usage (inline, multi-account):
     agent = Agent(
-        capabilities=["email", "file"],
         addons={"imap": {
             "accounts": [
                 {"email_address": "a@gmail.com", "email_password": "xxxx"},
@@ -28,6 +31,7 @@ Multi-account usage:
 """
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -45,6 +49,8 @@ log = logging.getLogger(__name__)
 def setup(
     agent: "BaseAgent",
     *,
+    # Config file
+    config: str | Path | None = None,
     # Single-account shorthand
     email_address: str | None = None,
     email_password: str | None = None,
@@ -61,11 +67,42 @@ def setup(
 ) -> IMAPMailManager:
     """Set up IMAP addon — registers imap tool, creates services.
 
+    Args:
+        config: Path to a JSON config file. Keys are the same as the kwargs.
+                Inline kwargs override config file values.
+
     Accepts either a flat single-account config or a list of account dicts.
 
     Listeners are NOT started here — they start in IMAPMailManager.start(),
     which is called by Agent.start() via the addon lifecycle.
     """
+    # Load config file if provided — inline kwargs override file values
+    if config is not None:
+        config_path = Path(config)
+        if not config_path.is_file():
+            raise FileNotFoundError(f"IMAP config not found: {config_path}")
+        file_cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        if accounts is None:
+            accounts = file_cfg.get("accounts")
+        if email_address is None:
+            email_address = file_cfg.get("email_address")
+        if email_password is None:
+            email_password = file_cfg.get("email_password")
+        if imap_host == "imap.gmail.com" and "imap_host" in file_cfg:
+            imap_host = file_cfg["imap_host"]
+        if imap_port == 993 and "imap_port" in file_cfg:
+            imap_port = file_cfg["imap_port"]
+        if smtp_host == "smtp.gmail.com" and "smtp_host" in file_cfg:
+            smtp_host = file_cfg["smtp_host"]
+        if smtp_port == 587 and "smtp_port" in file_cfg:
+            smtp_port = file_cfg["smtp_port"]
+        if allowed_senders is None:
+            allowed_senders = file_cfg.get("allowed_senders")
+        if poll_interval == 30 and "poll_interval" in file_cfg:
+            poll_interval = file_cfg["poll_interval"]
+        if bridge_port == 8399 and "bridge_port" in file_cfg:
+            bridge_port = file_cfg["bridge_port"]
+
     if accounts is not None:
         account_list = accounts
     elif email_address is not None:
@@ -81,7 +118,7 @@ def setup(
         }]
     else:
         raise ValueError(
-            "imap addon requires either 'accounts' (list) or 'email_address' (str)"
+            "imap addon requires 'config', 'accounts', or 'email_address'"
         )
 
     working_dir = Path(agent._working_dir)
