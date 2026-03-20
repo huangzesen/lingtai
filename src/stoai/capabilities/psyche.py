@@ -261,6 +261,8 @@ class PsycheManager:
     # Library actions
     # ------------------------------------------------------------------
 
+    MAX_ENTRIES = 20
+
     def _library_submit(self, args: dict) -> dict:
         title = args.get("title", "").strip()
         summary = args.get("summary", "").strip()
@@ -272,6 +274,15 @@ class PsycheManager:
             return {"error": "summary is required for library submit."}
         if not content:
             return {"error": "content is required for library submit."}
+        if len(self._entries) >= self.MAX_ENTRIES:
+            return {
+                "error": f"Library is full ({self.MAX_ENTRIES} entries). "
+                "Consolidate related entries first (library consolidate), "
+                "delete obsolete ones (library delete), or use supplementary "
+                "to pack more detail into existing entries.",
+                "entries": len(self._entries),
+                "max": self.MAX_ENTRIES,
+            }
         now = datetime.now(timezone.utc).isoformat()
         entry_id = self._make_id(title + content, now)
         self._entries.append({
@@ -283,7 +294,12 @@ class PsycheManager:
             "created_at": now,
         })
         self._save_entries()
-        return {"status": "ok", "id": entry_id}
+        return {
+            "status": "ok",
+            "id": entry_id,
+            "entries": len(self._entries),
+            "max": self.MAX_ENTRIES,
+        }
 
     def _library_filter(self, args: dict) -> dict:
         pattern = args.get("pattern")
