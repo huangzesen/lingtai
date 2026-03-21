@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"lingtai-daemon/internal/combo"
 	"lingtai-daemon/internal/config"
 	"lingtai-daemon/internal/i18n"
 
@@ -23,6 +24,15 @@ var defaultCovenantEN string
 //go:embed defaults/covenant_zh.md
 var defaultCovenantZH string
 
+//go:embed defaults/covenant_wen.md
+var defaultCovenantWEN string
+
+//go:embed defaults/tool_translation.md
+var toolTranslationWEN string
+
+//go:embed defaults/tool_translation_zh.md
+var toolTranslationZH string
+
 //go:embed defaults/bash_policy.json
 var defaultBashPolicy string
 
@@ -30,7 +40,8 @@ var defaultBashPolicy string
 type step int
 
 const (
-	StepLang step = iota
+	StepCombo step = iota
+	StepLang
 	StepModel
 	StepMultimodal
 	StepMessaging
@@ -44,6 +55,8 @@ const (
 
 func (s step) String() string {
 	switch s {
+	case StepCombo:
+		return "Combo"
 	case StepLang:
 		return i18n.S("setup_lang")
 	case StepModel:
@@ -189,7 +202,12 @@ type wizardModel struct {
 	focus     int // index of focused field within current step
 	outputDir string
 
-	// language selector state (step 0)
+	// combo selection state
+	combos    []combo.Combo
+	comboIdx  int             // -1 = "Create new", 0..n = combo index
+	comboName textinput.Model // for naming the combo on save
+
+	// language selector state
 	langIdx int
 
 	// provider selector state
@@ -241,13 +259,22 @@ func newWizardModel(outputDir string) wizardModel {
 	}
 
 	m := wizardModel{
-		step:        StepLang,
+		step:        StepCombo,
 		outputDir:   outputDir,
 		langIdx:     initialLangIdx,
 		providerIdx: 0,
 		testResults: make(map[step]*TestResult),
 		fields:      make(map[step][]field),
 	}
+
+	// Step: Combo selection
+	combos, _ := combo.List()
+	m.combos = combos
+	m.comboIdx = -1 // default to "Create new"
+	m.comboName = textinput.New()
+	m.comboName.Placeholder = "my-combo"
+	m.comboName.CharLimit = 40
+	m.comboName.Width = 30
 
 	// Step: Lang has no text fields (uses left/right selector)
 
@@ -301,14 +328,10 @@ func newWizardModel(outputDir string) wizardModel {
 	}
 
 	// Step: General
-	home, _ := os.UserHomeDir()
-	defaultBase := filepath.Join(home, ".lingtai")
 	m.fields[StepGeneral] = []field{
 		{label: "Agent name", input: newTextInput("orchestrator", "orchestrator")},
-		{label: "Base directory", input: newTextInput(defaultBase, defaultBase)},
 		{label: "Agent port", input: newTextInput("8501", "8501")},
-		{label: "Bash policy (default: ~/.lingtai/bash_policy.json)", input: newTextInput("Enter = use default", "")},
-		{label: "Covenant (default: ~/.lingtai/covenant.md)", input: newTextInput("Enter = use default", "")},
+		{label: "Bash policy (Enter = use default)", input: newTextInput("Enter = use default", "")},
 	}
 
 	// Step: Review has no fields
@@ -478,13 +501,10 @@ func (m *wizardModel) loadExisting() {
 	}
 
 	// General
-	var agentName, baseDir, bashPolicy, covenant string
+	var agentName, bashPolicy string
 	var agentPort int
 	if v, ok := raw["agent_name"]; ok {
 		json.Unmarshal(v, &agentName)
-	}
-	if v, ok := raw["base_dir"]; ok {
-		json.Unmarshal(v, &baseDir)
 	}
 	if v, ok := raw["agent_port"]; ok {
 		json.Unmarshal(v, &agentPort)
@@ -492,23 +512,14 @@ func (m *wizardModel) loadExisting() {
 	if v, ok := raw["bash_policy"]; ok {
 		json.Unmarshal(v, &bashPolicy)
 	}
-	if v, ok := raw["covenant"]; ok {
-		json.Unmarshal(v, &covenant)
-	}
 	if agentName != "" {
 		m.fields[StepGeneral][0].input.SetValue(agentName)
 	}
-	if baseDir != "" {
-		m.fields[StepGeneral][1].input.SetValue(baseDir)
-	}
 	if agentPort > 0 {
-		m.fields[StepGeneral][2].input.SetValue(strconv.Itoa(agentPort))
+		m.fields[StepGeneral][1].input.SetValue(strconv.Itoa(agentPort))
 	}
 	if bashPolicy != "" {
-		m.fields[StepGeneral][3].input.SetValue(bashPolicy)
-	}
-	if covenant != "" {
-		m.fields[StepGeneral][4].input.SetValue(covenant)
+		m.fields[StepGeneral][2].input.SetValue(bashPolicy)
 	}
 }
 
@@ -566,6 +577,14 @@ func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "tab", "down":
+			if m.step == StepCombo {
+				total := len(m.combos) // -1 to len(combos)-1
+				m.comboIdx++
+				if m.comboIdx >= total {
+					m.comboIdx = -1
+				}
+				return m, nil
+			}
 			if m.step == StepLang {
 				m.langIdx = (m.langIdx + 1) % len(i18n.Languages)
 				i18n.Lang = i18n.Languages[m.langIdx]
@@ -629,6 +648,13 @@ func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "shift+tab", "up":
+			if m.step == StepCombo {
+				m.comboIdx--
+				if m.comboIdx < -1 {
+					m.comboIdx = len(m.combos) - 1
+				}
+				return m, nil
+			}
 			if m.step == StepLang {
 				m.langIdx = (m.langIdx - 1 + len(i18n.Languages)) % len(i18n.Languages)
 				i18n.Lang = i18n.Languages[m.langIdx]
@@ -750,6 +776,23 @@ func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.runTest()
 
 		case "enter":
+			if m.step == StepCombo {
+				if m.comboIdx == -1 {
+					// Create new — advance to StepLang
+					m.advanceStep()
+				} else {
+					// Apply combo and skip to StepGeneral
+					c := m.combos[m.comboIdx]
+					m.applyCombo(c)
+					m.step = StepGeneral
+					m.focus = 0
+					if fields, ok := m.fields[StepGeneral]; ok && len(fields) > 0 {
+						fields[0].input.Focus()
+						m.fields[StepGeneral] = fields
+					}
+				}
+				return m, nil
+			}
 			if m.step == StepReview {
 				m.written, m.err = m.writeConfig()
 				m.done = true
@@ -882,7 +925,12 @@ func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	}
-	if m.step != StepReview && m.step != StepLang && m.step != StepMultimodal && m.step != StepMessaging {
+	if m.step == StepReview {
+		var cmd tea.Cmd
+		m.comboName, cmd = m.comboName.Update(msg)
+		return m, cmd
+	}
+	if m.step != StepCombo && m.step != StepLang && m.step != StepMultimodal && m.step != StepMessaging {
 		fields := m.fields[m.step]
 		if m.focus < len(fields) {
 			var cmd tea.Cmd
@@ -1009,12 +1057,66 @@ func (m *wizardModel) advanceStep() {
 	m.mmCol = 0
 
 	// Focus first field of new step
-	if m.step != StepMultimodal {
+	if m.step == StepReview {
+		m.comboName.Focus()
+	} else if m.step != StepMultimodal {
 		if fields, ok := m.fields[m.step]; ok && len(fields) > 0 {
 			fields[0].input.Focus()
 			m.fields[m.step] = fields
 		}
 	}
+}
+
+// applyCombo pre-fills wizard fields from a saved combo.
+func (m *wizardModel) applyCombo(c combo.Combo) {
+	// Set env vars from combo
+	for k, v := range c.Env {
+		os.Setenv(k, v)
+	}
+
+	// Set language from combo config
+	if lang, ok := c.Config["language"].(string); ok {
+		for idx, code := range i18n.Languages {
+			if code == lang {
+				m.langIdx = idx
+				i18n.Lang = code
+				break
+			}
+		}
+	}
+
+	// Set model fields
+	if provider, ok := c.Model["provider"].(string); ok {
+		for idx, p := range providers {
+			if p == provider {
+				m.providerIdx = idx
+				break
+			}
+		}
+		m.fields[StepModel][0].input.SetValue(provider)
+	}
+	if model, ok := c.Model["model"].(string); ok {
+		m.fields[StepModel][1].input.SetValue(model)
+	}
+	if apiKeyEnv, ok := c.Model["api_key_env"].(string); ok {
+		if key := os.Getenv(apiKeyEnv); key != "" {
+			m.fields[StepModel][2].input.SetValue(key)
+		}
+	}
+	if baseURL, ok := c.Model["base_url"].(string); ok {
+		m.fields[StepModel][3].input.SetValue(baseURL)
+	}
+
+	// Set general config fields
+	if agentName, ok := c.Config["agent_name"].(string); ok {
+		m.fields[StepGeneral][0].input.SetValue(agentName)
+	}
+	if port, ok := c.Config["agent_port"].(float64); ok {
+		m.fields[StepGeneral][1].input.SetValue(fmt.Sprintf("%d", int(port)))
+	}
+
+	// Pre-fill combo name for save
+	m.comboName.SetValue(c.Name)
 }
 
 func (m wizardModel) renderMMChooser() string {
@@ -1238,7 +1340,7 @@ func (m wizardModel) View() string {
 	}
 
 	// Progress bar
-	allSteps := []step{StepLang, StepModel, StepMultimodal, StepMessaging, StepGeneral, StepReview}
+	allSteps := []step{StepCombo, StepLang, StepModel, StepMultimodal, StepMessaging, StepGeneral, StepReview}
 	for i, s := range allSteps {
 		name := s.String()
 		if s == m.step {
@@ -1256,6 +1358,34 @@ func (m wizardModel) View() string {
 
 	// Section header
 	b.WriteString(headerStyle.Render(m.step.String()) + "\n\n")
+
+	// Combo selector
+	if m.step == StepCombo {
+		var cb strings.Builder
+		cb.WriteString("\n  Select a combo or create new:\n\n")
+
+		// "Create new" option
+		cursor := " "
+		if m.comboIdx == -1 {
+			cursor = ">"
+		}
+		cb.WriteString(fmt.Sprintf("  %s [Create new]\n", cursor))
+
+		// List existing combos
+		for i, c := range m.combos {
+			cursor = " "
+			if m.comboIdx == i {
+				cursor = ">"
+			}
+			provider, _ := c.Model["provider"].(string)
+			model, _ := c.Model["model"].(string)
+			cb.WriteString(fmt.Sprintf("  %s %s (%s/%s)\n", cursor, c.Name, provider, model))
+		}
+
+		cb.WriteString("\n" + dimStyle.Render("  ↑/↓ navigate  Enter select") + "\n")
+		b.WriteString(cb.String())
+		return b.String()
+	}
 
 	// Language selector (no text fields)
 	if m.step == StepLang {
@@ -1414,18 +1544,18 @@ func (m wizardModel) renderReview() string {
 	// General
 	b.WriteString("\n" + promptStyle.Render("General:") + "\n")
 	b.WriteString(fmt.Sprintf("  Agent Name: %s\n", m.fieldVal(StepGeneral, 0)))
-	b.WriteString(fmt.Sprintf("  Base Dir:   %s\n", m.fieldVal(StepGeneral, 1)))
-	b.WriteString(fmt.Sprintf("  Port:       %s\n", m.fieldVal(StepGeneral, 2)))
-	if v := m.fieldVal(StepGeneral, 3); v != "" {
+	b.WriteString(fmt.Sprintf("  Port:       %s\n", m.fieldVal(StepGeneral, 1)))
+	if v := m.fieldVal(StepGeneral, 2); v != "" {
 		b.WriteString(fmt.Sprintf("  Bash Policy: %s\n", v))
 	}
-	if v := m.fieldVal(StepGeneral, 4); v != "" {
-		b.WriteString(fmt.Sprintf("  Covenant:    %s\n", v))
-	}
+
+	// Combo name
+	b.WriteString("\n" + promptStyle.Render("Save as combo:") + " ")
+	b.WriteString(m.comboName.View() + "\n")
 
 	// Save location
-	b.WriteString("\n" + dimStyle.Render(fmt.Sprintf("Config → %s/config.json", m.outputDir)) + "\n")
-	b.WriteString(dimStyle.Render(fmt.Sprintf("Secrets → %s/.env", m.outputDir)) + "\n")
+	b.WriteString("\n" + dimStyle.Render(fmt.Sprintf("Config → %s/configs/config.json", m.outputDir)) + "\n")
+	b.WriteString(dimStyle.Render(fmt.Sprintf("Secrets → %s/configs/.env", m.outputDir)) + "\n")
 
 	return b.String()
 }
@@ -1489,8 +1619,10 @@ func (m wizardModel) runTest() tea.Cmd {
 }
 
 func (m wizardModel) writeConfig() ([]string, error) {
-	if err := os.MkdirAll(m.outputDir, 0755); err != nil {
-		return nil, fmt.Errorf("cannot create output directory: %w", err)
+	// Config files go to configs/ subdirectory
+	configsDir := filepath.Join(m.outputDir, "configs")
+	if err := os.MkdirAll(configsDir, 0755); err != nil {
+		return nil, fmt.Errorf("cannot create configs directory: %w", err)
 	}
 
 	var written []string
@@ -1537,37 +1669,31 @@ func (m wizardModel) writeConfig() ([]string, error) {
 		modelCfg[cap.configKey] = capCfg
 	}
 
-	modelPath := filepath.Join(m.outputDir, "model.json")
+	modelPath := filepath.Join(configsDir, "model.json")
 	if err := writeJSON(modelPath, modelCfg); err != nil {
 		return written, fmt.Errorf("writing model.json: %w", err)
 	}
 	written = append(written, modelPath)
 
 	// 2. config.json
-	port, _ := strconv.Atoi(m.fieldVal(StepGeneral, 2))
+	port, _ := strconv.Atoi(m.fieldVal(StepGeneral, 1))
 	if port == 0 {
 		port = 8501
 	}
 
+	agentName := m.fieldVal(StepGeneral, 0)
 	cfg := map[string]interface{}{
 		"model":      "model.json",
 		"language":   i18n.Languages[m.langIdx],
-		"agent_name": m.fieldVal(StepGeneral, 0),
-		"base_dir":   m.fieldVal(StepGeneral, 1),
+		"agent_name": agentName,
 		"agent_port": port,
 	}
 
-	bashPolicy := m.fieldVal(StepGeneral, 3)
+	bashPolicy := m.fieldVal(StepGeneral, 2)
 	if bashPolicy == "" {
-		bashPolicy = filepath.Join(m.outputDir, "bash_policy.json")
+		bashPolicy = filepath.Join(configsDir, "bash_policy.json")
 	}
 	cfg["bash_policy"] = bashPolicy
-
-	covenant := m.fieldVal(StepGeneral, 4)
-	if covenant == "" {
-		covenant = filepath.Join(m.outputDir, "covenant.md")
-	}
-	cfg["covenant"] = covenant
 
 	// IMAP config
 	if email := m.fieldVal(StepIMAP, 0); email != "" {
@@ -1590,7 +1716,7 @@ func (m wizardModel) writeConfig() ([]string, error) {
 		}
 	}
 
-	configPath := filepath.Join(m.outputDir, "config.json")
+	configPath := filepath.Join(configsDir, "config.json")
 	if err := writeJSON(configPath, cfg); err != nil {
 		return written, fmt.Errorf("writing config.json: %w", err)
 	}
@@ -1621,7 +1747,7 @@ func (m wizardModel) writeConfig() ([]string, error) {
 		envLines = append(envLines, fmt.Sprintf("TELEGRAM_BOT_TOKEN=%s", token))
 	}
 	if len(envLines) > 0 {
-		envPath := filepath.Join(m.outputDir, ".env")
+		envPath := filepath.Join(configsDir, ".env")
 		content := "# LingTai secrets — do not commit this file\n\n" + strings.Join(envLines, "\n") + "\n"
 		if err := os.WriteFile(envPath, []byte(content), 0600); err != nil {
 			return written, fmt.Errorf("writing .env: %w", err)
@@ -1630,21 +1756,52 @@ func (m wizardModel) writeConfig() ([]string, error) {
 	}
 
 	// 4. Default files
-	bashPolicyPath := filepath.Join(m.outputDir, "bash_policy.json")
+	bashPolicyPath := filepath.Join(configsDir, "bash_policy.json")
 	if _, err := os.Stat(bashPolicyPath); os.IsNotExist(err) {
 		os.WriteFile(bashPolicyPath, []byte(defaultBashPolicy), 0644)
 		written = append(written, bashPolicyPath)
 	}
 
-	covenantPath := filepath.Join(m.outputDir, "covenant.md")
+	// 5. Default covenant — written to agent working dir (per-agent, not per-project)
+	agentDir := filepath.Join(m.outputDir, agentName)
+	os.MkdirAll(agentDir, 0755)
+	covenantPath := filepath.Join(agentDir, "covenant.md")
 	if _, err := os.Stat(covenantPath); os.IsNotExist(err) {
 		defaultCovenant := defaultCovenantEN
+		toolTranslation := ""
 		langCode := i18n.Languages[m.langIdx]
-		if langCode == "zh" || langCode == "lzh" {
+		if langCode == "lzh" {
+			defaultCovenant = defaultCovenantWEN
+			toolTranslation = toolTranslationWEN
+		} else if langCode == "zh" {
 			defaultCovenant = defaultCovenantZH
+			toolTranslation = toolTranslationZH
+		}
+		if toolTranslation != "" {
+			defaultCovenant += "\n---\n\n" + toolTranslation
 		}
 		os.WriteFile(covenantPath, []byte(defaultCovenant), 0644)
 		written = append(written, covenantPath)
+	}
+
+	// Save combo
+	if name := m.comboName.Value(); name != "" {
+		envMap := make(map[string]string)
+		for _, line := range envLines {
+			if k, v, ok := strings.Cut(line, "="); ok {
+				envMap[k] = v
+			}
+		}
+		combo.Save(combo.Combo{
+			Name:  name,
+			Model: modelCfg,
+			Config: map[string]interface{}{
+				"agent_name": agentName,
+				"agent_port": port,
+				"language":   i18n.Languages[m.langIdx],
+			},
+			Env: envMap,
+		})
 	}
 
 	return written, nil
