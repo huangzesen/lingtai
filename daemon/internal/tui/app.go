@@ -252,7 +252,7 @@ func (m Model) verboseTick() tea.Cmd {
 // readVerboseLines reads new JSONL lines from the agent's log file starting
 // at verboseOffset. This is an on-demand read — no background goroutine.
 func (m *Model) readVerboseLines() {
-	logPath := fmt.Sprintf("%s/%s/logs/events.jsonl", m.config.BaseDir, m.activeName)
+	logPath := fmt.Sprintf("%s/%s/logs/events.jsonl", m.config.ProjectDir, m.activeName)
 	f, err := os.Open(logPath)
 	if err != nil {
 		return
@@ -284,7 +284,7 @@ func (m *Model) readVerboseLines() {
 // handleCommand processes /commands. Returns true if the input was a command.
 func (m *Model) handleCommand(text string) bool {
 	if strings.HasPrefix(text, "/list") {
-		spirits := manage.ScanSpirits(m.config.BaseDir)
+		spirits := manage.ScanSpirits(m.config.ProjectDir)
 		if len(spirits) == 0 {
 			m.messages = append(m.messages, DiaryMsg.Render(i18n.S("no_spirits")))
 		} else {
@@ -316,7 +316,7 @@ func (m *Model) handleCommand(text string) bool {
 			return true
 		}
 		// Try as agent name — look up in running spirits
-		spirits := manage.ScanSpirits(m.config.BaseDir)
+		spirits := manage.ScanSpirits(m.config.ProjectDir)
 		for _, s := range spirits {
 			if s.Name == target {
 				m.switchDaemon(s.Name, s.Port)
@@ -343,7 +343,7 @@ func (m *Model) switchDaemon(name string, port int) {
 
 // cycleNextSpirit switches to the next running spirit via Tab.
 func (m *Model) cycleNextSpirit() {
-	spirits := manage.ScanSpirits(m.config.BaseDir)
+	spirits := manage.ScanSpirits(m.config.ProjectDir)
 	if len(spirits) == 0 {
 		return
 	}

@@ -35,15 +35,15 @@ type Config struct {
 	Telegram   TelegramConfig `json:"telegram,omitempty"`
 	CLI        bool           `json:"cli"`
 	AgentName  string         `json:"agent_name"`
-	BaseDir    string         `json:"base_dir"`
 	BashPolicy string         `json:"bash_policy,omitempty"`
 	MaxTurns   int            `json:"max_turns"`
 	AgentPort  int            `json:"agent_port"`
 	CLIPort    int            `json:"cli_port,omitempty"`
-	Covenant   string         `json:"covenant,omitempty"`
+	Language   string         `json:"language"`
 
-	// Internal
-	ConfigDir string `json:"-"` // directory containing config.json
+	// Internal — derived, not serialized
+	ConfigDir  string `json:"-"` // directory containing config.json (configs/)
+	ProjectDir string `json:"-"` // parent of ConfigDir (the project root)
 }
 
 // Load reads and validates a config.json file.
@@ -55,6 +55,7 @@ func Load(path string) (*Config, error) {
 
 	absPath, _ := filepath.Abs(path)
 	configDir := filepath.Dir(absPath)
+	projectDir := filepath.Dir(configDir) // configs/ -> project dir
 
 	// Load .env from config directory
 	LoadDotenv(configDir)
@@ -67,24 +68,25 @@ func Load(path string) (*Config, error) {
 
 	// Parse everything except "model" into Config struct
 	cfg := &Config{
-		AgentName: "orchestrator",
-		BaseDir:   "~/.lingtai",
-		MaxTurns:  50,
-		AgentPort: 8501,
-		CLI:       false,
-		ConfigDir: configDir,
+		AgentName:  "orchestrator",
+		MaxTurns:   50,
+		AgentPort:  8501,
+		CLI:        false,
+		Language:   "en",
+		ConfigDir:  configDir,
+		ProjectDir: projectDir,
 	}
 	// Re-unmarshal to get defaults overridden
 	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
+	// Restore derived fields (unmarshal may zero them since they're json:"-")
+	cfg.ConfigDir = configDir
+	cfg.ProjectDir = projectDir
 
 	// Apply defaults for zero values
 	if cfg.AgentName == "" {
 		cfg.AgentName = "orchestrator"
-	}
-	if cfg.BaseDir == "" {
-		cfg.BaseDir = "~/.lingtai"
 	}
 	if cfg.MaxTurns == 0 {
 		cfg.MaxTurns = 50
@@ -95,11 +97,8 @@ func Load(path string) (*Config, error) {
 	if cfg.CLIPort == 0 {
 		cfg.CLIPort = cfg.AgentPort + 1
 	}
-
-	// Expand ~ in base_dir
-	if strings.HasPrefix(cfg.BaseDir, "~") {
-		home, _ := os.UserHomeDir()
-		cfg.BaseDir = filepath.Join(home, cfg.BaseDir[1:])
+	if cfg.Language == "" {
+		cfg.Language = "en"
 	}
 
 	// Resolve model config
@@ -169,7 +168,7 @@ func ResolveEnvVar(name string) (string, error) {
 	return val, nil
 }
 
-// WorkingDir returns the agent's working directory: {base_dir}/{agent_name}
+// WorkingDir returns the agent's working directory: {project_dir}/{agent_name}
 func (c *Config) WorkingDir() string {
-	return filepath.Join(c.BaseDir, c.AgentName)
+	return filepath.Join(c.ProjectDir, c.AgentName)
 }

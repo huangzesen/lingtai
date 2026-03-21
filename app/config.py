@@ -7,10 +7,10 @@ from pathlib import Path
 
 _DEFAULTS = {
     "agent_name": "orchestrator",
-    "base_dir": "~/.lingtai",
     "max_turns": 50,
     "agent_port": 8501,
     "cli": False,
+    "language": "en",
 }
 
 
@@ -36,6 +36,10 @@ def load_config(config_path: str) -> dict:
     load_dotenv(config_dir)
 
     cfg = json.loads(path.read_text(encoding="utf-8"))
+
+    # Derive base_dir from config path: configs/config.json -> project dir
+    project_dir = config_dir.parent
+    cfg["base_dir"] = str(project_dir)
 
     # Apply defaults
     for key, default in _DEFAULTS.items():
