@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
 
-from stoai_kernel.session import SessionManager
-from stoai_kernel.config import AgentConfig
+from lingtai_kernel.session import SessionManager
+from lingtai_kernel.config import AgentConfig
 
 
 def make_session_manager(**kw):
@@ -98,7 +98,7 @@ def test_send_stale_interaction_recovery():
     sm.interaction_id = "stale-id"
 
     # Make send_with_timeout raise a stale interaction error on first call
-    from stoai_kernel.llm_utils import _is_stale_interaction_error
+    from lingtai_kernel.llm_utils import _is_stale_interaction_error
     stale_error = Exception("interaction not found")
 
     call_count = [0]
@@ -108,8 +108,8 @@ def test_send_stale_interaction_recovery():
             raise stale_error
         return mock_session.send.return_value
 
-    with patch("stoai_kernel.session.send_with_timeout", side_effect=fake_send_with_timeout), \
-         patch("stoai_kernel.session._is_stale_interaction_error", return_value=True):
+    with patch("lingtai_kernel.session.send_with_timeout", side_effect=fake_send_with_timeout), \
+         patch("lingtai_kernel.session._is_stale_interaction_error", return_value=True):
         response = sm.send("hello")
 
     assert response.text == "hello"
@@ -121,8 +121,8 @@ def test_send_non_stale_error_propagates():
     """Non-stale errors should propagate normally."""
     sm, _, _ = make_session_manager()
 
-    with patch("stoai_kernel.session.send_with_timeout", side_effect=ValueError("real error")), \
-         patch("stoai_kernel.session._is_stale_interaction_error", return_value=False):
+    with patch("lingtai_kernel.session.send_with_timeout", side_effect=ValueError("real error")), \
+         patch("lingtai_kernel.session._is_stale_interaction_error", return_value=False):
         with pytest.raises(ValueError, match="real error"):
             sm.send("hello")
 
@@ -131,7 +131,7 @@ def test_send_preserves_interaction_id():
     sm, _, mock_session = make_session_manager()
     mock_session.interaction_id = "new-id"
 
-    with patch("stoai_kernel.session.send_with_timeout", return_value=mock_session.send.return_value):
+    with patch("lingtai_kernel.session.send_with_timeout", return_value=mock_session.send.return_value):
         sm.send("hello")
 
     assert sm.interaction_id == "new-id"
@@ -176,7 +176,7 @@ def test_on_reset_summarizes_tool_calls():
     sm, svc, _ = make_session_manager()
     sm.ensure_session()
 
-    from stoai_kernel.llm.interface import ToolCallBlock
+    from lingtai_kernel.llm.interface import ToolCallBlock
 
     mock_chat = MagicMock()
     mock_iface = MagicMock()

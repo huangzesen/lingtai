@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai_kernel.intrinsics.mail import handle
+from lingtai_kernel.intrinsics.mail import handle
 
 
 # ---------------------------------------------------------------------------
@@ -277,7 +277,7 @@ class TestRead:
         msg_id = _make_inbox_message(agent._working_dir)
 
         # Before read
-        from stoai_kernel.intrinsics.mail import _read_ids
+        from lingtai_kernel.intrinsics.mail import _read_ids
         assert msg_id not in _read_ids(agent)
 
         handle(agent, {"action": "read", "id": [msg_id]})
@@ -388,7 +388,7 @@ class TestDelete:
         msg_id = _make_inbox_message(agent._working_dir)
         # Mark as read
         handle(agent, {"action": "read", "id": [msg_id]})
-        from stoai_kernel.intrinsics.mail import _read_ids
+        from lingtai_kernel.intrinsics.mail import _read_ids
         assert msg_id in _read_ids(agent)
 
         # Delete should clean from read.json

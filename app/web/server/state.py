@@ -7,9 +7,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from stoai import Agent, AgentConfig
-from stoai.llm import LLMService
-from stoai.services.mail import TCPMailService
+from lingtai import Agent, AgentConfig
+from lingtai.llm import LLMService
+from lingtai.services.mail import TCPMailService
 
 
 @dataclass

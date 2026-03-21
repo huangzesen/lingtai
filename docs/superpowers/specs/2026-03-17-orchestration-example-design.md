@@ -2,7 +2,7 @@
 
 ## Overview
 
-An example demonstrating multi-agent orchestration via stoai. One admin orchestrator agent runs as a background service, capable of spawning up to 10 subagents. A separate CLI email client lets the user communicate with the orchestrator. All communication (user ↔ admin, admin ↔ subagents, subagent ↔ subagent) flows through email.
+An example demonstrating multi-agent orchestration via lingtai. One admin orchestrator agent runs as a background service, capable of spawning up to 10 subagents. A separate CLI email client lets the user communicate with the orchestrator. All communication (user ↔ admin, admin ↔ subagents, subagent ↔ subagent) flows through email.
 
 ## File Structure
 
@@ -17,7 +17,7 @@ examples/orchestration/
 ### Runtime (not git-tracked)
 
 ```
-~/.stoai/orchestration/playground/
+~/.lingtai/orchestration/playground/
     service.json             — pid, admin port/address, status
     admin/                   — orchestrator working dir (mailbox/, logs/, etc.)
     admin_delegate_*/        — subagent working dirs (created by delegate)
@@ -39,7 +39,7 @@ Entry point that starts the orchestrator agent as a long-running background serv
 
 - **agent_id:** `"admin"`
 - **admin:** `True`
-- **base_dir:** `~/.stoai/orchestration/playground/` (must be created before `Agent()` constructor — `mkdir -p`)
+- **base_dir:** `~/.lingtai/orchestration/playground/` (must be created before `Agent()` constructor — `mkdir -p`)
 - **streaming:** `True`
 - **config:** `AgentConfig(max_turns=20)`
 - **role:** covenant text (see below)
@@ -75,7 +75,7 @@ Written on startup, read by CLI:
 ### Lifecycle
 
 - Loads `.env` for API key
-- Creates playground dir: `Path("~/.stoai/orchestration/playground/").expanduser().mkdir(parents=True, exist_ok=True)` — must happen before `Agent()` constructor (which raises `FileNotFoundError` if `base_dir` doesn't exist)
+- Creates playground dir: `Path("~/.lingtai/orchestration/playground/").expanduser().mkdir(parents=True, exist_ok=True)` — must happen before `Agent()` constructor (which raises `FileNotFoundError` if `base_dir` doesn't exist)
 - Starts `TCPMailService` on a known port (e.g., 8301)
 - Constructs and starts the orchestrator `Agent`
 - Writes `service.json`
@@ -88,9 +88,9 @@ A reusable terminal email client. Connects to a running orchestrator service.
 
 ### Connection
 
-- Reads `service.json` from `~/.stoai/orchestration/playground/` to find admin address and user port
+- Reads `service.json` from `~/.lingtai/orchestration/playground/` to find admin address and user port
 - Starts a `TCPMailService` on the user port (from `service.json`) with `working_dir=playground/user/` — the `working_dir` parameter is required so received emails are persisted to disk and `/inbox`/`/read` commands work
-- User mailbox persists at `~/.stoai/orchestration/playground/user/mailbox/`
+- User mailbox persists at `~/.lingtai/orchestration/playground/user/mailbox/`
 - Only one CLI instance can run at a time (the user port is fixed in `service.json`; a second instance fails to bind)
 
 ### Commands

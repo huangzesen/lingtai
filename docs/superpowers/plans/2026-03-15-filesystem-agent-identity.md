@@ -16,8 +16,8 @@
 
 | File | Action | Responsibility |
 |------|--------|----------------|
-| `src/stoai/agent.py` | Modify | Replace `working_dir` param with `base_dir`, add lock/manifest logic |
-| `src/stoai/capabilities/delegate.py` | Modify | Pass `base_dir` to child, remove `working_dir` |
+| `src/lingtai/agent.py` | Modify | Replace `working_dir` param with `base_dir`, add lock/manifest logic |
+| `src/lingtai/capabilities/delegate.py` | Modify | Pass `base_dir` to child, remove `working_dir` |
 | `tests/test_agent.py` | Modify | All `working_dir=` → `base_dir=`, add lock/manifest/resume tests |
 | `tests/test_layers_email.py` | Modify | `working_dir=tmp_path` → `base_dir=tmp_path` |
 | `tests/test_layers_bash.py` | Modify | `working_dir=` → `base_dir=` |
@@ -44,7 +44,7 @@
 ### Task 1: Modify BaseAgent constructor — `base_dir` replaces `working_dir`
 
 **Files:**
-- Modify: `src/stoai/agent.py:170-250` (constructor + property)
+- Modify: `src/lingtai/agent.py:170-250` (constructor + property)
 
 - [ ] **Step 1: Add `import os, re` and cross-platform lock helpers at module level**
 
@@ -234,12 +234,12 @@ self._release_lock()
 
 - [ ] **Step 9: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 10: Commit**
 
 ```bash
-git add src/stoai/agent.py
+git add src/lingtai/agent.py
 git commit -m "refactor: replace working_dir with base_dir, add .agent.lock and .agent.json"
 ```
 
@@ -250,7 +250,7 @@ git commit -m "refactor: replace working_dir with base_dir, add .agent.lock and 
 ### Task 2: Update delegate to spawn children as peers
 
 **Files:**
-- Modify: `src/stoai/capabilities/delegate.py:56-93`
+- Modify: `src/lingtai/capabilities/delegate.py:56-93`
 
 - [ ] **Step 1: Update `_spawn` to use `base_dir`**
 
@@ -302,12 +302,12 @@ def _spawn(self, args: dict) -> dict:
 
 - [ ] **Step 2: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/stoai/capabilities/delegate.py
+git add src/lingtai/capabilities/delegate.py
 git commit -m "refactor: delegate spawns children as peers using base_dir"
 ```
 
@@ -557,7 +557,7 @@ Run: `python -c "import examples.three_agents"` (or just check syntax)
 
 - [ ] **Step 3: Run full test suite**
 
-Run: `python -c "import stoai"` && `pytest tests/ -x -q`
+Run: `python -c "import lingtai"` && `pytest tests/ -x -q`
 
 - [ ] **Step 4: Commit**
 
@@ -574,7 +574,7 @@ git commit -m "refactor: migrate examples to base_dir"
 
 - [ ] **Step 1: Grep for stale references**
 
-Run: `grep -rn "working_dir=" src/stoai/agent.py` — should only find the `TCPMailService` passthrough and internal `self._working_dir` assignment.
+Run: `grep -rn "working_dir=" src/lingtai/agent.py` — should only find the `TCPMailService` passthrough and internal `self._working_dir` assignment.
 
 Run: `grep -rn 'working_dir="/tmp"' tests/` — should return nothing.
 
@@ -587,7 +587,7 @@ All tests must pass.
 
 - [ ] **Step 3: Smoke-test import**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 4: Final commit if any cleanup needed**
 

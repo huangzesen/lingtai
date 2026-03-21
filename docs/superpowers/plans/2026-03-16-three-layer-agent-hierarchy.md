@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Split the BaseAgent monolith into BaseAgent (kernel) → StoAIAgent (capabilities + tools) → CustomAgent (host wrapper), with sealed-after-start tool surface and shutdown intrinsic.
+**Goal:** Split the BaseAgent monolith into BaseAgent (kernel) → 灵台Agent (capabilities + tools) → CustomAgent (host wrapper), with sealed-after-start tool surface and shutdown intrinsic.
 
-**Architecture:** Extract `AgentState` and `Message` into standalone modules. Rename `agent.py` to `base_agent.py`, strip out `mcp_tools=` and `add_capability()`, add seal guard and shutdown action. Create `StoAIAgent` in `stoai_agent.py` with `capabilities=` and `tools=` params. Update delegate, exports, and all tests.
+**Architecture:** Extract `AgentState` and `Message` into standalone modules. Rename `agent.py` to `base_agent.py`, strip out `mcp_tools=` and `add_capability()`, add seal guard and shutdown action. Create `灵台Agent` in `lingtai_agent.py` with `capabilities=` and `tools=` params. Update delegate, exports, and all tests.
 
 **Tech Stack:** Python 3.11+, dataclasses, unittest.mock
 
@@ -17,7 +17,7 @@
 ### Task 1: Create `state.py` with AgentState enum
 
 **Files:**
-- Create: `src/stoai/state.py`
+- Create: `src/lingtai/state.py`
 - Test: `tests/test_agent.py` (existing — verify imports work)
 
 - [ ] **Step 1: Write the test**
@@ -26,7 +26,7 @@ Add a test to `tests/test_agent.py` that imports from the new location:
 
 ```python
 # At top of a new test file tests/test_state.py
-from stoai.state import AgentState
+from lingtai.state import AgentState
 
 def test_agent_state_values():
     assert AgentState.ACTIVE.value == "active"
@@ -36,9 +36,9 @@ def test_agent_state_values():
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/test_state.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'stoai.state'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'lingtai.state'`
 
-- [ ] **Step 3: Create `src/stoai/state.py`**
+- [ ] **Step 3: Create `src/lingtai/state.py`**
 
 ```python
 """AgentState — lifecycle state enum for agents."""
@@ -66,7 +66,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/state.py tests/test_state.py
+git add src/lingtai/state.py tests/test_state.py
 git commit -m "refactor: extract AgentState to state.py"
 ```
 
@@ -75,14 +75,14 @@ git commit -m "refactor: extract AgentState to state.py"
 ### Task 2: Create `message.py` with Message dataclass
 
 **Files:**
-- Create: `src/stoai/message.py`
+- Create: `src/lingtai/message.py`
 - Test: `tests/test_message.py` (new)
 
 - [ ] **Step 1: Write the test**
 
 ```python
 # tests/test_message.py
-from stoai.message import Message, _make_message, MSG_REQUEST, MSG_USER_INPUT
+from lingtai.message import Message, _make_message, MSG_REQUEST, MSG_USER_INPUT
 
 
 def test_msg_constants():
@@ -111,7 +111,7 @@ def test_message_reply_event():
 Run: `pytest tests/test_message.py -v`
 Expected: FAIL — `ModuleNotFoundError`
 
-- [ ] **Step 3: Create `src/stoai/message.py`**
+- [ ] **Step 3: Create `src/lingtai/message.py`**
 
 ```python
 """Message types and Message dataclass for agent inbox."""
@@ -179,7 +179,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/message.py tests/test_message.py
+git add src/lingtai/message.py tests/test_message.py
 git commit -m "refactor: extract Message and _make_message to message.py"
 ```
 
@@ -188,7 +188,7 @@ git commit -m "refactor: extract Message and _make_message to message.py"
 ### Task 3: Update `agent.py` to import from new modules
 
 **Files:**
-- Modify: `src/stoai/agent.py`
+- Modify: `src/lingtai/agent.py`
 
 - [ ] **Step 1: Replace AgentState, Message, _make_message, MSG_REQUEST, MSG_USER_INPUT in agent.py**
 
@@ -202,24 +202,24 @@ from .message import Message, _make_message, MSG_REQUEST, MSG_USER_INPUT
 
 Delete the `AgentState` class (lines ~86-94), the `MSG_REQUEST`/`MSG_USER_INPUT` constants (lines ~101-102), the `Message` dataclass (lines ~105-127), and the `_make_message` function (lines ~130-145) from `agent.py`.
 
-Keep the re-exports so existing `from stoai.agent import ...` still works during the transition:
+Keep the re-exports so existing `from lingtai.agent import ...` still works during the transition:
 
 Do NOT add re-exports — clean break per spec. All consumers will be updated in later tasks.
 
 - [ ] **Step 2: Run all tests to verify nothing breaks**
 
 Run: `python -m pytest tests/ -x -q`
-Expected: All tests pass — `agent.py` still exports these names (they're imported at module level and accessible as `stoai.agent.AgentState` etc.)
+Expected: All tests pass — `agent.py` still exports these names (they're imported at module level and accessible as `lingtai.agent.AgentState` etc.)
 
 - [ ] **Step 3: Smoke test the module**
 
-Run: `python -c "from stoai.agent import BaseAgent, Message, AgentState, _make_message, MSG_REQUEST; print('OK')"`
+Run: `python -c "from lingtai.agent import BaseAgent, Message, AgentState, _make_message, MSG_REQUEST; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/stoai/agent.py
+git add src/lingtai/agent.py
 git commit -m "refactor: agent.py imports AgentState and Message from new modules"
 ```
 
@@ -230,16 +230,16 @@ git commit -m "refactor: agent.py imports AgentState and Message from new module
 ### Task 4: Rename `agent.py` to `base_agent.py`
 
 **Files:**
-- Rename: `src/stoai/agent.py` → `src/stoai/base_agent.py`
-- Modify: `src/stoai/__init__.py`
-- Modify: `src/stoai/capabilities/__init__.py`
-- Modify: `src/stoai/capabilities/delegate.py`
-- Modify: All test files that import from `stoai.agent`
+- Rename: `src/lingtai/agent.py` → `src/lingtai/base_agent.py`
+- Modify: `src/lingtai/__init__.py`
+- Modify: `src/lingtai/capabilities/__init__.py`
+- Modify: `src/lingtai/capabilities/delegate.py`
+- Modify: All test files that import from `lingtai.agent`
 
 - [ ] **Step 1: Rename the file**
 
 ```bash
-cd src/stoai && git mv agent.py base_agent.py
+cd src/lingtai && git mv agent.py base_agent.py
 ```
 
 - [ ] **Step 2: Update `__init__.py`**
@@ -267,7 +267,7 @@ Every capability file has `from ..agent import BaseAgent` under `TYPE_CHECKING`.
 | `capabilities/bash.py` | 20 | `from ..agent import BaseAgent` → `from ..base_agent import BaseAgent` |
 | `capabilities/compose.py` | 10 | `from ..agent import BaseAgent` → `from ..base_agent import BaseAgent` |
 | `capabilities/delegate.py` | 17 | `from ..agent import BaseAgent` → `from ..base_agent import BaseAgent` |
-| `capabilities/delegate.py` | 57 | `from ..agent import BaseAgent` → `from ..base_agent import BaseAgent` (will become StoAIAgent import in Task 9) |
+| `capabilities/delegate.py` | 57 | `from ..agent import BaseAgent` → `from ..base_agent import BaseAgent` (will become 灵台Agent import in Task 9) |
 | `capabilities/draw.py` | 14 | `from ..agent import BaseAgent` → `from ..base_agent import BaseAgent` |
 | `capabilities/email.py` | 23 | `from ..agent import BaseAgent` → `from ..base_agent import BaseAgent` |
 | `capabilities/email.py` | 525 | `from ..agent import _make_message, MSG_REQUEST` → `from ..message import _make_message, MSG_REQUEST` **(RUNTIME import — must not break)** |
@@ -280,26 +280,26 @@ Every capability file has `from ..agent import BaseAgent` under `TYPE_CHECKING`.
 
 - [ ] **Step 5: Update all test file imports**
 
-Every test file that has `from stoai.agent import ...` must change to the appropriate new import. Full list:
+Every test file that has `from lingtai.agent import ...` must change to the appropriate new import. Full list:
 
 | File | Old import | New import |
 |------|-----------|------------|
-| `test_agent.py` | `from stoai.agent import BaseAgent, Message, AgentState, _make_message, MSG_REQUEST` | `from stoai.base_agent import BaseAgent` + `from stoai.message import Message, _make_message, MSG_REQUEST` + `from stoai.state import AgentState` |
-| `test_intrinsics_comm.py` | `from stoai.agent import BaseAgent` | `from stoai.base_agent import BaseAgent` |
-| `test_three_agent_email.py` | `from stoai.agent import BaseAgent` | `from stoai.base_agent import BaseAgent` |
-| `test_clock.py` | `from stoai.agent import BaseAgent` | `from stoai.base_agent import BaseAgent` |
-| `test_layers_draw.py` | `from stoai.agent import BaseAgent` | `from stoai.base_agent import BaseAgent` |
-| `test_cancel_email.py` | `from stoai.agent import BaseAgent, AgentState, MSG_REQUEST` | `from stoai.base_agent import BaseAgent` + `from stoai.state import AgentState` + `from stoai.message import MSG_REQUEST` |
-| `test_memory.py` | `from stoai.agent import BaseAgent` | `from stoai.base_agent import BaseAgent` |
-| `test_vision_capability.py` | `from stoai.agent import BaseAgent` | `from stoai.base_agent import BaseAgent` |
-| `test_layers_email.py` | `from stoai.agent import BaseAgent` | `from stoai.base_agent import BaseAgent` |
-| `test_status.py` | `from stoai.agent import BaseAgent` | `from stoai.base_agent import BaseAgent` |
-| `test_web_search_capability.py` | `from stoai.agent import BaseAgent` | `from stoai.base_agent import BaseAgent` |
-| `test_git_init.py` | `from stoai.agent import BaseAgent` | `from stoai.base_agent import BaseAgent` |
-| `test_layers_bash.py` (2 locations) | `from stoai.agent import BaseAgent` | `from stoai.base_agent import BaseAgent` |
-| `test_layers_delegate.py` (10 locations) | `from stoai.agent import BaseAgent` | `from stoai.base_agent import BaseAgent` |
-| `test_services_logging.py` | `from stoai import BaseAgent, AgentState` | No change needed (imports from package) |
-| `manual_test_cancel.py` | `from stoai.agent import BaseAgent` | `from stoai.base_agent import BaseAgent` |
+| `test_agent.py` | `from lingtai.agent import BaseAgent, Message, AgentState, _make_message, MSG_REQUEST` | `from lingtai.base_agent import BaseAgent` + `from lingtai.message import Message, _make_message, MSG_REQUEST` + `from lingtai.state import AgentState` |
+| `test_intrinsics_comm.py` | `from lingtai.agent import BaseAgent` | `from lingtai.base_agent import BaseAgent` |
+| `test_three_agent_email.py` | `from lingtai.agent import BaseAgent` | `from lingtai.base_agent import BaseAgent` |
+| `test_clock.py` | `from lingtai.agent import BaseAgent` | `from lingtai.base_agent import BaseAgent` |
+| `test_layers_draw.py` | `from lingtai.agent import BaseAgent` | `from lingtai.base_agent import BaseAgent` |
+| `test_cancel_email.py` | `from lingtai.agent import BaseAgent, AgentState, MSG_REQUEST` | `from lingtai.base_agent import BaseAgent` + `from lingtai.state import AgentState` + `from lingtai.message import MSG_REQUEST` |
+| `test_memory.py` | `from lingtai.agent import BaseAgent` | `from lingtai.base_agent import BaseAgent` |
+| `test_vision_capability.py` | `from lingtai.agent import BaseAgent` | `from lingtai.base_agent import BaseAgent` |
+| `test_layers_email.py` | `from lingtai.agent import BaseAgent` | `from lingtai.base_agent import BaseAgent` |
+| `test_status.py` | `from lingtai.agent import BaseAgent` | `from lingtai.base_agent import BaseAgent` |
+| `test_web_search_capability.py` | `from lingtai.agent import BaseAgent` | `from lingtai.base_agent import BaseAgent` |
+| `test_git_init.py` | `from lingtai.agent import BaseAgent` | `from lingtai.base_agent import BaseAgent` |
+| `test_layers_bash.py` (2 locations) | `from lingtai.agent import BaseAgent` | `from lingtai.base_agent import BaseAgent` |
+| `test_layers_delegate.py` (10 locations) | `from lingtai.agent import BaseAgent` | `from lingtai.base_agent import BaseAgent` |
+| `test_services_logging.py` | `from lingtai import BaseAgent, AgentState` | No change needed (imports from package) |
+| `manual_test_cancel.py` | `from lingtai.agent import BaseAgent` | `from lingtai.base_agent import BaseAgent` |
 
 - [ ] **Step 6: Run all tests**
 
@@ -308,8 +308,8 @@ Expected: All pass
 
 - [ ] **Step 7: Smoke test**
 
-Run: `python -c "import stoai; print(stoai.BaseAgent)"`
-Expected: `<class 'stoai.base_agent.BaseAgent'>`
+Run: `python -c "import lingtai; print(lingtai.BaseAgent)"`
+Expected: `<class 'lingtai.base_agent.BaseAgent'>`
 
 - [ ] **Step 8: Commit**
 
@@ -323,7 +323,7 @@ git commit -m "refactor: rename agent.py to base_agent.py, update all imports"
 ### Task 5: Remove `mcp_tools=` from BaseAgent and add seal guard
 
 **Files:**
-- Modify: `src/stoai/base_agent.py`
+- Modify: `src/lingtai/base_agent.py`
 - Modify: `tests/test_agent.py`
 
 - [ ] **Step 1: Write tests for seal guard**
@@ -375,7 +375,7 @@ In `BaseAgent.__init__`:
 - Remove the `if mcp_tools:` block (lines ~293-303)
 - Remove `self._capabilities` init (line ~306)
 - Add `self._sealed = False` after other init
-- Remove `self._mcp_tool_names: set[str] = set()` init — keep the attribute but initialize as empty set (still used by `_build_tool_schemas` for `[MCP]` labeling; StoAIAgent populates it)
+- Remove `self._mcp_tool_names: set[str] = set()` init — keep the attribute but initialize as empty set (still used by `_build_tool_schemas` for `[MCP]` labeling; 灵台Agent populates it)
 
 In `BaseAgent.start()`:
 - Add `self._sealed = True` as the first line
@@ -414,13 +414,13 @@ Expected: All PASS
 
 - [ ] **Step 7: Smoke test**
 
-Run: `python -c "from stoai.base_agent import BaseAgent; print('OK')"`
+Run: `python -c "from lingtai.base_agent import BaseAgent; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/stoai/base_agent.py tests/test_agent.py
+git add src/lingtai/base_agent.py tests/test_agent.py
 git commit -m "refactor: remove mcp_tools= and add_capability() from BaseAgent, add seal guard"
 ```
 
@@ -429,9 +429,9 @@ git commit -m "refactor: remove mcp_tools= and add_capability() from BaseAgent, 
 ### Task 6: Add shutdown action to status intrinsic
 
 **Files:**
-- Modify: `src/stoai/intrinsics/status.py`
-- Modify: `src/stoai/base_agent.py` (`_handle_status`)
-- Modify: `src/stoai/prompt.py` (shutdown guidance in base prompt)
+- Modify: `src/lingtai/intrinsics/status.py`
+- Modify: `src/lingtai/base_agent.py` (`_handle_status`)
+- Modify: `src/lingtai/prompt.py` (shutdown guidance in base prompt)
 - Modify: `tests/test_status.py`
 
 - [ ] **Step 1: Write the shutdown test**
@@ -455,7 +455,7 @@ Expected: FAIL — `{"error": "Unknown status action: shutdown"}`
 
 - [ ] **Step 3: Update status intrinsic schema**
 
-In `src/stoai/intrinsics/status.py`, update SCHEMA:
+In `src/lingtai/intrinsics/status.py`, update SCHEMA:
 
 ```python
 SCHEMA = {
@@ -523,12 +523,12 @@ def _status_shutdown(self, args: dict) -> dict:
 
 - [ ] **Step 5: Add shutdown guidance to base prompt in `prompt.py`**
 
-Append to `BASE_PROMPT` in `src/stoai/prompt.py`:
+Append to `BASE_PROMPT` in `src/lingtai/prompt.py`:
 
 ```python
 BASE_PROMPT = """\
-You are a StoAI Agent — an AI agent built on the StoAI framework. \
-StoAI (Stoa + AI) is named after the Stoa Poikile, the painted porch in ancient Athens \
+You are a 灵台 Agent — an AI agent built on the 灵台 framework. \
+灵台 (Stoa + AI) is named after the Stoa Poikile, the painted porch in ancient Athens \
 where Stoic philosophers gathered to think, debate, and seek wisdom together. \
 Like those philosophers, you are part of a collaborative system of agents \
 that think, perceive, act, and communicate. \
@@ -548,28 +548,28 @@ Expected: All PASS
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/intrinsics/status.py src/stoai/base_agent.py src/stoai/prompt.py tests/test_status.py
+git add src/lingtai/intrinsics/status.py src/lingtai/base_agent.py src/lingtai/prompt.py tests/test_status.py
 git commit -m "feat: add shutdown action to status intrinsic"
 ```
 
 ---
 
-## Chunk 3: Create StoAIAgent
+## Chunk 3: Create 灵台Agent
 
-### Task 7: Create `stoai_agent.py` with StoAIAgent class
+### Task 7: Create `lingtai_agent.py` with 灵台Agent class
 
 **Files:**
-- Create: `src/stoai/stoai_agent.py`
-- Create: `tests/test_stoai_agent.py`
+- Create: `src/lingtai/lingtai_agent.py`
+- Create: `tests/test_lingtai_agent.py`
 
-- [ ] **Step 1: Write tests for StoAIAgent**
+- [ ] **Step 1: Write tests for 灵台Agent**
 
 ```python
-# tests/test_stoai_agent.py
+# tests/test_lingtai_agent.py
 import pytest
 from unittest.mock import MagicMock
-from stoai.stoai_agent import StoAIAgent
-from stoai.types import MCPTool
+from lingtai.lingtai_agent import 灵台Agent
+from lingtai.types import MCPTool
 
 
 def make_mock_service():
@@ -580,16 +580,16 @@ def make_mock_service():
     return svc
 
 
-def test_stoai_agent_no_capabilities(tmp_path):
-    """StoAIAgent with no capabilities works like BaseAgent."""
-    agent = StoAIAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
+def test_lingtai_agent_no_capabilities(tmp_path):
+    """灵台Agent with no capabilities works like BaseAgent."""
+    agent = 灵台Agent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
     assert agent._capabilities == []
     assert agent._capability_managers == {}
 
 
-def test_stoai_agent_capabilities_list(tmp_path):
+def test_lingtai_agent_capabilities_list(tmp_path):
     """capabilities= as list of strings registers capabilities."""
-    agent = StoAIAgent(
+    agent = 灵台Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
         capabilities=["vision", "web_search"],
     )
@@ -600,9 +600,9 @@ def test_stoai_agent_capabilities_list(tmp_path):
     assert "web_search" in agent._mcp_handlers
 
 
-def test_stoai_agent_capabilities_dict(tmp_path):
+def test_lingtai_agent_capabilities_dict(tmp_path):
     """capabilities= as dict registers capabilities with kwargs."""
-    agent = StoAIAgent(
+    agent = 灵台Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
         capabilities={"vision": {}, "web_search": {}},
     )
@@ -610,11 +610,11 @@ def test_stoai_agent_capabilities_dict(tmp_path):
     assert "vision" in agent._mcp_handlers
 
 
-def test_stoai_agent_tools_param(tmp_path):
+def test_lingtai_agent_tools_param(tmp_path):
     """tools= registers MCP tools and populates _mcp_tool_names."""
     handler = MagicMock(return_value={"ok": True})
     tool = MCPTool(name="my_tool", schema={"type": "object", "properties": {}}, description="test", handler=handler)
-    agent = StoAIAgent(
+    agent = 灵台Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
         tools=[tool],
     )
@@ -622,9 +622,9 @@ def test_stoai_agent_tools_param(tmp_path):
     assert "my_tool" in agent._mcp_tool_names
 
 
-def test_stoai_agent_get_capability(tmp_path):
+def test_lingtai_agent_get_capability(tmp_path):
     """get_capability() returns the manager instance."""
-    agent = StoAIAgent(
+    agent = 灵台Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
         capabilities=["vision"],
     )
@@ -633,9 +633,9 @@ def test_stoai_agent_get_capability(tmp_path):
     assert agent.get_capability("nonexistent") is None
 
 
-def test_stoai_agent_seal_after_start(tmp_path):
-    """add_tool() raises after start() on StoAIAgent too."""
-    agent = StoAIAgent(
+def test_lingtai_agent_seal_after_start(tmp_path):
+    """add_tool() raises after start() on 灵台Agent too."""
+    agent = 灵台Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
         capabilities=["vision"],
     )
@@ -649,16 +649,16 @@ def test_stoai_agent_seal_after_start(tmp_path):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `pytest tests/test_stoai_agent.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'stoai.stoai_agent'`
+Run: `pytest tests/test_lingtai_agent.py -v`
+Expected: FAIL — `ModuleNotFoundError: No module named 'lingtai.lingtai_agent'`
 
-- [ ] **Step 3: Create `src/stoai/stoai_agent.py`**
+- [ ] **Step 3: Create `src/lingtai/lingtai_agent.py`**
 
 ```python
-"""StoAIAgent — BaseAgent + composable capabilities + domain tools.
+"""灵台Agent — BaseAgent + composable capabilities + domain tools.
 
 Layer 2 of the three-layer hierarchy:
-    BaseAgent (kernel) → StoAIAgent (capabilities) → CustomAgent (domain)
+    BaseAgent (kernel) → 灵台Agent (capabilities) → CustomAgent (domain)
 
 Capabilities and tools are declared at construction and sealed before start().
 """
@@ -670,7 +670,7 @@ from .base_agent import BaseAgent
 from .types import MCPTool
 
 
-class StoAIAgent(BaseAgent):
+class 灵台Agent(BaseAgent):
     """BaseAgent with composable capabilities and domain tools.
 
     Args:
@@ -735,32 +735,32 @@ class StoAIAgent(BaseAgent):
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pytest tests/test_stoai_agent.py -v`
+Run: `pytest tests/test_lingtai_agent.py -v`
 Expected: All PASS
 
 - [ ] **Step 5: Smoke test**
 
-Run: `python -c "from stoai.stoai_agent import StoAIAgent; print('OK')"`
+Run: `python -c "from lingtai.lingtai_agent import 灵台Agent; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/stoai_agent.py tests/test_stoai_agent.py
-git commit -m "feat: create StoAIAgent with capabilities= and tools= params"
+git add src/lingtai/lingtai_agent.py tests/test_lingtai_agent.py
+git commit -m "feat: create 灵台Agent with capabilities= and tools= params"
 ```
 
 ---
 
-### Task 8: Update `__init__.py` to export StoAIAgent
+### Task 8: Update `__init__.py` to export 灵台Agent
 
 **Files:**
-- Modify: `src/stoai/__init__.py`
+- Modify: `src/lingtai/__init__.py`
 
 - [ ] **Step 1: Update exports**
 
 ```python
-"""stoai — generic AI agent framework with intrinsic tools, composable capabilities, and pluggable services."""
+"""lingtai — generic AI agent framework with intrinsic tools, composable capabilities, and pluggable services."""
 from .types import (
     MCPTool,
     UnknownToolError,
@@ -769,7 +769,7 @@ from .config import AgentConfig
 from .base_agent import BaseAgent
 from .state import AgentState
 from .message import Message, MSG_REQUEST, MSG_USER_INPUT
-from .stoai_agent import StoAIAgent
+from .lingtai_agent import 灵台Agent
 
 # Capabilities
 from .capabilities import setup_capability
@@ -787,7 +787,7 @@ from .services.logging import LoggingService, JSONLLoggingService
 __all__ = [
     # Core
     "BaseAgent",
-    "StoAIAgent",
+    "灵台Agent",
     "Message",
     "MSG_REQUEST",
     "MSG_USER_INPUT",
@@ -818,43 +818,43 @@ __all__ = [
 
 - [ ] **Step 2: Smoke test**
 
-Run: `python -c "from stoai import StoAIAgent, BaseAgent, Message, AgentState; print('OK')"`
+Run: `python -c "from lingtai import 灵台Agent, BaseAgent, Message, AgentState; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/stoai/__init__.py
-git commit -m "refactor: export StoAIAgent from package"
+git add src/lingtai/__init__.py
+git commit -m "refactor: export 灵台Agent from package"
 ```
 
 ---
 
 ## Chunk 4: Update delegate capability
 
-### Task 9: Update delegate to spawn StoAIAgent with constructor capabilities
+### Task 9: Update delegate to spawn 灵台Agent with constructor capabilities
 
 **Files:**
-- Modify: `src/stoai/capabilities/delegate.py`
+- Modify: `src/lingtai/capabilities/delegate.py`
 - Modify: `tests/test_layers_delegate.py`
 
 - [ ] **Step 1: Write the updated delegate test**
 
-Update `tests/test_layers_delegate.py` — replace all `from stoai.agent import BaseAgent` with `from stoai.base_agent import BaseAgent` and all agent construction that uses `add_capability` with `StoAIAgent(capabilities=...)`:
+Update `tests/test_layers_delegate.py` — replace all `from lingtai.agent import BaseAgent` with `from lingtai.base_agent import BaseAgent` and all agent construction that uses `add_capability` with `灵台Agent(capabilities=...)`:
 
 Key test updates:
-- Import `StoAIAgent` from `stoai.stoai_agent`
-- Construct agents using `StoAIAgent(capabilities=["delegate"])` instead of `BaseAgent` + `add_capability("delegate")`
-- Tests that check `_capabilities` list should still work since StoAIAgent tracks them
-- Test that delegate spawns a `StoAIAgent` (not `BaseAgent`)
+- Import `灵台Agent` from `lingtai.lingtai_agent`
+- Construct agents using `灵台Agent(capabilities=["delegate"])` instead of `BaseAgent` + `add_capability("delegate")`
+- Tests that check `_capabilities` list should still work since 灵台Agent tracks them
+- Test that delegate spawns a `灵台Agent` (not `BaseAgent`)
 
 - [ ] **Step 2: Update `capabilities/delegate.py`**
 
-Change import from `BaseAgent` to `StoAIAgent`:
+Change import from `BaseAgent` to `灵台Agent`:
 
 ```python
 # In _spawn method:
-from ..stoai_agent import StoAIAgent
+from ..lingtai_agent import 灵台Agent
 
 # Build capabilities dict from parent's _capabilities
 # (excluding "delegate" to prevent recursive delegation)
@@ -867,7 +867,7 @@ for cap_name, cap_kwargs in parent._capabilities:
         continue
     caps[cap_name] = cap_kwargs
 
-delegate = StoAIAgent(
+delegate = 灵台Agent(
     agent_id=child_id,
     service=parent.service,
     mail_service=mail_svc,
@@ -888,7 +888,7 @@ Don't pop reasoning in the handler — let it flow through to `_spawn`, which se
 
 ```python
 def _spawn(self, args: dict) -> dict:
-    from ..stoai_agent import StoAIAgent
+    from ..lingtai_agent import 灵台Agent
     from ..services.mail import TCPMailService
 
     parent = self._agent
@@ -896,7 +896,7 @@ def _spawn(self, args: dict) -> dict:
 
     # ... (port, child_id, role, ltm, capabilities setup as before) ...
 
-    delegate = StoAIAgent(
+    delegate = 灵台Agent(
         agent_id=child_id,
         service=parent.service,
         mail_service=mail_svc,
@@ -954,26 +954,26 @@ Expected: All PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/delegate.py tests/test_layers_delegate.py
-git commit -m "refactor: delegate spawns StoAIAgent, reasoning as first prompt"
+git add src/lingtai/capabilities/delegate.py tests/test_layers_delegate.py
+git commit -m "refactor: delegate spawns 灵台Agent, reasoning as first prompt"
 ```
 
 ---
 
-## Chunk 5: Migrate all capability tests to StoAIAgent
+## Chunk 5: Migrate all capability tests to 灵台Agent
 
 ### Task 10: Migrate capability test files
 
 **Files to modify:** All capability test files that use `BaseAgent` + `add_capability`
 
 For each file, the migration pattern is:
-1. Change `from stoai.agent import BaseAgent` → `from stoai.base_agent import BaseAgent` (if still needed) and/or `from stoai.stoai_agent import StoAIAgent`
-2. Change `agent = BaseAgent(...); mgr = agent.add_capability("X")` → `agent = StoAIAgent(..., capabilities=["X"]); mgr = agent.get_capability("X")`
+1. Change `from lingtai.agent import BaseAgent` → `from lingtai.base_agent import BaseAgent` (if still needed) and/or `from lingtai.lingtai_agent import 灵台Agent`
+2. Change `agent = BaseAgent(...); mgr = agent.add_capability("X")` → `agent = 灵台Agent(..., capabilities=["X"]); mgr = agent.get_capability("X")`
 
 - [ ] **Step 1: Migrate `test_layers_bash.py`**
 
 Update 2 import locations and 2 test functions that use `add_capability`.
-Change `agent.add_capability("bash", yolo=True)` → `StoAIAgent(capabilities={"bash": {"yolo": True}})` and `agent.get_capability("bash")`.
+Change `agent.add_capability("bash", yolo=True)` → `灵台Agent(capabilities={"bash": {"yolo": True}})` and `agent.get_capability("bash")`.
 
 - [ ] **Step 2: Run bash tests**
 
@@ -983,7 +983,7 @@ Expected: All PASS
 - [ ] **Step 3: Migrate `test_layers_email.py`**
 
 This is the largest file — ~30 call sites of `add_capability("email")`.
-Pattern: `agent = BaseAgent(...); mgr = agent.add_capability("email")` → `agent = StoAIAgent(..., capabilities=["email"]); mgr = agent.get_capability("email")`
+Pattern: `agent = BaseAgent(...); mgr = agent.add_capability("email")` → `agent = 灵台Agent(..., capabilities=["email"]); mgr = agent.get_capability("email")`
 
 - [ ] **Step 4: Run email tests**
 
@@ -1020,7 +1020,7 @@ Expected: All PASS
 
 - [ ] **Step 13: Migrate `test_cancel_email.py`**
 
-Update imports: `BaseAgent` from `base_agent`, `AgentState` from `state`, `MSG_REQUEST` from `message`. If it uses `add_capability`, switch to `StoAIAgent`.
+Update imports: `BaseAgent` from `base_agent`, `AgentState` from `state`, `MSG_REQUEST` from `message`. If it uses `add_capability`, switch to `灵台Agent`.
 
 - [ ] **Step 14: Run cancel email test**
 
@@ -1031,7 +1031,7 @@ Expected: All PASS
 
 ```bash
 git add tests/
-git commit -m "refactor: migrate all capability tests from BaseAgent+add_capability to StoAIAgent"
+git commit -m "refactor: migrate all capability tests from BaseAgent+add_capability to 灵台Agent"
 ```
 
 ---
@@ -1048,18 +1048,18 @@ Expected: All PASS
 - [ ] **Step 2: Smoke test imports**
 
 ```bash
-python -c "from stoai import BaseAgent, StoAIAgent, Message, AgentState, MCPTool; print('All imports OK')"
-python -c "from stoai.base_agent import BaseAgent; print('base_agent OK')"
-python -c "from stoai.stoai_agent import StoAIAgent; print('stoai_agent OK')"
-python -c "from stoai.state import AgentState; print('state OK')"
-python -c "from stoai.message import Message, MSG_REQUEST; print('message OK')"
-python -c "import stoai; print(stoai.__all__)"
+python -c "from lingtai import BaseAgent, 灵台Agent, Message, AgentState, MCPTool; print('All imports OK')"
+python -c "from lingtai.base_agent import BaseAgent; print('base_agent OK')"
+python -c "from lingtai.lingtai_agent import 灵台Agent; print('lingtai_agent OK')"
+python -c "from lingtai.state import AgentState; print('state OK')"
+python -c "from lingtai.message import Message, MSG_REQUEST; print('message OK')"
+python -c "import lingtai; print(lingtai.__all__)"
 ```
 
 - [ ] **Step 3: Verify old `agent.py` is gone**
 
 ```bash
-test ! -f src/stoai/agent.py && echo "agent.py removed" || echo "ERROR: agent.py still exists"
+test ! -f src/lingtai/agent.py && echo "agent.py removed" || echo "ERROR: agent.py still exists"
 ```
 
 - [ ] **Step 4: Commit if any final cleanup needed**
@@ -1073,9 +1073,9 @@ test ! -f src/stoai/agent.py && echo "agent.py removed" || echo "ERROR: agent.py
 
 Update CLAUDE.md to reflect the three-layer hierarchy:
 - Change "agent.py" references to "base_agent.py"
-- Add StoAIAgent to the key modules section
-- Update the extension pattern examples to use StoAIAgent
-- Add `stoai_agent.py` to key modules
+- Add 灵台Agent to the key modules section
+- Update the extension pattern examples to use 灵台Agent
+- Add `lingtai_agent.py` to key modules
 - Update the three-tier tool model to reflect sealed-after-start
 - Add shutdown action to status intrinsic description
 

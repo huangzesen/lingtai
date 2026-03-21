@@ -1,5 +1,5 @@
-from stoai_kernel.prompt import build_system_prompt
-from stoai_kernel.prompt import SystemPromptManager
+from lingtai_kernel.prompt import build_system_prompt
+from lingtai_kernel.prompt import SystemPromptManager
 
 
 def test_build_system_prompt_minimal():

@@ -1,5 +1,5 @@
 {
-  "_comment": "StoAI orchestrator config. Copy to config.json and fill in.",
+  "_comment": "灵台 orchestrator config. Copy to config.json and fill in.",
 
   "model": "model.json",
 
@@ -19,7 +19,7 @@
   "cli": true,
 
   "agent_name": "orchestrator",
-  "base_dir": "~/.stoai",
+  "base_dir": "~/.lingtai",
   "bash_policy": "policy.json",
   "max_turns": 50,
   "agent_port": 8501

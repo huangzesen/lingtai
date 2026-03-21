@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from stoai.addons.imap.service import IMAPMailService
+from lingtai.addons.imap.service import IMAPMailService
 
 # ---------------------------------------------------------------------------
 # Helpers

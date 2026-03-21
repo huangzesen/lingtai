@@ -127,7 +127,7 @@ func newWizardModel(outputDir string) wizardModel {
 
 	// Step: General
 	home, _ := os.UserHomeDir()
-	defaultBase := filepath.Join(home, ".stoai")
+	defaultBase := filepath.Join(home, ".lingtai")
 	m.fields[StepGeneral] = []field{
 		{label: "Agent name", input: newTextInput("orchestrator", "orchestrator")},
 		{label: "Base directory", input: newTextInput(defaultBase, defaultBase)},
@@ -543,7 +543,7 @@ func (m wizardModel) writeConfig() ([]string, error) {
 	}
 	if len(envLines) > 0 {
 		envPath := filepath.Join(m.outputDir, ".env")
-		content := "# Environment variables for stoai-daemon\n# Uncomment and fill in your values\n\n" + strings.Join(envLines, "\n") + "\n"
+		content := "# Environment variables for lingtai-daemon\n# Uncomment and fill in your values\n\n" + strings.Join(envLines, "\n") + "\n"
 		if err := os.WriteFile(envPath, []byte(content), 0600); err != nil {
 			return written, fmt.Errorf("writing .env: %w", err)
 		}

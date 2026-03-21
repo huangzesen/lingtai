@@ -4,9 +4,9 @@
 
 **Goal:** Build an orchestration example with a background agent service and a CLI email client.
 
-**Architecture:** Two entry points under `examples/orchestration/` — `__main__.py` runs the admin orchestrator as a long-lived service, `cli.py` is a standalone email client that reads/writes the user's on-disk mailbox. All communication via `TCPMailService`. Runtime state at `~/.stoai/orchestration/playground/`.
+**Architecture:** Two entry points under `examples/orchestration/` — `__main__.py` runs the admin orchestrator as a long-lived service, `cli.py` is a standalone email client that reads/writes the user's on-disk mailbox. All communication via `TCPMailService`. Runtime state at `~/.lingtai/orchestration/playground/`.
 
-**Tech Stack:** Python 3.11+, stoai Agent, TCPMailService, MiniMax LLM (multimodal)
+**Tech Stack:** Python 3.11+, lingtai Agent, TCPMailService, MiniMax LLM (multimodal)
 
 **Spec:** `docs/superpowers/specs/2026-03-17-orchestration-example-design.md`
 
@@ -43,7 +43,7 @@ Usage:
     python -m examples.orchestration
 
 The admin agent listens on port 8301. User mailbox on port 8300.
-Runtime data at ~/.stoai/orchestration/playground/.
+Runtime data at ~/.lingtai/orchestration/playground/.
 Press Ctrl+C to shut down.
 """
 from __future__ import annotations
@@ -65,13 +65,13 @@ if env_path.exists():
             key, _, val = line.partition("=")
             os.environ.setdefault(key.strip(), val.strip().strip("'\""))
 
-from stoai import Agent, AgentConfig
-from stoai.llm import LLMService
-from stoai.services.mail import TCPMailService
+from lingtai import Agent, AgentConfig
+from lingtai.llm import LLMService
+from lingtai.services.mail import TCPMailService
 
 ADMIN_PORT = 8301
 USER_PORT = 8300
-PLAYGROUND = Path.home() / ".stoai" / "orchestration" / "playground"
+PLAYGROUND = Path.home() / ".lingtai" / "orchestration" / "playground"
 SERVICE_JSON = PLAYGROUND / "service.json"
 
 COVENANT = """\
@@ -198,7 +198,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 3: Smoke test — verify the module imports**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && source venv/bin/activate && python -c "import examples.orchestration"`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && source venv/bin/activate && python -c "import examples.orchestration"`
 Expected: No import errors. (The actual agent won't start without MINIMAX_API_KEY, but the module should import cleanly.)
 
 - [ ] **Step 4: Commit**
@@ -246,9 +246,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from stoai.services.mail import TCPMailService
+from lingtai.services.mail import TCPMailService
 
-PLAYGROUND = Path.home() / ".stoai" / "orchestration" / "playground"
+PLAYGROUND = Path.home() / ".lingtai" / "orchestration" / "playground"
 SERVICE_JSON = PLAYGROUND / "service.json"
 USER_DIR = PLAYGROUND / "user"
 
@@ -463,7 +463,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 2: Smoke test — verify the module imports**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && source venv/bin/activate && python -c "from examples.orchestration.cli import run_cli"`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && source venv/bin/activate && python -c "from examples.orchestration.cli import run_cli"`
 Expected: No import errors.
 
 - [ ] **Step 3: Commit**

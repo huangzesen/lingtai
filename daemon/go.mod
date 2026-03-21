@@ -1,4 +1,4 @@
-module stoai-daemon
+module lingtai-daemon
 
 go 1.26.1
 

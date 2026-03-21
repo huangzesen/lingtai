@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 from unittest.mock import MagicMock
-from stoai.agent import Agent
+from lingtai.agent import Agent
 
 
 def make_mock_service():

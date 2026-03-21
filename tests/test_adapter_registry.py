@@ -1,8 +1,8 @@
 """Tests for LLMService adapter registry."""
 from __future__ import annotations
 from unittest.mock import MagicMock
-from stoai_kernel.llm.service import LLMService
-from stoai_kernel.llm.base import LLMAdapter
+from lingtai_kernel.llm.service import LLMService
+from lingtai_kernel.llm.base import LLMAdapter
 
 
 def _make_stub_adapter(**kwargs):
@@ -56,8 +56,8 @@ class TestAdapterRegistry:
 
 
 def test_default_adapters_registered():
-    """All default adapters should be registered after importing stoai.llm."""
-    from stoai.llm._register import register_all_adapters
+    """All default adapters should be registered after importing lingtai.llm."""
+    from lingtai.llm._register import register_all_adapters
     # Clear and re-register
     saved = dict(LLMService._adapter_registry)
     LLMService._adapter_registry.clear()

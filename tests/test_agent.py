@@ -5,12 +5,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai_kernel.base_agent import BaseAgent
-from stoai.agent import Agent
-from stoai_kernel.message import Message, _make_message, MSG_REQUEST
-from stoai_kernel.state import AgentState
-from stoai_kernel.types import UnknownToolError
-from stoai_kernel.config import AgentConfig
+from lingtai_kernel.base_agent import BaseAgent
+from lingtai.agent import Agent
+from lingtai_kernel.message import Message, _make_message, MSG_REQUEST
+from lingtai_kernel.state import AgentState
+from lingtai_kernel.types import UnknownToolError
+from lingtai_kernel.config import AgentConfig
 
 
 def make_mock_service():
@@ -121,7 +121,7 @@ def test_mail_without_service(tmp_path):
 
 def test_mail_with_service(tmp_path):
     import socket
-    from stoai_kernel.services.mail import TCPMailService
+    from lingtai_kernel.services.mail import TCPMailService
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
@@ -152,7 +152,7 @@ def test_mail_with_service(tmp_path):
 
 
 def test_mail_to_bad_address(tmp_path):
-    from stoai_kernel.services.mail import TCPMailService
+    from lingtai_kernel.services.mail import TCPMailService
     sender_svc = TCPMailService()
     agent = BaseAgent(
         agent_name="test",
@@ -188,7 +188,7 @@ def test_mail_inbox_wiring(tmp_path):
 def test_mail_start_wires_listener(tmp_path):
     """start() should call MailService.listen() when configured."""
     import socket
-    from stoai_kernel.services.mail import TCPMailService
+    from lingtai_kernel.services.mail import TCPMailService
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
@@ -298,7 +298,7 @@ def test_make_message():
 
 def test_execute_single_tool_intrinsic(tmp_path):
     """Intrinsic tools should be callable via _dispatch_tool."""
-    from stoai_kernel.llm.base import ToolCall
+    from lingtai_kernel.llm.base import ToolCall
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
 
     # Replace the system intrinsic with a mock
@@ -311,7 +311,7 @@ def test_execute_single_tool_intrinsic(tmp_path):
 
 def test_execute_single_tool_mcp(tmp_path):
     """MCP tools should be callable via _dispatch_tool."""
-    from stoai_kernel.llm.base import ToolCall
+    from lingtai_kernel.llm.base import ToolCall
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
     agent.add_tool("my_tool", schema={}, handler=lambda args: {"status": "ok", "value": args.get("x")})
 
@@ -323,7 +323,7 @@ def test_execute_single_tool_mcp(tmp_path):
 
 def test_execute_single_tool_unknown(tmp_path):
     """Unknown tools should raise UnknownToolError."""
-    from stoai_kernel.llm.base import ToolCall
+    from lingtai_kernel.llm.base import ToolCall
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
 
     tc = ToolCall(name="nonexistent_tool", args={})
@@ -605,7 +605,7 @@ def test_connect_mcp_is_on_agent_not_base(tmp_path):
 
 def test_agent_config_has_no_bash_policy_file():
     """AgentConfig should not have capability-specific fields."""
-    from stoai_kernel.config import AgentConfig
+    from lingtai_kernel.config import AgentConfig
     assert 'bash_policy_file' not in AgentConfig.__dataclass_fields__
 
 
@@ -614,11 +614,11 @@ def test_agent_config_has_no_bash_policy_file():
 # ---------------------------------------------------------------------------
 
 def test_base_agent_has_no_non_kernel_imports():
-    """BaseAgent module (in stoai_kernel) should not import from non-kernel stoai modules."""
+    """BaseAgent module (in lingtai_kernel) should not import from non-kernel lingtai modules."""
     import ast
-    import stoai_kernel
+    import lingtai_kernel
     from pathlib import Path
-    kernel_dir = Path(stoai_kernel.__file__).parent
+    kernel_dir = Path(lingtai_kernel.__file__).parent
     source = (kernel_dir / "base_agent.py").read_text()
     tree = ast.parse(source)
 

@@ -1,18 +1,18 @@
-# StoAI App — Autonomous Orchestrator CLI
+# 灵台 App — Autonomous Orchestrator CLI
 
 **Date:** 2026-03-20
 **Status:** Approved
 
 ## Goal
 
-A single CLI command (`stoai`) that launches an autonomous orchestrator agent. Fire and forget. This is THE product shipped with stoai — the canonical way to run an agent.
+A single CLI command (`lingtai`) that launches an autonomous orchestrator agent. Fire and forget. This is THE product shipped with lingtai — the canonical way to run an agent.
 
 ## Launch
 
 ```bash
-stoai                         # launch with ./config.json
-stoai /path/to/config.json    # explicit config path
-stoai send "do something"     # send message to running instance via CLI channel
+lingtai                         # launch with ./config.json
+lingtai /path/to/config.json    # explicit config path
+lingtai send "do something"     # send message to running instance via CLI channel
 ```
 
 ## Config: `config.json`
@@ -39,7 +39,7 @@ Agent configuration. All channel sections are optional — omit to disable.
   "cli": true,
 
   "agent_name": "orchestrator",
-  "base_dir": "~/.stoai",
+  "base_dir": "~/.lingtai",
   "bash_policy": "policy.json",
   "max_turns": 50,
   "agent_port": 8501
@@ -55,7 +55,7 @@ Agent configuration. All channel sections are optional — omit to disable.
 | `telegram` | `null` (disabled) | Telegram addon config. |
 | `cli` | `false` | `true` = interactive chat mode. `false`/omitted = fire-and-forget. |
 | `agent_name` | `"orchestrator"` | Agent name (determines working directory) |
-| `base_dir` | `"~/.stoai"` | Base directory for agent working dirs |
+| `base_dir` | `"~/.lingtai"` | Base directory for agent working dirs |
 | `bash_policy` | `null` | Path to bash policy JSON. `null` = no bash capability. |
 | `max_turns` | `50` | Max consecutive LLM turns before yielding |
 | `agent_port` | `8501` | TCP port for inter-agent mail |
@@ -195,7 +195,7 @@ The orchestrator is the mail gateway between external world and internal agent n
 ## Launch Flow
 
 ```
-stoai config.json
+lingtai config.json
   │
   ├── Load config.json
   ├── Load model.json (or inline model config)
@@ -212,7 +212,7 @@ stoai config.json
   │
   ├── Print meta (both modes):
   │     Agent:      orchestrator
-  │     Working:    ~/.stoai/orchestrator
+  │     Working:    ~/.lingtai/orchestrator
   │     IMAP:       agent@gmail.com (or "disabled")
   │     Telegram:   @bot_name (or "disabled")
   │     CLI:        interactive (or "disabled")
@@ -245,7 +245,7 @@ This means the CLI is a real email peer — no special plumbing. The orchestrato
 
 ```
   Agent:      orchestrator
-  Working:    /Users/you/.stoai/orchestrator
+  Working:    /Users/you/.lingtai/orchestrator
   IMAP:       agent@gmail.com
   Telegram:   disabled
   CLI:        interactive (localhost:8502)
@@ -260,18 +260,18 @@ This means the CLI is a real email peer — no special plumbing. The orchestrato
 [orchestrator] The meeting email from Alice says...
 ```
 
-### `stoai send`
+### `lingtai send`
 
-For non-interactive mode, `stoai send "message"` is a one-shot fire-and-forget:
+For non-interactive mode, `lingtai send "message"` is a one-shot fire-and-forget:
 
 1. Reads `config.json` to find `agent_port`.
 2. Sends a TCP mail to `localhost:{agent_port}` with `From: cli@local` (no reply listener).
 3. Exits immediately.
 
-The orchestrator processes the request and acts via its configured channels (IMAP, Telegram). There is no response path back to `stoai send` — it is not a channel, just a trigger.
+The orchestrator processes the request and acts via its configured channels (IMAP, Telegram). There is no response path back to `lingtai send` — it is not a channel, just a trigger.
 
 ```bash
-stoai send "Check my inbox and reply to anything urgent"
+lingtai send "Check my inbox and reply to anything urgent"
 ```
 
 ## File Structure
@@ -284,7 +284,7 @@ app/
 └── cli.py             — interactive CLI loop (TCPMailService listener + stdin/stdout)
 ```
 
-Plus `pyproject.toml` console_scripts entry: `stoai = "app:main"`
+Plus `pyproject.toml` console_scripts entry: `lingtai = "app:main"`
 
 Example configs shipped alongside:
 ```
@@ -331,5 +331,5 @@ Overridable via `covenant` field in config.json.
 - Config loading: valid, missing fields, inline vs file model, env var resolution, `.env` loading
 - Launch flow: mock Agent/LLMService, verify capabilities/addons wired correctly based on config
 - CLI mode: mock TCPMailService, verify message send/receive flow
-- `stoai send`: mock TCP send, verify one-shot delivery
+- `lingtai send`: mock TCP send, verify one-shot delivery
 - Integration: manual test with real config

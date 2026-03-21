@@ -13,7 +13,7 @@ from .state import AppState
 
 def create_app(state: AppState) -> FastAPI:
     """Create and configure the FastAPI application."""
-    app = FastAPI(title="StoAI Web Dashboard")
+    app = FastAPI(title="灵台 Web Dashboard")
 
     app.add_middleware(
         CORSMiddleware,

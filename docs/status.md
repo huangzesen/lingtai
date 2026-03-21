@@ -1,4 +1,4 @@
-# StoAI — Implementation Status
+# 灵台 — Implementation Status
 
 ## Core
 - [x] `agent.py` — BaseAgent (full lifecycle, tool dispatch, compaction, loop guard, streaming, session save/restore, 6-service architecture)

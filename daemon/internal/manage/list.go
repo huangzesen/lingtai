@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"stoai-daemon/internal/i18n"
+	"lingtai-daemon/internal/i18n"
 )
 
 // Spirit represents a running (or stale) agent.

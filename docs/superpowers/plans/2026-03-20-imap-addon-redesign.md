@@ -40,7 +40,7 @@
 The foundation. `IMAPAccount` wraps a single IMAP connection with mutex-protected access, CAPABILITY parsing, and folder discovery with RFC 6154 role mapping.
 
 **Files:**
-- Create: `src/stoai/addons/imap/account.py`
+- Create: `src/lingtai/addons/imap/account.py`
 - Create: `tests/test_addon_imap_account.py`
 
 - [ ] **Step 1: Write failing tests for IMAPAccount construction and capabilities**
@@ -50,7 +50,7 @@ The foundation. `IMAPAccount` wraps a single IMAP connection with mutex-protecte
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch, PropertyMock
-from stoai.addons.imap.account import IMAPAccount
+from lingtai.addons.imap.account import IMAPAccount
 
 
 def test_construction():
@@ -97,7 +97,7 @@ Expected: FAIL — `account.py` does not exist yet.
 - [ ] **Step 3: Write IMAPAccount skeleton with construction and capability parsing**
 
 ```python
-# src/stoai/addons/imap/account.py
+# src/lingtai/addons/imap/account.py
 """IMAPAccount — single IMAP connection + SMTP for one email account.
 
 Wraps imaplib/smtplib with:
@@ -1050,7 +1050,7 @@ def test_send_basic():
         email_address="agent@example.com", email_password="x",
         imap_host="h", smtp_host="smtp.example.com",
     )
-    with patch("stoai.addons.imap.account.smtplib.SMTP") as MockSMTP:
+    with patch("lingtai.addons.imap.account.smtplib.SMTP") as MockSMTP:
         mock_server = MagicMock()
         MockSMTP.return_value.__enter__ = MagicMock(return_value=mock_server)
         MockSMTP.return_value.__exit__ = MagicMock(return_value=False)
@@ -1068,7 +1068,7 @@ def test_send_with_cc_bcc():
         email_address="agent@example.com", email_password="x",
         imap_host="h", smtp_host="smtp.example.com",
     )
-    with patch("stoai.addons.imap.account.smtplib.SMTP") as MockSMTP:
+    with patch("lingtai.addons.imap.account.smtplib.SMTP") as MockSMTP:
         mock_server = MagicMock()
         MockSMTP.return_value.__enter__ = MagicMock(return_value=mock_server)
         MockSMTP.return_value.__exit__ = MagicMock(return_value=False)
@@ -1093,7 +1093,7 @@ def test_send_with_reply_threading():
         email_address="agent@example.com", email_password="x",
         imap_host="h", smtp_host="smtp.example.com",
     )
-    with patch("stoai.addons.imap.account.smtplib.SMTP") as MockSMTP:
+    with patch("lingtai.addons.imap.account.smtplib.SMTP") as MockSMTP:
         mock_server = MagicMock()
         MockSMTP.return_value.__enter__ = MagicMock(return_value=mock_server)
         MockSMTP.return_value.__exit__ = MagicMock(return_value=False)
@@ -1199,13 +1199,13 @@ Expected: PASS (17 tests)
 
 - [ ] **Step 13: Smoke test import**
 
-Run: `source venv/bin/activate && python -c "from stoai.addons.imap.account import IMAPAccount; print('OK')"`
+Run: `source venv/bin/activate && python -c "from lingtai.addons.imap.account import IMAPAccount; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 14: Commit**
 
 ```bash
-git add src/stoai/addons/imap/account.py tests/test_addon_imap_account.py
+git add src/lingtai/addons/imap/account.py tests/test_addon_imap_account.py
 git commit -m "feat(imap): add IMAPAccount — connection, capabilities, folders, search, flags, SMTP with CC/BCC"
 ```
 
@@ -1216,7 +1216,7 @@ git commit -m "feat(imap): add IMAPAccount — connection, capabilities, folders
 Replaces the current single-account `IMAPMailService` with a multi-account coordinator that delegates to `IMAPAccount` instances.
 
 **Files:**
-- Rewrite: `src/stoai/addons/imap/service.py`
+- Rewrite: `src/lingtai/addons/imap/service.py`
 - Create: `tests/test_addon_imap_service_v2.py` (new test file, delete old after)
 
 - [ ] **Step 1: Write failing tests**
@@ -1226,7 +1226,7 @@ Replaces the current single-account `IMAPMailService` with a multi-account coord
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
-from stoai.addons.imap.service import IMAPMailService
+from lingtai.addons.imap.service import IMAPMailService
 
 
 def test_single_account_construction():
@@ -1309,7 +1309,7 @@ Expected: FAIL — current `IMAPMailService` has different constructor.
 - [ ] **Step 3: Rewrite service.py**
 
 ```python
-# src/stoai/addons/imap/service.py
+# src/lingtai/addons/imap/service.py
 """IMAPMailService — multi-account IMAP/SMTP coordinator.
 
 Manages N IMAPAccount instances. Implements MailService interface
@@ -1321,7 +1321,7 @@ import logging
 from pathlib import Path
 from typing import Callable
 
-from stoai_kernel.services.mail import MailService
+from lingtai_kernel.services.mail import MailService
 from .account import IMAPAccount
 
 logger = logging.getLogger(__name__)
@@ -1424,7 +1424,7 @@ Expected: PASS (all)
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/addons/imap/service.py tests/test_addon_imap_service.py
+git add src/lingtai/addons/imap/service.py tests/test_addon_imap_service.py
 git commit -m "feat(imap): rewrite IMAPMailService as multi-account coordinator"
 ```
 
@@ -1435,7 +1435,7 @@ git commit -m "feat(imap): rewrite IMAPMailService as multi-account coordinator"
 Rewrite the manager with the new tool schema, email_id parsing, server-side operations, and per-account filesystem.
 
 **Files:**
-- Rewrite: `src/stoai/addons/imap/manager.py`
+- Rewrite: `src/lingtai/addons/imap/manager.py`
 - Create: `tests/test_addon_imap_manager_v2.py` (delete old after)
 
 - [ ] **Step 1: Write failing tests for email_id parsing and action dispatch**
@@ -1447,7 +1447,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from unittest.mock import MagicMock
-from stoai.addons.imap.manager import IMAPMailManager, parse_email_id
+from lingtai.addons.imap.manager import IMAPMailManager, parse_email_id
 
 
 def test_parse_email_id():
@@ -1636,7 +1636,7 @@ The full manager rewrite. Key changes from current:
 - `on_imap_received` handles account field in payload
 - No more `read.json` — flags live on server
 
-Write the complete manager to `src/stoai/addons/imap/manager.py`. This is a full rewrite — the implementer should replace the entire file. The manager should:
+Write the complete manager to `src/lingtai/addons/imap/manager.py`. This is a full rewrite — the implementer should replace the entire file. The manager should:
 
 1. Define `parse_email_id(email_id: str) -> tuple[str, str, str]` that splits on first `:` (account) and last `:` (uid), with everything in between as folder.
 2. Update `SCHEMA` with all new actions: `send`, `check`, `read`, `reply`, `search`, `delete`, `move`, `flag`, `folders`, `contacts`, `add_contact`, `remove_contact`, `edit_contact`, `accounts`. Add `cc`, `bcc`, `flags`, `account` properties.
@@ -1703,7 +1703,7 @@ mv tests/test_addon_imap_manager_v2.py tests/test_addon_imap_manager.py
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/stoai/addons/imap/manager.py tests/test_addon_imap_manager.py
+git add src/lingtai/addons/imap/manager.py tests/test_addon_imap_manager.py
 git commit -m "feat(imap): rewrite IMAPMailManager — full tool schema with folders, flags, search, multi-account"
 ```
 
@@ -1714,7 +1714,7 @@ git commit -m "feat(imap): rewrite IMAPMailManager — full tool schema with fol
 Rewrite setup to support single-account shorthand and multi-account config.
 
 **Files:**
-- Rewrite: `src/stoai/addons/imap/__init__.py`
+- Rewrite: `src/lingtai/addons/imap/__init__.py`
 - Rewrite: `tests/test_addons.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -1726,12 +1726,12 @@ from unittest.mock import MagicMock, patch
 
 
 def test_addon_registry():
-    from stoai.addons import _BUILTIN
+    from lingtai.addons import _BUILTIN
     assert "imap" in _BUILTIN
 
 
 def test_agent_addon_lifecycle():
-    from stoai.agent import Agent
+    from lingtai.agent import Agent
     import inspect
     sig = inspect.signature(Agent.__init__)
     assert "addons" in sig.parameters
@@ -1739,10 +1739,10 @@ def test_agent_addon_lifecycle():
 
 def test_setup_single_account():
     """Single-account shorthand should work."""
-    from stoai.addons.imap import setup
+    from lingtai.addons.imap import setup
     agent = MagicMock()
     agent._working_dir = "/tmp/test"
-    with patch("stoai.addons.imap.TCPMailService"):
+    with patch("lingtai.addons.imap.TCPMailService"):
         mgr = setup(
             agent,
             email_address="a@gmail.com",
@@ -1759,10 +1759,10 @@ def test_setup_single_account():
 
 def test_setup_multi_account():
     """Multi-account config should work."""
-    from stoai.addons.imap import setup
+    from lingtai.addons.imap import setup
     agent = MagicMock()
     agent._working_dir = "/tmp/test"
-    with patch("stoai.addons.imap.TCPMailService"):
+    with patch("lingtai.addons.imap.TCPMailService"):
         mgr = setup(
             agent,
             accounts=[
@@ -1782,7 +1782,7 @@ def test_setup_multi_account():
 
 def test_setup_no_account_raises():
     """Neither accounts nor email_address should raise ValueError."""
-    from stoai.addons.imap import setup
+    from lingtai.addons.imap import setup
     agent = MagicMock()
     agent._working_dir = "/tmp/test"
     import pytest
@@ -1798,7 +1798,7 @@ Expected: FAIL — current setup() has different signature.
 - [ ] **Step 3: Rewrite `__init__.py`**
 
 ```python
-# src/stoai/addons/imap/__init__.py
+# src/lingtai/addons/imap/__init__.py
 """IMAP addon — real email via IMAP/SMTP.
 
 Adds an `imap` tool with multi-account support. Each account gets
@@ -1833,12 +1833,12 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from stoai_kernel.services.mail import TCPMailService
+from lingtai_kernel.services.mail import TCPMailService
 from .manager import IMAPMailManager, SCHEMA, DESCRIPTION
 from .service import IMAPMailService
 
 if TYPE_CHECKING:
-    from stoai_kernel.base_agent import BaseAgent
+    from lingtai_kernel.base_agent import BaseAgent
 
 log = logging.getLogger(__name__)
 
@@ -1920,7 +1920,7 @@ Expected: PASS (5 tests)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/addons/imap/__init__.py tests/test_addons.py
+git add src/lingtai/addons/imap/__init__.py tests/test_addons.py
 git commit -m "feat(imap): rewrite setup with multi-account config support"
 ```
 
@@ -1975,7 +1975,7 @@ Expected: ALL PASS
 
 - [ ] **Step 2: Smoke test imports**
 
-Run: `source venv/bin/activate && python -c "import stoai; from stoai.addons.imap.account import IMAPAccount; from stoai.addons.imap.service import IMAPMailService; from stoai.addons.imap.manager import IMAPMailManager; print('all OK')"`
+Run: `source venv/bin/activate && python -c "import lingtai; from lingtai.addons.imap.account import IMAPAccount; from lingtai.addons.imap.service import IMAPMailService; from lingtai.addons.imap.manager import IMAPMailManager; print('all OK')"`
 Expected: `all OK`
 
 - [ ] **Step 3: Fix any failures**

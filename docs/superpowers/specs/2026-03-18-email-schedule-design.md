@@ -199,8 +199,8 @@ Add to the email tool's DESCRIPTION and action description:
 
 ## Files to Modify
 
-- `src/stoai/capabilities/email.py` — add `schedule` property to SCHEMA, change `required` from `["action"]` to `[]`, check for `schedule` first in `handle()`, implement `_schedule_create`, `_schedule_cancel`, `_schedule_list`, add `_schedule_events` dict and recovery logic in `setup()`, duplicate guard bypass in `_send()`.
+- `src/lingtai/capabilities/email.py` — add `schedule` property to SCHEMA, change `required` from `["action"]` to `[]`, check for `schedule` first in `handle()`, implement `_schedule_create`, `_schedule_cancel`, `_schedule_list`, add `_schedule_events` dict and recovery logic in `setup()`, duplicate guard bypass in `_send()`.
 
 ## Files NOT Modified
 
-- `src/stoai/intrinsics/mail.py` — no changes needed; schedule is entirely an email-capability feature that reuses the existing `_send()` path.
+- `src/lingtai/intrinsics/mail.py` — no changes needed; schedule is entirely an email-capability feature that reuses the existing `_send()` path.

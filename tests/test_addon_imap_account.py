@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch, call
 
 import pytest
 
-from stoai.addons.imap.account import (
+from lingtai.addons.imap.account import (
     IMAPAccount,
     _decode_header_value,
     _extract_text_body,
@@ -230,7 +230,7 @@ def test_parse_flags_from_meta_no_flags():
 # send_email
 # ---------------------------------------------------------------------------
 
-@patch("stoai.addons.imap.account.smtplib.SMTP")
+@patch("lingtai.addons.imap.account.smtplib.SMTP")
 def test_send_email_basic(mock_smtp_cls, account):
     mock_smtp = MagicMock()
     mock_smtp_cls.return_value.__enter__ = MagicMock(return_value=mock_smtp)
@@ -257,7 +257,7 @@ def test_send_email_basic(mock_smtp_cls, account):
     assert "Subject: Hello" in msg_str
 
 
-@patch("stoai.addons.imap.account.smtplib.SMTP")
+@patch("lingtai.addons.imap.account.smtplib.SMTP")
 def test_send_email_with_cc_bcc(mock_smtp_cls, account):
     """BCC must NOT appear in headers, only in RCPT TO."""
     mock_smtp = MagicMock()
@@ -289,7 +289,7 @@ def test_send_email_with_cc_bcc(mock_smtp_cls, account):
     assert "CC: carol@example.com" in msg_str or "Cc: carol@example.com" in msg_str
 
 
-@patch("stoai.addons.imap.account.smtplib.SMTP")
+@patch("lingtai.addons.imap.account.smtplib.SMTP")
 def test_send_email_with_reply_threading(mock_smtp_cls, account):
     mock_smtp = MagicMock()
     mock_smtp_cls.return_value.__enter__ = MagicMock(return_value=mock_smtp)
@@ -326,7 +326,7 @@ def test_send_email_missing_attachment(account):
     assert "not found" in result.lower()
 
 
-@patch("stoai.addons.imap.account.smtplib.SMTP")
+@patch("lingtai.addons.imap.account.smtplib.SMTP")
 def test_send_email_with_attachment(mock_smtp_cls, account, tmp_path):
     mock_smtp = MagicMock()
     mock_smtp_cls.return_value.__enter__ = MagicMock(return_value=mock_smtp)
@@ -454,7 +454,7 @@ def test_format_imap_date_december():
 # connect / disconnect
 # ---------------------------------------------------------------------------
 
-@patch("stoai.addons.imap.account.imaplib.IMAP4_SSL")
+@patch("lingtai.addons.imap.account.imaplib.IMAP4_SSL")
 def test_connect_and_disconnect(mock_imap4_cls, account):
     mock_imap = MagicMock()
     mock_imap.capability.return_value = ("OK", [b"IMAP4rev1 IDLE MOVE UIDPLUS"])
@@ -987,7 +987,7 @@ def test_idle_timeout_capped_at_25_minutes(account, mock_imap):
     stop = threading.Event()
     stop.set()  # Stop immediately
 
-    with patch("stoai.addons.imap.account.time.monotonic", side_effect=fake_monotonic):
+    with patch("lingtai.addons.imap.account.time.monotonic", side_effect=fake_monotonic):
         # Pass poll_interval=3600 (1 hour) — should be capped to 1500
         # stop_event is set, so it won't actually block
         account._idle_cycle("INBOX", lambda x: None, 3600, stop)

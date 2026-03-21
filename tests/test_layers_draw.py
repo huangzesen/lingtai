@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.capabilities.draw import DrawManager, setup as setup_draw
+from lingtai.capabilities.draw import DrawManager, setup as setup_draw
 
 
 def make_mock_mcp(result=None):
@@ -48,7 +48,7 @@ class TestDrawManager:
         fake_resp.content = b"\xff\xd8JPEG_DOWNLOADED"
         fake_resp.raise_for_status = MagicMock()
 
-        import stoai.capabilities.draw as draw_mod
+        import lingtai.capabilities.draw as draw_mod
         monkeypatch.setattr(draw_mod.requests, "get", lambda *a, **kw: fake_resp)
 
         mgr = DrawManager(working_dir=tmp_path, mcp_client=mcp)
@@ -102,7 +102,7 @@ class TestSetupDraw:
 
     def test_setup_auto_creates_mcp_client(self, tmp_path, monkeypatch):
         """Without explicit mcp_client, setup auto-creates one."""
-        from stoai.llm.minimax import mcp_media_client
+        from lingtai.llm.minimax import mcp_media_client
         mock_client = MagicMock()
         monkeypatch.setattr(mcp_media_client, "create_minimax_media_client", lambda **kw: mock_client)
         agent = make_mock_agent(tmp_path)
@@ -113,7 +113,7 @@ class TestSetupDraw:
 class TestAddCapabilityIntegration:
     def test_add_capability_draw(self, tmp_path):
         from unittest.mock import MagicMock
-        from stoai.agent import Agent
+        from lingtai.agent import Agent
         svc = MagicMock()
         svc.get_adapter.return_value = MagicMock()
         svc.provider = "gemini"

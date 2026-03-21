@@ -11,7 +11,7 @@ Decompose BaseAgent into four extracted components via composition, leaving Base
 ### New Module Structure
 
 ```
-src/stoai/
+src/lingtai/
   base_agent.py          (~500 lines — kernel coordinator)
   workdir.py             (NEW — WorkingDir class)
   session.py             (NEW — SessionManager class)

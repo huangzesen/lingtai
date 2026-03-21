@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-// MailClient sends messages to a stoai TCP mail server.
+// MailClient sends messages to a lingtai TCP mail server.
 type MailClient struct {
 	address string
 }
@@ -95,7 +95,7 @@ func (ml *MailListener) acceptLoop() {
 func (ml *MailListener) handleConn(conn net.Conn) {
 	defer conn.Close()
 
-	fmt.Fprintf(conn, "STOAI daemon\n")
+	fmt.Fprintf(conn, "LINGTAI daemon\n")
 
 	var length uint32
 	if err := binary.Read(conn, binary.BigEndian, &length); err != nil {

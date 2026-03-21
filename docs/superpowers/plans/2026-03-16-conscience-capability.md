@@ -16,8 +16,8 @@
 
 | Action | Path | Responsibility |
 |--------|------|----------------|
-| Create | `src/stoai/capabilities/conscience.py` | ConscienceManager: hormê timer, prompt editing, git-on-nudge |
-| Modify | `src/stoai/capabilities/__init__.py` | Register `"conscience"` in `_BUILTIN` |
+| Create | `src/lingtai/capabilities/conscience.py` | ConscienceManager: hormê timer, prompt editing, git-on-nudge |
+| Modify | `src/lingtai/capabilities/__init__.py` | Register `"conscience"` in `_BUILTIN` |
 | Create | `tests/test_conscience.py` | Tests for conscience capability |
 
 ### Design Notes
@@ -51,7 +51,7 @@
 ### Task 1: Register conscience in capabilities/__init__.py
 
 **Files:**
-- Modify: `src/stoai/capabilities/__init__.py:11-26`
+- Modify: `src/lingtai/capabilities/__init__.py:11-26`
 
 - [ ] **Step 1: Add conscience to _BUILTIN registry**
 
@@ -59,14 +59,14 @@ Add `"conscience": ".conscience"` to the `_BUILTIN` dict (alphabetical, between 
 
 - [ ] **Step 2: Smoke-test**
 
-Run: `python -c "from stoai.capabilities import _BUILTIN; assert 'conscience' in _BUILTIN; print('OK')"`
+Run: `python -c "from lingtai.capabilities import _BUILTIN; assert 'conscience' in _BUILTIN; print('OK')"`
 
 ---
 
 ### Task 2: Create conscience.py + registration tests
 
 **Files:**
-- Create: `src/stoai/capabilities/conscience.py`
+- Create: `src/lingtai/capabilities/conscience.py`
 - Create: `tests/test_conscience.py`
 
 - [ ] **Step 1: Write registration tests**
@@ -84,8 +84,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from stoai.agent import Agent
-from stoai.capabilities.conscience import (
+from lingtai.agent import Agent
+from lingtai.capabilities.conscience import (
     ConscienceManager,
     DEFAULT_PROMPT,
     setup,
@@ -162,7 +162,7 @@ Expected: FAIL — `ModuleNotFoundError`
 
 - [ ] **Step 3: Create conscience.py**
 
-Create `src/stoai/capabilities/conscience.py`:
+Create `src/lingtai/capabilities/conscience.py`:
 
 ```python
 """Conscience capability — the agent's inner voice (hormê).
@@ -390,7 +390,7 @@ Expected: 4 passed
 
 - [ ] **Step 5: Smoke-test**
 
-Run: `python -c "from stoai.capabilities.conscience import ConscienceManager, setup, DEFAULT_PROMPT, SCHEMA; print('OK')"`
+Run: `python -c "from lingtai.capabilities.conscience import ConscienceManager, setup, DEFAULT_PROMPT, SCHEMA; print('OK')"`
 
 ---
 
@@ -722,11 +722,11 @@ Expected: All passed (existing 324 + 18 new)
 
 - [ ] **Step 4: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/capabilities/conscience.py src/stoai/capabilities/__init__.py tests/test_conscience.py
+git add src/lingtai/capabilities/conscience.py src/lingtai/capabilities/__init__.py tests/test_conscience.py
 git commit -m "feat: add conscience capability — hormê (inner voice)"
 ```

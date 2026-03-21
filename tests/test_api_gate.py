@@ -4,7 +4,7 @@ import threading
 
 import pytest
 
-from stoai_kernel.llm.api_gate import APICallGate
+from lingtai_kernel.llm.api_gate import APICallGate
 
 
 def test_gate_passes_calls_through():
@@ -109,7 +109,7 @@ def test_gate_invalid_max_rpm():
 
 def test_gated_call_on_adapter():
     """_gated_call routes through gate when configured."""
-    from stoai_kernel.llm.base import LLMAdapter
+    from lingtai_kernel.llm.base import LLMAdapter
 
     # Create a minimal concrete adapter for testing
     class FakeAdapter(LLMAdapter):

@@ -17,7 +17,7 @@
 ### Task 1: Create APICallGate
 
 **Files:**
-- Create: `src/stoai/llm/api_gate.py`
+- Create: `src/lingtai/llm/api_gate.py`
 - Test: `tests/test_api_gate.py`
 
 - [ ] **Step 1: Write failing tests for APICallGate**
@@ -31,7 +31,7 @@ import concurrent.futures
 
 import pytest
 
-from stoai.llm.api_gate import APICallGate
+from lingtai.llm.api_gate import APICallGate
 
 
 def test_gate_passes_calls_through():
@@ -148,7 +148,7 @@ Expected: ImportError — `api_gate` module doesn't exist yet
 - [ ] **Step 3: Implement APICallGate**
 
 ```python
-# src/stoai/llm/api_gate.py
+# src/lingtai/llm/api_gate.py
 """APICallGate — rate-limiting gate for LLM API calls.
 
 Gate model: a gate thread controls WHEN calls proceed (timing),
@@ -271,18 +271,18 @@ Expected: All pass
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/llm/api_gate.py tests/test_api_gate.py
+git add src/lingtai/llm/api_gate.py tests/test_api_gate.py
 git commit -m "feat: add APICallGate — rate-limiting gate for LLM API calls"
 ```
 
 ### Task 2: Wire gate into LLMAdapter base class
 
 **Files:**
-- Modify: `src/stoai/llm/base.py`
+- Modify: `src/lingtai/llm/base.py`
 
 - [ ] **Step 1: Replace `_rate_limiter` with `_gate` on LLMAdapter**
 
-In `src/stoai/llm/base.py`, replace the existing rate limiter code:
+In `src/lingtai/llm/base.py`, replace the existing rate limiter code:
 
 ```python
 # Remove these lines:
@@ -325,18 +325,18 @@ Expected: All 124 pass (MiniMax adapter imports `RateLimiter` directly, not thro
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/stoai/llm/base.py
+git add src/lingtai/llm/base.py
 git commit -m "feat: replace _rate_limiter with _gate/_setup_gate/_gated_call on LLMAdapter"
 ```
 
 ### Task 3: Migrate MiniMax to use gate
 
 **Files:**
-- Modify: `src/stoai/llm/minimax/adapter.py`
+- Modify: `src/lingtai/llm/minimax/adapter.py`
 
 - [ ] **Step 1: Replace MiniMax's RateLimiter with gate**
 
-Rewrite `src/stoai/llm/minimax/adapter.py`:
+Rewrite `src/lingtai/llm/minimax/adapter.py`:
 
 - Remove `_RateLimitedSession` class entirely
 - Remove `from ..rate_limiter import RateLimiter`
@@ -348,7 +348,7 @@ Actually simpler: since sessions are `AnthropicChatSession` objects, and the gat
 Rewrite:
 
 ```python
-# src/stoai/llm/minimax/adapter.py
+# src/lingtai/llm/minimax/adapter.py
 from ...logging import get_logger
 from ..anthropic.adapter import AnthropicAdapter
 from ..base import ChatSession, LLMResponse
@@ -445,14 +445,14 @@ Expected: All pass
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/stoai/llm/minimax/adapter.py
+git add src/lingtai/llm/minimax/adapter.py
 git commit -m "refactor: migrate MiniMax from RateLimiter to APICallGate"
 ```
 
 ### Task 4: Wire max_rpm through LLMService to adapters
 
 **Files:**
-- Modify: `src/stoai/llm/service.py`
+- Modify: `src/lingtai/llm/service.py`
 
 - [ ] **Step 1: Extract max_rpm in _create_adapter and pass to all adapters**
 
@@ -505,14 +505,14 @@ Expected: All pass (no max_rpm configured → no gate → identical behavior)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/llm/service.py src/stoai/llm/gemini/adapter.py src/stoai/llm/openai/adapter.py src/stoai/llm/anthropic/adapter.py src/stoai/llm/grok/adapter.py src/stoai/llm/deepseek/adapter.py src/stoai/llm/qwen/adapter.py src/stoai/llm/glm/adapter.py src/stoai/llm/kimi/adapter.py src/stoai/llm/custom/adapter.py
+git add src/lingtai/llm/service.py src/lingtai/llm/gemini/adapter.py src/lingtai/llm/openai/adapter.py src/lingtai/llm/anthropic/adapter.py src/lingtai/llm/grok/adapter.py src/lingtai/llm/deepseek/adapter.py src/lingtai/llm/qwen/adapter.py src/lingtai/llm/glm/adapter.py src/lingtai/llm/kimi/adapter.py src/lingtai/llm/custom/adapter.py
 git commit -m "feat: wire max_rpm from provider_defaults through LLMService to all adapters"
 ```
 
 ### Task 5: Delete old rate_limiter.py
 
 **Files:**
-- Delete: `src/stoai/llm/rate_limiter.py`
+- Delete: `src/lingtai/llm/rate_limiter.py`
 
 - [ ] **Step 1: Verify no remaining imports**
 
@@ -522,7 +522,7 @@ Expected: No matches (all references removed in Tasks 2-3)
 - [ ] **Step 2: Delete the file**
 
 ```bash
-rm src/stoai/llm/rate_limiter.py
+rm src/lingtai/llm/rate_limiter.py
 ```
 
 - [ ] **Step 3: Run all tests**
@@ -547,8 +547,8 @@ git commit -m "cleanup: remove old rate_limiter.py, replaced by api_gate.py"
 ```python
 def test_gated_call_on_adapter():
     """_gated_call routes through gate when configured."""
-    from stoai.llm.api_gate import APICallGate
-    from stoai.llm.base import LLMAdapter
+    from lingtai.llm.api_gate import APICallGate
+    from lingtai.llm.base import LLMAdapter
 
     # Create a minimal concrete adapter for testing
     class FakeAdapter(LLMAdapter):

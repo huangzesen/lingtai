@@ -1,6 +1,6 @@
-"""Tests for stoai.llm.service — model registry and context limits."""
+"""Tests for lingtai.llm.service — model registry and context limits."""
 
-from stoai_kernel.llm.service import get_context_limit, DEFAULT_CONTEXT_WINDOW
+from lingtai_kernel.llm.service import get_context_limit, DEFAULT_CONTEXT_WINDOW
 
 
 def test_get_context_limit_unknown():
@@ -16,7 +16,7 @@ def test_get_context_limit_empty():
 
 def test_adapter_base_class_has_no_multimodal_methods():
     """LLMAdapter ABC should not define multimodal convenience methods."""
-    from stoai_kernel.llm.base import LLMAdapter
+    from lingtai_kernel.llm.base import LLMAdapter
     # These methods were removed — they live on individual adapters only
     for method in ("web_search", "generate_vision", "generate_image",
                    "generate_music", "text_to_speech",
@@ -26,7 +26,7 @@ def test_adapter_base_class_has_no_multimodal_methods():
 
 def test_llm_service_has_no_multimodal_methods():
     """LLMService should not define multimodal routing methods."""
-    from stoai_kernel.llm.service import LLMService
+    from lingtai_kernel.llm.service import LLMService
     for method in ("web_search", "generate_vision", "make_multimodal_message",
                    "generate_image", "generate_music", "text_to_speech",
                    "transcribe", "analyze_audio"):
@@ -36,6 +36,6 @@ def test_llm_service_has_no_multimodal_methods():
 def test_llm_service_has_no_provider_config():
     """LLMService should not accept provider_config parameter."""
     import inspect
-    from stoai_kernel.llm.service import LLMService
+    from lingtai_kernel.llm.service import LLMService
     sig = inspect.signature(LLMService.__init__)
     assert "provider_config" not in sig.parameters

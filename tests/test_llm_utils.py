@@ -1,6 +1,6 @@
-"""Tests for stoai.llm_utils."""
+"""Tests for lingtai.llm_utils."""
 
-from stoai_kernel.llm_utils import (
+from lingtai_kernel.llm_utils import (
     track_llm_usage,
     execute_tools_batch,
 )

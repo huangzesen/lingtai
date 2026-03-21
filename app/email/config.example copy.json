@@ -1,0 +1,36 @@
+{
+  "_comment": "IMAP email bridge config. Copy to config.json and fill in your details.",
+
+  "email_address": "your-agent@gmail.com",
+  "email_password": "xxxx xxxx xxxx xxxx",
+  "_email_note": "For Gmail, use an App Password, not your regular password. Enable 2FA first, then: myaccount.google.com → Security → App Passwords",
+
+  "allowed_senders": ["your-personal@gmail.com"],
+  "_senders_note": "Only accept emails from these addresses. Empty list = accept from anyone.",
+
+  "imap_host": "imap.gmail.com",
+  "smtp_host": "smtp.gmail.com",
+
+  "agent_name": "agent",
+  "agent_port": 8301,
+  "bridge_port": 8399,
+
+  "provider": "minimax",
+  "model": "MiniMax-M2.5-highspeed",
+  "api_key_env": "MINIMAX_API_KEY",
+  "base_url": "https://api.minimaxi.com/anthropic",
+  "max_turns": 20,
+
+  "capabilities": {
+    "email": {},
+    "file": {},
+    "web_search": {},
+    "vision": {},
+    "anima": {},
+    "bash": {}
+  },
+
+  "covenant": "## Communication\n- All communication is via email. Your text responses are your private diary.\n- When you receive an email, process the request and email your reply to the sender.\n- Keep emails concise and helpful.\n- Never go back and forth with courtesy emails.",
+
+  "character": "## Role\nYou are a personal AI assistant reachable by email.\nYou help with questions, research, writing, and analysis."
+}

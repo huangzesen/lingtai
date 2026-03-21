@@ -1,14 +1,14 @@
-# StoAI Web Dashboard
+# 灵台 Web Dashboard
 
-React frontend + FastAPI backend for managing and observing N stoai agents.
+React frontend + FastAPI backend for managing and observing N lingtai agents.
 
 ## Location
 
-`app/web/` — application layer, separate from `src/stoai/` (library) and `examples/` (demos). Designed to be migrated out as an independent package later.
+`app/web/` — application layer, separate from `src/lingtai/` (library) and `examples/` (demos). Designed to be migrated out as an independent package later.
 
 ## Architecture
 
-Two processes: a FastAPI backend that wraps stoai, and a React frontend that talks to it over HTTP.
+Two processes: a FastAPI backend that wraps lingtai, and a React frontend that talks to it over HTTP.
 
 ```
 app/web/
@@ -44,8 +44,8 @@ app/web/
 
 ### Design Principles
 
-- Wraps stoai — imports `Agent`, `LLMService`, `TCPMailService` as a library
-- Does NOT modify stoai internals
+- Wraps lingtai — imports `Agent`, `LLMService`, `TCPMailService` as a library
+- Does NOT modify lingtai internals
 - Stateless diary reads — reads JSONL files from agent working directories on each request
 - User inbox is in-memory (same pattern as existing examples, populated via TCPMailService callback)
 
@@ -59,7 +59,7 @@ class AgentEntry:
     key: str                # e.g. "a" (short key for frontend)
     address: str            # e.g. "127.0.0.1:8301"
     port: int               # e.g. 8301
-    agent: Agent            # stoai Agent instance
+    agent: Agent            # lingtai Agent instance
     mail_service: TCPMailService
     working_dir: Path
 
@@ -117,7 +117,7 @@ Reads `{working_dir}/logs/events.jsonl` directly from disk. Parses each JSONL li
 | `cancel_diary` | `cancel_diary` | `ts`, `text` |
 | *(any other)* | `unknown` | `ts`, raw JSON stringified as `text` |
 
-**Note:** stoai has two layers of mail logging. The base mail intrinsic logs `mail_sent`/`mail_received` (simple fields). The email capability logs `email_sent`/`email_received` (richer fields with CC/BCC/delivered/refused). The diary parser must handle both.
+**Note:** lingtai has two layers of mail logging. The base mail intrinsic logs `mail_sent`/`mail_received` (simple fields). The email capability logs `email_sent`/`email_received` (richer fields with CC/BCC/delivered/refused). The diary parser must handle both.
 
 The `?since=<timestamp>` parameter enables incremental polling — only entries with `ts > since` are returned.
 
@@ -133,7 +133,7 @@ Same fan-out logic as `three_agents.py`:
 
 ```python
 def create_app(state: AppState) -> FastAPI:
-    app = FastAPI(title="StoAI Web Dashboard")
+    app = FastAPI(title="灵台 Web Dashboard")
     app.add_middleware(CORSMiddleware, ...)
     app.state.app_state = state
     app.include_router(api_router, prefix="/api")
@@ -156,7 +156,7 @@ Example structure:
 from app.web.server.main import create_app
 from app.web.server.state import AppState, AgentEntry
 
-state = AppState(base_dir=Path.home() / ".stoai" / "web", user_port=8300)
+state = AppState(base_dir=Path.home() / ".lingtai" / "web", user_port=8300)
 state.register_agent("a", "alice", "Alice", 8301, llm, capabilities=[...], covenant="...")
 state.register_agent("b", "bob", "Bob", 8302, llm, capabilities=[...], covenant="...")
 
@@ -197,7 +197,7 @@ Faithful recreation of the `three_agents.py` UI:
 
 ### Components
 
-**`Header.tsx`** — StoAI logo, subtitle with agent count, user mailbox port.
+**`Header.tsx`** — 灵台 logo, subtitle with agent count, user mailbox port.
 
 **`InboxPanel.tsx`** — Container for inbox + input bar. Merges sent + received emails, sorts by time, renders as `EmailBubble` list. Auto-scrolls to bottom on new messages.
 
@@ -323,7 +323,7 @@ Agent emails user
 
 ## What This Does NOT Do
 
-- Does not modify `src/stoai/` — purely a consumer of the stoai API
+- Does not modify `src/lingtai/` — purely a consumer of the lingtai API
 - Does not add WebSocket (polling is sufficient for now, can upgrade later)
 - Does not add runtime agent creation (agents defined in `run.py`, discovered via `/api/agents`)
 - Does not add authentication or multi-user support

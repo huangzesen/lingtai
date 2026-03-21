@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.agent import Agent
+from lingtai.agent import Agent
 
 
 def make_mock_service():
@@ -119,7 +119,7 @@ def test_grep_via_capability(tmp_path):
 
 def test_base_agent_has_no_file_intrinsics(tmp_path):
     """BaseAgent should NOT have file intrinsics after phase 2."""
-    from stoai_kernel.base_agent import BaseAgent
+    from lingtai_kernel.base_agent import BaseAgent
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
     for name in ("read", "write", "edit", "glob", "grep"):
         assert name not in agent._intrinsics, f"{name} should not be in BaseAgent intrinsics"
@@ -128,7 +128,7 @@ def test_base_agent_has_no_file_intrinsics(tmp_path):
 
 def test_base_agent_kernel_only(tmp_path):
     """BaseAgent should have exactly 4 intrinsics: mail, system, eigen, soul."""
-    from stoai_kernel.base_agent import BaseAgent
+    from lingtai_kernel.base_agent import BaseAgent
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
     assert set(agent._intrinsics.keys()) == {"mail", "system", "eigen", "soul"}
     agent.stop(timeout=1.0)
@@ -136,7 +136,7 @@ def test_base_agent_kernel_only(tmp_path):
 
 def test_file_capability_uses_file_io_service(tmp_path):
     """File capabilities should use the agent's FileIOService."""
-    from stoai.services.file_io import LocalFileIOService
+    from lingtai.services.file_io import LocalFileIOService
     svc = LocalFileIOService(root=tmp_path)
     agent = Agent(
         agent_name="test", service=make_mock_service(), base_dir=tmp_path,

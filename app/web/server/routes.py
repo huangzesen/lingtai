@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
-from stoai.services.mail import TCPMailService
+from lingtai.services.mail import TCPMailService
 
 from .diary import parse_diary
 

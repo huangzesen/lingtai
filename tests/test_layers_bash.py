@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from unittest.mock import MagicMock
 
-from stoai.capabilities.bash import BashManager, BashPolicy, setup as setup_bash
+from lingtai.capabilities.bash import BashManager, BashPolicy, setup as setup_bash
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +178,7 @@ class TestSetupBash:
 
 class TestAddCapability:
     def test_add_capability_bash_yolo(self, tmp_path):
-        from stoai.agent import Agent
+        from lingtai.agent import Agent
         svc = MagicMock()
         svc.get_adapter.return_value = MagicMock()
         svc.provider = "gemini"
@@ -190,7 +190,7 @@ class TestAddCapability:
         assert "bash" in agent._mcp_handlers
 
     def test_add_capability_bash_with_policy(self, tmp_path):
-        from stoai.agent import Agent
+        from lingtai.agent import Agent
         policy_file = tmp_path / "policy.json"
         policy_file.write_text(json.dumps({"allow": ["echo"]}))
         svc = MagicMock()

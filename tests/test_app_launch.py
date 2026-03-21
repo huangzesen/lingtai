@@ -52,7 +52,7 @@ def test_print_meta(capsys):
     from app import _print_meta
     _print_meta({
         "agent_name": "test",
-        "base_dir": "/tmp/stoai",
+        "base_dir": "/tmp/lingtai",
         "imap": {"email_address": "a@b.com"},
         "cli": True,
         "agent_port": 8501,

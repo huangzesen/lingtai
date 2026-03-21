@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from stoai.addons.telegram.manager import TelegramManager
+from lingtai.addons.telegram.manager import TelegramManager
 
 
 def _make_manager(tmp_path) -> tuple[TelegramManager, MagicMock, MagicMock]:

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.capabilities.talk import TalkManager, setup as setup_talk
+from lingtai.capabilities.talk import TalkManager, setup as setup_talk
 
 
 def make_mock_mcp(result=None):
@@ -102,7 +102,7 @@ class TestSetupTalk:
 
     def test_setup_auto_creates_mcp_client(self, tmp_path, monkeypatch):
         """Without explicit mcp_client, setup auto-creates one."""
-        from stoai.llm.minimax import mcp_media_client
+        from lingtai.llm.minimax import mcp_media_client
         mock_client = MagicMock()
         monkeypatch.setattr(mcp_media_client, "create_minimax_media_client", lambda **kw: mock_client)
         agent = make_mock_agent(tmp_path)

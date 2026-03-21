@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, PropertyMock
 
 import pytest
 
-from stoai.addons.imap.manager import IMAPMailManager, parse_email_id
+from lingtai.addons.imap.manager import IMAPMailManager, parse_email_id
 
 
 # ---------------------------------------------------------------------------

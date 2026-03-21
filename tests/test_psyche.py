@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.agent import Agent
-from stoai_kernel.base_agent import BaseAgent
+from lingtai.agent import Agent
+from lingtai_kernel.base_agent import BaseAgent
 
 
 def make_mock_service():
@@ -261,7 +261,7 @@ def test_memory_load_delegates_to_eigen(tmp_path):
 
 def test_molt_delegates_to_eigen(tmp_path):
     """psyche molt calls through to eigen's handler."""
-    from stoai_kernel.llm.interface import ChatInterface, TextBlock
+    from lingtai_kernel.llm.interface import ChatInterface, TextBlock
 
     svc = make_mock_service()
 
@@ -395,14 +395,14 @@ def test_library_delete(tmp_path):
 
 def test_forget_not_in_schema():
     """forget is not exposed in psyche's SCHEMA actions."""
-    from stoai.capabilities.psyche import SCHEMA
+    from lingtai.capabilities.psyche import SCHEMA
     actions = SCHEMA["properties"]["action"]["enum"]
     assert "forget" not in actions
 
 
 def test_psyche_schema_has_construct():
     """Schema should include construct action and notes/ids fields."""
-    from stoai.capabilities.psyche import SCHEMA
+    from lingtai.capabilities.psyche import SCHEMA
     actions = SCHEMA["properties"]["action"]["enum"]
     assert "construct" in actions
     assert "molt" in actions
@@ -413,7 +413,7 @@ def test_psyche_schema_has_construct():
 
 def test_psyche_schema_has_library_fields():
     """Schema should include title, summary, supplementary, pattern, limit, depth."""
-    from stoai.capabilities.psyche import SCHEMA
+    from lingtai.capabilities.psyche import SCHEMA
     props = SCHEMA["properties"]
     assert "title" in props
     assert "summary" in props
@@ -457,7 +457,7 @@ def test_invalid_action_for_object(tmp_path):
 
 
 def test_memory_id_deterministic(tmp_path):
-    from stoai.capabilities.psyche import PsycheManager
+    from lingtai.capabilities.psyche import PsycheManager
     id1 = PsycheManager._make_id("hello", "2026-03-16T00:00:00Z")
     id2 = PsycheManager._make_id("hello", "2026-03-16T00:00:00Z")
     assert id1 == id2
@@ -465,7 +465,7 @@ def test_memory_id_deterministic(tmp_path):
 
 
 def test_memory_id_differs_by_content(tmp_path):
-    from stoai.capabilities.psyche import PsycheManager
+    from lingtai.capabilities.psyche import PsycheManager
     id1 = PsycheManager._make_id("hello", "2026-03-16T00:00:00Z")
     id2 = PsycheManager._make_id("world", "2026-03-16T00:00:00Z")
     assert id1 != id2

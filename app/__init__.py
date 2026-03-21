@@ -1,4 +1,4 @@
-"""StoAI app — main launch flow."""
+"""灵台 app — main launch flow."""
 from __future__ import annotations
 
 import signal
@@ -6,10 +6,10 @@ import sys
 import threading
 from pathlib import Path
 
-from stoai import Agent, AgentConfig
-from stoai.llm import LLMService
-from stoai.services.logging import JSONLLoggingService
-from stoai.services.mail import TCPMailService
+from lingtai import Agent, AgentConfig
+from lingtai.llm import LLMService
+from lingtai.services.logging import JSONLLoggingService
+from lingtai.services.mail import TCPMailService
 
 from app.config import load_config, resolve_env_vars
 
@@ -116,7 +116,7 @@ def _build_addons(cfg: dict) -> dict:
 def _print_meta(cfg: dict) -> None:
     """Print agent metadata to terminal."""
     name = cfg.get("agent_name", "orchestrator")
-    base_dir = cfg.get("base_dir", "~/.stoai")
+    base_dir = cfg.get("base_dir", "~/.lingtai")
     port = cfg.get("agent_port", 8501)
 
     print(f"  Agent:   {name}")
@@ -154,10 +154,10 @@ def send_message(config_path: str, message: str) -> None:
 # ---------------------------------------------------------------------------
 
 def main(config_path: str | None = None) -> None:
-    """Full launch flow. Handles sys.argv: stoai / stoai config.json / stoai send 'msg'."""
+    """Full launch flow. Handles sys.argv: lingtai / lingtai config.json / lingtai send 'msg'."""
     args = sys.argv[1:]
 
-    # Handle `stoai send "msg"`
+    # Handle `lingtai send "msg"`
     if len(args) >= 2 and args[0] == "send":
         cp = args[1] if len(args) >= 3 else "config.json"
         msg = args[2] if len(args) >= 3 else args[1]

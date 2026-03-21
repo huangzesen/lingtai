@@ -1,4 +1,4 @@
-# StoAI — Design Discussion Log (2026-03-15)
+# 灵台 — Design Discussion Log (2026-03-15)
 
 Key decisions from the brainstorming session that led to the current design.
 
@@ -7,8 +7,8 @@ Key decisions from the brainstorming session that led to the current design.
 - Started as `xhelio-agents` (monorepo subfolder in xhelio-dev)
 - User wanted a standalone identity, inspired by 百家争鸣 (A Hundred Schools of Thought Contend)
 - Explored Greek equivalents: stoa, agora, symposium, dialectic, polyphony
-- **Final name: StoAI** — Stoa (Greek philosophical porch) + AI
-- PyPI: available. GitHub: `huangzesen/stoai` available.
+- **Final name: 灵台** — Stoa (Greek philosophical porch) + AI
+- PyPI: available. GitHub: `huangzesen/lingtai` available.
 
 ## Three-Tier Model
 
@@ -62,9 +62,9 @@ Key decisions:
 
 ## Agent OS Realization
 
-The discussion converged on StoAI being an agent operating system:
+The discussion converged on 灵台 being an agent operating system:
 
-| OS Concept | StoAI |
+| OS Concept | 灵台 |
 |------------|-------|
 | Kernel | Services |
 | System calls | Intrinsics |
@@ -91,4 +91,4 @@ Three levels:
 - **Forum** — registry + discovery + bulletin board (not coordination)
 - **Emergent routing** — agents develop working relationships via diary
 - **Location transparency** — same `email()` call works local or internet
-- **Three packages**: stoai → forum → domain apps (xhelio, etc.)
+- **Three packages**: lingtai → forum → domain apps (xhelio, etc.)

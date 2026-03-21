@@ -25,8 +25,8 @@ if env_path.exists():
             key, _, val = line.partition("=")
             os.environ.setdefault(key.strip(), val.strip().strip("'\""))
 
-from stoai import Agent, AgentConfig, TCPMailService
-from stoai.llm import LLMService
+from lingtai import Agent, AgentConfig, TCPMailService
+from lingtai.llm import LLMService
 
 PORT = 8302
 

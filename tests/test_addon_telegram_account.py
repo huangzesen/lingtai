@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import patch, MagicMock
 
-from stoai.addons.telegram.account import TelegramAccount
+from lingtai.addons.telegram.account import TelegramAccount
 
 
 def test_construction():

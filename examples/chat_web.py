@@ -27,9 +27,9 @@ if env_path.exists():
             key, _, val = line.partition("=")
             os.environ.setdefault(key.strip(), val.strip().strip("'\""))
 
-from stoai import Agent, AgentConfig
-from stoai.llm import LLMService
-from stoai.services.mail import TCPMailService
+from lingtai import Agent, AgentConfig
+from lingtai.llm import LLMService
+from lingtai.services.mail import TCPMailService
 
 AGENT_PORT = 8301
 WEB_PORT = 8080
@@ -38,7 +38,7 @@ HTML_PAGE = """<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>StoAI Chat</title>
+<title>灵台 Chat</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
@@ -60,7 +60,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 </style>
 </head>
 <body>
-<div id="header"><h1>StoAI Chat</h1><span>MiniMax agent on port """ + str(AGENT_PORT) + """</span></div>
+<div id="header"><h1>灵台 Chat</h1><span>MiniMax agent on port """ + str(AGENT_PORT) + """</span></div>
 <div id="messages"></div>
 <div id="input-bar">
   <input id="input" placeholder="Type a message..." autofocus>

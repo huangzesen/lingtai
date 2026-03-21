@@ -15,8 +15,8 @@
 ### Modified files
 | File | What changes |
 |------|-------------|
-| `src/stoai/agent.py:181,203` | `working_dir` becomes `str \| Path` (no `None` default), remove `Path.cwd()` fallback |
-| `src/stoai/capabilities/bash.py` | Replace `allowed_commands` with `policy_file`/`yolo`, add `BashPolicy` class, pipe-aware command checking |
+| `src/lingtai/agent.py:181,203` | `working_dir` becomes `str \| Path` (no `None` default), remove `Path.cwd()` fallback |
+| `src/lingtai/capabilities/bash.py` | Replace `allowed_commands` with `policy_file`/`yolo`, add `BashPolicy` class, pipe-aware command checking |
 | `tests/test_agent.py` | Add `working_dir="/tmp"` to all ~27 `BaseAgent(...)` calls, update `test_working_dir_default` |
 | `tests/test_layers_bash.py` | Rewrite tests for new policy system |
 | `tests/test_layers_email.py` | Add `working_dir="/tmp"` to all ~15 `BaseAgent(...)` calls |
@@ -39,7 +39,7 @@
 ### Task 1: Make working_dir mandatory on BaseAgent
 
 **Files:**
-- Modify: `src/stoai/agent.py:181,203`
+- Modify: `src/lingtai/agent.py:181,203`
 - Modify: `tests/test_agent.py` (~27 call sites)
 - Modify: `tests/test_layers_email.py` (~15 call sites)
 - Modify: `tests/test_layers_delegate.py` (~3 call sites)
@@ -51,7 +51,7 @@
 
 - [ ] **Step 1: Update BaseAgent.__init__ signature**
 
-In `src/stoai/agent.py`, change line 181:
+In `src/lingtai/agent.py`, change line 181:
 ```python
 working_dir: str | Path | None = None,
 ```
@@ -105,13 +105,13 @@ In `examples/chat_web.py`, add `working_dir="."` to the `BaseAgent(...)` call.
 
 - [ ] **Step 8: Smoke-test and run tests**
 
-Run: `source venv/bin/activate && python -c "import stoai" && python -m pytest tests/ -v`
+Run: `source venv/bin/activate && python -c "import lingtai" && python -m pytest tests/ -v`
 Expected: All PASS
 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/stoai/agent.py tests/ examples/
+git add src/lingtai/agent.py tests/ examples/
 git commit -m "refactor: make working_dir a mandatory BaseAgent parameter"
 ```
 
@@ -122,7 +122,7 @@ git commit -m "refactor: make working_dir a mandatory BaseAgent parameter"
 ### Task 2: Create BashPolicy and rewrite bash capability
 
 **Files:**
-- Modify: `src/stoai/capabilities/bash.py`
+- Modify: `src/lingtai/capabilities/bash.py`
 - Modify: `tests/test_layers_bash.py`
 - Create: `examples/bash_policy.json`
 - Modify: `CLAUDE.md`
@@ -139,7 +139,7 @@ class TestBashPolicy:
         """Policy should load allow/deny from JSON file."""
         policy_file = tmp_path / "policy.json"
         policy_file.write_text(json.dumps({"allow": ["git", "ls"], "deny": ["rm"]}))
-        from stoai.capabilities.bash import BashPolicy
+        from lingtai.capabilities.bash import BashPolicy
         policy = BashPolicy.from_file(str(policy_file))
         assert policy.is_allowed("git status")
         assert policy.is_allowed("ls -la")
@@ -149,7 +149,7 @@ class TestBashPolicy:
         """With only allow list, unlisted commands are denied."""
         policy_file = tmp_path / "policy.json"
         policy_file.write_text(json.dumps({"allow": ["git", "echo"]}))
-        from stoai.capabilities.bash import BashPolicy
+        from lingtai.capabilities.bash import BashPolicy
         policy = BashPolicy.from_file(str(policy_file))
         assert policy.is_allowed("git push")
         assert not policy.is_allowed("curl http://evil.com")
@@ -158,7 +158,7 @@ class TestBashPolicy:
         """With only deny list, unlisted commands are allowed."""
         policy_file = tmp_path / "policy.json"
         policy_file.write_text(json.dumps({"deny": ["rm", "sudo"]}))
-        from stoai.capabilities.bash import BashPolicy
+        from lingtai.capabilities.bash import BashPolicy
         policy = BashPolicy.from_file(str(policy_file))
         assert policy.is_allowed("ls -la")
         assert not policy.is_allowed("rm file.txt")
@@ -168,7 +168,7 @@ class TestBashPolicy:
         """Must be in allow AND not in deny."""
         policy_file = tmp_path / "policy.json"
         policy_file.write_text(json.dumps({"allow": ["git", "rm"], "deny": ["rm"]}))
-        from stoai.capabilities.bash import BashPolicy
+        from lingtai.capabilities.bash import BashPolicy
         policy = BashPolicy.from_file(str(policy_file))
         assert policy.is_allowed("git status")
         assert not policy.is_allowed("rm file")  # in allow but also in deny
@@ -177,7 +177,7 @@ class TestBashPolicy:
         """Should check all commands in a pipe chain."""
         policy_file = tmp_path / "policy.json"
         policy_file.write_text(json.dumps({"deny": ["rm"]}))
-        from stoai.capabilities.bash import BashPolicy
+        from lingtai.capabilities.bash import BashPolicy
         policy = BashPolicy.from_file(str(policy_file))
         assert not policy.is_allowed("ls | rm -rf /")
         assert not policy.is_allowed("echo hello && rm file")
@@ -188,20 +188,20 @@ class TestBashPolicy:
         """Should check commands inside $() and backticks."""
         policy_file = tmp_path / "policy.json"
         policy_file.write_text(json.dumps({"deny": ["rm"]}))
-        from stoai.capabilities.bash import BashPolicy
+        from lingtai.capabilities.bash import BashPolicy
         policy = BashPolicy.from_file(str(policy_file))
         assert not policy.is_allowed("echo $(rm file)")
 
     def test_yolo_allows_everything(self):
         """Yolo policy should allow all commands."""
-        from stoai.capabilities.bash import BashPolicy
+        from lingtai.capabilities.bash import BashPolicy
         policy = BashPolicy.yolo()
         assert policy.is_allowed("rm -rf /")
         assert policy.is_allowed("sudo shutdown -h now")
 
     def test_missing_file_raises(self):
         """Loading from nonexistent file should raise."""
-        from stoai.capabilities.bash import BashPolicy
+        from lingtai.capabilities.bash import BashPolicy
         import pytest
         with pytest.raises(FileNotFoundError):
             BashPolicy.from_file("/nonexistent/policy.json")
@@ -210,7 +210,7 @@ class TestBashPolicy:
         """Empty policy (no allow, no deny) should allow everything."""
         policy_file = tmp_path / "policy.json"
         policy_file.write_text(json.dumps({}))
-        from stoai.capabilities.bash import BashPolicy
+        from lingtai.capabilities.bash import BashPolicy
         policy = BashPolicy.from_file(str(policy_file))
         assert policy.is_allowed("anything")
 ```
@@ -222,7 +222,7 @@ Expected: FAIL (BashPolicy doesn't exist yet)
 
 - [ ] **Step 3: Implement BashPolicy class**
 
-In `src/stoai/capabilities/bash.py`, add:
+In `src/lingtai/capabilities/bash.py`, add:
 
 ```python
 import json
@@ -485,7 +485,7 @@ class TestSetupBash:
 
 class TestAddCapability:
     def test_add_capability_bash_yolo(self):
-        from stoai.agent import BaseAgent
+        from lingtai.agent import BaseAgent
         svc = MagicMock()
         svc.get_adapter.return_value = MagicMock()
         svc.provider = "gemini"
@@ -496,7 +496,7 @@ class TestAddCapability:
         assert "bash" in agent._mcp_handlers
 
     def test_add_capability_bash_with_policy(self, tmp_path):
-        from stoai.agent import BaseAgent
+        from lingtai.agent import BaseAgent
         policy_file = tmp_path / "policy.json"
         policy_file.write_text(json.dumps({"allow": ["echo"]}))
         svc = MagicMock()
@@ -550,12 +550,12 @@ Update the capabilities description to mention the new bash policy system:
 
 - [ ] **Step 10: Run full test suite**
 
-Run: `source venv/bin/activate && python -c "import stoai" && python -m pytest tests/ -v`
+Run: `source venv/bin/activate && python -c "import lingtai" && python -m pytest tests/ -v`
 Expected: All PASS
 
 - [ ] **Step 11: Commit**
 
 ```bash
-git add src/stoai/capabilities/bash.py tests/test_layers_bash.py examples/bash_policy.json CLAUDE.md
+git add src/lingtai/capabilities/bash.py tests/test_layers_bash.py examples/bash_policy.json CLAUDE.md
 git commit -m "feat: bash policy system — file-based allow/deny with pipe awareness"
 ```

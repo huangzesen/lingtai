@@ -1,4 +1,4 @@
-from stoai_kernel.types import UnknownToolError
+from lingtai_kernel.types import UnknownToolError
 
 
 def test_unknown_tool_error():

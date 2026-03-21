@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.agent import Agent
-from stoai.capabilities.vision import VisionManager
+from lingtai.agent import Agent
+from lingtai.capabilities.vision import VisionManager
 
 
 def make_mock_service():

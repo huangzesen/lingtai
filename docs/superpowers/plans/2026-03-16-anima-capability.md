@@ -20,14 +20,14 @@ Rename `role.md` → `covenant.md`, `ltm.md` → `memory.md`. Remove `view` acti
 
 | Action | File | Responsibility |
 |--------|------|---------------|
-| Modify | `src/stoai/intrinsics/system.py` | New schema: memory object, diff/load only |
-| Modify | `src/stoai/base_agent.py:175-212` | Rename role→covenant, ltm→memory file paths in constructor |
-| Modify | `src/stoai/base_agent.py:517-611` | _handle_system: accept memory, remove role/view |
-| Modify | `src/stoai/base_agent.py:750-755` | stop(): persist "memory" section, not "ltm" |
-| Modify | `src/stoai/base_agent.py:792-868` | _git_init_working_dir: create covenant.md/memory.md |
-| Modify | `src/stoai/base_agent.py:870-889` | _read_manifest: read "role" key, map to covenant |
-| Modify | `src/stoai/base_agent.py:891-904` | _write_manifest: read "covenant" section, not "role" |
-| Modify | `src/stoai/prompt.py:52-58` | Update BASE_PROMPT text (role→covenant, LTM→memory) |
+| Modify | `src/lingtai/intrinsics/system.py` | New schema: memory object, diff/load only |
+| Modify | `src/lingtai/base_agent.py:175-212` | Rename role→covenant, ltm→memory file paths in constructor |
+| Modify | `src/lingtai/base_agent.py:517-611` | _handle_system: accept memory, remove role/view |
+| Modify | `src/lingtai/base_agent.py:750-755` | stop(): persist "memory" section, not "ltm" |
+| Modify | `src/lingtai/base_agent.py:792-868` | _git_init_working_dir: create covenant.md/memory.md |
+| Modify | `src/lingtai/base_agent.py:870-889` | _read_manifest: read "role" key, map to covenant |
+| Modify | `src/lingtai/base_agent.py:891-904` | _write_manifest: read "covenant" section, not "role" |
+| Modify | `src/lingtai/prompt.py:52-58` | Update BASE_PROMPT text (role→covenant, LTM→memory) |
 | Modify | `tests/test_system.py` | Rewrite ALL tests for new schema (remove old view/role tests) |
 | Modify | `tests/test_agent.py:441-449` | Update resume test (role→covenant, ltm→memory) |
 
@@ -36,7 +36,7 @@ Rename `role.md` → `covenant.md`, `ltm.md` → `memory.md`. Remove `view` acti
 ### Task 1.1: Update system intrinsic schema
 
 **Files:**
-- Modify: `src/stoai/intrinsics/system.py`
+- Modify: `src/lingtai/intrinsics/system.py`
 - Test: `tests/test_system.py`
 
 - [ ] **Step 1: Write failing tests for new schema**
@@ -62,7 +62,7 @@ def test_system_wired_in_agent(tmp_path):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_system.py::test_system_in_all_intrinsics -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_system.py::test_system_in_all_intrinsics -v`
 Expected: FAIL (schema still has role/ltm and view)
 
 - [ ] **Step 3: Update intrinsics/system.py**
@@ -114,13 +114,13 @@ DESCRIPTION = (
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_system.py::test_system_in_all_intrinsics tests/test_system.py::test_system_wired_in_agent -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_system.py::test_system_in_all_intrinsics tests/test_system.py::test_system_wired_in_agent -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/intrinsics/system.py tests/test_system.py
+git add src/lingtai/intrinsics/system.py tests/test_system.py
 git commit -m "refactor: simplify system intrinsic schema to memory diff/load only"
 ```
 
@@ -129,7 +129,7 @@ git commit -m "refactor: simplify system intrinsic schema to memory diff/load on
 ### Task 1.2: Update BaseAgent file paths and constructor
 
 **Files:**
-- Modify: `src/stoai/base_agent.py:175-212`
+- Modify: `src/lingtai/base_agent.py:175-212`
 - Test: `tests/test_system.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -176,7 +176,7 @@ def test_covenant_is_protected_section(tmp_path):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_system.py::test_covenant_constructor_arg_writes_to_system tests/test_system.py::test_memory_constructor_arg_writes_to_system tests/test_system.py::test_covenant_is_protected_section -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_system.py::test_covenant_constructor_arg_writes_to_system tests/test_system.py::test_memory_constructor_arg_writes_to_system tests/test_system.py::test_covenant_is_protected_section -v`
 Expected: FAIL
 
 - [ ] **Step 3: Update BaseAgent constructor**
@@ -218,13 +218,13 @@ if loaded_memory.strip():
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_system.py::test_covenant_constructor_arg_writes_to_system tests/test_system.py::test_memory_constructor_arg_writes_to_system tests/test_system.py::test_covenant_is_protected_section -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_system.py::test_covenant_constructor_arg_writes_to_system tests/test_system.py::test_memory_constructor_arg_writes_to_system tests/test_system.py::test_covenant_is_protected_section -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/base_agent.py tests/test_system.py
+git add src/lingtai/base_agent.py tests/test_system.py
 git commit -m "refactor: rename role.md→covenant.md, ltm.md→memory.md in BaseAgent"
 ```
 
@@ -233,7 +233,7 @@ git commit -m "refactor: rename role.md→covenant.md, ltm.md→memory.md in Bas
 ### Task 1.3: Update _handle_system handler
 
 **Files:**
-- Modify: `src/stoai/base_agent.py:517-611`
+- Modify: `src/lingtai/base_agent.py:517-611`
 - Test: `tests/test_system.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -340,7 +340,7 @@ def test_system_creates_files_if_missing(tmp_path):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_system.py::test_system_diff_memory tests/test_system.py::test_system_unknown_object -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_system.py::test_system_diff_memory tests/test_system.py::test_system_unknown_object -v`
 Expected: FAIL
 
 - [ ] **Step 3: Update _handle_system**
@@ -409,7 +409,7 @@ def _system_load(self, file_path: Path, obj: str) -> dict:
 
 - [ ] **Step 4: Run all system tests**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_system.py -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_system.py -v`
 Expected: ALL PASS
 
 - [ ] **Step 5: Update stop() to persist "memory" section**
@@ -510,14 +510,14 @@ def test_agent_resume_reads_covenant_memory(tmp_path):
 
 - [ ] **Step 11: Smoke test**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -c "import stoai"`
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_system.py tests/test_agent.py tests/test_prompt.py -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -c "import lingtai"`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_system.py tests/test_agent.py tests/test_prompt.py -v`
 Expected: ALL PASS
 
 - [ ] **Step 12: Commit**
 
 ```bash
-git add src/stoai/base_agent.py src/stoai/prompt.py tests/test_system.py tests/test_agent.py
+git add src/lingtai/base_agent.py src/lingtai/prompt.py tests/test_system.py tests/test_agent.py
 git commit -m "refactor: rename role→covenant, ltm→memory in kernel, remove system view"
 ```
 
@@ -531,8 +531,8 @@ Add `override_intrinsic()` to BaseAgent. Fix email to use it (remove mail intrin
 
 | Action | File | Responsibility |
 |--------|------|---------------|
-| Modify | `src/stoai/base_agent.py` | Add override_intrinsic() method |
-| Modify | `src/stoai/capabilities/email.py:531-538` | Use override_intrinsic("mail") |
+| Modify | `src/lingtai/base_agent.py` | Add override_intrinsic() method |
+| Modify | `src/lingtai/capabilities/email.py:531-538` | Use override_intrinsic("mail") |
 | Create | `tests/test_override_intrinsic.py` | Tests for the new mechanism |
 | Modify | `tests/test_layers_email.py` | Verify mail intrinsic removed when email active |
 
@@ -541,7 +541,7 @@ Add `override_intrinsic()` to BaseAgent. Fix email to use it (remove mail intrin
 ### Task 2.1: Add override_intrinsic to BaseAgent
 
 **Files:**
-- Modify: `src/stoai/base_agent.py`
+- Modify: `src/lingtai/base_agent.py`
 - Create: `tests/test_override_intrinsic.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -556,7 +556,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.base_agent import BaseAgent
+from lingtai.base_agent import BaseAgent
 
 
 def make_mock_service():
@@ -612,7 +612,7 @@ def test_override_intrinsic_tool_no_longer_visible(tmp_path):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_override_intrinsic.py -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_override_intrinsic.py -v`
 Expected: FAIL (method doesn't exist)
 
 - [ ] **Step 3: Implement override_intrinsic**
@@ -639,13 +639,13 @@ Also add the import at the top of the file if not present: `from typing import C
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_override_intrinsic.py -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_override_intrinsic.py -v`
 Expected: ALL PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/base_agent.py tests/test_override_intrinsic.py
+git add src/lingtai/base_agent.py tests/test_override_intrinsic.py
 git commit -m "feat: add override_intrinsic() to BaseAgent for capability upgrades"
 ```
 
@@ -654,7 +654,7 @@ git commit -m "feat: add override_intrinsic() to BaseAgent for capability upgrad
 ### Task 2.2: Fix email to use override_intrinsic
 
 **Files:**
-- Modify: `src/stoai/capabilities/email.py:531-538`
+- Modify: `src/lingtai/capabilities/email.py:531-538`
 - Modify: `tests/test_layers_email.py`
 
 - [ ] **Step 1: Write failing test**
@@ -664,7 +664,7 @@ Add to `tests/test_layers_email.py`:
 ```python
 def test_email_removes_mail_intrinsic(tmp_path):
     """When email capability is active, mail intrinsic should be removed."""
-    from stoai.agent import Agent
+    from lingtai.agent import Agent
     agent = Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
         capabilities=["email"],
@@ -677,12 +677,12 @@ def test_email_removes_mail_intrinsic(tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_layers_email.py::test_email_removes_mail_intrinsic -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_layers_email.py::test_email_removes_mail_intrinsic -v`
 Expected: FAIL (mail still in _intrinsics)
 
 - [ ] **Step 3: Update email setup()**
 
-In `src/stoai/capabilities/email.py`, update the `setup` function:
+In `src/lingtai/capabilities/email.py`, update the `setup` function:
 
 ```python
 def setup(agent: "BaseAgent") -> EmailManager:
@@ -698,18 +698,18 @@ def setup(agent: "BaseAgent") -> EmailManager:
 
 - [ ] **Step 4: Run tests**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_layers_email.py -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_layers_email.py -v`
 Expected: ALL PASS
 
 - [ ] **Step 5: Run full test suite to check for regressions**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/ -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/ -v`
 Expected: ALL PASS (or only pre-existing failures)
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/email.py tests/test_layers_email.py
+git add src/lingtai/capabilities/email.py tests/test_layers_email.py
 git commit -m "fix: email capability now removes mail intrinsic via override_intrinsic"
 ```
 
@@ -723,8 +723,8 @@ Build the anima capability: AnimaManager, tool schema, setup function. Register 
 
 | Action | File | Responsibility |
 |--------|------|---------------|
-| Create | `src/stoai/capabilities/anima.py` | AnimaManager, SCHEMA, DESCRIPTION, setup() |
-| Modify | `src/stoai/capabilities/__init__.py:11-27` | Register anima in _BUILTIN |
+| Create | `src/lingtai/capabilities/anima.py` | AnimaManager, SCHEMA, DESCRIPTION, setup() |
+| Modify | `src/lingtai/capabilities/__init__.py:11-27` | Register anima in _BUILTIN |
 | Create | `tests/test_anima.py` | Full test coverage for anima capability |
 
 ---
@@ -732,8 +732,8 @@ Build the anima capability: AnimaManager, tool schema, setup function. Register 
 ### Task 3.1: Create anima capability — schema and setup
 
 **Files:**
-- Create: `src/stoai/capabilities/anima.py`
-- Modify: `src/stoai/capabilities/__init__.py`
+- Create: `src/lingtai/capabilities/anima.py`
+- Modify: `src/lingtai/capabilities/__init__.py`
 - Create: `tests/test_anima.py`
 
 - [ ] **Step 1: Write failing test for setup**
@@ -748,8 +748,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.agent import Agent
-from stoai.base_agent import BaseAgent
+from lingtai.agent import Agent
+from lingtai.base_agent import BaseAgent
 
 
 def make_mock_service():
@@ -782,12 +782,12 @@ def test_anima_manager_accessible(tmp_path):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_anima.py::test_anima_setup_removes_system_intrinsic -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_anima.py::test_anima_setup_removes_system_intrinsic -v`
 Expected: FAIL (anima not in _BUILTIN)
 
 - [ ] **Step 3: Create anima.py with skeleton**
 
-Create `src/stoai/capabilities/anima.py`:
+Create `src/lingtai/capabilities/anima.py`:
 
 ```python
 """Anima capability — self-knowledge management.
@@ -1177,22 +1177,22 @@ def setup(agent: "BaseAgent") -> AnimaManager:
 
 - [ ] **Step 4: Register in capabilities/__init__.py**
 
-Add `"anima": ".anima"` to `_BUILTIN` dict in `src/stoai/capabilities/__init__.py`.
+Add `"anima": ".anima"` to `_BUILTIN` dict in `src/lingtai/capabilities/__init__.py`.
 
 - [ ] **Step 5: Run setup tests**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_anima.py::test_anima_setup_removes_system_intrinsic tests/test_anima.py::test_anima_manager_accessible -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_anima.py::test_anima_setup_removes_system_intrinsic tests/test_anima.py::test_anima_manager_accessible -v`
 Expected: PASS
 
 - [ ] **Step 6: Smoke test**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -c "import stoai"`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -c "import lingtai"`
 Expected: No errors
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/capabilities/anima.py src/stoai/capabilities/__init__.py tests/test_anima.py
+git add src/lingtai/capabilities/anima.py src/lingtai/capabilities/__init__.py tests/test_anima.py
 git commit -m "feat: add anima capability skeleton with setup and schema"
 ```
 
@@ -1271,7 +1271,7 @@ def test_role_load_combines_covenant_and_character(tmp_path):
 
 - [ ] **Step 2: Run tests**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_anima.py -v -k role`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_anima.py -v -k role`
 Expected: ALL PASS
 
 - [ ] **Step 3: Commit**
@@ -1416,7 +1416,7 @@ Add `import json` at top of test file.
 
 - [ ] **Step 2: Run tests**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_anima.py -v -k memory`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_anima.py -v -k memory`
 Expected: ALL PASS
 
 - [ ] **Step 3: Commit**
@@ -1487,7 +1487,7 @@ def test_invalid_action_for_object(tmp_path):
 
 def test_memory_id_deterministic(tmp_path):
     """Same content + timestamp should produce same ID."""
-    from stoai.capabilities.anima import AnimaManager
+    from lingtai.capabilities.anima import AnimaManager
     id1 = AnimaManager._make_id("hello", "2026-03-16T00:00:00Z")
     id2 = AnimaManager._make_id("hello", "2026-03-16T00:00:00Z")
     assert id1 == id2
@@ -1495,7 +1495,7 @@ def test_memory_id_deterministic(tmp_path):
 
 
 def test_memory_id_differs_by_content(tmp_path):
-    from stoai.capabilities.anima import AnimaManager
+    from lingtai.capabilities.anima import AnimaManager
     id1 = AnimaManager._make_id("hello", "2026-03-16T00:00:00Z")
     id2 = AnimaManager._make_id("world", "2026-03-16T00:00:00Z")
     assert id1 != id2
@@ -1503,7 +1503,7 @@ def test_memory_id_differs_by_content(tmp_path):
 
 - [ ] **Step 2: Run tests**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/test_anima.py -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/test_anima.py -v`
 Expected: ALL PASS
 
 - [ ] **Step 3: Commit**
@@ -1519,12 +1519,12 @@ git commit -m "test: add context compact and error handling tests for anima"
 
 - [ ] **Step 1: Run full test suite**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -m pytest tests/ -v`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -m pytest tests/ -v`
 Expected: ALL PASS
 
 - [ ] **Step 2: Smoke test import**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -c "import stoai; from stoai.capabilities.anima import AnimaManager, SCHEMA; print('OK')" `
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -c "import lingtai; from lingtai.capabilities.anima import AnimaManager, SCHEMA; print('OK')" `
 Expected: `OK`
 
 - [ ] **Step 3: Final commit if any fixups needed**
@@ -1572,7 +1572,7 @@ Add: `working_dir/system/character.md` (anima only) and `working_dir/system/memo
 
 - [ ] **Step 2: Smoke test**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -c "import stoai"`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -c "import lingtai"`
 Expected: No errors
 
 - [ ] **Step 3: Commit**

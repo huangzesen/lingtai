@@ -20,9 +20,9 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from stoai.agent import Agent
-from stoai_kernel.config import AgentConfig
-from stoai_kernel.services.mail import TCPMailService
+from lingtai.agent import Agent
+from lingtai_kernel.config import AgentConfig
+from lingtai_kernel.services.mail import TCPMailService
 
 
 def _make_mock_service():

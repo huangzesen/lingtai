@@ -6,7 +6,7 @@
 
 **Architecture:** Single self-contained Python file with embedded HTML/CSS/JS. Python `http.server` backend with three `BaseAgent` instances using `TCPMailService` and the email capability. Frontend polls for inbox and diary updates.
 
-**Tech Stack:** Python stdlib (`http.server`, `threading`, `json`), stoai (`BaseAgent`, `TCPMailService`, `LLMService`, `AgentConfig`, `MemoryLoggingService`), vanilla HTML/CSS/JS.
+**Tech Stack:** Python stdlib (`http.server`, `threading`, `json`), lingtai (`BaseAgent`, `TCPMailService`, `LLMService`, `AgentConfig`, `MemoryLoggingService`), vanilla HTML/CSS/JS.
 
 **Spec:** `docs/superpowers/specs/2026-03-15-three-agent-email-example-design.md`
 
@@ -450,7 +450,7 @@ Expected: `OK`
 - [ ] **Step 2: Smoke test imports**
 
 ```bash
-python -c "import stoai"
+python -c "import lingtai"
 ```
 
 Expected: no errors

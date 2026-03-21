@@ -22,8 +22,8 @@ if env_path.exists():
             key, _, val = line.partition("=")
             os.environ.setdefault(key.strip(), val.strip().strip("'\""))
 
-from stoai import Agent, AgentConfig, TCPMailService
-from stoai.llm import LLMService
+from lingtai import Agent, AgentConfig, TCPMailService
+from lingtai.llm import LLMService
 
 PORT = 8301
 
@@ -105,7 +105,7 @@ def main():
             if agent._chat is not None:
                 last = agent._chat.interface.last_assistant_entry()
                 if last:
-                    from stoai.llm.interface import TextBlock
+                    from lingtai.llm.interface import TextBlock
                     text_parts = [b.text for b in last.content if isinstance(b, TextBlock)]
                     print("".join(text_parts))
                 else:

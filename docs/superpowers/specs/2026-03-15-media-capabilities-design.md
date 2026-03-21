@@ -5,7 +5,7 @@
 
 ## Overview
 
-Add four new media capabilities (draw, compose, talk, listen) and filesystem-based mail attachments to StoAI. Media capabilities follow the capability pattern (opt-in via `add_capability()`), routing through LLMService/LLMAdapter methods. Mail attachments extend the existing mail intrinsic with inline file transfer and a filesystem-based mailbox.
+Add four new media capabilities (draw, compose, talk, listen) and filesystem-based mail attachments to 灵台. Media capabilities follow the capability pattern (opt-in via `add_capability()`), routing through LLMService/LLMAdapter methods. Mail attachments extend the existing mail intrinsic with inline file transfer and a filesystem-based mailbox.
 
 ## Part 1: Media Capabilities
 
@@ -260,17 +260,17 @@ Unlike vision/search which have dedicated service ABCs, the four media capabilit
 ## Files to Create/Modify
 
 ### New files:
-- `src/stoai/capabilities/draw.py`
-- `src/stoai/capabilities/compose.py`
-- `src/stoai/capabilities/talk.py`
-- `src/stoai/capabilities/listen.py`
+- `src/lingtai/capabilities/draw.py`
+- `src/lingtai/capabilities/compose.py`
+- `src/lingtai/capabilities/talk.py`
+- `src/lingtai/capabilities/listen.py`
 
 ### Modified files:
-- `src/stoai/agent.py` — add public `working_dir: Path` property
-- `src/stoai/capabilities/__init__.py` — register 4 new capabilities in `_BUILTIN`
-- `src/stoai/llm/base.py` — add 5 new LLMAdapter methods
-- `src/stoai/llm/service.py` — add 5 new LLMService gateway methods + 4 provider config keys
-- `src/stoai/services/mail.py` — add `attachments` to MailMessage, update MailService ABC, update TCPMailService wire protocol, add filesystem-based mailbox persistence
-- `src/stoai/intrinsics/mail.py` — add `attachments` to schema
-- `src/stoai/capabilities/email.py` — support attachments in send/read/forward/reply
-- `src/stoai/prompt.py` or agent system prompt sections — attachment symlink convention instructions
+- `src/lingtai/agent.py` — add public `working_dir: Path` property
+- `src/lingtai/capabilities/__init__.py` — register 4 new capabilities in `_BUILTIN`
+- `src/lingtai/llm/base.py` — add 5 new LLMAdapter methods
+- `src/lingtai/llm/service.py` — add 5 new LLMService gateway methods + 4 provider config keys
+- `src/lingtai/services/mail.py` — add `attachments` to MailMessage, update MailService ABC, update TCPMailService wire protocol, add filesystem-based mailbox persistence
+- `src/lingtai/intrinsics/mail.py` — add `attachments` to schema
+- `src/lingtai/capabilities/email.py` — support attachments in send/read/forward/reply
+- `src/lingtai/prompt.py` or agent system prompt sections — attachment symlink convention instructions

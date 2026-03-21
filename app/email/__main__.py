@@ -1,4 +1,4 @@
-"""Launch a StoAI agent with IMAP email — interact via real email.
+"""Launch a 灵台 agent with IMAP email — interact via real email.
 
 Usage:
     python -m app.email
@@ -28,10 +28,10 @@ if env_path.exists():
             key, _, val = line.partition("=")
             os.environ.setdefault(key.strip(), val.strip().strip("'\""))
 
-from stoai import Agent, AgentConfig
-from stoai.llm import LLMService
-from stoai.services.logging import JSONLLoggingService
-from stoai.services.mail import TCPMailService
+from lingtai import Agent, AgentConfig
+from lingtai.llm import LLMService
+from lingtai.services.logging import JSONLLoggingService
+from lingtai.services.mail import TCPMailService
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,7 +41,7 @@ logging.basicConfig(
 log = logging.getLogger("app.email")
 
 CONFIG_DIR = Path(__file__).parent
-DEFAULT_PLAYGROUND = Path.home() / ".stoai" / "email"
+DEFAULT_PLAYGROUND = Path.home() / ".lingtai" / "email"
 
 
 class TerminalLoggingService(JSONLLoggingService):

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from stoai.services.file_io import LocalFileIOService, GrepMatch
+from lingtai.services.file_io import LocalFileIOService, GrepMatch
 
 
 @pytest.fixture

@@ -6,17 +6,17 @@
 
 **Architecture:** Two changes: (1) rewrite `anima._context_compact` so the agent's `prompt` IS the summary (no external LLM call), and (2) add a compaction pressure system in `BaseAgent._handle_request` that prepends `[system]` warnings to messages when context exceeds 80%, escalating from gentle reminders (1-2) to urgent warnings (3-4) to final warning (5) to auto-forget (6+).
 
-**Tech Stack:** Python, existing stoai internals (SessionManager, AnimaManager, ChatInterface)
+**Tech Stack:** Python, existing lingtai internals (SessionManager, AnimaManager, ChatInterface)
 
 ---
 
 ### Task 1: Rewrite `_context_compact` — agent's prompt IS the summary
 
 **Files:**
-- Modify: `src/stoai/capabilities/anima.py:504-561` (rewrite `_context_compact`)
-- Modify: `src/stoai/capabilities/anima.py:110-116` (update `prompt` field description in SCHEMA)
-- Modify: `src/stoai/capabilities/anima.py:144-147` (update DESCRIPTION for context section)
-- Modify: `src/stoai/capabilities/anima.py:134-141` (update DESCRIPTION for library section — external brain framing)
+- Modify: `src/lingtai/capabilities/anima.py:504-561` (rewrite `_context_compact`)
+- Modify: `src/lingtai/capabilities/anima.py:110-116` (update `prompt` field description in SCHEMA)
+- Modify: `src/lingtai/capabilities/anima.py:144-147` (update DESCRIPTION for context section)
+- Modify: `src/lingtai/capabilities/anima.py:134-141` (update DESCRIPTION for library section — external brain framing)
 - Test: `tests/test_anima.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -159,13 +159,13 @@ Expected: PASS
 
 - [ ] **Step 7: Smoke test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 Expected: No errors
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/stoai/capabilities/anima.py tests/test_anima.py
+git add src/lingtai/capabilities/anima.py tests/test_anima.py
 git commit -m "feat: self-compaction — agent writes its own context summary"
 ```
 
@@ -174,8 +174,8 @@ git commit -m "feat: self-compaction — agent writes its own context summary"
 ### Task 2: Remove external-LLM auto-compaction from SessionManager
 
 **Files:**
-- Modify: `src/stoai/session.py:155` (remove `_check_and_compact()` call)
-- Modify: `src/stoai/session.py:283-328` (remove or gut `_check_and_compact` method)
+- Modify: `src/lingtai/session.py:155` (remove `_check_and_compact()` call)
+- Modify: `src/lingtai/session.py:283-328` (remove or gut `_check_and_compact` method)
 
 - [ ] **Step 1: Remove the auto-compact call from `send()`**
 
@@ -215,7 +215,7 @@ Expected: All pass (the old auto-compact was transparent)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/session.py
+git add src/lingtai/session.py
 git commit -m "refactor: remove external-LLM auto-compaction from SessionManager"
 ```
 
@@ -224,7 +224,7 @@ git commit -m "refactor: remove external-LLM auto-compaction from SessionManager
 ### Task 3: Add compaction pressure system to `_handle_request`
 
 **Files:**
-- Modify: `src/stoai/base_agent.py:681-707` (add pressure check before LLM call)
+- Modify: `src/lingtai/base_agent.py:681-707` (add pressure check before LLM call)
 - Test: `tests/test_agent.py` (or new `tests/test_compaction.py`)
 
 - [ ] **Step 1: Write the test**
@@ -336,7 +336,7 @@ Expected: All pass
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/base_agent.py tests/test_compaction.py
+git add src/lingtai/base_agent.py tests/test_compaction.py
 git commit -m "feat: compaction pressure warnings — 2 warnings then auto-forget"
 ```
 
@@ -345,7 +345,7 @@ git commit -m "feat: compaction pressure warnings — 2 warnings then auto-forge
 ### Task 4: Reset warning counter on successful compact
 
 **Files:**
-- Modify: `src/stoai/capabilities/anima.py` (already done in Task 1 — verify `_compaction_warnings = 0`)
+- Modify: `src/lingtai/capabilities/anima.py` (already done in Task 1 — verify `_compaction_warnings = 0`)
 - Test: verify in existing test
 
 - [ ] **Step 1: Write integration test**
@@ -415,19 +415,19 @@ git commit -m "docs: add compaction guidance to orchestrator covenant"
 ### Task 6: Clean up — remove unused COMPACTION_PROMPT
 
 **Files:**
-- Modify: `src/stoai/llm/service.py` (remove `COMPACTION_PROMPT` constant if no longer used)
+- Modify: `src/lingtai/llm/service.py` (remove `COMPACTION_PROMPT` constant if no longer used)
 - Verify: grep for remaining references
 
 - [ ] **Step 1: Check for remaining references**
 
-Run: `grep -r "COMPACTION_PROMPT" src/stoai/`
+Run: `grep -r "COMPACTION_PROMPT" src/lingtai/`
 If only `llm/service.py` defines it and `session.py` imported it (now removed), delete it.
 
 - [ ] **Step 2: Remove if unused**
 
 - [ ] **Step 3: Smoke test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 4: Run all tests**
 
@@ -436,6 +436,6 @@ Run: `python -m pytest tests/ -v`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/llm/service.py src/stoai/session.py
+git add src/lingtai/llm/service.py src/lingtai/session.py
 git commit -m "refactor: remove unused COMPACTION_PROMPT (self-compaction replaces it)"
 ```

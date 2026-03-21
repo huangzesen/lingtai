@@ -151,7 +151,7 @@ def _log(self, event_type: str, **fields) -> None:
 
 ### Public API Surface
 
-Exported from `stoai`:
+Exported from `lingtai`:
 
 - `LoggingService` (ABC)
 - `JSONLLoggingService` (first implementation)

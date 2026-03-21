@@ -8,12 +8,12 @@ import (
 	"strings"
 	"syscall"
 
-	"stoai-daemon/internal/agent"
-	"stoai-daemon/internal/config"
-	"stoai-daemon/internal/i18n"
-	"stoai-daemon/internal/manage"
-	"stoai-daemon/internal/setup"
-	"stoai-daemon/internal/tui"
+	"lingtai-daemon/internal/agent"
+	"lingtai-daemon/internal/config"
+	"lingtai-daemon/internal/i18n"
+	"lingtai-daemon/internal/manage"
+	"lingtai-daemon/internal/setup"
+	"lingtai-daemon/internal/tui"
 )
 
 func main() {
@@ -56,7 +56,7 @@ func main() {
 			}
 			return
 		case "manage":
-			baseDir := "~/.stoai"
+			baseDir := "~/.lingtai"
 			for i, arg := range args {
 				if arg == "--base-dir" && i+1 < len(args) {
 					baseDir = args[i+1]
@@ -72,7 +72,16 @@ func main() {
 		}
 	}
 
-	// Load config
+	// Load config — if missing, run setup automatically
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		fmt.Printf("\n  \033[1m\033[36m灵台\033[0m  No config found — starting setup wizard.\n\n")
+		if err := setup.Run(filepath.Dir(configPath)); err != nil {
+			fmt.Fprintf(os.Stderr, "\033[31mError: %v\033[0m\n", err)
+			os.Exit(1)
+		}
+		fmt.Println()
+	}
+
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "\033[31mError: %v\033[0m\n", err)

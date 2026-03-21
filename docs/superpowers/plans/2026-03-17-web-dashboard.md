@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a React + FastAPI web dashboard for managing and observing N stoai agents, recreating the three_agents.py visual layout with dynamic agent support.
+**Goal:** Build a React + FastAPI web dashboard for managing and observing N lingtai agents, recreating the three_agents.py visual layout with dynamic agent support.
 
-**Architecture:** FastAPI backend at `app/web/server/` wraps stoai as a library — exposes agents, inbox, diary, and send over HTTP. React frontend at `app/web/frontend/` built with Vite + TypeScript + Tailwind polls the API. Launcher script `app/web/run.py` is the entry point (same shape as `examples/two_agents.py`).
+**Architecture:** FastAPI backend at `app/web/server/` wraps lingtai as a library — exposes agents, inbox, diary, and send over HTTP. React frontend at `app/web/frontend/` built with Vite + TypeScript + Tailwind polls the API. Launcher script `app/web/run.py` is the entry point (same shape as `examples/two_agents.py`).
 
 **Tech Stack:** Python 3.11+ (FastAPI, uvicorn), React 18, TypeScript, Vite, Tailwind CSS v4
 
@@ -80,9 +80,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from stoai import Agent, AgentConfig
-from stoai.llm import LLMService
-from stoai.services.mail import TCPMailService
+from lingtai import Agent, AgentConfig
+from lingtai.llm import LLMService
+from lingtai.services.mail import TCPMailService
 
 
 @dataclass
@@ -183,7 +183,7 @@ class AppState:
 
 - [ ] **Step 4: Smoke-test the module**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -c "from app.web.server.state import AppState, AgentEntry; print('OK')"`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -c "from app.web.server.state import AppState, AgentEntry; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 5: Commit**
@@ -327,7 +327,7 @@ def _map_event(etype: str, e: dict, ts: float) -> dict | None:
 
 - [ ] **Step 2: Smoke-test the module**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -c "from app.web.server.diary import parse_diary; print('OK')"`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -c "from app.web.server.diary import parse_diary; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 3: Commit**
@@ -355,7 +355,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
-from stoai.services.mail import TCPMailService
+from lingtai.services.mail import TCPMailService
 
 from .diary import parse_diary
 
@@ -449,7 +449,7 @@ def send_email(request: Request, body: SendRequest):
 
 - [ ] **Step 2: Smoke-test the module**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -c "from app.web.server.routes import router; print('OK')"`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -c "from app.web.server.routes import router; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 3: Commit**
@@ -484,7 +484,7 @@ from .state import AppState
 
 def create_app(state: AppState) -> FastAPI:
     """Create and configure the FastAPI application."""
-    app = FastAPI(title="StoAI Web Dashboard")
+    app = FastAPI(title="灵台 Web Dashboard")
 
     app.add_middleware(
         CORSMiddleware,
@@ -506,7 +506,7 @@ def create_app(state: AppState) -> FastAPI:
 
 - [ ] **Step 2: Smoke-test the module**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -c "from app.web.server.main import create_app; print('OK')"`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -c "from app.web.server.main import create_app; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 3: Commit**
@@ -553,8 +553,8 @@ if env_path.exists():
 
 import uvicorn
 
-from stoai import AgentConfig
-from stoai.llm import LLMService
+from lingtai import AgentConfig
+from lingtai.llm import LLMService
 
 from .server.main import create_app
 from .server.state import AppState
@@ -603,7 +603,7 @@ def main():
         provider_defaults={"minimax": {"model": "MiniMax-M2.5-highspeed"}},
     )
 
-    base_dir = Path.home() / ".stoai" / "web" / "playground"
+    base_dir = Path.home() / ".lingtai" / "web" / "playground"
     state = AppState(base_dir=base_dir, user_port=USER_PORT)
 
     # Build contact list for covenants
@@ -656,7 +656,7 @@ main()
 
 - [ ] **Step 3: Smoke-test the import**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -c "from app.web.run import make_covenant; print('OK')"`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -c "from app.web.run import make_covenant; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 4: Commit**
@@ -678,14 +678,14 @@ git commit -m "feat(web): add launcher script and requirements"
 - [ ] **Step 1: Create Vite project**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai/app/web
+cd /Users/huangzesen/Documents/GitHub/lingtai/app/web
 npm create vite@latest frontend -- --template react-ts
 ```
 
 - [ ] **Step 2: Install Tailwind CSS v4**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai/app/web/frontend
+cd /Users/huangzesen/Documents/GitHub/lingtai/app/web/frontend
 npm install
 npm install tailwindcss @tailwindcss/vite
 ```
@@ -733,7 +733,7 @@ Replace `app/web/frontend/src/index.css`:
 - [ ] **Step 5: Verify it runs**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai/app/web/frontend
+cd /Users/huangzesen/Documents/GitHub/lingtai/app/web/frontend
 npm run dev
 ```
 
@@ -742,7 +742,7 @@ Open http://localhost:5173 — should show default Vite React page with Tailwind
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai
+cd /Users/huangzesen/Documents/GitHub/lingtai
 git add app/web/frontend/
 git commit -m "feat(web): scaffold React + Vite + Tailwind frontend"
 ```
@@ -1027,7 +1027,7 @@ export function Header({ agents, userPort }: HeaderProps) {
   const activeCount = agents.filter((a) => a.status === "active").length;
   return (
     <div className="flex items-center gap-3 px-5 py-2.5 bg-panel border-b border-border">
-      <h1 className="text-base font-bold text-accent">StoAI</h1>
+      <h1 className="text-base font-bold text-accent">灵台</h1>
       <span className="text-xs text-text-dim">
         {agents.length} agent{agents.length !== 1 ? "s" : ""} · User
         mailbox :{userPort}
@@ -1653,7 +1653,7 @@ Delete the Vite scaffolded files that are no longer needed:
 - [ ] **Step 4: Verify frontend builds**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai/app/web/frontend
+cd /Users/huangzesen/Documents/GitHub/lingtai/app/web/frontend
 npm run build
 ```
 
@@ -1662,7 +1662,7 @@ Expected: build succeeds with no TypeScript errors.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai
+cd /Users/huangzesen/Documents/GitHub/lingtai
 git add app/web/frontend/
 git commit -m "feat(web): wire up App with all components and hooks"
 ```
@@ -1703,7 +1703,7 @@ git commit -m "chore: update .gitignore for web dashboard"
 - [ ] **Step 1: Install backend deps**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai
+cd /Users/huangzesen/Documents/GitHub/lingtai
 pip install fastapi uvicorn
 ```
 
@@ -1716,14 +1716,14 @@ python -c "from app.web.server.main import create_app; from app.web.server.state
 - [ ] **Step 3: Build frontend**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai/app/web/frontend
+cd /Users/huangzesen/Documents/GitHub/lingtai/app/web/frontend
 npm install && npm run build
 ```
 
 - [ ] **Step 4: Run full stack (manual test)**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai
+cd /Users/huangzesen/Documents/GitHub/lingtai
 python -m app.web
 ```
 

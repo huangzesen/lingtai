@@ -121,7 +121,7 @@ Emails show:
 
 ## File Structure
 
-Single file: `examples/three_agents.py`. No external dependencies beyond stoai and its optional `minimax` extra.
+Single file: `examples/three_agents.py`. No external dependencies beyond lingtai and its optional `minimax` extra.
 
 ## Notes
 

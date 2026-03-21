@@ -1,10 +1,10 @@
-# StoAI — Design Document
+# 灵台 — Design Document
 
 > **Stoa + AI.** Named after the ancient Greek stoa — the open porch where independent thinkers gathered, debated, and contended (百家争鸣). Agents that stand on their own, communicate freely, and compose into larger systems.
 
 ## Vision
 
-StoAI is an **agent operating system**. It provides the minimal kernel for AI agents: thinking (LLM), perceiving (vision, search), acting (file I/O), and communicating (email). Everything else — domain tools, coordination, orchestration — is plugged in from outside.
+灵台 is an **agent operating system**. It provides the minimal kernel for AI agents: thinking (LLM), perceiving (vision, search), acting (file I/O), and communicating (email). Everything else — domain tools, coordination, orchestration — is plugged in from outside.
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -15,7 +15,7 @@ StoAI is an **agent operating system**. It provides the minimal kernel for AI ag
 │              Forum (future package)          │
 │  Registry · Discovery · Bulletin board      │
 ├─────────────────────────────────────────────┤
-│              StoAI                           │
+│              灵台                           │
 │                                             │
 │  Layers:  bash · diary · plan · delegate    │
 │                                             │
@@ -30,8 +30,8 @@ StoAI is an **agent operating system**. It provides the minimal kernel for AI ag
 Building a new app:
 
 ```python
-from stoai import BaseAgent, LLMService, LocalFileIOService
-from stoai.layers import add_diary_layer, add_plan_layer
+from lingtai import BaseAgent, LLMService, LocalFileIOService
+from lingtai.layers import add_diary_layer, add_plan_layer
 
 agent = BaseAgent(agent_id="my_agent", service=llm, file_io=fs)
 add_diary_layer(agent)
@@ -407,10 +407,10 @@ No hard dependencies — only the active provider's SDK needs to be installed.
 ## Package Structure
 
 ```
-stoai/
+lingtai/
   pyproject.toml
   tests/
-  src/stoai/
+  src/lingtai/
     __init__.py
 
     agent.py                  ← BaseAgent class
@@ -471,7 +471,7 @@ stoai/
 
 ## The Agent OS Analogy
 
-| OS Concept | StoAI Equivalent |
+| OS Concept | 灵台 Equivalent |
 |------------|-----------------|
 | Kernel | Services (FileIO, Email, Vision, Search, LLM) |
 | System calls | Intrinsics (read, write, email, ...) |
@@ -494,16 +494,16 @@ Because agents are independent services that communicate via email:
 
 ## Relationship to xhelio
 
-xhelio becomes a **consumer** of StoAI. It provides:
+xhelio becomes a **consumer** of 灵台. It provides:
 
 - **MCP tools** — data pipeline, Plotly renderer, custom operations
 - **Memory system** — domain-specific long-term memory
 - **Session management** — session lifecycle, persistence
-- **EventBus** — translates StoAI's `on_event` to xhelio's pub/sub system
+- **EventBus** — translates 灵台's `on_event` to xhelio's pub/sub system
 
 ```python
-from stoai import BaseAgent, AgentConfig
-from stoai.layers import add_diary_layer
+from lingtai import BaseAgent, AgentConfig
+from lingtai.layers import add_diary_layer
 
 # xhelio creates agents with domain tools
 agent = BaseAgent(
@@ -522,7 +522,7 @@ add_diary_layer(agent, diary_dir=session_dir / "diary")
 
 ## Future: Forum Package
 
-A coordination layer built on top of StoAI:
+A coordination layer built on top of 灵台:
 
 - **Registry** — agents register themselves, others discover by capability
 - **Bulletin board** — agents post findings, others subscribe
@@ -535,7 +535,7 @@ Forum doesn't coordinate agents. Agents coordinate themselves. Forum just makes 
 
 ```toml
 [project]
-name = "stoai"
+name = "lingtai"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = []  # no hard deps
@@ -545,5 +545,5 @@ gemini = ["google-genai>=1.0"]
 openai = ["openai>=1.0"]
 anthropic = ["anthropic>=0.40"]
 minimax = ["minimax>=0.1"]
-all = ["stoai[gemini,openai,anthropic,minimax]"]
+all = ["lingtai[gemini,openai,anthropic,minimax]"]
 ```

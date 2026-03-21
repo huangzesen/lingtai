@@ -11,9 +11,9 @@ The three layers:
 ```
 BaseAgent              — kernel (intrinsics, immutable tool surface)
     |
-StoAIAgent(BaseAgent)  — kernel + capabilities + domain tools (declared at construction)
+灵台Agent(BaseAgent)  — kernel + capabilities + domain tools (declared at construction)
     |
-CustomAgent(StoAIAgent) — host's wrapper (subclass with domain logic)
+CustomAgent(灵台Agent) — host's wrapper (subclass with domain logic)
 ```
 
 ## Design Decisions (from brainstorming)
@@ -22,11 +22,11 @@ CustomAgent(StoAIAgent) — host's wrapper (subclass with domain logic)
 |----------|--------|-----------|
 | `add_tool()` location | BaseAgent (kernel) | It's the primitive that capabilities and domain tools both use |
 | Seal after `start()` | Yes — `add_tool()` and `remove_tool()` raise `RuntimeError` after `start()` | Enforces "nothing changes at runtime" in code |
-| `mcp_tools=` on BaseAgent | Removed | Domain tools go through `tools=` on StoAIAgent or `add_tool()` in subclasses |
+| `mcp_tools=` on BaseAgent | Removed | Domain tools go through `tools=` on 灵台Agent or `add_tool()` in subclasses |
 | `update_system_prompt()` | Open at any time (not sealed) | Prompt sections are context, not tools — memory reload, host-injected context |
 | `capabilities=` format | `list[str]` or `dict[str, dict]` — list is sugar for dict with empty kwargs | Clean one-liner for simple cases, dict when kwargs needed |
-| Delegate spawning | Mirrors parent capabilities by default | Future delegate policy is delegate tool's concern, not StoAIAgent's |
-| `[MCP]` tool labeling | Kept — StoAIAgent populates `_mcp_tool_names` from `tools=` param | Capabilities are capabilities, MCP tools are MCP tools — the LLM should know the difference |
+| Delegate spawning | Mirrors parent capabilities by default | Future delegate policy is delegate tool's concern, not 灵台Agent's |
+| `[MCP]` tool labeling | Kept — 灵台Agent populates `_mcp_tool_names` from `tools=` param | Capabilities are capabilities, MCP tools are MCP tools — the LLM should know the difference |
 | Shutdown reason | In the tool call args, visible in restored chat history | Reborn agent reads its own conversation history — no special property needed |
 | Shutdown | `status(action="shutdown", reason="...")` intrinsic | Agent requests termination; host handles rebirth |
 | File convenience methods | Stay on BaseAgent | Ergonomic wrappers backed by intrinsics, kernel-level |
@@ -38,7 +38,7 @@ The current `agent.py` (~2175 lines) splits into focused modules:
 | New file | Contents | ~Lines |
 |----------|----------|--------|
 | `base_agent.py` | `BaseAgent` — kernel (lifecycle, intrinsics, tool dispatch, LLM comms, compaction, token tracking, hooks) | ~1400 |
-| `stoai_agent.py` | `StoAIAgent(BaseAgent)` — capabilities, `tools=` param, seal-after-start | ~80 |
+| `lingtai_agent.py` | `灵台Agent(BaseAgent)` — capabilities, `tools=` param, seal-after-start | ~80 |
 | `message.py` | `Message`, `_make_message`, `MSG_REQUEST`, `MSG_USER_INPUT` | ~50 |
 | `state.py` | `AgentState` enum | ~15 |
 
@@ -125,7 +125,7 @@ System prompt guidance:
 
 > "Use `status(action='shutdown', reason='...')` when you need capabilities you don't have. Before shutting down, mail your admin explaining what you need and why. The admin will delegate a successor with the right tools, resuming from your working directory and conversation history."
 
-Host/admin side: the admin reads the agent's mail, spawns a new StoAIAgent with the requested capabilities using the same working dir, and restores chat state. The successor agent sees the full conversation history including the shutdown call and its reason — it picks up where the predecessor left off.
+Host/admin side: the admin reads the agent's mail, spawns a new 灵台Agent with the requested capabilities using the same working dir, and restores chat state. The successor agent sees the full conversation history including the shutdown call and its reason — it picks up where the predecessor left off.
 
 ### Status Intrinsic Schema Update
 
@@ -136,10 +136,10 @@ The `status` intrinsic schema in `intrinsics/status.py` is updated:
 
 ### `[MCP]` Labeling — Kept
 
-The `_mcp_tool_names` set and `[MCP]` prefix logic in `_build_tool_schemas()` stay on BaseAgent. The set is just no longer populated in BaseAgent's constructor (since `mcp_tools=` is removed). Instead, StoAIAgent populates it when registering tools from the `tools=` param:
+The `_mcp_tool_names` set and `[MCP]` prefix logic in `_build_tool_schemas()` stay on BaseAgent. The set is just no longer populated in BaseAgent's constructor (since `mcp_tools=` is removed). Instead, 灵台Agent populates it when registering tools from the `tools=` param:
 
 ```python
-# In StoAIAgent.__init__, when registering domain tools:
+# In 灵台Agent.__init__, when registering domain tools:
 if tools:
     for tool in tools:
         self.add_tool(tool.name, schema=tool.schema,
@@ -155,12 +155,12 @@ The `reason` lives in the tool call args: `status(action="shutdown", reason="nee
 
 `stop()` behavior is unchanged whether triggered by shutdown intrinsic or normal stop — it flushes LTM, writes manifest, releases lock.
 
-## 3. StoAIAgent
+## 3. 灵台Agent
 
-**File:** `stoai_agent.py`
+**File:** `lingtai_agent.py`
 
 ```python
-class StoAIAgent(BaseAgent):
+class 灵台Agent(BaseAgent):
     def __init__(
         self,
         *args,
@@ -208,7 +208,7 @@ class StoAIAgent(BaseAgent):
 The `_capability_managers: dict[str, Any]` is populated by `_setup_capability` with the return value of each `setup()` call. This lets host code and tests access managers after construction:
 
 ```python
-agent = StoAIAgent(capabilities=["bash", "email"], ...)
+agent = 灵台Agent(capabilities=["bash", "email"], ...)
 bash_mgr = agent.get_capability("bash")   # BashManager
 email_mgr = agent.get_capability("email") # EmailManager
 ```
@@ -217,13 +217,13 @@ email_mgr = agent.get_capability("email") # EmailManager
 
 ```python
 # List form — no kwargs
-agent = StoAIAgent(
+agent = 灵台Agent(
     agent_id="alice", service=svc, base_dir="/agents",
     capabilities=["vision", "web_search", "bash"],
 )
 
 # Dict form — with kwargs
-agent = StoAIAgent(
+agent = 灵台Agent(
     agent_id="bob", service=svc, base_dir="/agents",
     capabilities={
         "vision": {},
@@ -233,7 +233,7 @@ agent = StoAIAgent(
 )
 
 # Subclass
-class ResearchAgent(StoAIAgent):
+class ResearchAgent(灵台Agent):
     def __init__(self, **kwargs):
         super().__init__(capabilities=["vision", "web_search"], **kwargs)
         self._setup_capability("bash", policy_file="research_policy.json")
@@ -242,12 +242,12 @@ class ResearchAgent(StoAIAgent):
 
 ## 4. Delegate Capability Changes
 
-DelegateManager spawns `StoAIAgent` instead of `BaseAgent`. The key change is that capabilities must be passed through the constructor, not replayed post-construction.
+DelegateManager spawns `灵台Agent` instead of `BaseAgent`. The key change is that capabilities must be passed through the constructor, not replayed post-construction.
 
 ### Updated Spawn Logic
 
 ```python
-def _spawn(self, agent_id: str, role: str, ...) -> StoAIAgent:
+def _spawn(self, agent_id: str, role: str, ...) -> 灵台Agent:
     # Build capabilities dict from parent's _capabilities log
     # (excluding "delegate" to prevent recursive delegation)
     caps = {
@@ -256,7 +256,7 @@ def _spawn(self, agent_id: str, role: str, ...) -> StoAIAgent:
         if name != "delegate"
     }
 
-    delegate = StoAIAgent(
+    delegate = 灵台Agent(
         agent_id=agent_id,
         service=self._agent.service,
         base_dir=self._agent._base_dir,
@@ -272,7 +272,7 @@ def _spawn(self, agent_id: str, role: str, ...) -> StoAIAgent:
 **Key points:**
 - Capabilities dict is built from `parent._capabilities` before construction — no post-construction replay
 - `delegate` capability is excluded from the delegate's capabilities (prevents infinite recursion)
-- Future delegate capability policy (e.g., restricting what delegates can do) is the delegate tool's own concern, not StoAIAgent's
+- Future delegate capability policy (e.g., restricting what delegates can do) is the delegate tool's own concern, not 灵台Agent's
 
 ### Delegate Reasoning as First Prompt
 
@@ -309,7 +309,7 @@ Note: `reasoning` is popped from args in `_execute_single_tool` before dispatch.
 
 ```python
 # __init__.py updates
-from .stoai_agent import StoAIAgent   # NEW
+from .lingtai_agent import 灵台Agent   # NEW
 from .base_agent import BaseAgent     # was from .agent
 from .message import Message, MSG_REQUEST, MSG_USER_INPUT  # was from .agent
 from .state import AgentState         # was from .agent
@@ -317,7 +317,7 @@ from .state import AgentState         # was from .agent
 __all__ = [
     # Core
     "BaseAgent",
-    "StoAIAgent",          # NEW
+    "灵台Agent",          # NEW
     "Message",
     "AgentState",
     "MCPTool",
@@ -333,7 +333,7 @@ __all__ = [
 ]
 ```
 
-`StoAIAgent` becomes the primary public-facing class. `BaseAgent` still exported for advanced use.
+`灵台Agent` becomes the primary public-facing class. `BaseAgent` still exported for advanced use.
 
 ### Import Path Migration
 
@@ -347,8 +347,8 @@ All internal imports change from `from .agent import ...` to the new locations:
 
 Affected internal files:
 - `capabilities/__init__.py` — `TYPE_CHECKING` import of `BaseAgent`
-- `capabilities/delegate.py` — imports `BaseAgent`, changes to import `StoAIAgent`
-- All test files that import from `stoai.agent`
+- `capabilities/delegate.py` — imports `BaseAgent`, changes to import `灵台Agent`
+- All test files that import from `lingtai.agent`
 
 No backward-compatibility re-exports from `base_agent.py`. Clean break.
 
@@ -357,22 +357,22 @@ No backward-compatibility re-exports from `base_agent.py`. Clean break.
 | Test file | Currently uses | Changes to |
 |-----------|---------------|------------|
 | `test_agent.py` | `BaseAgent` | Stays `BaseAgent` — kernel tests |
-| `test_layers_bash.py` | `BaseAgent` + `add_capability` | `StoAIAgent(capabilities=["bash"])` |
-| `test_layers_email.py` | `BaseAgent` + `add_capability` | `StoAIAgent(capabilities=["email"])` |
-| `test_layers_delegate.py` | `BaseAgent` + `add_capability` | `StoAIAgent(capabilities=["delegate"])` |
-| `test_vision_capability.py` | `BaseAgent` + `add_capability` | `StoAIAgent(capabilities=["vision"])` |
-| `test_web_search_capability.py` | `BaseAgent` + `add_capability` | `StoAIAgent(capabilities=["web_search"])` |
-| `test_layers_talk.py` | `BaseAgent` + `add_capability` | `StoAIAgent(capabilities=["talk"])` |
-| `test_layers_draw.py` | `BaseAgent` + `add_capability` | `StoAIAgent(capabilities=["draw"])` |
-| `test_layers_compose.py` | `BaseAgent` + `add_capability` | `StoAIAgent(capabilities=["compose"])` |
-| `test_layers_listen.py` | `BaseAgent` + `add_capability` | `StoAIAgent(capabilities=["listen"])` |
-| `test_three_agent_email.py` | `BaseAgent` + capabilities | `StoAIAgent` with capabilities |
+| `test_layers_bash.py` | `BaseAgent` + `add_capability` | `灵台Agent(capabilities=["bash"])` |
+| `test_layers_email.py` | `BaseAgent` + `add_capability` | `灵台Agent(capabilities=["email"])` |
+| `test_layers_delegate.py` | `BaseAgent` + `add_capability` | `灵台Agent(capabilities=["delegate"])` |
+| `test_vision_capability.py` | `BaseAgent` + `add_capability` | `灵台Agent(capabilities=["vision"])` |
+| `test_web_search_capability.py` | `BaseAgent` + `add_capability` | `灵台Agent(capabilities=["web_search"])` |
+| `test_layers_talk.py` | `BaseAgent` + `add_capability` | `灵台Agent(capabilities=["talk"])` |
+| `test_layers_draw.py` | `BaseAgent` + `add_capability` | `灵台Agent(capabilities=["draw"])` |
+| `test_layers_compose.py` | `BaseAgent` + `add_capability` | `灵台Agent(capabilities=["compose"])` |
+| `test_layers_listen.py` | `BaseAgent` + `add_capability` | `灵台Agent(capabilities=["listen"])` |
+| `test_three_agent_email.py` | `BaseAgent` + capabilities | `灵台Agent` with capabilities |
 | `test_intrinsics_file.py` | `BaseAgent` | Stays `BaseAgent` |
 | `test_intrinsics_comm.py` | `BaseAgent` | Stays `BaseAgent` |
 
-**Note:** `test_agent.py` stays on `BaseAgent` but its `mcp_tools=` test must be rewritten to use `add_tool()` directly (since `mcp_tools=` is removed from BaseAgent). Tests that import `Message`, `AgentState`, etc. from `stoai.agent` must update import paths.
+**Note:** `test_agent.py` stays on `BaseAgent` but its `mcp_tools=` test must be rewritten to use `add_tool()` directly (since `mcp_tools=` is removed from BaseAgent). Tests that import `Message`, `AgentState`, etc. from `lingtai.agent` must update import paths.
 
 ### New Tests
 
-- `test_stoai_agent.py` — StoAIAgent construction, capabilities dict/list normalization, `tools=` param, seal-after-start enforcement
+- `test_lingtai_agent.py` — 灵台Agent construction, capabilities dict/list normalization, `tools=` param, seal-after-start enforcement
 - `test_shutdown.py` — status shutdown action, reason logging, `_shutdown_reason` set

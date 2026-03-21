@@ -25,7 +25,7 @@ if env_path.exists():
 
 import uvicorn
 
-from stoai.llm import LLMService
+from lingtai.llm import LLMService
 
 from .server.main import create_app
 
@@ -149,7 +149,7 @@ def main(example_name: str | None = None):
                 if key_val:
                     mcp_env[key_env] = key_val
         if mcp_env:
-            from stoai.llm.minimax.mcp_client import set_extra_env
+            from lingtai.llm.minimax.mcp_client import set_extra_env
             set_extra_env(mcp_env)
 
     llm = LLMService(
@@ -161,7 +161,7 @@ def main(example_name: str | None = None):
         key_resolver=key_resolver,
     )
 
-    base_dir = Path.home() / ".stoai" / "web" / example_name
+    base_dir = Path.home() / ".lingtai" / "web" / example_name
     base_dir.mkdir(parents=True, exist_ok=True)
 
     # Each example exports a setup(llm, base_dir) -> AppState

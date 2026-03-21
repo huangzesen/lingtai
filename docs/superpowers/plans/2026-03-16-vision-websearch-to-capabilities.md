@@ -14,12 +14,12 @@
 
 | File | Action | Responsibility |
 |------|--------|----------------|
-| `src/stoai/capabilities/vision.py` | Modify | Already exists (MiniMax draw). WAIT — this is `draw.py`. `vision.py` doesn't exist. Create it. |
-| `src/stoai/capabilities/web_search.py` | Create | Web search capability module |
-| `src/stoai/intrinsics/vision.py` | Delete | No longer an intrinsic |
-| `src/stoai/intrinsics/web_search.py` | Delete | No longer an intrinsic |
-| `src/stoai/intrinsics/__init__.py` | Modify | Remove vision and web_search from registry |
-| `src/stoai/agent.py` | Modify | Remove `vision=`/`search=` params, `_vision_service`/`_search_service`, `_handle_vision`/`_handle_web_search`, MIME dict, wiring |
+| `src/lingtai/capabilities/vision.py` | Modify | Already exists (MiniMax draw). WAIT — this is `draw.py`. `vision.py` doesn't exist. Create it. |
+| `src/lingtai/capabilities/web_search.py` | Create | Web search capability module |
+| `src/lingtai/intrinsics/vision.py` | Delete | No longer an intrinsic |
+| `src/lingtai/intrinsics/web_search.py` | Delete | No longer an intrinsic |
+| `src/lingtai/intrinsics/__init__.py` | Modify | Remove vision and web_search from registry |
+| `src/lingtai/agent.py` | Modify | Remove `vision=`/`search=` params, `_vision_service`/`_search_service`, `_handle_vision`/`_handle_web_search`, MIME dict, wiring |
 | `tests/test_agent.py` | Modify | Update intrinsic count, remove vision/web_search assertions |
 | `tests/test_vision_capability.py` | Create | Tests for vision capability |
 | `tests/test_web_search_capability.py` | Create | Tests for web_search capability |
@@ -31,7 +31,7 @@
 ### Task 1: Create vision capability
 
 **Files:**
-- Create: `src/stoai/capabilities/vision.py`
+- Create: `src/lingtai/capabilities/vision.py`
 
 - [ ] **Step 1: Write failing test**
 
@@ -45,7 +45,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.agent import BaseAgent
+from lingtai.agent import BaseAgent
 
 
 def make_mock_service():
@@ -140,7 +140,7 @@ Expected: FAIL — vision is still an intrinsic, capability module doesn't exist
 
 - [ ] **Step 3: Create vision capability module**
 
-Create `src/stoai/capabilities/vision.py`:
+Create `src/lingtai/capabilities/vision.py`:
 
 ```python
 """Vision capability — image understanding via LLM or VisionService.
@@ -248,19 +248,19 @@ Expected: PASS
 
 - [ ] **Step 5: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/vision.py tests/test_vision_capability.py
+git add src/lingtai/capabilities/vision.py tests/test_vision_capability.py
 git commit -m "feat: create vision capability module"
 ```
 
 ### Task 2: Create web_search capability
 
 **Files:**
-- Create: `src/stoai/capabilities/web_search.py`
+- Create: `src/lingtai/capabilities/web_search.py`
 
 - [ ] **Step 1: Write failing test**
 
@@ -274,7 +274,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.agent import BaseAgent
+from lingtai.agent import BaseAgent
 
 
 def make_mock_service():
@@ -348,7 +348,7 @@ Expected: FAIL — capability module doesn't exist
 
 - [ ] **Step 3: Create web_search capability module**
 
-Create `src/stoai/capabilities/web_search.py`:
+Create `src/lingtai/capabilities/web_search.py`:
 
 ```python
 """Web search capability — web lookup via LLM or SearchService.
@@ -430,27 +430,27 @@ Expected: PASS
 
 - [ ] **Step 5: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/web_search.py tests/test_web_search_capability.py
+git add src/lingtai/capabilities/web_search.py tests/test_web_search_capability.py
 git commit -m "feat: create web_search capability module"
 ```
 
 ### Task 3: Remove vision and web_search from intrinsics
 
 **Files:**
-- Delete: `src/stoai/intrinsics/vision.py`
-- Delete: `src/stoai/intrinsics/web_search.py`
-- Modify: `src/stoai/intrinsics/__init__.py`
-- Modify: `src/stoai/agent.py`
+- Delete: `src/lingtai/intrinsics/vision.py`
+- Delete: `src/lingtai/intrinsics/web_search.py`
+- Modify: `src/lingtai/intrinsics/__init__.py`
+- Modify: `src/lingtai/agent.py`
 - Modify: `tests/test_agent.py`
 
 - [ ] **Step 1: Add to capabilities registry**
 
-In `src/stoai/capabilities/__init__.py`, add vision and web_search to `_BUILTIN`:
+In `src/lingtai/capabilities/__init__.py`, add vision and web_search to `_BUILTIN`:
 
 ```python
 _BUILTIN: dict[str, str] = {
@@ -468,7 +468,7 @@ _BUILTIN: dict[str, str] = {
 
 - [ ] **Step 2: Remove from intrinsics registry**
 
-In `src/stoai/intrinsics/__init__.py`, remove `vision` and `web_search` from the import and `ALL_INTRINSICS`:
+In `src/lingtai/intrinsics/__init__.py`, remove `vision` and `web_search` from the import and `ALL_INTRINSICS`:
 
 ```python
 from . import read, edit, write, glob, grep, mail, clock, status, memory
@@ -488,7 +488,7 @@ ALL_INTRINSICS = {
 
 - [ ] **Step 3: Remove from agent.py**
 
-In `src/stoai/agent.py`, make these removals:
+In `src/lingtai/agent.py`, make these removals:
 
 **a) Remove `_MIME_BY_EXT` dict** (lines 149-157 — the MIME types constant at module level).
 
@@ -525,8 +525,8 @@ Remove these lines.
 - [ ] **Step 4: Delete intrinsic schema files**
 
 ```bash
-rm src/stoai/intrinsics/vision.py
-rm src/stoai/intrinsics/web_search.py
+rm src/lingtai/intrinsics/vision.py
+rm src/lingtai/intrinsics/web_search.py
 ```
 
 - [ ] **Step 5: Update test_agent.py**
@@ -579,13 +579,13 @@ Expected: ALL PASS (including the `not_intrinsic` tests from Tasks 1 and 2)
 
 - [ ] **Step 8: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 9: Commit**
 
 ```bash
-git rm src/stoai/intrinsics/vision.py src/stoai/intrinsics/web_search.py
-git add src/stoai/intrinsics/__init__.py src/stoai/capabilities/__init__.py src/stoai/agent.py tests/test_agent.py examples/
+git rm src/lingtai/intrinsics/vision.py src/lingtai/intrinsics/web_search.py
+git add src/lingtai/intrinsics/__init__.py src/lingtai/capabilities/__init__.py src/lingtai/agent.py tests/test_agent.py examples/
 git commit -m "refactor: move vision and web_search from intrinsics to capabilities"
 ```
 
@@ -604,7 +604,7 @@ In `CLAUDE.md`, update the architecture sections:
 
 **c) Key Modules intrinsics section**: Update to reflect 9 intrinsics, not 11. Note vision and web_search moved to capabilities.
 
-**d) Update service docstrings**: In `src/stoai/services/vision.py` and `src/stoai/services/search.py`, change references from "intrinsic" to "capability".
+**d) Update service docstrings**: In `src/lingtai/services/vision.py` and `src/lingtai/services/search.py`, change references from "intrinsic" to "capability".
 
 - [ ] **Step 2: Run full test suite one final time**
 

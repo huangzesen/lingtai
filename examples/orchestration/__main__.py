@@ -4,7 +4,7 @@ Usage:
     python -m examples.orchestration
 
 The admin agent listens on port 8301. User mailbox on port 8300.
-Runtime data at ~/.stoai/orchestration/playground/.
+Runtime data at ~/.lingtai/orchestration/playground/.
 Press Ctrl+C to shut down.
 """
 from __future__ import annotations
@@ -26,13 +26,13 @@ if env_path.exists():
             key, _, val = line.partition("=")
             os.environ.setdefault(key.strip(), val.strip().strip("'\""))
 
-from stoai import Agent, AgentConfig
-from stoai.llm import LLMService
-from stoai.services.mail import TCPMailService
+from lingtai import Agent, AgentConfig
+from lingtai.llm import LLMService
+from lingtai.services.mail import TCPMailService
 
 ADMIN_PORT = 8301
 USER_PORT = 8300
-PLAYGROUND = Path.home() / ".stoai" / "orchestration" / "playground"
+PLAYGROUND = Path.home() / ".lingtai" / "orchestration" / "playground"
 SERVICE_JSON = PLAYGROUND / "service.json"
 
 COVENANT = """\
@@ -106,7 +106,7 @@ def main():
         working_dir=PLAYGROUND / "admin",
     )
 
-    policy = str(Path(__file__).parent.parent.parent / "src" / "stoai" / "capabilities" / "bash_policy.json")
+    policy = str(Path(__file__).parent.parent.parent / "src" / "lingtai" / "capabilities" / "bash_policy.json")
 
     # Write character.md before agent init
     char_dir = PLAYGROUND / "admin" / "system"

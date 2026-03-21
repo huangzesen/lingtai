@@ -2,15 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a Telegram Bot API addon that lets StoAI agents interact with Telegram users for customer service — multi-account, text + images + documents, inline keyboards, long polling.
+**Goal:** Build a Telegram Bot API addon that lets 灵台 agents interact with Telegram users for customer service — multi-account, text + images + documents, inline keyboards, long polling.
 
-**Architecture:** Three-class pattern mirroring the IMAP addon: `TelegramAccount` (per-bot connection + polling), `TelegramService` (multi-account orchestrator), `TelegramManager` (tool dispatch + filesystem). Registered as an addon via `setup()` in `src/stoai/addons/telegram/__init__.py`.
+**Architecture:** Three-class pattern mirroring the IMAP addon: `TelegramAccount` (per-bot connection + polling), `TelegramService` (multi-account orchestrator), `TelegramManager` (tool dispatch + filesystem). Registered as an addon via `setup()` in `src/lingtai/addons/telegram/__init__.py`.
 
 **Tech Stack:** Python 3.11+, `httpx` for Bot API HTTP calls (optional dep), `threading` for poll loops, `json`/`pathlib` for filesystem persistence.
 
 **Spec:** `docs/superpowers/specs/2026-03-20-telegram-addon-design.md`
 
-**Reference implementation:** `src/stoai/addons/imap/` (service.py, manager.py, `__init__.py`)
+**Reference implementation:** `src/lingtai/addons/imap/` (service.py, manager.py, `__init__.py`)
 
 ---
 
@@ -18,11 +18,11 @@
 
 | File | Responsibility |
 |------|---------------|
-| `src/stoai/addons/telegram/__init__.py` | `setup()` function, config normalization, tool registration |
-| `src/stoai/addons/telegram/account.py` | `TelegramAccount` — one bot token, HTTP calls, polling thread |
-| `src/stoai/addons/telegram/service.py` | `TelegramService` — multi-account registry, routing |
-| `src/stoai/addons/telegram/manager.py` | `TelegramManager` — tool handler, filesystem ops, agent notification |
-| `src/stoai/addons/__init__.py` | Add `"telegram"` to `_BUILTIN` registry |
+| `src/lingtai/addons/telegram/__init__.py` | `setup()` function, config normalization, tool registration |
+| `src/lingtai/addons/telegram/account.py` | `TelegramAccount` — one bot token, HTTP calls, polling thread |
+| `src/lingtai/addons/telegram/service.py` | `TelegramService` — multi-account registry, routing |
+| `src/lingtai/addons/telegram/manager.py` | `TelegramManager` — tool handler, filesystem ops, agent notification |
+| `src/lingtai/addons/__init__.py` | Add `"telegram"` to `_BUILTIN` registry |
 | `pyproject.toml` | Add `telegram = ["httpx>=0.27"]` optional dep |
 | `tests/test_addon_telegram_account.py` | TelegramAccount unit tests |
 | `tests/test_addon_telegram_service.py` | TelegramService unit tests |
@@ -33,7 +33,7 @@
 ### Task 1: TelegramAccount — Bot API Client
 
 **Files:**
-- Create: `src/stoai/addons/telegram/account.py`
+- Create: `src/lingtai/addons/telegram/account.py`
 - Test: `tests/test_addon_telegram_account.py`
 
 This is the lowest-level class. It owns one bot token and handles all HTTP calls to the Telegram Bot API plus the long-polling thread.
@@ -44,7 +44,7 @@ This is the lowest-level class. It owns one bot token and handles all HTTP calls
 # tests/test_addon_telegram_account.py
 from __future__ import annotations
 
-from stoai.addons.telegram.account import TelegramAccount
+from lingtai.addons.telegram.account import TelegramAccount
 
 
 def test_construction():
@@ -69,7 +69,7 @@ Expected: FAIL — module not found
 - [ ] **Step 3: Write TelegramAccount class with constructor**
 
 ```python
-# src/stoai/addons/telegram/account.py
+# src/lingtai/addons/telegram/account.py
 """TelegramAccount — single bot token, HTTP calls, polling thread.
 
 One daemon thread per account runs the getUpdates long-poll loop.
@@ -353,7 +353,7 @@ class TelegramAccount:
 Also create the package `__init__` so imports work:
 
 ```python
-# src/stoai/addons/telegram/__init__.py
+# src/lingtai/addons/telegram/__init__.py
 """Telegram addon — placeholder, will be filled in Task 4."""
 ```
 
@@ -566,7 +566,7 @@ Expected: All PASS
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/addons/telegram/__init__.py src/stoai/addons/telegram/account.py tests/test_addon_telegram_account.py
+git add src/lingtai/addons/telegram/__init__.py src/lingtai/addons/telegram/account.py tests/test_addon_telegram_account.py
 git commit -m "feat(telegram): add TelegramAccount — Bot API client with polling"
 ```
 
@@ -575,7 +575,7 @@ git commit -m "feat(telegram): add TelegramAccount — Bot API client with polli
 ### Task 2: TelegramService — Multi-Account Orchestrator
 
 **Files:**
-- Create: `src/stoai/addons/telegram/service.py`
+- Create: `src/lingtai/addons/telegram/service.py`
 - Test: `tests/test_addon_telegram_service.py`
 
 Thin routing layer that creates and manages multiple TelegramAccount instances.
@@ -588,7 +588,7 @@ from __future__ import annotations
 
 from unittest.mock import patch, MagicMock
 
-from stoai.addons.telegram.service import TelegramService
+from lingtai.addons.telegram.service import TelegramService
 
 
 def test_construction_creates_accounts(tmp_path):
@@ -671,7 +671,7 @@ Expected: FAIL — module not found
 - [ ] **Step 3: Write TelegramService**
 
 ```python
-# src/stoai/addons/telegram/service.py
+# src/lingtai/addons/telegram/service.py
 """TelegramService — multi-account orchestrator.
 
 Creates one TelegramAccount per config entry.
@@ -749,7 +749,7 @@ Expected: All PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/addons/telegram/service.py tests/test_addon_telegram_service.py
+git add src/lingtai/addons/telegram/service.py tests/test_addon_telegram_service.py
 git commit -m "feat(telegram): add TelegramService — multi-account orchestrator"
 ```
 
@@ -758,10 +758,10 @@ git commit -m "feat(telegram): add TelegramService — multi-account orchestrato
 ### Task 3: TelegramManager — Tool Dispatch & Filesystem
 
 **Files:**
-- Create: `src/stoai/addons/telegram/manager.py`
+- Create: `src/lingtai/addons/telegram/manager.py`
 - Test: `tests/test_addon_telegram_manager.py`
 
-The heaviest class — handles all tool actions, filesystem persistence, and agent notifications. Reference: `src/stoai/addons/imap/manager.py`.
+The heaviest class — handles all tool actions, filesystem persistence, and agent notifications. Reference: `src/lingtai/addons/imap/manager.py`.
 
 - [ ] **Step 1: Write failing tests for core actions**
 
@@ -773,7 +773,7 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from stoai.addons.telegram.manager import TelegramManager
+from lingtai.addons.telegram.manager import TelegramManager
 
 
 def _make_manager(tmp_path) -> tuple[TelegramManager, MagicMock, MagicMock]:
@@ -1120,7 +1120,7 @@ Expected: FAIL — module not found
 - [ ] **Step 3: Write TelegramManager**
 
 ```python
-# src/stoai/addons/telegram/manager.py
+# src/lingtai/addons/telegram/manager.py
 """TelegramManager — tool dispatch + filesystem persistence.
 
 Storage layout:
@@ -1144,7 +1144,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 if TYPE_CHECKING:
-    from stoai_kernel.base_agent import BaseAgent
+    from lingtai_kernel.base_agent import BaseAgent
     from .service import TelegramService
 
 SCHEMA = {
@@ -1385,7 +1385,7 @@ class TelegramManager:
 
         # Notify agent
         self._agent._mail_arrived.set()
-        from stoai_kernel.message import _make_message, MSG_REQUEST
+        from lingtai_kernel.message import _make_message, MSG_REQUEST
         notification = (
             f"[system] New telegram message from {username} via {account_alias}.\n"
             f'Use telegram(action="check") to see your messages.'
@@ -1776,7 +1776,7 @@ Expected: All PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/addons/telegram/manager.py tests/test_addon_telegram_manager.py
+git add src/lingtai/addons/telegram/manager.py tests/test_addon_telegram_manager.py
 git commit -m "feat(telegram): add TelegramManager — tool dispatch + filesystem"
 ```
 
@@ -1785,14 +1785,14 @@ git commit -m "feat(telegram): add TelegramManager — tool dispatch + filesyste
 ### Task 4: Setup & Registration
 
 **Files:**
-- Modify: `src/stoai/addons/telegram/__init__.py` (replace placeholder)
-- Modify: `src/stoai/addons/__init__.py` (add to `_BUILTIN`)
+- Modify: `src/lingtai/addons/telegram/__init__.py` (replace placeholder)
+- Modify: `src/lingtai/addons/__init__.py` (add to `_BUILTIN`)
 - Modify: `pyproject.toml` (add optional dep)
 
 - [ ] **Step 1: Write `setup()` in `__init__.py`**
 
 ```python
-# src/stoai/addons/telegram/__init__.py
+# src/lingtai/addons/telegram/__init__.py
 """Telegram addon — Bot API client for customer service.
 
 Adds a `telegram` tool with its own mailbox (working_dir/telegram/).
@@ -1828,7 +1828,7 @@ from .manager import TelegramManager, SCHEMA, DESCRIPTION
 from .service import TelegramService
 
 if TYPE_CHECKING:
-    from stoai_kernel.base_agent import BaseAgent
+    from lingtai_kernel.base_agent import BaseAgent
 
 log = logging.getLogger(__name__)
 
@@ -1886,7 +1886,7 @@ def setup(
     return mgr
 ```
 
-- [ ] **Step 2: Add `"telegram"` to `_BUILTIN` in `src/stoai/addons/__init__.py`**
+- [ ] **Step 2: Add `"telegram"` to `_BUILTIN` in `src/lingtai/addons/__init__.py`**
 
 Add to the `_BUILTIN` dict:
 ```python
@@ -1901,21 +1901,21 @@ _BUILTIN: dict[str, str] = {
 Add under `[project.optional-dependencies]`:
 ```toml
 telegram = ["httpx>=0.27"]
-all = ["stoai[gemini,openai,anthropic,minimax,telegram]"]
+all = ["lingtai[gemini,openai,anthropic,minimax,telegram]"]
 ```
 
 - [ ] **Step 4: Smoke test**
 
-Run: `python -c "from stoai.addons.telegram import setup; print('OK')"`
+Run: `python -c "from lingtai.addons.telegram import setup; print('OK')"`
 Expected: `OK` (if httpx is installed) or ImportError for httpx (expected if not installed)
 
-Run: `pip install httpx && python -c "from stoai.addons.telegram import setup; print('OK')"`
+Run: `pip install httpx && python -c "from lingtai.addons.telegram import setup; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/addons/telegram/__init__.py src/stoai/addons/__init__.py pyproject.toml
+git add src/lingtai/addons/telegram/__init__.py src/lingtai/addons/__init__.py pyproject.toml
 git commit -m "feat(telegram): register addon + httpx optional dep"
 ```
 
@@ -1938,7 +1938,7 @@ Expected: All PASS (no regressions)
 
 - [ ] **Step 3: Smoke test the module import**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 Expected: No errors
 
 - [ ] **Step 4: Fix any failing tests**

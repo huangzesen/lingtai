@@ -31,16 +31,16 @@
 
 | Action | File | What changes |
 |--------|------|-------------|
-| Modify | `src/stoai/base_agent.py:96-99` | Remove `_cancel_mail`, keep `_cancel_event` |
-| Modify | `src/stoai/base_agent.py:436-458` | `_on_mail_received`: replace `cancel` branch with `silence` and `kill` branches |
-| Modify | `src/stoai/base_agent.py:651` | `_process_response`: add unconditional `_cancel_event.clear()` at top, simplify in-loop check |
-| Delete | `src/stoai/base_agent.py:727-739` | Remove `_handle_cancel_diary` method entirely |
-| Modify | `src/stoai/intrinsics/mail.py:33` | Schema: `"cancel"` → `"silence", "kill"` in type enum |
-| Modify | `src/stoai/intrinsics/mail.py:70` | Privilege gate: applies to both silence and kill |
-| Modify | `src/stoai/capabilities/email.py:92` | Schema: `"cancel"` → `"silence", "kill"` in type enum |
-| Modify | `src/stoai/capabilities/email.py:280` | Privilege gate: applies to both silence and kill |
-| Modify | `src/stoai/capabilities/email.py:644-649` | `on_normal_mail` docstring: cancel → silence/kill |
-| Modify | `src/stoai/intrinsics/clock.py:75,90` | Rename log `"cancelled"` → `"silenced"` |
+| Modify | `src/lingtai/base_agent.py:96-99` | Remove `_cancel_mail`, keep `_cancel_event` |
+| Modify | `src/lingtai/base_agent.py:436-458` | `_on_mail_received`: replace `cancel` branch with `silence` and `kill` branches |
+| Modify | `src/lingtai/base_agent.py:651` | `_process_response`: add unconditional `_cancel_event.clear()` at top, simplify in-loop check |
+| Delete | `src/lingtai/base_agent.py:727-739` | Remove `_handle_cancel_diary` method entirely |
+| Modify | `src/lingtai/intrinsics/mail.py:33` | Schema: `"cancel"` → `"silence", "kill"` in type enum |
+| Modify | `src/lingtai/intrinsics/mail.py:70` | Privilege gate: applies to both silence and kill |
+| Modify | `src/lingtai/capabilities/email.py:92` | Schema: `"cancel"` → `"silence", "kill"` in type enum |
+| Modify | `src/lingtai/capabilities/email.py:280` | Privilege gate: applies to both silence and kill |
+| Modify | `src/lingtai/capabilities/email.py:644-649` | `on_normal_mail` docstring: cancel → silence/kill |
+| Modify | `src/lingtai/intrinsics/clock.py:75,90` | Rename log `"cancelled"` → `"silenced"` |
 | Rewrite | `tests/test_cancel_email.py` | Rename to `tests/test_silence_kill.py`, rewrite all tests |
 | Modify | `tests/test_clock.py` | Update cancel wake test to use silence |
 
@@ -51,9 +51,9 @@
 The `_cancel_mail` payload was only used by `_handle_cancel_diary` for the LLM diary call (which was already removed in commit 9173d05). Neither `silence` nor `kill` needs the payload stored. The `_cancel_event` is sufficient.
 
 **Files:**
-- Modify: `src/stoai/base_agent.py:98-99` (constructor)
-- Modify: `src/stoai/base_agent.py:674-675` (`_process_response` cancel check)
-- Delete: `src/stoai/base_agent.py:727-739` (`_handle_cancel_diary`)
+- Modify: `src/lingtai/base_agent.py:98-99` (constructor)
+- Modify: `src/lingtai/base_agent.py:674-675` (`_process_response` cancel check)
+- Delete: `src/lingtai/base_agent.py:727-739` (`_handle_cancel_diary`)
 - Test: `tests/test_silence_kill.py` (new file, replaces `tests/test_cancel_email.py`)
 
 - [ ] **Step 1: Delete old test file, create new test file with silence interrupt test**
@@ -67,7 +67,7 @@ from __future__ import annotations
 import threading
 from unittest.mock import MagicMock
 
-from stoai.base_agent import BaseAgent
+from lingtai.base_agent import BaseAgent
 
 
 def make_mock_service():
@@ -115,7 +115,7 @@ Expected: FAIL — `_on_mail_received` treats `type="silence"` as normal mail (u
 
 - [ ] **Step 3: Implement silence branch in `_on_mail_received`**
 
-In `src/stoai/base_agent.py`, replace the cancel branch in `_on_mail_received`:
+In `src/lingtai/base_agent.py`, replace the cancel branch in `_on_mail_received`:
 
 ```python
 def _on_mail_received(self, payload: dict) -> None:
@@ -148,7 +148,7 @@ def _on_mail_received(self, payload: dict) -> None:
 
 - [ ] **Step 4: Remove `_cancel_mail` from constructor**
 
-In `src/stoai/base_agent.py` constructor (~line 98-99), remove:
+In `src/lingtai/base_agent.py` constructor (~line 98-99), remove:
 ```python
 self._cancel_mail: dict | None = None
 ```
@@ -197,13 +197,13 @@ Expected: PASS
 
 - [ ] **Step 8: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 9: Commit**
 
 ```bash
 git rm tests/test_cancel_email.py
-git add tests/test_silence_kill.py src/stoai/base_agent.py
+git add tests/test_silence_kill.py src/lingtai/base_agent.py
 git commit -m "refactor: replace cancel mail with silence — remove _cancel_mail and _handle_cancel_diary"
 ```
 
@@ -214,7 +214,7 @@ git commit -m "refactor: replace cancel mail with silence — remove _cancel_mai
 When a silence mail arrives, deactivate the conscience timer if the capability is active. This requires accessing `_capability_managers` from `BaseAgent._on_mail_received`. Since `_capability_managers` is defined on `Agent` (layer 2), not `BaseAgent`, we need to use `getattr` to safely check.
 
 **Files:**
-- Modify: `src/stoai/base_agent.py:436-458` (`_on_mail_received` silence branch)
+- Modify: `src/lingtai/base_agent.py:436-458` (`_on_mail_received` silence branch)
 - Test: `tests/test_silence_kill.py`
 
 - [ ] **Step 1: Write failing test for silence + conscience**
@@ -222,7 +222,7 @@ When a silence mail arrives, deactivate the conscience timer if the capability i
 Add to `tests/test_silence_kill.py`:
 
 ```python
-from stoai.agent import Agent
+from lingtai.agent import Agent
 
 
 def test_silence_deactivates_conscience(tmp_path):
@@ -288,7 +288,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/base_agent.py tests/test_silence_kill.py
+git add src/lingtai/base_agent.py tests/test_silence_kill.py
 git commit -m "feat: silence mail deactivates conscience timer"
 ```
 
@@ -299,7 +299,7 @@ git commit -m "feat: silence mail deactivates conscience timer"
 Kill sets `_shutdown` + `_cancel_event` to interrupt any in-progress work and exit the run loop. Cleanup (mail service stop, memory persist, lock release) runs via `stop()` on a separate thread to avoid deadlocking the mail listener callback thread (which is the thread calling `_on_mail_received`).
 
 **Files:**
-- Modify: `src/stoai/base_agent.py:436-458` (`_on_mail_received` — add kill branch)
+- Modify: `src/lingtai/base_agent.py:436-458` (`_on_mail_received` — add kill branch)
 - Test: `tests/test_silence_kill.py`
 
 - [ ] **Step 1: Write failing tests for kill**
@@ -384,7 +384,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/base_agent.py tests/test_silence_kill.py
+git add src/lingtai/base_agent.py tests/test_silence_kill.py
 git commit -m "feat: add kill mail type — hard stop via separate thread"
 ```
 
@@ -395,7 +395,7 @@ git commit -m "feat: add kill mail type — hard stop via separate thread"
 Replace `"cancel"` with `"silence"` and `"kill"` in the mail intrinsic's type enum and description. The privilege gate already blocks non-normal types — just needs the description updated.
 
 **Files:**
-- Modify: `src/stoai/intrinsics/mail.py:31-37` (schema type enum + description)
+- Modify: `src/lingtai/intrinsics/mail.py:31-37` (schema type enum + description)
 - Test: `tests/test_silence_kill.py`
 
 - [ ] **Step 1: Write failing test for admin privilege on both types**
@@ -486,7 +486,7 @@ Expected: The privilege gate `if mail_type != "normal" and not agent._admin` alr
 
 - [ ] **Step 3: Update mail intrinsic schema**
 
-In `src/stoai/intrinsics/mail.py`, change the type enum and description:
+In `src/lingtai/intrinsics/mail.py`, change the type enum and description:
 
 ```python
 "type": {
@@ -511,7 +511,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/intrinsics/mail.py tests/test_silence_kill.py
+git add src/lingtai/intrinsics/mail.py tests/test_silence_kill.py
 git commit -m "feat: update mail intrinsic schema — silence and kill types"
 ```
 
@@ -522,7 +522,7 @@ git commit -m "feat: update mail intrinsic schema — silence and kill types"
 Same change as Task 4 but for the email capability. The privilege gate in `EmailManager._send` already blocks non-normal types generically.
 
 **Files:**
-- Modify: `src/stoai/capabilities/email.py:90-97` (schema type enum + description)
+- Modify: `src/lingtai/capabilities/email.py:90-97` (schema type enum + description)
 - Test: `tests/test_silence_kill.py`
 
 - [ ] **Step 1: Write test for email capability privilege gate**
@@ -530,7 +530,7 @@ Same change as Task 4 but for the email capability. The privilege gate in `Email
 Add to `tests/test_silence_kill.py`:
 
 ```python
-from stoai.agent import Agent
+from lingtai.agent import Agent
 
 
 # ---------------------------------------------------------------------------
@@ -582,7 +582,7 @@ Expected: PASS (the `if mail_type != "normal" and not self._agent._admin` check 
 
 - [ ] **Step 3: Update email capability schema**
 
-In `src/stoai/capabilities/email.py`, change the type enum and description:
+In `src/lingtai/capabilities/email.py`, change the type enum and description:
 
 ```python
 "type": {
@@ -603,7 +603,7 @@ In `src/stoai/capabilities/email.py`, change the type enum and description:
 
 - [ ] **Step 4: Update `on_normal_mail` docstring**
 
-In `src/stoai/capabilities/email.py`, update the `on_normal_mail` docstring (~line 644-649). Change:
+In `src/lingtai/capabilities/email.py`, update the `on_normal_mail` docstring (~line 644-649). Change:
 ```python
     """Handle normal mail — save to mailbox and notify agent.
 
@@ -631,7 +631,7 @@ Expected: PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/email.py tests/test_silence_kill.py
+git add src/lingtai/capabilities/email.py tests/test_silence_kill.py
 git commit -m "feat: update email capability schema — silence and kill types"
 ```
 
@@ -642,12 +642,12 @@ git commit -m "feat: update email capability schema — silence and kill types"
 The clock `wait` action checks `_cancel_event` and returns `reason: "cancelled"`. Since this event is now triggered by silence mail, rename to `"silenced"`.
 
 **Files:**
-- Modify: `src/stoai/intrinsics/clock.py:75-77,90-92` (reason strings and log events)
+- Modify: `src/lingtai/intrinsics/clock.py:75-77,90-92` (reason strings and log events)
 - Modify: `tests/test_clock.py` (update cancel wake test)
 
 - [ ] **Step 1: Update clock intrinsic**
 
-In `src/stoai/intrinsics/clock.py`, change both occurrences:
+In `src/lingtai/intrinsics/clock.py`, change both occurrences:
 
 Line 75-77:
 ```python
@@ -678,7 +678,7 @@ Expected: PASS
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/stoai/intrinsics/clock.py tests/test_clock.py
+git add src/lingtai/intrinsics/clock.py tests/test_clock.py
 git commit -m "refactor: rename clock cancelled reason to silenced"
 ```
 
@@ -785,9 +785,9 @@ def test_admin_flag_stored(tmp_path):
 
 def test_sequential_execution_stops_on_cancel(tmp_path):
     """Sequential tool execution should return empty when cancel event is set."""
-    from stoai.loop_guard import LoopGuard
-    from stoai.tool_executor import ToolExecutor
-    from stoai.llm import ToolCall
+    from lingtai.loop_guard import LoopGuard
+    from lingtai.tool_executor import ToolExecutor
+    from lingtai.llm import ToolCall
 
     agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
     agent._cancel_event.set()
@@ -826,7 +826,7 @@ Expected: All tests pass (except any pre-existing failures unrelated to this cha
 
 - [ ] **Step 4: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 5: Commit**
 

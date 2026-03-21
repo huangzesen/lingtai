@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.capabilities.bash import BashManager
-from stoai.capabilities.avatar import AvatarManager, setup as setup_avatar
+from lingtai.capabilities.bash import BashManager
+from lingtai.capabilities.avatar import AvatarManager, setup as setup_avatar
 
 
 def make_mock_service():
@@ -19,7 +19,7 @@ def make_mock_service():
 class TestAvatarManager:
     def test_spawn_returns_address(self, tmp_path):
         """Spawn should return a valid address."""
-        from stoai.agent import Agent
+        from lingtai.agent import Agent
         parent = Agent(agent_name="parent", service=make_mock_service(), base_dir=tmp_path,
                             capabilities=["avatar"])
         mgr = parent.get_capability("avatar")
@@ -32,7 +32,7 @@ class TestAvatarManager:
 
     def test_spawn_with_role(self, tmp_path):
         """Spawn with role override should create agent with that role."""
-        from stoai.agent import Agent
+        from lingtai.agent import Agent
         parent = Agent(agent_name="parent", service=make_mock_service(), base_dir=tmp_path,
                             capabilities=["avatar"])
         parent.update_system_prompt("role", "I am the parent", protected=True)
@@ -42,7 +42,7 @@ class TestAvatarManager:
 
     def test_spawn_copies_parent_role(self, tmp_path):
         """Spawn without role should copy parent's role."""
-        from stoai.agent import Agent
+        from lingtai.agent import Agent
         parent = Agent(agent_name="parent", service=make_mock_service(), base_dir=tmp_path,
                             capabilities=["avatar"])
         parent.update_system_prompt("role", "I am the parent", protected=True)
@@ -52,7 +52,7 @@ class TestAvatarManager:
 
     def test_spawn_inherits_capabilities(self, tmp_path):
         """Spawned agent should get parent's capabilities (minus avatar)."""
-        from stoai.agent import Agent
+        from lingtai.agent import Agent
         parent = Agent(agent_name="parent", service=make_mock_service(), base_dir=tmp_path,
                             capabilities={"bash": {"yolo": True}, "avatar": {}})
         result = parent._mcp_handlers["avatar"]({})
@@ -60,7 +60,7 @@ class TestAvatarManager:
 
     def test_spawn_with_ltm(self, tmp_path):
         """Spawn with ltm should inject it as a system prompt section."""
-        from stoai.agent import Agent
+        from lingtai.agent import Agent
         parent = Agent(agent_name="parent", service=make_mock_service(), base_dir=tmp_path,
                             capabilities=["avatar"])
         mgr = parent.get_capability("avatar")
@@ -69,7 +69,7 @@ class TestAvatarManager:
 
     def test_spawn_no_recursive_avatar(self, tmp_path):
         """Spawned agent should not get avatar capability (prevents recursion)."""
-        from stoai.agent import Agent
+        from lingtai.agent import Agent
         parent = Agent(agent_name="parent", service=make_mock_service(), base_dir=tmp_path,
                             capabilities={"bash": {"yolo": True}, "avatar": {}})
         # Parent has both bash and avatar in capabilities log
@@ -88,7 +88,7 @@ class TestSetupAvatar:
 
 class TestAddCapability:
     def test_add_capability_avatar(self, tmp_path):
-        from stoai.agent import Agent
+        from lingtai.agent import Agent
         agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
                            capabilities=["avatar"])
         mgr = agent.get_capability("avatar")
@@ -96,13 +96,13 @@ class TestAddCapability:
         assert "avatar" in agent._mcp_handlers
 
     def test_add_capability_unknown(self, tmp_path):
-        from stoai.agent import Agent
+        from lingtai.agent import Agent
         with pytest.raises(ValueError, match="Unknown capability"):
             Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
                        capabilities=["nonexistent"])
 
     def test_add_multiple_capabilities_separately(self, tmp_path):
-        from stoai.agent import Agent
+        from lingtai.agent import Agent
         agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
                            capabilities={"bash": {"yolo": True}, "avatar": {}})
         bash_mgr = agent.get_capability("bash")
@@ -112,7 +112,7 @@ class TestAddCapability:
 
     def test_capabilities_log(self, tmp_path):
         """Agent should record (name, kwargs) in _capabilities."""
-        from stoai.agent import Agent
+        from lingtai.agent import Agent
         agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
                            capabilities={"bash": {"yolo": True}, "avatar": {}})
         assert len(agent._capabilities) == 2

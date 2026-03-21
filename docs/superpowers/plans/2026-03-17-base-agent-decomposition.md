@@ -16,15 +16,15 @@
 
 | File | Responsibility | Action |
 |------|---------------|--------|
-| `src/stoai/workdir.py` | Working directory: lock, git init, manifest, diff/commit | Create |
-| `src/stoai/tool_executor.py` | Tool execution: sequential/parallel, timing, errors | Create |
-| `src/stoai/session.py` | LLM session: send/retry/reset, tokens, compaction | Create |
-| `src/stoai/intrinsics/mail.py` | Add `handle(agent, args)` function | Modify |
-| `src/stoai/intrinsics/clock.py` | Add `handle(agent, args)` function | Modify |
-| `src/stoai/intrinsics/status.py` | Add `handle(agent, args)` function | Modify |
-| `src/stoai/intrinsics/system.py` | Add `handle(agent, args)` function | Modify |
-| `src/stoai/intrinsics/__init__.py` | Update ALL_INTRINSICS to include handle refs | Modify |
-| `src/stoai/base_agent.py` | Remove extracted code, delegate to components | Modify |
+| `src/lingtai/workdir.py` | Working directory: lock, git init, manifest, diff/commit | Create |
+| `src/lingtai/tool_executor.py` | Tool execution: sequential/parallel, timing, errors | Create |
+| `src/lingtai/session.py` | LLM session: send/retry/reset, tokens, compaction | Create |
+| `src/lingtai/intrinsics/mail.py` | Add `handle(agent, args)` function | Modify |
+| `src/lingtai/intrinsics/clock.py` | Add `handle(agent, args)` function | Modify |
+| `src/lingtai/intrinsics/status.py` | Add `handle(agent, args)` function | Modify |
+| `src/lingtai/intrinsics/system.py` | Add `handle(agent, args)` function | Modify |
+| `src/lingtai/intrinsics/__init__.py` | Update ALL_INTRINSICS to include handle refs | Modify |
+| `src/lingtai/base_agent.py` | Remove extracted code, delegate to components | Modify |
 | `tests/test_workdir.py` | Unit tests for WorkingDir | Create |
 | `tests/test_tool_executor.py` | Unit tests for ToolExecutor | Create |
 | `tests/test_session.py` | Unit tests for SessionManager | Create |
@@ -41,7 +41,7 @@
 ### Task 1: Create WorkingDir with tests
 
 **Files:**
-- Create: `src/stoai/workdir.py`
+- Create: `src/lingtai/workdir.py`
 - Create: `tests/test_workdir.py`
 
 - [ ] **Step 1: Write failing tests for WorkingDir**
@@ -57,7 +57,7 @@ from pathlib import Path
 
 import pytest
 
-from stoai.workdir import WorkingDir
+from lingtai.workdir import WorkingDir
 
 
 def test_init_creates_agent_dir(tmp_path):
@@ -165,12 +165,12 @@ def test_invalid_agent_id_raises(tmp_path):
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_workdir.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'stoai.workdir'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'lingtai.workdir'`
 
 - [ ] **Step 3: Implement WorkingDir**
 
 ```python
-# src/stoai/workdir.py
+# src/lingtai/workdir.py
 """WorkingDir — agent working directory: lock, git, manifest."""
 from __future__ import annotations
 
@@ -260,11 +260,11 @@ class WorkingDir:
                 capture_output=True, check=True,
             )
             subprocess.run(
-                ["git", "config", "user.email", "agent@stoai"],
+                ["git", "config", "user.email", "agent@lingtai"],
                 cwd=self._path, capture_output=True, check=True,
             )
             subprocess.run(
-                ["git", "config", "user.name", "StoAI Agent"],
+                ["git", "config", "user.name", "灵台 Agent"],
                 cwd=self._path, capture_output=True, check=True,
             )
 
@@ -411,20 +411,20 @@ Expected: All PASS
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `source venv/bin/activate && python -c "from stoai.workdir import WorkingDir; print('OK')"`
+Run: `source venv/bin/activate && python -c "from lingtai.workdir import WorkingDir; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/workdir.py tests/test_workdir.py
+git add src/lingtai/workdir.py tests/test_workdir.py
 git commit -m "feat: extract WorkingDir from BaseAgent"
 ```
 
 ### Task 2: Wire WorkingDir into BaseAgent
 
 **Files:**
-- Modify: `src/stoai/base_agent.py`
+- Modify: `src/lingtai/base_agent.py`
 
 - [ ] **Step 1: Replace file-locking helpers and WorkingDir methods in BaseAgent**
 
@@ -451,14 +451,14 @@ Expected: All existing tests pass
 
 - [ ] **Step 3: Smoke-test import**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 Expected: No errors
 
 - [ ] **Step 4: Update anima capability to use WorkingDir**
 
 The anima capability calls `self._agent._system_diff()` and `self._agent._git_diff_and_commit()` directly. These are removed in this task, so anima must be updated now.
 
-In `src/stoai/capabilities/anima.py`:
+In `src/lingtai/capabilities/anima.py`:
 - Replace `self._agent._system_diff(self._character_path, "character")` with a dict built from `self._agent._workdir.diff("system/character.md")`:
   ```python
   diff_text = self._agent._workdir.diff("system/character.md")
@@ -474,7 +474,7 @@ Expected: All existing tests pass (including test_anima.py)
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/base_agent.py src/stoai/capabilities/anima.py
+git add src/lingtai/base_agent.py src/lingtai/capabilities/anima.py
 git commit -m "refactor: wire WorkingDir into BaseAgent, remove extracted methods"
 ```
 
@@ -485,12 +485,12 @@ git commit -m "refactor: wire WorkingDir into BaseAgent, remove extracted method
 ### Task 3: Move intrinsic handlers to intrinsics/*.py
 
 **Files:**
-- Modify: `src/stoai/intrinsics/mail.py`
-- Modify: `src/stoai/intrinsics/clock.py`
-- Modify: `src/stoai/intrinsics/status.py`
-- Modify: `src/stoai/intrinsics/system.py`
-- Modify: `src/stoai/intrinsics/__init__.py`
-- Modify: `src/stoai/base_agent.py`
+- Modify: `src/lingtai/intrinsics/mail.py`
+- Modify: `src/lingtai/intrinsics/clock.py`
+- Modify: `src/lingtai/intrinsics/status.py`
+- Modify: `src/lingtai/intrinsics/system.py`
+- Modify: `src/lingtai/intrinsics/__init__.py`
+- Modify: `src/lingtai/base_agent.py`
 
 - [ ] **Step 1: Add handle() functions to each intrinsic module**
 
@@ -641,13 +641,13 @@ Expected: All pass
 
 - [ ] **Step 7: Smoke-test import**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 Expected: No errors
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/stoai/intrinsics/ src/stoai/base_agent.py tests/
+git add src/lingtai/intrinsics/ src/lingtai/base_agent.py tests/
 git commit -m "refactor: move intrinsic handlers into intrinsics/*.py modules"
 ```
 
@@ -658,7 +658,7 @@ git commit -m "refactor: move intrinsic handlers into intrinsics/*.py modules"
 ### Task 4: Create ToolExecutor with tests
 
 **Files:**
-- Create: `src/stoai/tool_executor.py`
+- Create: `src/lingtai/tool_executor.py`
 - Create: `tests/test_tool_executor.py`
 
 - [ ] **Step 1: Write failing tests for ToolExecutor**
@@ -673,9 +673,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.llm.base import ToolCall
-from stoai.loop_guard import LoopGuard
-from stoai.tool_executor import ToolExecutor
+from lingtai.llm.base import ToolCall
+from lingtai.loop_guard import LoopGuard
+from lingtai.tool_executor import ToolExecutor
 
 
 def make_executor(dispatch_fn=None, parallel_safe=None):
@@ -744,7 +744,7 @@ def test_intercept_hook():
 
 def test_unknown_tool_error():
     def dispatch(tc):
-        from stoai.types import UnknownToolError
+        from lingtai.types import UnknownToolError
         raise UnknownToolError(tc.name)
     executor = make_executor(dispatch_fn=dispatch)
     calls = [ToolCall(name="bogus", args={}, id="1")]
@@ -761,7 +761,7 @@ Expected: FAIL — `ModuleNotFoundError`
 
 - [ ] **Step 3: Implement ToolExecutor**
 
-Create `src/stoai/tool_executor.py`. Extract `_execute_single_tool`, `_execute_tools_sequential`, `_execute_tools_parallel` from `base_agent.py`. Key changes:
+Create `src/lingtai/tool_executor.py`. Extract `_execute_single_tool`, `_execute_tools_sequential`, `_execute_tools_parallel` from `base_agent.py`. Key changes:
 - `self._dispatch_tool(tc)` → `self._dispatch_fn(tc)`
 - `self.service.make_tool_result(...)` → `self._make_tool_result_fn(...)`
 - `self._on_tool_result_hook(...)` → `on_result_hook(...)` callback
@@ -770,7 +770,7 @@ Create `src/stoai/tool_executor.py`. Extract `_execute_single_tool`, `_execute_t
 - `self._PARALLEL_SAFE_TOOLS` → `self._parallel_safe_tools`
 
 ```python
-# src/stoai/tool_executor.py
+# src/lingtai/tool_executor.py
 """ToolExecutor — sequential and parallel tool call execution."""
 from __future__ import annotations
 
@@ -1056,20 +1056,20 @@ Expected: All PASS
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `python -c "from stoai.tool_executor import ToolExecutor; print('OK')"`
+Run: `python -c "from lingtai.tool_executor import ToolExecutor; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/tool_executor.py tests/test_tool_executor.py
+git add src/lingtai/tool_executor.py tests/test_tool_executor.py
 git commit -m "feat: extract ToolExecutor from BaseAgent"
 ```
 
 ### Task 5: Wire ToolExecutor into BaseAgent
 
 **Files:**
-- Modify: `src/stoai/base_agent.py`
+- Modify: `src/lingtai/base_agent.py`
 
 - [ ] **Step 1: Update BaseAgent to use ToolExecutor**
 
@@ -1091,13 +1091,13 @@ Expected: All pass
 
 - [ ] **Step 3: Smoke-test import**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 Expected: No errors
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/stoai/base_agent.py
+git add src/lingtai/base_agent.py
 git commit -m "refactor: wire ToolExecutor into BaseAgent, remove extracted methods"
 ```
 
@@ -1108,7 +1108,7 @@ git commit -m "refactor: wire ToolExecutor into BaseAgent, remove extracted meth
 ### Task 6: Create SessionManager with tests
 
 **Files:**
-- Create: `src/stoai/session.py`
+- Create: `src/lingtai/session.py`
 - Create: `tests/test_session.py`
 
 - [ ] **Step 1: Write failing tests for SessionManager**
@@ -1122,9 +1122,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from stoai.session import SessionManager
-from stoai.config import AgentConfig
-from stoai.prompt import SystemPromptManager
+from lingtai.session import SessionManager
+from lingtai.config import AgentConfig
+from lingtai.prompt import SystemPromptManager
 
 
 def make_session_manager(**kw):
@@ -1199,7 +1199,7 @@ Expected: FAIL — `ModuleNotFoundError`
 
 - [ ] **Step 3: Implement SessionManager**
 
-Create `src/stoai/session.py`. Extract `_ensure_session`, `_llm_send`, `_llm_send_streaming`, `_on_reset`, `_check_and_compact`, `_update_token_decomposition`, `_track_usage`, `get_token_usage`, `get_chat_state`, `restore_chat`, `restore_token_state` from `base_agent.py`.
+Create `src/lingtai/session.py`. Extract `_ensure_session`, `_llm_send`, `_llm_send_streaming`, `_on_reset`, `_check_and_compact`, `_update_token_decomposition`, `_track_usage`, `get_token_usage`, `get_chat_state`, `restore_chat`, `restore_token_state` from `base_agent.py`.
 
 Key changes from the original:
 - All `self._chat` state lives on SessionManager
@@ -1219,21 +1219,21 @@ Expected: All PASS
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `python -c "from stoai.session import SessionManager; print('OK')"`
+Run: `python -c "from lingtai.session import SessionManager; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/session.py tests/test_session.py
+git add src/lingtai/session.py tests/test_session.py
 git commit -m "feat: extract SessionManager from BaseAgent"
 ```
 
 ### Task 7: Wire SessionManager into BaseAgent
 
 **Files:**
-- Modify: `src/stoai/base_agent.py`
-- Modify: `src/stoai/capabilities/anima.py` (update `_chat` references)
+- Modify: `src/lingtai/base_agent.py`
+- Modify: `src/lingtai/capabilities/anima.py` (update `_chat` references)
 
 - [ ] **Step 1: Update BaseAgent to use SessionManager**
 
@@ -1264,13 +1264,13 @@ Expected: All pass
 
 - [ ] **Step 4: Smoke-test import**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 Expected: No errors
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/base_agent.py src/stoai/session.py src/stoai/capabilities/anima.py
+git add src/lingtai/base_agent.py src/lingtai/session.py src/lingtai/capabilities/anima.py
 git commit -m "refactor: wire SessionManager into BaseAgent, remove extracted methods"
 ```
 
@@ -1287,15 +1287,15 @@ Expected: All pass
 
 - [ ] **Step 2: Verify line counts**
 
-Run: `wc -l src/stoai/base_agent.py src/stoai/workdir.py src/stoai/tool_executor.py src/stoai/session.py`
+Run: `wc -l src/lingtai/base_agent.py src/lingtai/workdir.py src/lingtai/tool_executor.py src/lingtai/session.py`
 Expected: `base_agent.py` should be ~500 lines, total across all files should be approximately the original 1940.
 
 - [ ] **Step 3: Smoke-test all imports**
 
-Run: `python -c "from stoai.workdir import WorkingDir; from stoai.tool_executor import ToolExecutor; from stoai.session import SessionManager; import stoai; print('All OK')"`
+Run: `python -c "from lingtai.workdir import WorkingDir; from lingtai.tool_executor import ToolExecutor; from lingtai.session import SessionManager; import lingtai; print('All OK')"`
 Expected: `All OK`
 
 - [ ] **Step 4: Verify no circular imports**
 
-Run: `python -c "import stoai.base_agent; import stoai.workdir; import stoai.tool_executor; import stoai.session; print('No circular imports')"`
+Run: `python -c "import lingtai.base_agent; import lingtai.workdir; import lingtai.tool_executor; import lingtai.session; print('No circular imports')"`
 Expected: `No circular imports`

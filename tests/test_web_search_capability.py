@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.agent import Agent
-from stoai.capabilities.web_search import WebSearchManager
+from lingtai.agent import Agent
+from lingtai.capabilities.web_search import WebSearchManager
 
 
 def make_mock_service():
@@ -26,7 +26,7 @@ def test_web_search_added_by_capability(tmp_path):
 
 def test_web_search_calls_adapter_directly():
     """WebSearchManager should call adapter.web_search() directly."""
-    from stoai_kernel.llm.base import LLMResponse
+    from lingtai_kernel.llm.base import LLMResponse
 
     svc = MagicMock()
     adapter = MagicMock()

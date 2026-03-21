@@ -4,9 +4,9 @@
 
 **Goal:** Shrink BaseAgent kernel from 9 intrinsics to 4 (mail, clock, status, system), moving file I/O into 5 separate capabilities with a `"file"` group sugar, and removing `enabled_intrinsics`/`disabled_intrinsics` params.
 
-**Architecture:** Two-phase change in one PR. Phase 1 renames `memory` → `system` intrinsic with `view`/`diff`/`load` actions on `role`/`ltm` objects, moving files to `system/`. Phase 2 extracts read/edit/write/glob/grep from intrinsics into capabilities, adds `"file"` sugar to StoAIAgent, and removes the enabled/disabled filtering params.
+**Architecture:** Two-phase change in one PR. Phase 1 renames `memory` → `system` intrinsic with `view`/`diff`/`load` actions on `role`/`ltm` objects, moving files to `system/`. Phase 2 extracts read/edit/write/glob/grep from intrinsics into capabilities, adds `"file"` sugar to 灵台Agent, and removes the enabled/disabled filtering params.
 
-**Tech Stack:** Python 3.11+, pytest, stoai framework
+**Tech Stack:** Python 3.11+, pytest, lingtai framework
 
 ---
 
@@ -16,11 +16,11 @@
 
 | Action | File | Responsibility |
 |--------|------|----------------|
-| Create | `src/stoai/intrinsics/system.py` | Schema + description for `system` intrinsic (view/diff/load × role/ltm) |
-| Modify | `src/stoai/intrinsics/__init__.py` | Replace `memory` entry with `system` in `ALL_INTRINSICS` |
-| Modify | `src/stoai/base_agent.py` | Rename handler, update file paths (`ltm/ltm.md` → `system/ltm.md`, new `system/role.md`), add `view`/`diff`/`load` for both objects, update git init, stop, resume |
-| Modify | `src/stoai/prompt.py` | No change needed (sections are still named `"role"` and `"ltm"` in prompt manager) |
-| Delete | `src/stoai/intrinsics/memory.py` | Replaced by `system.py` |
+| Create | `src/lingtai/intrinsics/system.py` | Schema + description for `system` intrinsic (view/diff/load × role/ltm) |
+| Modify | `src/lingtai/intrinsics/__init__.py` | Replace `memory` entry with `system` in `ALL_INTRINSICS` |
+| Modify | `src/lingtai/base_agent.py` | Rename handler, update file paths (`ltm/ltm.md` → `system/ltm.md`, new `system/role.md`), add `view`/`diff`/`load` for both objects, update git init, stop, resume |
+| Modify | `src/lingtai/prompt.py` | No change needed (sections are still named `"role"` and `"ltm"` in prompt manager) |
+| Delete | `src/lingtai/intrinsics/memory.py` | Replaced by `system.py` |
 | Create | `tests/test_system.py` | Tests for the `system` intrinsic (replaces `test_memory.py`) |
 | Delete | `tests/test_memory.py` | Replaced by `test_system.py` |
 
@@ -28,18 +28,18 @@
 
 | Action | File | Responsibility |
 |--------|------|----------------|
-| Create | `src/stoai/capabilities/read.py` | `setup(agent)` — registers `read` tool backed by agent's FileIOService |
-| Create | `src/stoai/capabilities/write.py` | `setup(agent)` — registers `write` tool backed by agent's FileIOService |
-| Create | `src/stoai/capabilities/edit.py` | `setup(agent)` — registers `edit` tool backed by agent's FileIOService |
-| Create | `src/stoai/capabilities/glob.py` | `setup(agent)` — registers `glob` tool backed by agent's FileIOService |
-| Create | `src/stoai/capabilities/grep.py` | `setup(agent)` — registers `grep` tool backed by agent's FileIOService |
-| Modify | `src/stoai/capabilities/__init__.py` | Add 5 new capabilities + `_GROUPS` sugar dict |
-| Modify | `src/stoai/stoai_agent.py` | Expand `"file"` group before capability registration |
-| Modify | `src/stoai/base_agent.py` | Remove file intrinsic wiring, `_make_file_service_handler()`, `enabled_intrinsics`/`disabled_intrinsics` params, convenience methods |
-| Modify | `src/stoai/intrinsics/__init__.py` | Remove read/edit/write/glob/grep from `ALL_INTRINSICS` |
-| Modify | `tests/test_agent.py` | Remove intrinsic filtering tests, update file I/O tests to use StoAIAgent + `capabilities=["file"]` |
-| Create | `tests/test_layers_file.py` | Tests for file capabilities via StoAIAgent |
-| Modify | `src/stoai/__init__.py` | No structural changes needed (FileIOService stays exported) |
+| Create | `src/lingtai/capabilities/read.py` | `setup(agent)` — registers `read` tool backed by agent's FileIOService |
+| Create | `src/lingtai/capabilities/write.py` | `setup(agent)` — registers `write` tool backed by agent's FileIOService |
+| Create | `src/lingtai/capabilities/edit.py` | `setup(agent)` — registers `edit` tool backed by agent's FileIOService |
+| Create | `src/lingtai/capabilities/glob.py` | `setup(agent)` — registers `glob` tool backed by agent's FileIOService |
+| Create | `src/lingtai/capabilities/grep.py` | `setup(agent)` — registers `grep` tool backed by agent's FileIOService |
+| Modify | `src/lingtai/capabilities/__init__.py` | Add 5 new capabilities + `_GROUPS` sugar dict |
+| Modify | `src/lingtai/lingtai_agent.py` | Expand `"file"` group before capability registration |
+| Modify | `src/lingtai/base_agent.py` | Remove file intrinsic wiring, `_make_file_service_handler()`, `enabled_intrinsics`/`disabled_intrinsics` params, convenience methods |
+| Modify | `src/lingtai/intrinsics/__init__.py` | Remove read/edit/write/glob/grep from `ALL_INTRINSICS` |
+| Modify | `tests/test_agent.py` | Remove intrinsic filtering tests, update file I/O tests to use 灵台Agent + `capabilities=["file"]` |
+| Create | `tests/test_layers_file.py` | Tests for file capabilities via 灵台Agent |
+| Modify | `src/lingtai/__init__.py` | No structural changes needed (FileIOService stays exported) |
 
 ---
 
@@ -48,7 +48,7 @@
 ### Task 1: Create `system` intrinsic schema
 
 **Files:**
-- Create: `src/stoai/intrinsics/system.py`
+- Create: `src/lingtai/intrinsics/system.py`
 - Test: `tests/test_system.py`
 
 - [ ] **Step 1: Write the failing test for system intrinsic schema**
@@ -58,7 +58,7 @@
 """Tests for system intrinsic — agent identity management (role + ltm)."""
 from __future__ import annotations
 
-from stoai.intrinsics import ALL_INTRINSICS
+from lingtai.intrinsics import ALL_INTRINSICS
 
 
 def test_system_in_all_intrinsics():
@@ -81,7 +81,7 @@ Expected: FAIL — `system` not in ALL_INTRINSICS
 
 - [ ] **Step 3: Create `system.py` and update `__init__.py`**
 
-Create `src/stoai/intrinsics/system.py`:
+Create `src/lingtai/intrinsics/system.py`:
 
 ```python
 """System intrinsic — agent identity management (role + ltm).
@@ -135,7 +135,7 @@ DESCRIPTION = (
 )
 ```
 
-Update `src/stoai/intrinsics/__init__.py`:
+Update `src/lingtai/intrinsics/__init__.py`:
 
 ```python
 """Intrinsic tools available to all agents.
@@ -163,7 +163,7 @@ ALL_INTRINSICS = {
 }
 ```
 
-Delete `src/stoai/intrinsics/memory.py`.
+Delete `src/lingtai/intrinsics/memory.py`.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -173,8 +173,8 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/intrinsics/system.py src/stoai/intrinsics/__init__.py tests/test_system.py
-git rm src/stoai/intrinsics/memory.py
+git add src/lingtai/intrinsics/system.py src/lingtai/intrinsics/__init__.py tests/test_system.py
+git rm src/lingtai/intrinsics/memory.py
 git commit -m "feat: create system intrinsic schema, replace memory"
 ```
 
@@ -183,7 +183,7 @@ git commit -m "feat: create system intrinsic schema, replace memory"
 ### Task 2: Implement `_handle_system` in BaseAgent
 
 **Files:**
-- Modify: `src/stoai/base_agent.py`
+- Modify: `src/lingtai/base_agent.py`
 - Test: `tests/test_system.py`
 
 - [ ] **Step 1: Write failing tests for system handler**
@@ -196,7 +196,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.base_agent import BaseAgent
+from lingtai.base_agent import BaseAgent
 
 
 def make_mock_service():
@@ -666,13 +666,13 @@ Expected: ALL PASS
 
 - [ ] **Step 5: Smoke test import**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -c "import stoai"`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -c "import lingtai"`
 Expected: No errors
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/base_agent.py tests/test_system.py
+git add src/lingtai/base_agent.py tests/test_system.py
 git commit -m "feat: implement system intrinsic handler (view/diff/load × role/ltm)"
 ```
 
@@ -738,11 +738,11 @@ git commit -m "refactor: update tests for memory→system rename, delete test_me
 ### Task 4: Create 5 file capability modules
 
 **Files:**
-- Create: `src/stoai/capabilities/read.py`
-- Create: `src/stoai/capabilities/write.py`
-- Create: `src/stoai/capabilities/edit.py`
-- Create: `src/stoai/capabilities/glob.py`
-- Create: `src/stoai/capabilities/grep.py`
+- Create: `src/lingtai/capabilities/read.py`
+- Create: `src/lingtai/capabilities/write.py`
+- Create: `src/lingtai/capabilities/edit.py`
+- Create: `src/lingtai/capabilities/glob.py`
+- Create: `src/lingtai/capabilities/grep.py`
 - Test: `tests/test_layers_file.py`
 
 - [ ] **Step 1: Write failing tests for file capabilities**
@@ -756,7 +756,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.stoai_agent import StoAIAgent
+from lingtai.lingtai_agent import 灵台Agent
 
 
 def make_mock_service():
@@ -769,7 +769,7 @@ def make_mock_service():
 
 def test_file_sugar_expands_to_five(tmp_path):
     """capabilities=["file"] should register all 5 file tools."""
-    agent = StoAIAgent(
+    agent = 灵台Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
         capabilities=["file"],
     )
@@ -780,7 +780,7 @@ def test_file_sugar_expands_to_five(tmp_path):
 
 def test_individual_file_capability(tmp_path):
     """Each file capability can be loaded individually."""
-    agent = StoAIAgent(
+    agent = 灵台Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
         capabilities=["read", "write"],
     )
@@ -794,7 +794,7 @@ def test_individual_file_capability(tmp_path):
 
 def test_write_and_read_via_capability(tmp_path):
     """Write and read files through capability handlers."""
-    agent = StoAIAgent(
+    agent = 灵台Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
         capabilities=["file"],
     )
@@ -814,7 +814,7 @@ def test_write_and_read_via_capability(tmp_path):
 
 def test_edit_via_capability(tmp_path):
     """Edit files through capability handler."""
-    agent = StoAIAgent(
+    agent = 灵台Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
         capabilities=["file"],
     )
@@ -829,7 +829,7 @@ def test_edit_via_capability(tmp_path):
 
 def test_glob_via_capability(tmp_path):
     """Glob files through capability handler."""
-    agent = StoAIAgent(
+    agent = 灵台Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
         capabilities=["file"],
     )
@@ -845,7 +845,7 @@ def test_glob_via_capability(tmp_path):
 
 def test_grep_via_capability(tmp_path):
     """Grep files through capability handler."""
-    agent = StoAIAgent(
+    agent = 灵台Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
         capabilities=["file"],
     )
@@ -859,7 +859,7 @@ def test_grep_via_capability(tmp_path):
 
 def test_base_agent_has_no_file_intrinsics(tmp_path):
     """BaseAgent should NOT have file intrinsics after phase 2."""
-    from stoai.base_agent import BaseAgent
+    from lingtai.base_agent import BaseAgent
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
     for name in ("read", "write", "edit", "glob", "grep"):
         assert name not in agent._intrinsics, f"{name} should not be in BaseAgent intrinsics"
@@ -868,7 +868,7 @@ def test_base_agent_has_no_file_intrinsics(tmp_path):
 
 def test_base_agent_kernel_only(tmp_path):
     """BaseAgent should have exactly 4 intrinsics: mail, clock, status, system."""
-    from stoai.base_agent import BaseAgent
+    from lingtai.base_agent import BaseAgent
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
     assert set(agent._intrinsics.keys()) == {"mail", "clock", "status", "system"}
     agent.stop(timeout=1.0)
@@ -876,9 +876,9 @@ def test_base_agent_kernel_only(tmp_path):
 
 def test_file_capability_uses_file_io_service(tmp_path):
     """File capabilities should use the agent's FileIOService."""
-    from stoai.services.file_io import LocalFileIOService
+    from lingtai.services.file_io import LocalFileIOService
     svc = LocalFileIOService(root=tmp_path)
-    agent = StoAIAgent(
+    agent = 灵台Agent(
         agent_id="test", service=make_mock_service(), base_dir=tmp_path,
         file_io=svc,
         capabilities=["file"],
@@ -900,12 +900,12 @@ Expected: FAIL — `read` not a known capability
 
 Each capability follows the same pattern — `setup(agent)` creates a handler that delegates to the agent's `_file_io` service, then calls `agent.add_tool()`.
 
-Create `src/stoai/capabilities/read.py`:
+Create `src/lingtai/capabilities/read.py`:
 
 ```python
 """Read capability — read text file contents.
 
-Usage: StoAIAgent(capabilities=["read"]) or capabilities=["file"]
+Usage: 灵台Agent(capabilities=["read"]) or capabilities=["file"]
 """
 from __future__ import annotations
 
@@ -958,12 +958,12 @@ def setup(agent: "BaseAgent") -> None:
     agent.add_tool("read", schema=SCHEMA, handler=handle_read, description=DESCRIPTION)
 ```
 
-Create `src/stoai/capabilities/write.py`:
+Create `src/lingtai/capabilities/write.py`:
 
 ```python
 """Write capability — create or overwrite a file.
 
-Usage: StoAIAgent(capabilities=["write"]) or capabilities=["file"]
+Usage: 灵台Agent(capabilities=["write"]) or capabilities=["file"]
 """
 from __future__ import annotations
 
@@ -1009,12 +1009,12 @@ def setup(agent: "BaseAgent") -> None:
     agent.add_tool("write", schema=SCHEMA, handler=handle_write, description=DESCRIPTION)
 ```
 
-Create `src/stoai/capabilities/edit.py`:
+Create `src/lingtai/capabilities/edit.py`:
 
 ```python
 """Edit capability — exact string replacement in a file.
 
-Usage: StoAIAgent(capabilities=["edit"]) or capabilities=["file"]
+Usage: 灵台Agent(capabilities=["edit"]) or capabilities=["file"]
 """
 from __future__ import annotations
 
@@ -1074,12 +1074,12 @@ def setup(agent: "BaseAgent") -> None:
     agent.add_tool("edit", schema=SCHEMA, handler=handle_edit, description=DESCRIPTION)
 ```
 
-Create `src/stoai/capabilities/glob.py`:
+Create `src/lingtai/capabilities/glob.py`:
 
 ```python
 """Glob capability — find files by pattern.
 
-Usage: StoAIAgent(capabilities=["glob"]) or capabilities=["file"]
+Usage: 灵台Agent(capabilities=["glob"]) or capabilities=["file"]
 """
 from __future__ import annotations
 
@@ -1124,12 +1124,12 @@ def setup(agent: "BaseAgent") -> None:
     agent.add_tool("glob", schema=SCHEMA, handler=handle_glob, description=DESCRIPTION)
 ```
 
-Create `src/stoai/capabilities/grep.py`:
+Create `src/lingtai/capabilities/grep.py`:
 
 ```python
 """Grep capability — search file contents by regex.
 
-Usage: StoAIAgent(capabilities=["grep"]) or capabilities=["file"]
+Usage: 灵台Agent(capabilities=["grep"]) or capabilities=["file"]
 """
 from __future__ import annotations
 
@@ -1187,7 +1187,7 @@ Expected: FAIL — `read` not a known capability
 - [ ] **Step 5: Commit capability modules**
 
 ```bash
-git add src/stoai/capabilities/read.py src/stoai/capabilities/write.py src/stoai/capabilities/edit.py src/stoai/capabilities/glob.py src/stoai/capabilities/grep.py tests/test_layers_file.py
+git add src/lingtai/capabilities/read.py src/lingtai/capabilities/write.py src/lingtai/capabilities/edit.py src/lingtai/capabilities/glob.py src/lingtai/capabilities/grep.py tests/test_layers_file.py
 git commit -m "feat: create 5 file I/O capability modules (read, write, edit, glob, grep)"
 ```
 
@@ -1196,15 +1196,15 @@ git commit -m "feat: create 5 file I/O capability modules (read, write, edit, gl
 ### Task 5: Register file capabilities + `"file"` sugar
 
 **Files:**
-- Modify: `src/stoai/capabilities/__init__.py`
-- Modify: `src/stoai/stoai_agent.py`
+- Modify: `src/lingtai/capabilities/__init__.py`
+- Modify: `src/lingtai/lingtai_agent.py`
 
 - [ ] **Step 1: Update capability registry with 5 new entries + groups**
 
-Update `src/stoai/capabilities/__init__.py`:
+Update `src/lingtai/capabilities/__init__.py`:
 
 ```python
-"""Composable agent capabilities — add via StoAIAgent(capabilities=[...])."""
+"""Composable agent capabilities — add via 灵台Agent(capabilities=[...])."""
 from __future__ import annotations
 
 import importlib
@@ -1272,15 +1272,15 @@ def setup_capability(agent: "BaseAgent", name: str, **kwargs: Any) -> Any:
     return setup_fn(agent, **kwargs)
 ```
 
-- [ ] **Step 2: Update StoAIAgent to expand groups**
+- [ ] **Step 2: Update 灵台Agent to expand groups**
 
-Update `src/stoai/stoai_agent.py`:
+Update `src/lingtai/lingtai_agent.py`:
 
 ```python
-"""StoAIAgent — BaseAgent + composable capabilities + domain tools.
+"""灵台Agent — BaseAgent + composable capabilities + domain tools.
 
 Layer 2 of the three-layer hierarchy:
-    BaseAgent (kernel) → StoAIAgent (capabilities) → CustomAgent (domain)
+    BaseAgent (kernel) → 灵台Agent (capabilities) → CustomAgent (domain)
 
 Capabilities and tools are declared at construction and sealed before start().
 """
@@ -1292,7 +1292,7 @@ from .base_agent import BaseAgent
 from .types import MCPTool
 
 
-class StoAIAgent(BaseAgent):
+class 灵台Agent(BaseAgent):
     """BaseAgent with composable capabilities and domain tools.
 
     Args:
@@ -1377,7 +1377,7 @@ Expected: ALL PASS (except base agent tests which need Phase 2 removal)
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/stoai/capabilities/__init__.py src/stoai/stoai_agent.py
+git add src/lingtai/capabilities/__init__.py src/lingtai/lingtai_agent.py
 git commit -m "feat: register file capabilities, add 'file' group sugar"
 ```
 
@@ -1386,8 +1386,8 @@ git commit -m "feat: register file capabilities, add 'file' group sugar"
 ### Task 6: Remove file I/O from BaseAgent kernel + remove enabled/disabled params
 
 **Files:**
-- Modify: `src/stoai/base_agent.py`
-- Modify: `src/stoai/intrinsics/__init__.py`
+- Modify: `src/lingtai/base_agent.py`
+- Modify: `src/lingtai/intrinsics/__init__.py`
 - Modify: `tests/test_agent.py`
 - Modify: `tests/test_status.py` (remove `disabled_intrinsics` test)
 - Modify: `tests/test_clock.py` (remove `disabled_intrinsics` test)
@@ -1395,7 +1395,7 @@ git commit -m "feat: register file capabilities, add 'file' group sugar"
 
 - [ ] **Step 1: Strip file intrinsics from `ALL_INTRINSICS`**
 
-Update `src/stoai/intrinsics/__init__.py`:
+Update `src/lingtai/intrinsics/__init__.py`:
 
 ```python
 """Intrinsic tools available to all agents.
@@ -1477,7 +1477,7 @@ Update `test_execute_single_tool_intrinsic` — it manually injects `"read"` int
 ```python
 def test_execute_single_tool_intrinsic(tmp_path):
     """Intrinsic tools should be callable via _dispatch_tool."""
-    from stoai.llm.base import ToolCall
+    from lingtai.llm.base import ToolCall
     agent = BaseAgent(agent_id="test", service=make_mock_service(), base_dir=tmp_path)
 
     # Replace the clock intrinsic with a mock
@@ -1494,7 +1494,7 @@ Delete `tests/test_intrinsics_file.py` (these tests tested the intrinsic handler
 
 Delete the old intrinsic schema files that are now dead code:
 ```bash
-git rm src/stoai/intrinsics/read.py src/stoai/intrinsics/edit.py src/stoai/intrinsics/write.py src/stoai/intrinsics/glob.py src/stoai/intrinsics/grep.py
+git rm src/lingtai/intrinsics/read.py src/lingtai/intrinsics/edit.py src/lingtai/intrinsics/write.py src/lingtai/intrinsics/glob.py src/lingtai/intrinsics/grep.py
 ```
 
 - [ ] **Step 4: Run all tests**
@@ -1504,7 +1504,7 @@ Expected: ALL PASS
 
 - [ ] **Step 5: Smoke test**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -c "import stoai"`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -c "import lingtai"`
 Expected: No errors
 
 - [ ] **Step 6: Run full test suite**
@@ -1515,7 +1515,7 @@ Expected: ALL PASS (or only pre-existing failures unrelated to this change)
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/base_agent.py src/stoai/intrinsics/__init__.py tests/test_agent.py
+git add src/lingtai/base_agent.py src/lingtai/intrinsics/__init__.py tests/test_agent.py
 git rm tests/test_intrinsics_file.py
 git commit -m "refactor: remove file I/O from kernel, remove enabled/disabled intrinsics params"
 ```
@@ -1540,7 +1540,7 @@ Key changes:
 
 - [ ] **Step 2: Run smoke test**
 
-Run: `cd /Users/huangzesen/Documents/GitHub/stoai && python -c "import stoai"`
+Run: `cd /Users/huangzesen/Documents/GitHub/lingtai && python -c "import lingtai"`
 Expected: No errors
 
 - [ ] **Step 3: Commit**

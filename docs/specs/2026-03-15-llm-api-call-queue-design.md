@@ -205,15 +205,15 @@ Same flow for `send_stream()` — the `fn` closure contains the entire streaming
 
 | File | Change |
 |------|--------|
-| `src/stoai/llm/api_gate.py` | **New.** `APICallGate`, `_WorkItem`, `_execute_in_pool` |
-| `src/stoai/llm/base.py` | Replace `_rate_limiter`/`_setup_rate_limiter` with `_gate`/`_setup_gate`/`_gated_call` on `LLMAdapter` |
-| `src/stoai/llm/service.py` | `_create_adapter()` extracts `max_rpm` from `provider_defaults`, passes to adapter constructors (internal change, no public API change) |
-| `src/stoai/llm/gemini/adapter.py` | Add `max_rpm` param to constructor, call `_setup_gate()`. Inject `self._gate` into sessions. Gate `send()`, `send_stream()`, `generate()`. |
-| `src/stoai/llm/openai/adapter.py` | Same pattern. |
-| `src/stoai/llm/anthropic/adapter.py` | Same pattern. |
-| `src/stoai/llm/minimax/adapter.py` | Remove `_RateLimitedSession`, remove old `RateLimiter` usage. Add `max_rpm` param, use gate. Old default `interval=2.0` → equivalent `max_rpm=30`. |
+| `src/lingtai/llm/api_gate.py` | **New.** `APICallGate`, `_WorkItem`, `_execute_in_pool` |
+| `src/lingtai/llm/base.py` | Replace `_rate_limiter`/`_setup_rate_limiter` with `_gate`/`_setup_gate`/`_gated_call` on `LLMAdapter` |
+| `src/lingtai/llm/service.py` | `_create_adapter()` extracts `max_rpm` from `provider_defaults`, passes to adapter constructors (internal change, no public API change) |
+| `src/lingtai/llm/gemini/adapter.py` | Add `max_rpm` param to constructor, call `_setup_gate()`. Inject `self._gate` into sessions. Gate `send()`, `send_stream()`, `generate()`. |
+| `src/lingtai/llm/openai/adapter.py` | Same pattern. |
+| `src/lingtai/llm/anthropic/adapter.py` | Same pattern. |
+| `src/lingtai/llm/minimax/adapter.py` | Remove `_RateLimitedSession`, remove old `RateLimiter` usage. Add `max_rpm` param, use gate. Old default `interval=2.0` → equivalent `max_rpm=30`. |
 | Other adapters (deepseek, grok, qwen, glm, kimi, custom) | Add `max_rpm` param, call `_setup_gate()`. Gate `send()`, `send_stream()`, `generate()`. |
-| `src/stoai/llm/rate_limiter.py` | **Delete.** Replaced by `APICallGate`. |
+| `src/lingtai/llm/rate_limiter.py` | **Delete.** Replaced by `APICallGate`. |
 | `tests/test_api_gate.py` | **New.** Unit tests for gate behavior. |
 
 ### What Doesn't Change

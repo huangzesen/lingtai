@@ -1,8 +1,8 @@
-# stoai-society Implementation Plan
+# lingtai-society Implementation Plan
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a standalone `stoai-society` package that adds social networking (friends, groups, invitations, institutions) on top of stoai's email infrastructure.
+**Goal:** Build a standalone `lingtai-society` package that adds social networking (friends, groups, invitations, institutions) on top of lingtai's email infrastructure.
 
 **Architecture:** SocialAgent wraps BaseAgent+email, replacing the `email` tool with a `social` tool. All communication uses the existing TCP email transport. Contacts, groups, and invitations are persisted as JSON files in the agent's working directory. Institution base class extends SocialAgent for public-facing agents with subscriber management.
 
@@ -10,9 +10,9 @@
 
 **Key implementation constraint:** `EmailManager` is not stored as an attribute on `BaseAgent`. The `email` capability's `setup()` returns it. `SocialAgent` must receive it as a constructor parameter: `email_mgr = agent.add_capability("email"); SocialAgent(agent, email_mgr=email_mgr, ...)`.
 
-**Tech Stack:** Python 3.11+, stoai (sibling directory), pytest, dataclasses, JSON persistence.
+**Tech Stack:** Python 3.11+, lingtai (sibling directory), pytest, dataclasses, JSON persistence.
 
-**Spec:** `docs/superpowers/specs/2026-03-16-stoai-society-design.md`
+**Spec:** `docs/superpowers/specs/2026-03-16-lingtai-society-design.md`
 
 ---
 
@@ -21,19 +21,19 @@
 ### Task 1: Project scaffold
 
 **Files:**
-- Create: `../stoai-society/pyproject.toml`
-- Create: `../stoai-society/src/stoai_society/__init__.py`
-- Create: `../stoai-society/src/stoai_society/contacts.py` (empty placeholder)
-- Create: `../stoai-society/src/stoai_society/permissions.py` (empty placeholder)
-- Create: `../stoai-society/src/stoai_society/social_agent.py` (empty placeholder)
-- Create: `../stoai-society/src/stoai_society/institution.py` (empty placeholder)
+- Create: `../lingtai-society/pyproject.toml`
+- Create: `../lingtai-society/src/lingtai_society/__init__.py`
+- Create: `../lingtai-society/src/lingtai_society/contacts.py` (empty placeholder)
+- Create: `../lingtai-society/src/lingtai_society/permissions.py` (empty placeholder)
+- Create: `../lingtai-society/src/lingtai_society/social_agent.py` (empty placeholder)
+- Create: `../lingtai-society/src/lingtai_society/institution.py` (empty placeholder)
 
 - [ ] **Step 1: Create directory structure**
 
 ```bash
-mkdir -p ../stoai-society/src/stoai_society
-mkdir -p ../stoai-society/tests
-mkdir -p ../stoai-society/examples/institutions
+mkdir -p ../lingtai-society/src/lingtai_society
+mkdir -p ../lingtai-society/tests
+mkdir -p ../lingtai-society/examples/institutions
 ```
 
 - [ ] **Step 2: Write pyproject.toml**
@@ -44,11 +44,11 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "stoai-society"
+name = "lingtai-society"
 version = "0.1.0"
-description = "Social networking primitives for stoai agents — friends, groups, invitations, institutions"
+description = "Social networking primitives for lingtai agents — friends, groups, invitations, institutions"
 requires-python = ">=3.11"
-dependencies = ["stoai"]
+dependencies = ["lingtai"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -60,7 +60,7 @@ testpaths = ["tests"]
 - [ ] **Step 3: Write __init__.py**
 
 ```python
-"""stoai-society — social networking primitives for stoai agents."""
+"""lingtai-society — social networking primitives for lingtai agents."""
 from __future__ import annotations
 ```
 
@@ -73,13 +73,13 @@ Create empty files with module docstrings for `contacts.py`, `permissions.py`, `
 - [ ] **Step 5: Install in editable mode and verify import**
 
 ```bash
-cd ../stoai-society && pip install -e . && python -c "import stoai_society"
+cd ../lingtai-society && pip install -e . && python -c "import lingtai_society"
 ```
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd ../stoai-society && git init && git add -A && git commit -m "feat: initial project scaffold"
+cd ../lingtai-society && git init && git add -A && git commit -m "feat: initial project scaffold"
 ```
 
 ---
@@ -87,14 +87,14 @@ cd ../stoai-society && git init && git add -A && git commit -m "feat: initial pr
 ### Task 2: ContactStore — friends persistence
 
 **Files:**
-- Create: `../stoai-society/src/stoai_society/contacts.py`
-- Create: `../stoai-society/tests/test_contacts.py`
+- Create: `../lingtai-society/src/lingtai_society/contacts.py`
+- Create: `../lingtai-society/tests/test_contacts.py`
 
 The `ContactStore` class manages `friends.json`, `groups.json`, and `invitations.json` persistence. Pure data layer — no email logic.
 
 - [ ] **Step 1: Write failing tests for friend CRUD**
 
-File: `../stoai-society/tests/test_contacts.py`
+File: `../lingtai-society/tests/test_contacts.py`
 
 ```python
 from __future__ import annotations
@@ -104,7 +104,7 @@ from pathlib import Path
 
 import pytest
 
-from stoai_society.contacts import ContactStore
+from lingtai_society.contacts import ContactStore
 
 
 @pytest.fixture
@@ -211,14 +211,14 @@ def test_seed_merges_new_only(tmp_path: Path) -> None:
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd ../stoai-society && python -m pytest tests/test_contacts.py -v
+cd ../lingtai-society && python -m pytest tests/test_contacts.py -v
 ```
 
 Expected: FAIL — `ContactStore` not implemented yet.
 
 - [ ] **Step 3: Implement ContactStore — friends**
 
-File: `../stoai-society/src/stoai_society/contacts.py`
+File: `../lingtai-society/src/lingtai_society/contacts.py`
 
 ```python
 """ContactStore — persistence layer for friends, groups, and invitations.
@@ -391,7 +391,7 @@ class ContactStore:
 - [ ] **Step 4: Run tests to verify they pass**
 
 ```bash
-cd ../stoai-society && python -m pytest tests/test_contacts.py -v
+cd ../lingtai-society && python -m pytest tests/test_contacts.py -v
 ```
 
 Expected: All PASS.
@@ -399,7 +399,7 @@ Expected: All PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd ../stoai-society && git add -A && git commit -m "feat: ContactStore — friends persistence with seed merge"
+cd ../lingtai-society && git add -A && git commit -m "feat: ContactStore — friends persistence with seed merge"
 ```
 
 ---
@@ -407,12 +407,12 @@ cd ../stoai-society && git add -A && git commit -m "feat: ContactStore — frien
 ### Task 3: ContactStore — groups
 
 **Files:**
-- Modify: `../stoai-society/src/stoai_society/contacts.py`
-- Modify: `../stoai-society/tests/test_contacts.py`
+- Modify: `../lingtai-society/src/lingtai_society/contacts.py`
+- Modify: `../lingtai-society/tests/test_contacts.py`
 
 - [ ] **Step 1: Write failing tests for group CRUD**
 
-Append to `../stoai-society/tests/test_contacts.py`:
+Append to `../lingtai-society/tests/test_contacts.py`:
 
 ```python
 # ---- Groups ----
@@ -492,7 +492,7 @@ def test_is_group(store: ContactStore) -> None:
 - [ ] **Step 2: Run tests to verify new ones fail**
 
 ```bash
-cd ../stoai-society && python -m pytest tests/test_contacts.py -v
+cd ../lingtai-society && python -m pytest tests/test_contacts.py -v
 ```
 
 Expected: New group tests FAIL.
@@ -565,7 +565,7 @@ Add to `ContactStore` in `contacts.py`:
 - [ ] **Step 4: Run tests to verify they pass**
 
 ```bash
-cd ../stoai-society && python -m pytest tests/test_contacts.py -v
+cd ../lingtai-society && python -m pytest tests/test_contacts.py -v
 ```
 
 Expected: All PASS.
@@ -573,7 +573,7 @@ Expected: All PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd ../stoai-society && git add -A && git commit -m "feat: ContactStore — group management"
+cd ../lingtai-society && git add -A && git commit -m "feat: ContactStore — group management"
 ```
 
 ---
@@ -581,12 +581,12 @@ cd ../stoai-society && git add -A && git commit -m "feat: ContactStore — group
 ### Task 4: ContactStore — invitations
 
 **Files:**
-- Modify: `../stoai-society/src/stoai_society/contacts.py`
-- Modify: `../stoai-society/tests/test_contacts.py`
+- Modify: `../lingtai-society/src/lingtai_society/contacts.py`
+- Modify: `../lingtai-society/tests/test_contacts.py`
 
 - [ ] **Step 1: Write failing tests for invitations**
 
-Append to `../stoai-society/tests/test_contacts.py`:
+Append to `../lingtai-society/tests/test_contacts.py`:
 
 ```python
 # ---- Invitations ----
@@ -664,7 +664,7 @@ def test_expired_pending_sent_cleaned(tmp_path: Path) -> None:
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd ../stoai-society && python -m pytest tests/test_contacts.py -v -k "invitation or pending or expired"
+cd ../lingtai-society && python -m pytest tests/test_contacts.py -v -k "invitation or pending or expired"
 ```
 
 Expected: FAIL.
@@ -803,7 +803,7 @@ Add to `ContactStore` in `contacts.py`:
 - [ ] **Step 4: Run tests to verify they pass**
 
 ```bash
-cd ../stoai-society && python -m pytest tests/test_contacts.py -v
+cd ../lingtai-society && python -m pytest tests/test_contacts.py -v
 ```
 
 Expected: All PASS.
@@ -811,13 +811,13 @@ Expected: All PASS.
 - [ ] **Step 5: Smoke-test module import**
 
 ```bash
-cd ../stoai-society && python -c "from stoai_society.contacts import ContactStore; print('OK')"
+cd ../lingtai-society && python -c "from lingtai_society.contacts import ContactStore; print('OK')"
 ```
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd ../stoai-society && git add -A && git commit -m "feat: ContactStore — invitations with TTL expiry"
+cd ../lingtai-society && git add -A && git commit -m "feat: ContactStore — invitations with TTL expiry"
 ```
 
 ---
@@ -827,14 +827,14 @@ cd ../stoai-society && git add -A && git commit -m "feat: ContactStore — invit
 ### Task 5: Permissions module
 
 **Files:**
-- Create: `../stoai-society/src/stoai_society/permissions.py`
-- Create: `../stoai-society/tests/test_permissions.py`
+- Create: `../lingtai-society/src/lingtai_society/permissions.py`
+- Create: `../lingtai-society/tests/test_permissions.py`
 
 The permissions module provides pure functions for checking outgoing and incoming rules. No email logic — just contact store queries.
 
 - [ ] **Step 1: Write failing tests**
 
-File: `../stoai-society/tests/test_permissions.py`
+File: `../lingtai-society/tests/test_permissions.py`
 
 ```python
 from __future__ import annotations
@@ -843,8 +843,8 @@ from pathlib import Path
 
 import pytest
 
-from stoai_society.contacts import ContactStore
-from stoai_society.permissions import check_outgoing, check_incoming, IncomingVerdict
+from lingtai_society.contacts import ContactStore
+from lingtai_society.permissions import check_outgoing, check_incoming, IncomingVerdict
 
 
 @pytest.fixture
@@ -937,14 +937,14 @@ def test_incoming_invitation_accept(store: ContactStore) -> None:
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd ../stoai-society && python -m pytest tests/test_permissions.py -v
+cd ../lingtai-society && python -m pytest tests/test_permissions.py -v
 ```
 
 Expected: FAIL.
 
 - [ ] **Step 3: Implement permissions module**
 
-File: `../stoai-society/src/stoai_society/permissions.py`
+File: `../lingtai-society/src/lingtai_society/permissions.py`
 
 ```python
 """Permission checks for social agent outgoing/incoming email."""
@@ -1064,7 +1064,7 @@ def check_incoming(
 - [ ] **Step 4: Run tests to verify they pass**
 
 ```bash
-cd ../stoai-society && python -m pytest tests/test_permissions.py -v
+cd ../lingtai-society && python -m pytest tests/test_permissions.py -v
 ```
 
 Expected: All PASS.
@@ -1072,13 +1072,13 @@ Expected: All PASS.
 - [ ] **Step 5: Smoke-test import**
 
 ```bash
-cd ../stoai-society && python -c "from stoai_society.permissions import check_outgoing, check_incoming, IncomingVerdict; print('OK')"
+cd ../lingtai-society && python -c "from lingtai_society.permissions import check_outgoing, check_incoming, IncomingVerdict; print('OK')"
 ```
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd ../stoai-society && git add -A && git commit -m "feat: permissions — outgoing/incoming checks"
+cd ../lingtai-society && git add -A && git commit -m "feat: permissions — outgoing/incoming checks"
 ```
 
 ---
@@ -1086,15 +1086,15 @@ cd ../stoai-society && git add -A && git commit -m "feat: permissions — outgoi
 ### Task 6: SocialAgent — core wrapper with tool dispatch
 
 **Files:**
-- Create: `../stoai-society/src/stoai_society/social_agent.py`
-- Create: `../stoai-society/tests/test_social_agent.py`
-- Modify: `../stoai-society/src/stoai_society/__init__.py`
+- Create: `../lingtai-society/src/lingtai_society/social_agent.py`
+- Create: `../lingtai-society/tests/test_social_agent.py`
+- Modify: `../lingtai-society/src/lingtai_society/__init__.py`
 
 This is the main class. It wraps BaseAgent+email, replaces the email tool with a social tool, and intercepts incoming email. This task covers the core wiring and messaging actions (send, broadcast, check, read, reply, reply_all, search). Friend and group tool actions are wired to ContactStore methods. Invitation/introduction handling is Task 7.
 
 - [ ] **Step 1: Write failing tests for SocialAgent construction and messaging**
 
-File: `../stoai-society/tests/test_social_agent.py`
+File: `../lingtai-society/tests/test_social_agent.py`
 
 ```python
 """Tests for SocialAgent — uses mocked BaseAgent."""
@@ -1106,7 +1106,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from stoai_society.social_agent import SocialAgent
+from lingtai_society.social_agent import SocialAgent
 
 
 def _make_mock_agent(agent_id: str = "alice", tmp_path: Path | None = None) -> tuple[MagicMock, MagicMock]:
@@ -1210,14 +1210,14 @@ def test_search_delegates(social: SocialAgent) -> None:
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd ../stoai-society && python -m pytest tests/test_social_agent.py -v
+cd ../lingtai-society && python -m pytest tests/test_social_agent.py -v
 ```
 
 Expected: FAIL.
 
 - [ ] **Step 3: Implement SocialAgent core**
 
-File: `../stoai-society/src/stoai_society/social_agent.py`
+File: `../lingtai-society/src/lingtai_society/social_agent.py`
 
 ```python
 """SocialAgent — social networking wrapper around BaseAgent + email.
@@ -1236,7 +1236,7 @@ from .contacts import ContactStore
 from .permissions import check_incoming, check_outgoing, IncomingVerdict
 
 if TYPE_CHECKING:
-    from stoai.agent import BaseAgent
+    from lingtai.agent import BaseAgent
 
 SCHEMA = {
     "type": "object",
@@ -1780,7 +1780,7 @@ class SocialAgent:
             f'Use social(action="reject", invitation_id="{inv_id}") to reject.'
         )
 
-        from stoai.agent import _make_message, MSG_REQUEST
+        from lingtai.agent import _make_message, MSG_REQUEST
         msg = _make_message(MSG_REQUEST, from_address, notification)
         self._agent.inbox.put(msg)
 
@@ -1843,7 +1843,7 @@ class SocialAgent:
             f'Use social(action="reject", invitation_id="{inv_id}") to decline.'
         )
 
-        from stoai.agent import _make_message, MSG_REQUEST
+        from lingtai.agent import _make_message, MSG_REQUEST
         msg = _make_message(MSG_REQUEST, payload.get("from", ""), notification)
         self._agent.inbox.put(msg)
 
@@ -1858,7 +1858,7 @@ class SocialAgent:
 - [ ] **Step 4: Update __init__.py**
 
 ```python
-"""stoai-society — social networking primitives for stoai agents."""
+"""lingtai-society — social networking primitives for lingtai agents."""
 from __future__ import annotations
 
 from .social_agent import SocialAgent
@@ -1869,7 +1869,7 @@ __all__ = ["SocialAgent"]
 - [ ] **Step 5: Run tests to verify they pass**
 
 ```bash
-cd ../stoai-society && python -m pytest tests/test_social_agent.py -v
+cd ../lingtai-society && python -m pytest tests/test_social_agent.py -v
 ```
 
 Expected: All PASS.
@@ -1877,13 +1877,13 @@ Expected: All PASS.
 - [ ] **Step 6: Smoke-test import**
 
 ```bash
-cd ../stoai-society && python -c "from stoai_society import SocialAgent; print('OK')"
+cd ../lingtai-society && python -c "from lingtai_society import SocialAgent; print('OK')"
 ```
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd ../stoai-society && git add -A && git commit -m "feat: SocialAgent — core wrapper with messaging, friends, groups, invitations"
+cd ../lingtai-society && git add -A && git commit -m "feat: SocialAgent — core wrapper with messaging, friends, groups, invitations"
 ```
 
 ---
@@ -1893,10 +1893,10 @@ cd ../stoai-society && git add -A && git commit -m "feat: SocialAgent — core w
 ### Task 7: Institution base class
 
 **Files:**
-- Create: `../stoai-society/src/stoai_society/institution.py`
-- Create: `../stoai-society/tests/test_institution.py`
-- Modify: `../stoai-society/src/stoai_society/contacts.py` (add subscriber methods)
-- Modify: `../stoai-society/src/stoai_society/__init__.py`
+- Create: `../lingtai-society/src/lingtai_society/institution.py`
+- Create: `../lingtai-society/tests/test_institution.py`
+- Modify: `../lingtai-society/src/lingtai_society/contacts.py` (add subscriber methods)
+- Modify: `../lingtai-society/src/lingtai_society/__init__.py`
 
 - [ ] **Step 1: Add subscriber methods to ContactStore**
 
@@ -1933,7 +1933,7 @@ def test_get_subscriber_addresses(store: ContactStore) -> None:
 - [ ] **Step 2: Run new subscriber tests to verify they fail**
 
 ```bash
-cd ../stoai-society && python -m pytest tests/test_contacts.py -v -k "subscriber"
+cd ../lingtai-society && python -m pytest tests/test_contacts.py -v -k "subscriber"
 ```
 
 Expected: FAIL.
@@ -2001,14 +2001,14 @@ Add to `contacts.py`:
 - [ ] **Step 4: Run subscriber tests**
 
 ```bash
-cd ../stoai-society && python -m pytest tests/test_contacts.py -v -k "subscriber"
+cd ../lingtai-society && python -m pytest tests/test_contacts.py -v -k "subscriber"
 ```
 
 Expected: All PASS.
 
 - [ ] **Step 5: Write failing tests for Institution**
 
-File: `../stoai-society/tests/test_institution.py`
+File: `../lingtai-society/tests/test_institution.py`
 
 ```python
 from __future__ import annotations
@@ -2018,7 +2018,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai_society.institution import Institution
+from lingtai_society.institution import Institution
 
 
 def _make_mock_agent(agent_id: str, tmp_path: Path) -> tuple[MagicMock, MagicMock]:
@@ -2113,14 +2113,14 @@ def test_publish_to_subscribers(inst: Institution) -> None:
 - [ ] **Step 6: Run institution tests to verify they fail**
 
 ```bash
-cd ../stoai-society && python -m pytest tests/test_institution.py -v
+cd ../lingtai-society && python -m pytest tests/test_institution.py -v
 ```
 
 Expected: FAIL.
 
 - [ ] **Step 7: Implement Institution**
 
-File: `../stoai-society/src/stoai_society/institution.py`
+File: `../lingtai-society/src/lingtai_society/institution.py`
 
 ```python
 """Institution — public-facing social agent with subscriber management.
@@ -2140,7 +2140,7 @@ from .social_agent import SocialAgent
 from .permissions import check_incoming, IncomingVerdict
 
 if TYPE_CHECKING:
-    from stoai.agent import BaseAgent
+    from lingtai.agent import BaseAgent
 
 
 class Institution(SocialAgent):
@@ -2284,7 +2284,7 @@ class Institution(SocialAgent):
 - [ ] **Step 8: Update __init__.py**
 
 ```python
-"""stoai-society — social networking primitives for stoai agents."""
+"""lingtai-society — social networking primitives for lingtai agents."""
 from __future__ import annotations
 
 from .social_agent import SocialAgent
@@ -2296,7 +2296,7 @@ __all__ = ["SocialAgent", "Institution"]
 - [ ] **Step 9: Run all tests**
 
 ```bash
-cd ../stoai-society && python -m pytest tests/ -v
+cd ../lingtai-society && python -m pytest tests/ -v
 ```
 
 Expected: All PASS.
@@ -2304,13 +2304,13 @@ Expected: All PASS.
 - [ ] **Step 10: Smoke-test imports**
 
 ```bash
-cd ../stoai-society && python -c "from stoai_society import SocialAgent, Institution; print('OK')"
+cd ../lingtai-society && python -c "from lingtai_society import SocialAgent, Institution; print('OK')"
 ```
 
 - [ ] **Step 11: Commit**
 
 ```bash
-cd ../stoai-society && git add -A && git commit -m "feat: Institution — subscriber management and public message routing"
+cd ../lingtai-society && git add -A && git commit -m "feat: Institution — subscriber management and public message routing"
 ```
 
 ---
@@ -2320,20 +2320,20 @@ cd ../stoai-society && git add -A && git commit -m "feat: Institution — subscr
 ### Task 8: Village example
 
 **Files:**
-- Create: `../stoai-society/examples/village.py`
-- Create: `../stoai-society/examples/institutions/news.py`
+- Create: `../lingtai-society/examples/village.py`
+- Create: `../lingtai-society/examples/institutions/news.py`
 
 This is a demonstration script — not production code. It creates a small society of agents and a news institution to showcase the social features.
 
 - [ ] **Step 1: Create NewsAgent example institution**
 
-File: `../stoai-society/examples/institutions/news.py`
+File: `../lingtai-society/examples/institutions/news.py`
 
 ```python
 """NewsAgent — example institution that publishes submitted news."""
 from __future__ import annotations
 
-from stoai_society import Institution
+from lingtai_society import Institution
 
 
 class NewsAgent(Institution):
@@ -2354,9 +2354,9 @@ class NewsAgent(Institution):
 
 - [ ] **Step 2: Create village.py example**
 
-File: `../stoai-society/examples/village.py`
+File: `../lingtai-society/examples/village.py`
 
-A script that sets up Alice, Bob, Charlie, and a NewsAgent. Details depend on LLM provider available — structure follows `three_agents.py` from stoai but uses `SocialAgent` wrappers.
+A script that sets up Alice, Bob, Charlie, and a NewsAgent. Details depend on LLM provider available — structure follows `three_agents.py` from lingtai but uses `SocialAgent` wrappers.
 
 The village example should demonstrate:
 - Alice and Bob are friends (seeded)
@@ -2365,7 +2365,7 @@ The village example should demonstrate:
 - NewsAgent accepts submissions from anyone
 - Agents can subscribe to the news agent
 
-(Implementation follows the pattern of `stoai/examples/three_agents.py` — adapted for SocialAgent wrappers. The exact code should reference the current `three_agents.py` for LLM setup, HTTP handler, and HTML structure.)
+(Implementation follows the pattern of `lingtai/examples/three_agents.py` — adapted for SocialAgent wrappers. The exact code should reference the current `three_agents.py` for LLM setup, HTTP handler, and HTML structure.)
 
 - [ ] **Step 3: Create `examples/institutions/__init__.py`**
 
@@ -2376,13 +2376,13 @@ The village example should demonstrate:
 - [ ] **Step 4: Smoke-test that examples import correctly**
 
 ```bash
-cd ../stoai-society && python -c "from examples.institutions.news import NewsAgent; print('OK')"
+cd ../lingtai-society && python -c "from examples.institutions.news import NewsAgent; print('OK')"
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd ../stoai-society && git add -A && git commit -m "feat: village example with NewsAgent institution"
+cd ../lingtai-society && git add -A && git commit -m "feat: village example with NewsAgent institution"
 ```
 
 ---
@@ -2402,7 +2402,7 @@ cd ../stoai-society && git add -A && git commit -m "feat: village example with N
 - SocialAgent/Institution tests use mocked BaseAgent (no real LLM)
 - ContactStore tests are pure filesystem tests
 
-**Key stoai internals the implementer needs to know:**
+**Key lingtai internals the implementer needs to know:**
 - `agent.add_tool(name, schema=..., handler=..., description=...)` — registers a tool
 - `agent.remove_tool(name)` — unregisters a tool
 - `agent._on_normal_mail` — hook point replaced by email capability, then by social layer

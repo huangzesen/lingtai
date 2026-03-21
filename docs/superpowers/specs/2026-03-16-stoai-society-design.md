@@ -1,29 +1,29 @@
-# stoai-society — Design Spec
+# lingtai-society — Design Spec
 
 ## Problem
 
-StoAI provides peer-to-peer email communication between agents, but there's no social structure on top of it. Agents must hardcode addresses, have no concept of friendship or trust, and can't form persistent groups. At scale (hundreds or thousands of agents), this makes organic collaboration impossible — every agent would need to know every other agent's address.
+灵台 provides peer-to-peer email communication between agents, but there's no social structure on top of it. Agents must hardcode addresses, have no concept of friendship or trust, and can't form persistent groups. At scale (hundreds or thousands of agents), this makes organic collaboration impossible — every agent would need to know every other agent's address.
 
 ## Goal
 
-Create a standalone `stoai-society` package that adds social networking primitives on top of stoai's email infrastructure. Agents can maintain friend lists, form groups, send invitations, introduce contacts, and self-organize — all running on the existing email transport. Information spreads through the network organically via "spread the word" rather than central registries.
+Create a standalone `lingtai-society` package that adds social networking primitives on top of lingtai's email infrastructure. Agents can maintain friend lists, form groups, send invitations, introduce contacts, and self-organize — all running on the existing email transport. Information spreads through the network organically via "spread the word" rather than central registries.
 
 The package also provides an `Institution` base class for building public-facing agents (news services, forums, etc.) that accept messages from non-friends and publish to subscribers.
 
 ## Non-Goals
 
 - No central directory or registry — discovery is organic (introductions, word of mouth)
-- No changes to stoai's kernel (`src/stoai/`) — this is a separate package
+- No changes to lingtai's kernel (`src/lingtai/`) — this is a separate package
 - No new transport layer — everything runs on email
-- No pip publishing yet — local development at `../stoai-society/`
+- No pip publishing yet — local development at `../lingtai-society/`
 
 ## Design
 
 ### 1. Package Structure
 
 ```
-../stoai-society/
-├── src/stoai_society/
+../lingtai-society/
+├── src/lingtai_society/
 │   ├── __init__.py          # exports SocialAgent, Institution
 │   ├── social_agent.py      # SocialAgent wrapper
 │   ├── institution.py       # Institution base class
@@ -34,7 +34,7 @@ The package also provides an `Institution` base class for building public-facing
 │   └── institutions/
 │       ├── news.py          # NewsAgent example
 │       └── forum.py         # Forum example
-├── pyproject.toml           # depends on stoai
+├── pyproject.toml           # depends on lingtai
 └── tests/
 ```
 
@@ -43,8 +43,8 @@ The package also provides an `Institution` base class for building public-facing
 `SocialAgent` wraps an existing `BaseAgent` that has the email capability loaded. It replaces the `email` tool with a `social` tool and intercepts incoming/outgoing email for permission enforcement.
 
 ```python
-from stoai import BaseAgent
-from stoai_society import SocialAgent
+from lingtai import BaseAgent
+from lingtai_society import SocialAgent
 
 agent = BaseAgent(agent_id="alice", service=llm, mail_service=mail, ...)
 agent.add_capability("email")
@@ -413,10 +413,10 @@ The Institution adds `publish` and `subscribers` actions to the social tool. Sub
 `examples/village.py` demonstrates a small society:
 
 ```python
-from stoai import BaseAgent, AgentConfig
-from stoai.llm import LLMService
-from stoai.services.mail import TCPMailService
-from stoai_society import SocialAgent, Institution
+from lingtai import BaseAgent, AgentConfig
+from lingtai.llm import LLMService
+from lingtai.services.mail import TCPMailService
+from lingtai_society import SocialAgent, Institution
 
 # Create agents
 alice_base = BaseAgent(agent_id="alice", service=llm, mail_service=..., ...)

@@ -20,7 +20,7 @@ export function Header({
   const activeCount = agents.filter((a) => a.status === "active").length;
   return (
     <div className="flex items-center gap-3 px-5 py-2.5 bg-panel border-b border-border">
-      <h1 className="text-base font-bold text-accent">StoAI</h1>
+      <h1 className="text-base font-bold text-accent">灵台</h1>
       <span className="text-xs text-text-dim">
         {agents.length} agent{agents.length !== 1 ? "s" : ""} · User
         mailbox :{userPort}

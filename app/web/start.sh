@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch StoAI web dashboard (backend + frontend dev server)
+# Launch 灵台 web dashboard (backend + frontend dev server)
 # Usage: ./app/web/start.sh [example]   (default: orchestrator)
 
 set -e

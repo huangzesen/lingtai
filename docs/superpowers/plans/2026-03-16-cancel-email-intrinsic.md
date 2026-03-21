@@ -6,7 +6,7 @@ Spec: `docs/superpowers/specs/2026-03-16-cancel-email-intrinsic-design.md`
 
 ### Step 1: Remove `cancel_event` from `llm_utils.py`
 
-**Files:** `src/stoai/llm_utils.py`
+**Files:** `src/lingtai/llm_utils.py`
 
 - Remove `cancel_event` param from `_send_with_retry`, `send_with_timeout`, `send_with_timeout_stream`
 - Remove the `_CancelledDuringLLM` exception class
@@ -15,7 +15,7 @@ Spec: `docs/superpowers/specs/2026-03-16-cancel-email-intrinsic-design.md`
 
 ### Step 2: Refactor `cancel_event` in `agent.py`
 
-**Files:** `src/stoai/agent.py`
+**Files:** `src/lingtai/agent.py`
 
 - Remove `cancel_event` constructor parameter
 - Add `admin: bool = False` constructor parameter, store as `self._admin`
@@ -28,7 +28,7 @@ Spec: `docs/superpowers/specs/2026-03-16-cancel-email-intrinsic-design.md`
 
 ### Step 3: Modify `_on_mail_received` for cancel emails
 
-**Files:** `src/stoai/agent.py`
+**Files:** `src/lingtai/agent.py`
 
 - At the top of `_on_mail_received`, check `payload.get("type", "normal")`
 - If `"cancel"` and not `self._cancelling`: store payload in `self._cancel_mail`, set `self._cancel_event`, log `cancel_received`, return early
@@ -37,7 +37,7 @@ Spec: `docs/superpowers/specs/2026-03-16-cancel-email-intrinsic-design.md`
 
 ### Step 4: Implement diary flow in `_process_response`
 
-**Files:** `src/stoai/agent.py`
+**Files:** `src/lingtai/agent.py`
 
 - At the existing cancel check (line ~923), when `_cancel_event` is set and `_cancel_mail` is not None:
   - Set `self._cancelling = True`
@@ -50,14 +50,14 @@ Spec: `docs/superpowers/specs/2026-03-16-cancel-email-intrinsic-design.md`
 
 ### Step 5: Add cancel checks in tool execution paths
 
-**Files:** `src/stoai/agent.py`
+**Files:** `src/lingtai/agent.py`
 
 - In `_execute_tools_sequential`: add `_cancel_event` check between individual tool calls. If set, return empty results `([], False, "")`
 - In `_execute_tools_parallel`: when cancel is detected (existing break), return empty results instead of building partial results
 
 ### Step 6: Admin privilege gate for mail intrinsic
 
-**Files:** `src/stoai/agent.py` (mail handler), `src/stoai/capabilities/email.py`
+**Files:** `src/lingtai/agent.py` (mail handler), `src/lingtai/capabilities/email.py`
 
 - In `_handle_mail` (send action): if `self._admin` is True, allow `type` field in args; if False, strip or ignore `type` field
 - In email capability `setup()`: read agent's `_admin` flag, conditionally include `type` in schema

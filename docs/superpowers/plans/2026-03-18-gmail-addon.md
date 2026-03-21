@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a `gmail` addon that gives a StoAI agent a `gmail` tool backed by real email via Gmail IMAP/SMTP. Separate mailbox from inter-agent `email`. An internal TCP bridge port lets other agents relay messages outward via Gmail.
+**Goal:** Add a `gmail` addon that gives a 灵台 agent a `gmail` tool backed by real email via Gmail IMAP/SMTP. Separate mailbox from inter-agent `email`. An internal TCP bridge port lets other agents relay messages outward via Gmail.
 
 **Architecture:**
 - **Addon infrastructure** — new extension tier on `Agent`. Addons are set up after capabilities (may depend on them). Addon managers can implement `start()` and `stop()` hooks called by `Agent.start()`/`Agent.stop()`. This keeps listeners out of `__init__`.
@@ -52,7 +52,7 @@ email(action="send", address="127.0.0.1:8399", message="hello",
       subject="hi")
 ```
 
-But this puts `to: ["127.0.0.1:8399"]` in the StoAI payload — wrong for SMTP routing. So the bridge convention is:
+But this puts `to: ["127.0.0.1:8399"]` in the 灵台 payload — wrong for SMTP routing. So the bridge convention is:
 
 **The bridge reads `_external_to` from the payload. If absent, falls back to `to`.**
 
@@ -94,11 +94,11 @@ Every response includes:
 
 | File | Responsibility |
 |------|---------------|
-| `src/stoai/addons/__init__.py` | Addon registry + `setup_addon()` |
-| `src/stoai/addons/gmail/__init__.py` | `setup(agent, **kwargs)` — creates services + manager, registers tool |
-| `src/stoai/addons/gmail/service.py` | `GoogleMailService(MailService)` — IMAP poll + SMTP send |
-| `src/stoai/addons/gmail/manager.py` | `GmailManager` — mailbox, tool handler, bridge, start/stop lifecycle |
-| `src/stoai/agent.py` | Add `addons=` parameter, start/stop hooks |
+| `src/lingtai/addons/__init__.py` | Addon registry + `setup_addon()` |
+| `src/lingtai/addons/gmail/__init__.py` | `setup(agent, **kwargs)` — creates services + manager, registers tool |
+| `src/lingtai/addons/gmail/service.py` | `GoogleMailService(MailService)` — IMAP poll + SMTP send |
+| `src/lingtai/addons/gmail/manager.py` | `GmailManager` — mailbox, tool handler, bridge, start/stop lifecycle |
+| `src/lingtai/agent.py` | Add `addons=` parameter, start/stop hooks |
 | `tests/test_addons.py` | Addon infrastructure tests |
 | `tests/test_addon_gmail_service.py` | GoogleMailService unit tests |
 | `tests/test_addon_gmail_manager.py` | GmailManager unit tests |
@@ -112,8 +112,8 @@ Every response includes:
 ### Task 1: Addon infrastructure
 
 **Files:**
-- Create: `src/stoai/addons/__init__.py`
-- Modify: `src/stoai/agent.py`
+- Create: `src/lingtai/addons/__init__.py`
+- Modify: `src/lingtai/agent.py`
 - Test: `tests/test_addons.py`
 
 - [ ] **Step 1: Write failing test**
@@ -125,13 +125,13 @@ from unittest.mock import MagicMock
 
 
 def test_addon_registry():
-    from stoai.addons import _BUILTIN
+    from lingtai.addons import _BUILTIN
     assert "gmail" in _BUILTIN
 
 
 def test_agent_addon_lifecycle():
     """Addon managers with start/stop should be called at the right time."""
-    from stoai.agent import Agent
+    from lingtai.agent import Agent
 
     # Verify Agent accepts addons parameter
     # (can't actually construct without LLM, just check the class)
@@ -148,7 +148,7 @@ Expected: FAIL
 - [ ] **Step 3: Create addon registry**
 
 ```python
-# src/stoai/addons/__init__.py
+# src/lingtai/addons/__init__.py
 """Add-ons — optional extensions that may depend on capabilities.
 
 Add-ons are set up after capabilities. They use the same
@@ -200,7 +200,7 @@ def setup_addon(agent: "BaseAgent", name: str, **kwargs: Any) -> Any:
 
 - [ ] **Step 4: Add addons to Agent**
 
-In `src/stoai/agent.py`, add `addons` parameter to `__init__`, set up after capabilities. Override `start()` and `stop()` to call addon lifecycle hooks.
+In `src/lingtai/agent.py`, add `addons` parameter to `__init__`, set up after capabilities. Override `start()` and `stop()` to call addon lifecycle hooks.
 
 ```python
 # In Agent.__init__ signature:
@@ -247,16 +247,16 @@ Expected: PASS
 
 - [ ] **Step 6: Smoke-test**
 
-Run: `python -c "from stoai.addons import setup_addon; print('OK')"`
+Run: `python -c "from lingtai.addons import setup_addon; print('OK')"`
 Expected: `OK`
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 Expected: no errors
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/addons/__init__.py src/stoai/agent.py tests/test_addons.py
+git add src/lingtai/addons/__init__.py src/lingtai/agent.py tests/test_addons.py
 git commit -m "feat: add addon infrastructure — extension tier with lifecycle hooks"
 ```
 
@@ -265,8 +265,8 @@ git commit -m "feat: add addon infrastructure — extension tier with lifecycle 
 ### Task 2: GoogleMailService
 
 **Files:**
-- Create: `src/stoai/addons/gmail/service.py`
-- Create: `src/stoai/addons/gmail/__init__.py` (empty placeholder)
+- Create: `src/lingtai/addons/gmail/service.py`
+- Create: `src/lingtai/addons/gmail/__init__.py` (empty placeholder)
 - Test: `tests/test_addon_gmail_service.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -275,7 +275,7 @@ git commit -m "feat: add addon infrastructure — extension tier with lifecycle 
 # tests/test_addon_gmail_service.py
 from __future__ import annotations
 from unittest.mock import patch, MagicMock
-from stoai.addons.gmail.service import GoogleMailService
+from lingtai.addons.gmail.service import GoogleMailService
 
 
 def test_construction():
@@ -291,7 +291,7 @@ def test_send_via_smtp():
         gmail_address="agent@gmail.com",
         gmail_password="test",
     )
-    with patch("stoai.addons.gmail.service.smtplib.SMTP") as MockSMTP:
+    with patch("lingtai.addons.gmail.service.smtplib.SMTP") as MockSMTP:
         mock_smtp = MagicMock()
         MockSMTP.return_value.__enter__ = MagicMock(return_value=mock_smtp)
         MockSMTP.return_value.__exit__ = MagicMock(return_value=False)
@@ -338,12 +338,12 @@ Run: `python -m pytest tests/test_addon_gmail_service.py -v`
 
 - [ ] **Step 3: Implement GoogleMailService**
 
-Create `src/stoai/addons/gmail/__init__.py` as empty placeholder:
+Create `src/lingtai/addons/gmail/__init__.py` as empty placeholder:
 ```python
 # Setup function implemented after manager is ready.
 ```
 
-Create `src/stoai/addons/gmail/service.py` with the `GoogleMailService` class. Key points:
+Create `src/lingtai/addons/gmail/service.py` with the `GoogleMailService` class. Key points:
 - Subclasses `MailService` from `...services.mail`
 - `send()` uses SMTP with TLS
 - `listen()` starts IMAP poll thread
@@ -367,12 +367,12 @@ Expected: PASS
 
 - [ ] **Step 5: Smoke-test**
 
-Run: `python -c "from stoai.addons.gmail.service import GoogleMailService; print('OK')"`
+Run: `python -c "from lingtai.addons.gmail.service import GoogleMailService; print('OK')"`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/addons/gmail/__init__.py src/stoai/addons/gmail/service.py tests/test_addon_gmail_service.py
+git add src/lingtai/addons/gmail/__init__.py src/lingtai/addons/gmail/service.py tests/test_addon_gmail_service.py
 git commit -m "feat: GoogleMailService — Gmail IMAP/SMTP MailService implementation"
 ```
 
@@ -381,8 +381,8 @@ git commit -m "feat: GoogleMailService — Gmail IMAP/SMTP MailService implement
 ### Task 3: GmailManager + addon setup
 
 **Files:**
-- Create: `src/stoai/addons/gmail/manager.py`
-- Modify: `src/stoai/addons/gmail/__init__.py`
+- Create: `src/lingtai/addons/gmail/manager.py`
+- Modify: `src/lingtai/addons/gmail/__init__.py`
 - Test: `tests/test_addon_gmail_manager.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -393,7 +393,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from unittest.mock import MagicMock
-from stoai.addons.gmail.manager import GmailManager
+from lingtai.addons.gmail.manager import GmailManager
 
 
 def test_check_returns_tcp_alias(tmp_path):
@@ -485,7 +485,7 @@ Run: `python -m pytest tests/test_addon_gmail_manager.py -v`
 
 - [ ] **Step 3: Implement GmailManager**
 
-Create `src/stoai/addons/gmail/manager.py` with:
+Create `src/lingtai/addons/gmail/manager.py` with:
 - Tool schema (same actions as email: send, check, read, reply, search, contacts, add/remove/edit_contact)
 - `GmailManager` class with:
   - `__init__(agent, gmail_service, tcp_alias)` — stores refs, no listeners started
@@ -500,7 +500,7 @@ The `on_gmail_received` method should also set `msg._email_notification` for bat
 
 - [ ] **Step 4: Implement addon setup**
 
-Replace `src/stoai/addons/gmail/__init__.py`:
+Replace `src/lingtai/addons/gmail/__init__.py`:
 
 ```python
 """Gmail addon — real email via Gmail IMAP/SMTP.
@@ -626,13 +626,13 @@ Expected: PASS
 
 - [ ] **Step 7: Smoke-test**
 
-Run: `python -c "from stoai.addons.gmail import setup; print('OK')"`
-Run: `python -c "import stoai"`
+Run: `python -c "from lingtai.addons.gmail import setup; print('OK')"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/stoai/addons/gmail/manager.py src/stoai/addons/gmail/__init__.py tests/test_addon_gmail_manager.py
+git add src/lingtai/addons/gmail/manager.py src/lingtai/addons/gmail/__init__.py tests/test_addon_gmail_manager.py
 git commit -m "feat: gmail addon — GmailManager + tool + TCP bridge"
 ```
 
@@ -715,7 +715,7 @@ git commit -m "refactor: email launcher uses gmail addon, remove bridge"
 - [ ] **Step 1: Clear old state**
 
 ```bash
-rm -rf ~/.stoai/email
+rm -rf ~/.lingtai/email
 ```
 
 - [ ] **Step 2: Launch**
@@ -731,7 +731,7 @@ Expected:
   Gmail:      stoaiagent@gmail.com
   Bridge:     127.0.0.1:8399 (TCP → Gmail)
   Accepts:    huangzs1997@gmail.com
-  Data:       /Users/huangzesen/.stoai/email
+  Data:       /Users/huangzesen/.lingtai/email
 ```
 
 - [ ] **Step 3: Send email from personal Gmail to stoaiagent@gmail.com**

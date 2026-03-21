@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai_kernel.base_agent import BaseAgent
+from lingtai_kernel.base_agent import BaseAgent
 
 
 def make_mock_service():
@@ -95,7 +95,7 @@ def test_eigen_memory_load_empty(tmp_path):
 
 def test_eigen_molt_uses_summary(tmp_path):
     """molt wipes context and re-injects agent's summary."""
-    from stoai_kernel.llm.interface import ChatInterface, TextBlock
+    from lingtai_kernel.llm.interface import ChatInterface, TextBlock
 
     svc = make_mock_service()
 
@@ -162,8 +162,8 @@ def test_eigen_molt_rejects_missing_summary(tmp_path):
 
 def test_eigen_forget_wipes_context(tmp_path):
     """context_forget nuclear wipes the session."""
-    from stoai_kernel.llm.interface import ChatInterface, TextBlock
-    from stoai_kernel.intrinsics.eigen import context_forget
+    from lingtai_kernel.llm.interface import ChatInterface, TextBlock
+    from lingtai_kernel.intrinsics.eigen import context_forget
 
     svc = make_mock_service()
 

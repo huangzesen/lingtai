@@ -145,7 +145,7 @@ Role and ltm inherited from parent by default, overridable via delegate tool arg
 
 ## Affected Code
 
-### `src/stoai/agent.py`
+### `src/lingtai/agent.py`
 - Replace `working_dir` param with `base_dir`
 - Add `agent_id` validation
 - Add `working_dir` as computed property (`self._base_dir / self.agent_id`)
@@ -153,11 +153,11 @@ Role and ltm inherited from parent by default, overridable via delegate tool arg
 - Add `.agent.json` read/write in constructor and `stop()`
 - Resume logic: read manifest → apply role/ltm if not overridden by caller
 
-### `src/stoai/capabilities/delegate.py`
+### `src/lingtai/capabilities/delegate.py`
 - Pass `base_dir=parent._base_dir` instead of `working_dir=parent._working_dir`
 - Child gets its own peer folder
 
-### `src/stoai/services/mail.py`
+### `src/lingtai/services/mail.py`
 - `TCPMailService(working_dir=...)` — no change needed, receives the computed `working_dir`
 
 ### Capabilities (no code changes needed — audited)

@@ -2,7 +2,7 @@
 
 ## Overview
 
-A Telegram Bot API addon for StoAI, enabling agents to interact with Telegram users for customer service. Follows the IMAP addon's three-class pattern (Account, Service, Manager). Supports multi-account (multiple bot tokens), text + images + documents, inline keyboards, and long polling for updates.
+A Telegram Bot API addon for 灵台, enabling agents to interact with Telegram users for customer service. Follows the IMAP addon's three-class pattern (Account, Service, Manager). Supports multi-account (multiple bot tokens), text + images + documents, inline keyboards, and long polling for updates.
 
 **Standalone tool** — no bridge to the inter-agent mail system. The `telegram` tool is a separate channel, like how humans treat email and Telegram as naturally different. `TelegramService` does not implement `MailService` — it is not a mail transport. There is no TCP bridge.
 
@@ -11,7 +11,7 @@ A Telegram Bot API addon for StoAI, enabling agents to interact with Telegram us
 ### File Structure
 
 ```
-src/stoai/addons/telegram/
+src/lingtai/addons/telegram/
 ├── __init__.py      # setup(agent, **kwargs), config parsing
 ├── account.py       # TelegramAccount — per-bot connection + polling
 ├── service.py       # TelegramService — multi-account orchestrator
@@ -36,7 +36,7 @@ src/stoai/addons/telegram/
 
 ### Dependency
 
-`httpx` for Bot API HTTP calls. Chosen over stdlib `urllib.request` for multipart file upload ergonomics (photo/document sends) and connection pooling for long-poll requests. No Telegram SDK needed — the Bot API is straightforward REST. Added as optional: `pip install stoai[telegram]`.
+`httpx` for Bot API HTTP calls. Chosen over stdlib `urllib.request` for multipart file upload ergonomics (photo/document sends) and connection pooling for long-poll requests. No Telegram SDK needed — the Bot API is straightforward REST. Added as optional: `pip install lingtai[telegram]`.
 
 ## Tool Schema
 
@@ -305,7 +305,7 @@ addons={"telegram": {
 ### Addon Registration
 
 ```python
-# src/stoai/addons/__init__.py
+# src/lingtai/addons/__init__.py
 _BUILTIN = {
     "imap": ".imap",
     "telegram": ".telegram",
@@ -314,7 +314,7 @@ _BUILTIN = {
 
 ### Optional Dependency
 
-`pip install stoai[telegram]` adds `httpx` in `pyproject.toml`.
+`pip install lingtai[telegram]` adds `httpx` in `pyproject.toml`.
 
 ## Testing Strategy
 

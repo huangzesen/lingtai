@@ -1,9 +1,9 @@
-"""Tests for stoai.services.logging."""
+"""Tests for lingtai.services.logging."""
 import json
 import threading
 from pathlib import Path
 
-from stoai_kernel.services.logging import LoggingService, JSONLLoggingService
+from lingtai_kernel.services.logging import LoggingService, JSONLLoggingService
 
 
 class TestJSONLLoggingService:
@@ -104,9 +104,9 @@ class TestJSONLLoggingService:
 # ---------------------------------------------------------------------------
 
 from unittest.mock import MagicMock
-from stoai import BaseAgent, AgentState
-from stoai.llm import ToolCall
-from stoai_kernel.loop_guard import LoopGuard
+from lingtai import BaseAgent, AgentState
+from lingtai.llm import ToolCall
+from lingtai_kernel.loop_guard import LoopGuard
 
 
 def make_mock_service():
@@ -120,7 +120,7 @@ class TestBaseAgentLoggingIntegration:
 
     def test_tool_call_logged(self, tmp_path):
         """Executing a tool logs tool_call and tool_result events."""
-        from stoai_kernel.tool_executor import ToolExecutor
+        from lingtai_kernel.tool_executor import ToolExecutor
 
         agent = BaseAgent(
             agent_name="test",
@@ -157,7 +157,7 @@ class TestBaseAgentLoggingIntegration:
 
     def test_auto_logging_to_working_dir(self, tmp_path):
         """Agent always creates JSONL log in working dir."""
-        from stoai_kernel.tool_executor import ToolExecutor
+        from lingtai_kernel.tool_executor import ToolExecutor
 
         agent = BaseAgent(
             agent_name="test",

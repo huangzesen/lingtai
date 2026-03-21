@@ -14,8 +14,8 @@
 
 | File | Responsibility |
 |------|---------------|
-| Modify: `src/stoai/capabilities/anima.py` | Replace memory actions with library + memory objects, new entry shape, new actions (filter, view, delete) |
-| Modify: `src/stoai/base_agent.py` | Skip `memory.md` persistence in `stop()` when anima owns it; handle `ltm` migration |
+| Modify: `src/lingtai/capabilities/anima.py` | Replace memory actions with library + memory objects, new entry shape, new actions (filter, view, delete) |
+| Modify: `src/lingtai/base_agent.py` | Skip `memory.md` persistence in `stop()` when anima owns it; handle `ltm` migration |
 | Modify: `tests/test_anima.py` | Replace all memory tests with library + memory tests |
 
 ## Design Reference
@@ -68,7 +68,7 @@ context:  compact                       (unchanged)
 ## Task 1: Update SCHEMA and DESCRIPTION constants
 
 **Files:**
-- Modify: `src/stoai/capabilities/anima.py:25-85`
+- Modify: `src/lingtai/capabilities/anima.py:25-85`
 
 - [ ] **Step 1: Write failing test for new schema structure**
 
@@ -77,7 +77,7 @@ context:  compact                       (unchanged)
 
 def test_anima_schema_has_library_fields():
     """Schema should include title, summary, supplementary, pattern, limit, depth."""
-    from stoai.capabilities.anima import SCHEMA
+    from lingtai.capabilities.anima import SCHEMA
     props = SCHEMA["properties"]
     assert "title" in props
     assert "summary" in props
@@ -224,13 +224,13 @@ Expected: PASS
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `python -c "from stoai.capabilities.anima import SCHEMA, DESCRIPTION; print('OK')"`
+Run: `python -c "from lingtai.capabilities.anima import SCHEMA, DESCRIPTION; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/anima.py tests/test_anima.py
+git add src/lingtai/capabilities/anima.py tests/test_anima.py
 git commit -m "refactor(anima): update schema for library/memory split"
 ```
 
@@ -239,7 +239,7 @@ git commit -m "refactor(anima): update schema for library/memory split"
 ## Task 2: Add `_anima_owns_memory` flag to BaseAgent
 
 **Files:**
-- Modify: `src/stoai/base_agent.py:343-348` (stop method)
+- Modify: `src/lingtai/base_agent.py:343-348` (stop method)
 - Modify: `tests/test_anima.py`
 
 **Why:** `BaseAgent.stop()` unconditionally writes the `memory` prompt section back to `system/memory.md`. When anima is active, anima owns `memory.md` (rendering it from selected library entries via `memory load`). If `stop()` overwrites it, the git-committed version becomes dirty. Worse, if the agent never called `memory load` this session, `stop()` writes an empty file, wiping memory from the previous session.
@@ -303,13 +303,13 @@ Expected: PASS
 
 - [ ] **Step 6: Smoke-test import**
 
-Run: `python -c "import stoai; print('OK')"`
+Run: `python -c "import lingtai; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/base_agent.py src/stoai/capabilities/anima.py tests/test_anima.py
+git add src/lingtai/base_agent.py src/lingtai/capabilities/anima.py tests/test_anima.py
 git commit -m "fix(anima): prevent stop() from overwriting memory.md when anima active"
 ```
 
@@ -318,7 +318,7 @@ git commit -m "fix(anima): prevent stop() from overwriting memory.md when anima 
 ## Task 3: Rename backing store, add `re` import, update entry shape, and migrate ltm
 
 **Files:**
-- Modify: `src/stoai/capabilities/anima.py:88-160` (AnimaManager.__init__, persistence methods)
+- Modify: `src/lingtai/capabilities/anima.py:88-160` (AnimaManager.__init__, persistence methods)
 - Modify: `tests/test_anima.py`
 
 - [ ] **Step 1: Write failing test for new entry shape**
@@ -487,7 +487,7 @@ Expected: PASS
 
 - [ ] **Step 6: Smoke-test import**
 
-Run: `python -c "import stoai.capabilities.anima; print('OK')"`
+Run: `python -c "import lingtai.capabilities.anima; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 7: Write test for ltm migration**
@@ -543,13 +543,13 @@ Expected: PASS
 
 - [ ] **Step 10: Smoke-test import**
 
-Run: `python -c "import stoai.capabilities.anima; print('OK')"`
+Run: `python -c "import lingtai.capabilities.anima; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 11: Commit**
 
 ```bash
-git add src/stoai/capabilities/anima.py tests/test_anima.py
+git add src/lingtai/capabilities/anima.py tests/test_anima.py
 git commit -m "refactor(anima): library.json backing store, structured entries, ltm migration"
 ```
 
@@ -558,7 +558,7 @@ git commit -m "refactor(anima): library.json backing store, structured entries, 
 ## Task 4: Implement library filter action
 
 **Files:**
-- Modify: `src/stoai/capabilities/anima.py`
+- Modify: `src/lingtai/capabilities/anima.py`
 - Modify: `tests/test_anima.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -690,7 +690,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/capabilities/anima.py tests/test_anima.py
+git add src/lingtai/capabilities/anima.py tests/test_anima.py
 git commit -m "feat(anima): add library filter action with regex and limit"
 ```
 
@@ -699,7 +699,7 @@ git commit -m "feat(anima): add library filter action with regex and limit"
 ## Task 5: Implement library view action with depth
 
 **Files:**
-- Modify: `src/stoai/capabilities/anima.py`
+- Modify: `src/lingtai/capabilities/anima.py`
 - Modify: `tests/test_anima.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -828,7 +828,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/capabilities/anima.py tests/test_anima.py
+git add src/lingtai/capabilities/anima.py tests/test_anima.py
 git commit -m "feat(anima): add library view action with depth control"
 ```
 
@@ -837,7 +837,7 @@ git commit -m "feat(anima): add library view action with depth control"
 ## Task 6: Implement library consolidate and delete actions
 
 **Files:**
-- Modify: `src/stoai/capabilities/anima.py`
+- Modify: `src/lingtai/capabilities/anima.py`
 - Modify: `tests/test_anima.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -1013,7 +1013,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/capabilities/anima.py tests/test_anima.py
+git add src/lingtai/capabilities/anima.py tests/test_anima.py
 git commit -m "feat(anima): add library consolidate and delete actions"
 ```
 
@@ -1022,7 +1022,7 @@ git commit -m "feat(anima): add library consolidate and delete actions"
 ## Task 7: Implement memory load with selective IDs
 
 **Files:**
-- Modify: `src/stoai/capabilities/anima.py`
+- Modify: `src/lingtai/capabilities/anima.py`
 - Modify: `tests/test_anima.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -1209,7 +1209,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/capabilities/anima.py tests/test_anima.py
+git add src/lingtai/capabilities/anima.py tests/test_anima.py
 git commit -m "feat(anima): selective memory load from library entries"
 ```
 
@@ -1317,7 +1317,7 @@ Expected: ALL PASS
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `python -c "import stoai.capabilities.anima; print('OK')"`
+Run: `python -c "import lingtai.capabilities.anima; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 6: Commit**
@@ -1340,7 +1340,7 @@ Expected: ALL PASS — no other tests should break since anima is self-contained
 
 - [ ] **Step 2: Final smoke-test**
 
-Run: `python -c "import stoai; print('OK')"`
+Run: `python -c "import lingtai; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 3: Final commit if any fixups needed**

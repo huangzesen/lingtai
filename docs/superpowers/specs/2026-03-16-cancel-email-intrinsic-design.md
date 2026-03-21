@@ -2,7 +2,7 @@
 
 ## Problem
 
-StoAI agents run synchronous tool-call loops. There is no way to externally interrupt an agent mid-work via the mail system. The current `cancel_event` is an externally injected `threading.Event` — a low-level threading primitive that doesn't fit the StoAI communication model where all interactions (including with users) happen via email.
+灵台 agents run synchronous tool-call loops. There is no way to externally interrupt an agent mid-work via the mail system. The current `cancel_event` is an externally injected `threading.Event` — a low-level threading primitive that doesn't fit the 灵台 communication model where all interactions (including with users) happen via email.
 
 ## Goal
 

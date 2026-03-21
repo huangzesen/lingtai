@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the `daemon` Go CLI binary — the stoai product frontend with Bubble Tea TUI, setup wizard, and spirit management.
+**Goal:** Build the `daemon` Go CLI binary — the lingtai product frontend with Bubble Tea TUI, setup wizard, and spirit management.
 
 **Architecture:** Bottom-up: config loader → TCP mail client → agent process manager → manage command → setup wizard → interactive TUI. Each package is independent and testable. The TUI consumes all lower layers.
 
@@ -25,13 +25,13 @@
 6. **`MailClient.Send` opens a new connection per message — this is intentional.** Document it in a comment: each send is a fresh TCP connection (connect → read banner → send → close). No persistent connection needed since user messages are infrequent.
 
 **Key conventions:**
-- Go module: `stoai-daemon` (in `daemon/` subdirectory)
+- Go module: `lingtai-daemon` (in `daemon/` subdirectory)
 - Package naming: `internal/` for non-exported packages
 - Tests: `_test.go` in same package
 - Error handling: return errors, don't panic
 - i18n: string map from day 0 (`internal/i18n/`)
 
-**Wire protocol reference:** stoai's `TCPMailService` uses:
+**Wire protocol reference:** lingtai's `TCPMailService` uses:
 1. Server sends `STOAI {banner}\n` on connect
 2. Client reads and discards banner line
 3. Client sends `[4-byte big-endian length][JSON bytes]`
@@ -54,7 +54,7 @@ Initialize Go module, create directory structure, implement config loading.
 
 ```bash
 cd daemon
-go mod init stoai-daemon
+go mod init lingtai-daemon
 ```
 
 - [ ] **Step 2: Create directory structure**
@@ -267,7 +267,7 @@ func Load(path string) (*Config, error) {
 	// Parse everything except "model" into Config struct
 	cfg := &Config{
 		AgentName: "orchestrator",
-		BaseDir:   "~/.stoai",
+		BaseDir:   "~/.lingtai",
 		MaxTurns:  50,
 		AgentPort: 8501,
 		CLI:       false,
@@ -283,7 +283,7 @@ func Load(path string) (*Config, error) {
 		cfg.AgentName = "orchestrator"
 	}
 	if cfg.BaseDir == "" {
-		cfg.BaseDir = "~/.stoai"
+		cfg.BaseDir = "~/.lingtai"
 	}
 	if cfg.MaxTurns == 0 {
 		cfg.MaxTurns = 50
@@ -507,7 +507,7 @@ git commit -m "feat(daemon): project scaffold + config loader with i18n"
 
 ### Task 2: TCP Mail Client
 
-Implement the stoai TCP mail protocol — connect, read banner, send/receive length-prefixed JSON.
+Implement the lingtai TCP mail protocol — connect, read banner, send/receive length-prefixed JSON.
 
 **Files:**
 - Create: `daemon/internal/agent/mail.go`
@@ -680,7 +680,7 @@ import (
 	"sync"
 )
 
-// MailClient sends messages to a stoai TCP mail server.
+// MailClient sends messages to a lingtai TCP mail server.
 type MailClient struct {
 	address string
 }
@@ -815,7 +815,7 @@ cd daemon && go test ./internal/agent/ -v -timeout 10s
 
 ```bash
 git add daemon/internal/agent/
-git commit -m "feat(daemon): TCP mail client + listener (stoai wire protocol)"
+git commit -m "feat(daemon): TCP mail client + listener (lingtai wire protocol)"
 ```
 
 ---
@@ -1220,7 +1220,7 @@ import (
 	"syscall"
 	"time"
 
-	"stoai-daemon/internal/i18n"
+	"lingtai-daemon/internal/i18n"
 )
 
 // Spirit represents a running (or stale) agent.
@@ -1329,7 +1329,7 @@ func formatDuration(d time.Duration) string {
 Update `main.go` case `"manage"`:
 ```go
 case "manage":
-    baseDir := "~/.stoai"
+    baseDir := "~/.lingtai"
     // check for --base-dir flag
     for i, arg := range args {
         if arg == "--base-dir" && i+1 < len(args) {
@@ -1829,12 +1829,12 @@ import (
 	"strings"
 	"syscall"
 
-	"stoai-daemon/internal/agent"
-	"stoai-daemon/internal/config"
-	"stoai-daemon/internal/i18n"
-	"stoai-daemon/internal/manage"
-	"stoai-daemon/internal/setup"
-	"stoai-daemon/internal/tui"
+	"lingtai-daemon/internal/agent"
+	"lingtai-daemon/internal/config"
+	"lingtai-daemon/internal/i18n"
+	"lingtai-daemon/internal/manage"
+	"lingtai-daemon/internal/setup"
+	"lingtai-daemon/internal/tui"
 )
 
 func main() {
@@ -1870,7 +1870,7 @@ func main() {
 			setup.Run()
 			return
 		case "manage":
-			baseDir := "~/.stoai"
+			baseDir := "~/.lingtai"
 			for i, arg := range args {
 				if arg == "--base-dir" && i+1 < len(args) {
 					baseDir = args[i+1]
@@ -2011,7 +2011,7 @@ daemon manage
 - [ ] **Step 5: Commit final**
 
 ```bash
-cd /path/to/stoai
+cd /path/to/lingtai
 git add daemon/
-git commit -m "feat(daemon): 器灵 complete — Go TUI for stoai"
+git commit -m "feat(daemon): 器灵 complete — Go TUI for lingtai"
 ```

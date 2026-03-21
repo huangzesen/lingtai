@@ -14,9 +14,9 @@
 
 | File | Action | Responsibility |
 |------|--------|----------------|
-| `src/stoai/intrinsics/clock.py` | Create | Schema and description for the clock intrinsic |
-| `src/stoai/intrinsics/__init__.py` | Modify | Register clock in `ALL_INTRINSICS` with `handler=None` |
-| `src/stoai/agent.py` | Modify | Add `_mail_arrived` event, `_handle_clock()`, wire clock as state intrinsic |
+| `src/lingtai/intrinsics/clock.py` | Create | Schema and description for the clock intrinsic |
+| `src/lingtai/intrinsics/__init__.py` | Modify | Register clock in `ALL_INTRINSICS` with `handler=None` |
+| `src/lingtai/agent.py` | Modify | Add `_mail_arrived` event, `_handle_clock()`, wire clock as state intrinsic |
 | `tests/test_clock.py` | Create | Tests for clock intrinsic |
 
 ---
@@ -26,7 +26,7 @@
 ### Task 1: Clock intrinsic schema module
 
 **Files:**
-- Create: `src/stoai/intrinsics/clock.py`
+- Create: `src/lingtai/intrinsics/clock.py`
 
 - [ ] **Step 1: Write the clock intrinsic schema module**
 
@@ -76,20 +76,20 @@ DESCRIPTION = (
 
 - [ ] **Step 2: Smoke-test the module**
 
-Run: `source venv/bin/activate && python -c "from stoai.intrinsics.clock import SCHEMA, DESCRIPTION; print('OK')"`
+Run: `source venv/bin/activate && python -c "from lingtai.intrinsics.clock import SCHEMA, DESCRIPTION; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/stoai/intrinsics/clock.py
+git add src/lingtai/intrinsics/clock.py
 git commit -m "feat: add clock intrinsic schema module"
 ```
 
 ### Task 2: Register clock in ALL_INTRINSICS
 
 **Files:**
-- Modify: `src/stoai/intrinsics/__init__.py`
+- Modify: `src/lingtai/intrinsics/__init__.py`
 
 - [ ] **Step 1: Write the failing test — clock appears in ALL_INTRINSICS**
 
@@ -105,8 +105,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.agent import BaseAgent
-from stoai.intrinsics import ALL_INTRINSICS
+from lingtai.agent import BaseAgent
+from lingtai.intrinsics import ALL_INTRINSICS
 
 
 def make_mock_service():
@@ -138,7 +138,7 @@ Expected: FAIL — "clock" not in ALL_INTRINSICS
 
 - [ ] **Step 3: Register clock in `__init__.py`**
 
-Modify `src/stoai/intrinsics/__init__.py` — add import and entry:
+Modify `src/lingtai/intrinsics/__init__.py` — add import and entry:
 
 ```python
 from . import read, edit, write, glob, grep, mail, vision, web_search, clock
@@ -156,20 +156,20 @@ Expected: PASS
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 Expected: no errors
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/intrinsics/__init__.py tests/test_clock.py
+git add src/lingtai/intrinsics/__init__.py tests/test_clock.py
 git commit -m "feat: register clock in ALL_INTRINSICS"
 ```
 
 ### Task 3: Wire clock as state intrinsic + add `_mail_arrived` event
 
 **Files:**
-- Modify: `src/stoai/agent.py` (constructor, `_wire_intrinsics`, `_on_normal_mail`)
+- Modify: `src/lingtai/agent.py` (constructor, `_wire_intrinsics`, `_on_normal_mail`)
 
 - [ ] **Step 1: Write failing tests — clock wired in agent, mail_arrived event exists**
 
@@ -242,20 +242,20 @@ Expected: PASS
 
 - [ ] **Step 7: Smoke-test import**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 Expected: no errors
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/stoai/agent.py tests/test_clock.py
+git add src/lingtai/agent.py tests/test_clock.py
 git commit -m "feat: wire clock intrinsic and add _mail_arrived event"
 ```
 
 ### Task 4: Implement `_handle_clock` — `check` action
 
 **Files:**
-- Modify: `src/stoai/agent.py`
+- Modify: `src/lingtai/agent.py`
 
 - [ ] **Step 1: Write failing test for check action**
 
@@ -320,14 +320,14 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/agent.py tests/test_clock.py
+git add src/lingtai/agent.py tests/test_clock.py
 git commit -m "feat: implement clock check action"
 ```
 
 ### Task 5: Implement `_handle_clock` — `wait` action
 
 **Files:**
-- Modify: `src/stoai/agent.py`
+- Modify: `src/lingtai/agent.py`
 
 - [ ] **Step 1: Write failing tests for wait action**
 
@@ -511,13 +511,13 @@ Expected: ALL PASS
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 Expected: no errors
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/agent.py tests/test_clock.py
+git add src/lingtai/agent.py tests/test_clock.py
 git commit -m "feat: implement clock wait action with mail wake-up"
 ```
 

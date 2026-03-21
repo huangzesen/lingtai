@@ -1,11 +1,11 @@
-# Daemon 器灵 — Go TUI for StoAI
+# Daemon 器灵 — Go TUI for 灵台
 
 **Date:** 2026-03-20
 **Status:** Approved
 
 ## Goal
 
-A Go CLI binary (`daemon`) that IS the stoai product. Beautiful terminal experience via Bubble Tea. Manages Python agent processes, provides interactive TUI, setup wizard, and spirit management.
+A Go CLI binary (`daemon`) that IS the lingtai product. Beautiful terminal experience via Bubble Tea. Manages Python agent processes, provides interactive TUI, setup wizard, and spirit management.
 
 ## Commands
 
@@ -14,14 +14,14 @@ daemon                              # interactive TUI (default config.json)
 daemon --config researcher.json     # interactive TUI with specific config
 daemon --headless                   # background mode, no TUI (PID file, block on signal)
 daemon setup                        # guided setup wizard (writes to CWD)
-daemon manage                       # list running spirits (default ~/.stoai)
+daemon manage                       # list running spirits (default ~/.lingtai)
 daemon manage --base-dir /path      # list spirits in specific base dir
 ```
 
 ## Architecture
 
 ```
-daemon/                     ← Go module (subdirectory of stoai repo)
+daemon/                     ← Go module (subdirectory of lingtai repo)
   go.mod
   go.sum
   main.go                  ← CLI entry point
@@ -94,7 +94,7 @@ User can skip any section. Ctrl+C exits without writing.
 
 ### Manage (`daemon manage`)
 
-Scans `{base_dir}/*/agent.pid` for running spirits. Default `base_dir` is `~/.stoai`. Override with `--base-dir`. For each:
+Scans `{base_dir}/*/agent.pid` for running spirits. Default `base_dir` is `~/.lingtai`. Override with `--base-dir`. For each:
 1. Read PID file (JSON: pid, port, started timestamp).
 2. Check if process is alive (`kill(pid, 0)` equivalent).
 3. Render a colored table:
@@ -153,7 +153,7 @@ Show hints: `kill <PID>` to stop, `daemon --config <path>` to start new.
 
 ### Wire Protocol (TCP Mail)
 
-stoai's `TCPMailService` uses length-prefixed JSON over TCP. **Important:** the server sends a banner line on connect that the client must read first.
+lingtai's `TCPMailService` uses length-prefixed JSON over TCP. **Important:** the server sends a banner line on connect that the client must read first.
 
 **Connection sequence:**
 1. Go connects to `localhost:{agent_port}`
@@ -257,7 +257,7 @@ go build -o daemon ./main.go
 go install ./...
 ```
 
-The binary requires Python 3.11+ and `stoai` installed (`pip install -e .` in the parent repo).
+The binary requires Python 3.11+ and `lingtai` installed (`pip install -e .` in the parent repo).
 
 ## Testing Strategy
 

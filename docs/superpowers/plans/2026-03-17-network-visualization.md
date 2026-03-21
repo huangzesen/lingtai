@@ -57,7 +57,7 @@ def list_agents(request: Request):
 - [ ] **Step 2: Smoke-test**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai && source venv/bin/activate
+cd /Users/huangzesen/Documents/GitHub/lingtai && source venv/bin/activate
 python -c "from app.web.server.routes import router; print('OK')"
 ```
 
@@ -80,7 +80,7 @@ git commit -m "feat(web): add type field to agents API response"
 - [ ] **Step 1: Install D3**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai/app/web/frontend
+cd /Users/huangzesen/Documents/GitHub/lingtai/app/web/frontend
 npm install d3
 npm install -D @types/d3
 ```
@@ -139,7 +139,7 @@ export interface Particle {
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai
+cd /Users/huangzesen/Documents/GitHub/lingtai
 git add app/web/frontend/src/types.ts app/web/frontend/package.json app/web/frontend/package-lock.json
 git commit -m "feat(web): install D3, add network types and agent type field"
 ```
@@ -298,7 +298,7 @@ export function useNetwork(
 - [ ] **Step 2: Commit**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai
+cd /Users/huangzesen/Documents/GitHub/lingtai
 git add app/web/frontend/src/hooks/useNetwork.ts
 git commit -m "feat(web): add useNetwork hook for graph data and particles"
 ```
@@ -530,7 +530,7 @@ export function NetworkPage({ nodes, edges, particles }: NetworkPageProps) {
 - [ ] **Step 2: Commit**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai
+cd /Users/huangzesen/Documents/GitHub/lingtai
 git add app/web/frontend/src/components/NetworkPage.tsx
 git commit -m "feat(web): add NetworkPage with D3 force graph"
 ```
@@ -565,7 +565,7 @@ export function Header({
   const activeCount = agents.filter((a) => a.status === "active").length;
   return (
     <div className="flex items-center gap-3 px-5 py-2.5 bg-panel border-b border-border">
-      <h1 className="text-base font-bold text-accent">StoAI</h1>
+      <h1 className="text-base font-bold text-accent">灵台</h1>
       <span className="text-xs text-text-dim">
         {agents.length} agent{agents.length !== 1 ? "s" : ""} · User
         mailbox :{userPort}
@@ -681,7 +681,7 @@ export default function App() {
 - [ ] **Step 2: Build and verify**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai/app/web/frontend
+cd /Users/huangzesen/Documents/GitHub/lingtai/app/web/frontend
 npm run build
 ```
 
@@ -690,7 +690,7 @@ Expected: build succeeds with no TypeScript errors.
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai
+cd /Users/huangzesen/Documents/GitHub/lingtai
 git add app/web/frontend/src/App.tsx
 git commit -m "feat(web): wire up network page with page switching"
 ```
@@ -704,14 +704,14 @@ git commit -m "feat(web): wire up network page with page switching"
 - [ ] **Step 1: Build frontend**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai/app/web/frontend
+cd /Users/huangzesen/Documents/GitHub/lingtai/app/web/frontend
 npm run build
 ```
 
 - [ ] **Step 2: Start server**
 
 ```bash
-cd /Users/huangzesen/Documents/GitHub/stoai
+cd /Users/huangzesen/Documents/GitHub/lingtai
 python -m app.web
 ```
 

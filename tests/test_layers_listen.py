@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from stoai.capabilities.listen import ListenManager, setup as setup_listen
+from lingtai.capabilities.listen import ListenManager, setup as setup_listen
 
 
 def make_mock_agent(tmp_path):

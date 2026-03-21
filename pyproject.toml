@@ -3,11 +3,11 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "stoai"
+name = "lingtai"
 version = "0.1.0"
 description = "Generic research agent with intrinsic tools and MCP-compatible extension interface"
 requires-python = ">=3.11"
-dependencies = ["stoai-kernel"]
+dependencies = ["lingtai-kernel"]
 
 [project.optional-dependencies]
 gemini = ["google-genai>=1.0"]
@@ -15,13 +15,7 @@ openai = ["openai>=1.0"]
 anthropic = ["anthropic>=0.40"]
 minimax = ["anthropic>=0.40", "mcp>=1.0"]
 telegram = ["httpx>=0.27"]
-all = ["stoai[gemini,openai,anthropic,minimax,telegram]"]
-
-[project.scripts]
-stoai = "app:main"
+all = ["lingtai[gemini,openai,anthropic,minimax,telegram]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-dir]
-app = "app"

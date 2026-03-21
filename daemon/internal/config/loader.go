@@ -64,7 +64,7 @@ func Load(path string) (*Config, error) {
 	// Parse everything except "model" into Config struct
 	cfg := &Config{
 		AgentName: "orchestrator",
-		BaseDir:   "~/.stoai",
+		BaseDir:   "~/.lingtai",
 		MaxTurns:  50,
 		AgentPort: 8501,
 		CLI:       false,
@@ -80,7 +80,7 @@ func Load(path string) (*Config, error) {
 		cfg.AgentName = "orchestrator"
 	}
 	if cfg.BaseDir == "" {
-		cfg.BaseDir = "~/.stoai"
+		cfg.BaseDir = "~/.lingtai"
 	}
 	if cfg.MaxTurns == 0 {
 		cfg.MaxTurns = 50

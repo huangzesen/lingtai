@@ -1,27 +1,27 @@
-# stoai-kernel Extraction Design
+# lingtai-kernel Extraction Design
 
 **Date:** 2026-03-18
 **Status:** Draft
 
 ## Motivation
 
-BaseAgent is approaching maturity as a standalone agent kernel — the minimal runtime for an AI agent that can think (LLM), communicate (mail), remember (eigen), and host tools. It should be extractable as a standalone package (`stoai-kernel`) so that:
+BaseAgent is approaching maturity as a standalone agent kernel — the minimal runtime for an AI agent that can think (LLM), communicate (mail), remember (eigen), and host tools. It should be extractable as a standalone package (`lingtai-kernel`) so that:
 
 - Others can build on the kernel without pulling in all 16 capabilities, addons, and multimodal features
 - The kernel's stability is enforced by repository separation — changes to the kernel are deliberate
 - Third parties can implement their own LLM adapters, services, and capabilities against the kernel's protocols
 
-`stoai` becomes a batteries-included wrapper that depends on `stoai-kernel`, providing adapters, capabilities, and re-exporting the kernel's public API for backward compatibility.
+`lingtai` becomes a batteries-included wrapper that depends on `lingtai-kernel`, providing adapters, capabilities, and re-exporting the kernel's public API for backward compatibility.
 
 ## Design Analogy
 
-The Linux kernel analogy: `stoai-kernel` provides process scheduling (tool dispatch), IPC (mail), memory management (eigen/working dir), and device driver interfaces (LLM adapter protocol, service ABCs). No userland utilities — but a fully functional agent OS.
+The Linux kernel analogy: `lingtai-kernel` provides process scheduling (tool dispatch), IPC (mail), memory management (eigen/working dir), and device driver interfaces (LLM adapter protocol, service ABCs). No userland utilities — but a fully functional agent OS.
 
 ## Package Boundary
 
-### `stoai-kernel` (separate repo)
+### `lingtai-kernel` (separate repo)
 
-**Import name:** `stoai_kernel`
+**Import name:** `lingtai_kernel`
 **Dependencies:** None (zero hard dependencies)
 
 | Layer | Modules | Purpose |
@@ -34,19 +34,19 @@ The Linux kernel analogy: `stoai-kernel` provides process scheduling (tool dispa
 | Intrinsics | `intrinsics/mail.py`, `intrinsics/clock.py`, `intrinsics/status.py`, `intrinsics/eigen.py` | 4 kernel tools (always present) |
 | Core | `base_agent.py`, `session.py`, `tool_executor.py`, `prompt.py` | Kernel coordinator, LLM session lifecycle, tool execution, system prompt |
 
-### `stoai` (this repo, after migration)
+### `lingtai` (this repo, after migration)
 
-**Import name:** `stoai`
-**Dependencies:** `stoai-kernel`
+**Import name:** `lingtai`
+**Dependencies:** `lingtai-kernel`
 
 | Layer | Modules | Purpose |
 |-------|---------|---------|
 | LLM adapters | `llm/` (5 adapter directories: anthropic, openai, gemini, minimax, custom + `interface_converters.py` + `_register.py`). The `custom` adapter handles additional providers (deepseek, grok, qwen, glm, kimi) via `api_compat` routing. | Adapter implementations, registered with kernel's `LLMService` |
-| Agent | `agent.py` | Layer 2: capabilities dispatcher, imports `BaseAgent` from `stoai_kernel` |
+| Agent | `agent.py` | Layer 2: capabilities dispatcher, imports `BaseAgent` from `lingtai_kernel` |
 | Service ABCs + impls | `services/file_io.py`, `services/vision.py`, `services/search.py`, `services/mcp.py` | FileIO, Vision, Search, MCP — ABCs and default implementations |
 | Capabilities | `capabilities/` (all 16) | Composable agent tools |
 | Addons | `addons/` | Optional extensions (gmail, etc.) |
-| Re-exports | `__init__.py` | Re-exports kernel's public API so `from stoai import BaseAgent` works |
+| Re-exports | `__init__.py` | Re-exports kernel's public API so `from lingtai import BaseAgent` works |
 
 ### What does NOT go to kernel
 
@@ -93,11 +93,11 @@ class LLMService:
         raise RuntimeError(f"No adapter registered for provider {provider!r}")
 ```
 
-**Registration in `stoai`:**
+**Registration in `lingtai`:**
 
 ```python
-# stoai/llm/_register.py
-from stoai_kernel.llm import LLMService
+# lingtai/llm/_register.py
+from lingtai_kernel.llm import LLMService
 
 def register_all_adapters():
     def _gemini(**kw):
@@ -150,12 +150,12 @@ These are multimodal capability concerns that happen to route through LLM adapte
 
 ## Repository Structure
 
-### `stoai-kernel/`
+### `lingtai-kernel/`
 
 ```
-stoai-kernel/
+lingtai-kernel/
 ├── src/
-│   └── stoai_kernel/
+│   └── lingtai_kernel/
 │       ├── __init__.py
 │       ├── base_agent.py
 │       ├── config.py
@@ -198,19 +198,19 @@ stoai-kernel/
 
 ```toml
 [project]
-name = "stoai-kernel"
+name = "lingtai-kernel"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = []
 description = "Minimal agent kernel — think, communicate, remember, host tools"
 ```
 
-### `stoai/` (this repo, after migration)
+### `lingtai/` (this repo, after migration)
 
 ```
-stoai/
+lingtai/
 ├── src/
-│   └── stoai/
+│   └── lingtai/
 │       ├── __init__.py
 │       ├── agent.py
 │       ├── capabilities/
@@ -246,31 +246,31 @@ stoai/
 
 ```toml
 [project]
-name = "stoai"
+name = "lingtai"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["stoai-kernel"]
+dependencies = ["lingtai-kernel"]
 
 [project.optional-dependencies]
 gemini = ["google-genai>=1.0"]
 openai = ["openai>=1.0"]
 anthropic = ["anthropic>=0.40"]
 minimax = ["minimax>=0.1"]
-all = ["stoai[gemini,openai,anthropic,minimax]"]
+all = ["lingtai[gemini,openai,anthropic,minimax]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 ```
 
-During development, `stoai-kernel` is installed via path dep: `pip install -e ../stoai-kernel`.
+During development, `lingtai-kernel` is installed via path dep: `pip install -e ../lingtai-kernel`.
 
 ## Re-export Strategy
 
-`stoai.__init__.py` re-exports the kernel's public API:
+`lingtai.__init__.py` re-exports the kernel's public API:
 
 ```python
-# stoai/__init__.py
-from stoai_kernel import (
+# lingtai/__init__.py
+from lingtai_kernel import (
     BaseAgent,
     AgentConfig,
     AgentState,
@@ -279,7 +279,7 @@ from stoai_kernel import (
     MSG_USER_INPUT,
     UnknownToolError,
 )
-from stoai_kernel.llm import (
+from lingtai_kernel.llm import (
     LLMService,
     LLMAdapter,
     ChatSession,
@@ -288,8 +288,8 @@ from stoai_kernel.llm import (
     FunctionSchema,
     ChatInterface,
 )
-from stoai_kernel.services.mail import MailService, TCPMailService
-from stoai_kernel.services.logging import LoggingService, JSONLLoggingService
+from lingtai_kernel.services.mail import MailService, TCPMailService
+from lingtai_kernel.services.logging import LoggingService, JSONLLoggingService
 
 # Own exports
 from .agent import Agent
@@ -301,7 +301,7 @@ from .llm._register import register_all_adapters
 register_all_adapters()
 ```
 
-This ensures `from stoai import BaseAgent` continues to work. The split is invisible to existing users.
+This ensures `from lingtai import BaseAgent` continues to work. The split is invisible to existing users.
 
 ## Prerequisite Refactors
 
@@ -324,7 +324,7 @@ This creates a kernel dependency on a non-kernel module. **Fix:** BaseAgent acce
 
 ### 2. Move `connect_mcp()` from BaseAgent to Agent
 
-`BaseAgent.connect_mcp()` imports `MCPClient` from `services.mcp`, which stays in stoai. **Fix:** Move the method to Agent. MCP is an extension mechanism, not a kernel concern.
+`BaseAgent.connect_mcp()` imports `MCPClient` from `services.mcp`, which stays in lingtai. **Fix:** Move the method to Agent. MCP is an extension mechanism, not a kernel concern.
 
 ### 3. Clean up AgentConfig
 
@@ -338,19 +338,19 @@ After removing multimodal methods from `LLMService`, capabilities need a way to 
 
 Both packages start at `0.1.0`. During `0.x`:
 - No formal API stability guarantees — the kernel is still maturing
-- `stoai` pins `stoai-kernel` to compatible release ranges (`~=0.1.0`)
+- `lingtai` pins `lingtai-kernel` to compatible release ranges (`~=0.1.0`)
 - Breaking changes documented in changelogs
 
 At `1.0.0`:
 - Kernel's public API (BaseAgent, LLMAdapter, ChatSession, services ABCs, intrinsic handler signatures) becomes stable under SemVer
 - Internal attributes accessed by intrinsics are documented as part of the kernel contract
-- `stoai` uses `>=1.0,<2.0` range pins
+- `lingtai` uses `>=1.0,<2.0` range pins
 
 ## Architectural Rules
 
-1. **Kernel must never import from stoai** — the dependency is strictly one-directional
+1. **Kernel must never import from lingtai** — the dependency is strictly one-directional
 2. **Intrinsic-agent contract** — intrinsics access BaseAgent internals via duck-typing. The set of attributes intrinsics may access (`_working_dir`, `_mail_service`, `_log()`, `_shutdown`, `_chat`, `_session`, etc.) is a de-facto kernel API. Changes to these attributes require a kernel version bump.
-3. **`interface_converters.py` lives in stoai** — it depends only on kernel types but contains provider-specific logic. The kernel defines the canonical format; converters translate.
+3. **`interface_converters.py` lives in lingtai** — it depends only on kernel types but contains provider-specific logic. The kernel defines the canonical format; converters translate.
 
 ## Migration Strategy
 
@@ -361,16 +361,16 @@ At `1.0.0`:
 3. **Clean up `AgentConfig`** — remove capability-specific fields
 4. **Refactor `LLMService`** — remove hardcoded adapter imports (replace with registry), remove multimodal methods
 5. **Update capabilities** — capabilities that used `LLMService` multimodal methods now resolve providers via kwargs and call `service.get_adapter(provider)` directly
-6. **Add adapter registration** — create `llm/_register.py`, call it from `stoai.__init__`
+6. **Add adapter registration** — create `llm/_register.py`, call it from `lingtai.__init__`
 7. **Verify** — all existing tests still pass
 
 ### Phase 2: Extract kernel
 
-8. **Create `stoai-kernel` repo** — copy kernel modules, rename all internal imports to `stoai_kernel.*`
-9. **Update `stoai`** — add `stoai-kernel` as path dev dependency, remove kernel modules from `src/stoai/`, update imports from `stoai.*` to `stoai_kernel.*` where needed
-10. **Add re-exports** in `stoai.__init__` for backward compatibility
-11. **Split tests** — pure kernel tests (BaseAgent lifecycle, intrinsics, LLM protocol, mail/logging services) go to `stoai-kernel/tests/`. Integration tests that exercise Agent + capabilities stay in `stoai/tests/` and depend on `stoai-kernel`.
-12. **Verify** — `pip install -e ../stoai-kernel && pip install -e .` then run both test suites
+8. **Create `lingtai-kernel` repo** — copy kernel modules, rename all internal imports to `lingtai_kernel.*`
+9. **Update `lingtai`** — add `lingtai-kernel` as path dev dependency, remove kernel modules from `src/lingtai/`, update imports from `lingtai.*` to `lingtai_kernel.*` where needed
+10. **Add re-exports** in `lingtai.__init__` for backward compatibility
+11. **Split tests** — pure kernel tests (BaseAgent lifecycle, intrinsics, LLM protocol, mail/logging services) go to `lingtai-kernel/tests/`. Integration tests that exercise Agent + capabilities stay in `lingtai/tests/` and depend on `lingtai-kernel`.
+12. **Verify** — `pip install -e ../lingtai-kernel && pip install -e .` then run both test suites
 
 ## Third-Party Extension Points
 
@@ -378,15 +378,15 @@ After this split, third parties can:
 
 ```python
 # Custom LLM adapter (separate package)
-from stoai_kernel.llm import LLMAdapter, ChatSession, LLMService
+from lingtai_kernel.llm import LLMAdapter, ChatSession, LLMService
 
 class MistralAdapter(LLMAdapter):
     def create_chat(self, ...) -> ChatSession: ...
 
 LLMService.register_adapter("mistral", lambda **kw: MistralAdapter(**kw))
 
-# Custom agent built on kernel only — no stoai dependency
-from stoai_kernel import BaseAgent
+# Custom agent built on kernel only — no lingtai dependency
+from lingtai_kernel import BaseAgent
 
 class MinimalBot(BaseAgent):
     def __init__(self, **kwargs):

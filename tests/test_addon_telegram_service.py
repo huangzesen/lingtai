@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import patch, MagicMock
 
-from stoai.addons.telegram.service import TelegramService
+from lingtai.addons.telegram.service import TelegramService
 
 
 def test_construction_creates_accounts(tmp_path):

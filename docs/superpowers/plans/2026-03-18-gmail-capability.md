@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a `gmail` capability that lets a StoAI agent send and receive real email via Gmail, reusing the existing `email` capability's mailbox, notification, and tool surface.
+**Goal:** Add a `gmail` capability that lets a 灵台 agent send and receive real email via Gmail, reusing the existing `email` capability's mailbox, notification, and tool surface.
 
 **Architecture:** The gmail capability is a thin transport layer — a `GmailMailService` that implements the `MailService` ABC using IMAP (receive) and SMTP (send) instead of TCP. It plugs into the existing email capability unchanged. The agent gets the same `email` tool (send/check/read/reply/search/contacts) — the only difference is that "send" goes through Gmail SMTP and inbound emails arrive via IMAP polling instead of TCP. Address format changes from `127.0.0.1:8301` to real email addresses like `user@gmail.com`.
 
@@ -18,11 +18,11 @@ The existing architecture already separates transport (`MailService`) from mailb
 
 ### What changes
 
-1. **New file:** `src/stoai/services/gmail.py` — `GmailMailService(MailService)` using IMAP polling + SMTP send
-2. **New file:** `src/stoai/capabilities/gmail.py` — capability that wires `GmailMailService` + `email` capability together
+1. **New file:** `src/lingtai/services/gmail.py` — `GmailMailService(MailService)` using IMAP polling + SMTP send
+2. **New file:** `src/lingtai/capabilities/gmail.py` — capability that wires `GmailMailService` + `email` capability together
 3. **New file:** `tests/test_services_gmail.py` — unit tests for `GmailMailService`
 4. **New file:** `tests/test_capability_gmail.py` — integration test for gmail capability setup
-5. **Modify:** `src/stoai/capabilities/__init__.py` — register `gmail` capability
+5. **Modify:** `src/lingtai/capabilities/__init__.py` — register `gmail` capability
 6. **Delete:** `app/email/bridge.py` — the bridge is replaced by the service
 7. **Modify:** `app/email/__main__.py` — simplify to use gmail capability directly
 
@@ -50,11 +50,11 @@ Outbound: Agent calls email(send) → EmailManager._send() → GmailMailService.
 
 | File | Responsibility |
 |------|---------------|
-| `src/stoai/services/gmail.py` | `GmailMailService` — IMAP polling + SMTP send, implements `MailService` ABC |
-| `src/stoai/capabilities/gmail.py` | `setup()` — creates `GmailMailService`, sets it as `agent._mail_service`, then delegates to `email.setup()` |
+| `src/lingtai/services/gmail.py` | `GmailMailService` — IMAP polling + SMTP send, implements `MailService` ABC |
+| `src/lingtai/capabilities/gmail.py` | `setup()` — creates `GmailMailService`, sets it as `agent._mail_service`, then delegates to `email.setup()` |
 | `tests/test_services_gmail.py` | Unit tests for IMAP/SMTP logic (mocked) |
 | `tests/test_capability_gmail.py` | Integration test: gmail capability sets up correctly, email tool is registered |
-| `src/stoai/capabilities/__init__.py` | Register `"gmail"` in `_BUILTIN` |
+| `src/lingtai/capabilities/__init__.py` | Register `"gmail"` in `_BUILTIN` |
 | `app/email/__main__.py` | Simplified launcher using `capabilities={"gmail": {...}}` |
 
 ---
@@ -64,7 +64,7 @@ Outbound: Agent calls email(send) → EmailManager._send() → GmailMailService.
 ### Task 1: GmailMailService
 
 **Files:**
-- Create: `src/stoai/services/gmail.py`
+- Create: `src/lingtai/services/gmail.py`
 - Test: `tests/test_services_gmail.py`
 
 - [ ] **Step 1: Write failing test for GmailMailService construction**
@@ -73,7 +73,7 @@ Outbound: Agent calls email(send) → EmailManager._send() → GmailMailService.
 # tests/test_services_gmail.py
 from __future__ import annotations
 from unittest.mock import patch, MagicMock
-from stoai.services.gmail import GmailMailService
+from lingtai.services.gmail import GmailMailService
 
 
 def test_gmail_service_construction():
@@ -98,12 +98,12 @@ def test_gmail_service_address_none_before_listen():
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_services_gmail.py -v`
-Expected: FAIL with `ModuleNotFoundError: No module named 'stoai.services.gmail'`
+Expected: FAIL with `ModuleNotFoundError: No module named 'lingtai.services.gmail'`
 
 - [ ] **Step 3: Implement GmailMailService**
 
 ```python
-# src/stoai/services/gmail.py
+# src/lingtai/services/gmail.py
 """GmailMailService — MailService implementation using Gmail IMAP/SMTP.
 
 Inbound:  Polls Gmail IMAP for UNSEEN emails at a configurable interval.
@@ -364,7 +364,7 @@ class GmailMailService(MailService):
             log.warning("Error checking emails: %s", e)
 
     def _fetch_email(self, imap: imaplib.IMAP4_SSL, uid: str) -> dict | None:
-        """Fetch a single email by UID and convert to StoAI payload."""
+        """Fetch a single email by UID and convert to 灵台 payload."""
         try:
             status, data = imap.uid("FETCH", uid, "(RFC822)")
             if status != "OK" or not data[0]:
@@ -384,7 +384,7 @@ class GmailMailService(MailService):
 
             log.info("New email from %s: %s", from_addr, subject)
 
-            # Build StoAI mail payload — sender is the real email address
+            # Build 灵台 mail payload — sender is the real email address
             return {
                 "from": from_addr,
                 "to": [self._gmail_address],
@@ -404,13 +404,13 @@ Expected: PASS
 
 - [ ] **Step 5: Smoke-test the module**
 
-Run: `python -c "from stoai.services.gmail import GmailMailService; print('OK')"`
+Run: `python -c "from lingtai.services.gmail import GmailMailService; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/services/gmail.py tests/test_services_gmail.py
+git add src/lingtai/services/gmail.py tests/test_services_gmail.py
 git commit -m "feat: add GmailMailService — IMAP/SMTP implementation of MailService"
 ```
 
@@ -419,8 +419,8 @@ git commit -m "feat: add GmailMailService — IMAP/SMTP implementation of MailSe
 ### Task 2: Gmail capability
 
 **Files:**
-- Create: `src/stoai/capabilities/gmail.py`
-- Modify: `src/stoai/capabilities/__init__.py`
+- Create: `src/lingtai/capabilities/gmail.py`
+- Modify: `src/lingtai/capabilities/__init__.py`
 - Test: `tests/test_capability_gmail.py`
 
 - [ ] **Step 1: Write failing test for gmail capability setup**
@@ -429,7 +429,7 @@ git commit -m "feat: add GmailMailService — IMAP/SMTP implementation of MailSe
 # tests/test_capability_gmail.py
 from __future__ import annotations
 from unittest.mock import MagicMock, patch
-from stoai.capabilities.gmail import setup
+from lingtai.capabilities.gmail import setup
 
 
 def test_gmail_capability_setup():
@@ -440,7 +440,7 @@ def test_gmail_capability_setup():
     agent._admin = {}
     agent.agent_id = "test123"
 
-    with patch("stoai.capabilities.gmail.GmailMailService") as MockGmail:
+    with patch("lingtai.capabilities.gmail.GmailMailService") as MockGmail:
         mock_svc = MagicMock()
         mock_svc.address = "agent@gmail.com"
         MockGmail.return_value = mock_svc
@@ -464,7 +464,7 @@ def test_gmail_capability_setup():
 
 def test_gmail_registered_in_builtin():
     """Gmail should be in the capabilities registry."""
-    from stoai.capabilities import _BUILTIN
+    from lingtai.capabilities import _BUILTIN
     assert "gmail" in _BUILTIN
 ```
 
@@ -476,7 +476,7 @@ Expected: FAIL
 - [ ] **Step 3: Implement gmail capability**
 
 ```python
-# src/stoai/capabilities/gmail.py
+# src/lingtai/capabilities/gmail.py
 """Gmail capability — real email via Gmail IMAP/SMTP.
 
 Wraps the email capability with GmailMailService as the transport.
@@ -551,7 +551,7 @@ def setup(
 
 - [ ] **Step 4: Register in capabilities registry**
 
-In `src/stoai/capabilities/__init__.py`, add `"gmail": ".gmail"` to `_BUILTIN`:
+In `src/lingtai/capabilities/__init__.py`, add `"gmail": ".gmail"` to `_BUILTIN`:
 
 ```python
 _BUILTIN: dict[str, str] = {
@@ -568,13 +568,13 @@ Expected: PASS
 
 - [ ] **Step 6: Smoke-test**
 
-Run: `python -c "from stoai.capabilities.gmail import setup; print('OK')"`
+Run: `python -c "from lingtai.capabilities.gmail import setup; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/capabilities/gmail.py src/stoai/capabilities/__init__.py tests/test_capability_gmail.py
+git add src/lingtai/capabilities/gmail.py src/lingtai/capabilities/__init__.py tests/test_capability_gmail.py
 git commit -m "feat: add gmail capability — real email via IMAP/SMTP"
 ```
 
@@ -592,7 +592,7 @@ The launcher becomes much simpler — no bridge, no bridge port. Just an agent w
 
 ```python
 # app/email/__main__.py
-"""Launch a StoAI agent with Gmail — interact via real email.
+"""Launch a 灵台 agent with Gmail — interact via real email.
 
 Usage:
     python -m app.email
@@ -620,8 +620,8 @@ if env_path.exists():
             key, _, val = line.partition("=")
             os.environ.setdefault(key.strip(), val.strip().strip("'\""))
 
-from stoai import Agent, AgentConfig
-from stoai.llm import LLMService
+from lingtai import Agent, AgentConfig
+from lingtai.llm import LLMService
 
 logging.basicConfig(
     level=logging.INFO,
@@ -631,7 +631,7 @@ logging.basicConfig(
 log = logging.getLogger("app.email")
 
 CONFIG_DIR = Path(__file__).parent
-DEFAULT_PLAYGROUND = Path.home() / ".stoai" / "email"
+DEFAULT_PLAYGROUND = Path.home() / ".lingtai" / "email"
 
 
 def load_config() -> dict:
@@ -793,7 +793,7 @@ git commit -m "refactor: simplify email launcher — use gmail capability, remov
 ### Task 4: Handle mailbox persistence in GmailMailService
 
 **Files:**
-- Modify: `src/stoai/services/gmail.py`
+- Modify: `src/lingtai/services/gmail.py`
 
 The `TCPMailService` persists incoming emails to `mailbox/inbox/{uuid}/message.json` inside `_handle_connection`. The `GmailMailService` needs to do the same — the email capability reads from this filesystem mailbox.
 
@@ -888,7 +888,7 @@ Expected: PASS
 
 - [ ] **Step 4: Update gmail capability to set `_working_dir`**
 
-In `src/stoai/capabilities/gmail.py`, add after creating `svc`:
+In `src/lingtai/capabilities/gmail.py`, add after creating `svc`:
 ```python
 svc._working_dir = Path(agent._working_dir)
 ```
@@ -896,7 +896,7 @@ svc._working_dir = Path(agent._working_dir)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/services/gmail.py src/stoai/capabilities/gmail.py tests/test_services_gmail.py
+git add src/lingtai/services/gmail.py src/lingtai/capabilities/gmail.py tests/test_services_gmail.py
 git commit -m "feat: GmailMailService persists emails to mailbox before delivery"
 ```
 
@@ -907,7 +907,7 @@ git commit -m "feat: GmailMailService persists emails to mailbox before delivery
 - [ ] **Step 1: Clear old state**
 
 ```bash
-rm -rf ~/.stoai/email
+rm -rf ~/.lingtai/email
 ```
 
 - [ ] **Step 2: Update config.json** — remove `agent_port` and `bridge_port` if present

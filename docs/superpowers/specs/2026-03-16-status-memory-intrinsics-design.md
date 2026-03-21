@@ -248,10 +248,10 @@ After: 11 (+ status, memory).
 
 | File | Action | What changes |
 |------|--------|-------------|
-| `src/stoai/intrinsics/status.py` | Create | Schema and description |
-| `src/stoai/intrinsics/memory.py` | Create | Schema and description |
-| `src/stoai/intrinsics/__init__.py` | Modify | Register both with `handler=None` |
-| `src/stoai/agent.py` | Modify | Git init, `_started_at`, `_handle_status`, `_handle_memory`, wire intrinsics, LTM migration, auto-load |
+| `src/lingtai/intrinsics/status.py` | Create | Schema and description |
+| `src/lingtai/intrinsics/memory.py` | Create | Schema and description |
+| `src/lingtai/intrinsics/__init__.py` | Modify | Register both with `handler=None` |
+| `src/lingtai/agent.py` | Modify | Git init, `_started_at`, `_handle_status`, `_handle_memory`, wire intrinsics, LTM migration, auto-load |
 | `tests/test_status.py` | Create | Status intrinsic tests |
 | `tests/test_memory.py` | Create | Memory intrinsic tests (with git) |
 | `tests/test_agent.py` | Modify | Intrinsic count 9 → 11 |

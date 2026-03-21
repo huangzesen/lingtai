@@ -1,14 +1,14 @@
-# stoai-kernel Extraction Implementation Plan
+# lingtai-kernel Extraction Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Extract the BaseAgent kernel into a standalone `stoai-kernel` package in a separate repository, leaving `stoai` as a batteries-included wrapper.
+**Goal:** Extract the BaseAgent kernel into a standalone `lingtai-kernel` package in a separate repository, leaving `lingtai` as a batteries-included wrapper.
 
-**Architecture:** Three prerequisite refactors decouple BaseAgent from non-kernel modules (FileIO, MCP, bash config). Then the kernel modules are copied to a new repo as `stoai_kernel`, all imports updated, tests split, and `stoai.__init__` re-exports the kernel's public API for backward compatibility.
+**Architecture:** Three prerequisite refactors decouple BaseAgent from non-kernel modules (FileIO, MCP, bash config). Then the kernel modules are copied to a new repo as `lingtai_kernel`, all imports updated, tests split, and `lingtai.__init__` re-exports the kernel's public API for backward compatibility.
 
 **Tech Stack:** Python 3.11+, pytest, setuptools, pip editable installs
 
-**Spec:** `docs/superpowers/specs/2026-03-18-stoai-kernel-extraction-design.md`
+**Spec:** `docs/superpowers/specs/2026-03-18-lingtai-kernel-extraction-design.md`
 
 ---
 
@@ -22,13 +22,13 @@ The LLMService refactor is complete:
 
 ## File Structure
 
-### What moves to `stoai-kernel/src/stoai_kernel/`
+### What moves to `lingtai-kernel/src/lingtai_kernel/`
 
 ```
-stoai_kernel/
+lingtai_kernel/
 ├── __init__.py           (new — public API exports)
-├── base_agent.py         (from src/stoai/base_agent.py, minus FileIO + MCP)
-├── config.py             (from src/stoai/config.py, minus bash_policy_file)
+├── base_agent.py         (from src/lingtai/base_agent.py, minus FileIO + MCP)
+├── config.py             (from src/lingtai/config.py, minus bash_policy_file)
 ├── state.py              (unchanged)
 ├── types.py              (unchanged)
 ├── message.py            (unchanged)
@@ -59,24 +59,24 @@ stoai_kernel/
     └── streaming.py      (unchanged)
 ```
 
-### What stays in `stoai/src/stoai/` (modified)
+### What stays in `lingtai/src/lingtai/` (modified)
 
 ```
-stoai/
-├── __init__.py           (rewritten — re-exports from stoai_kernel)
-├── agent.py              (import BaseAgent from stoai_kernel, + FileIO + MCP)
-├── config.py             (DELETED — use stoai_kernel.config)
-├── base_agent.py         (DELETED — use stoai_kernel.base_agent)
+lingtai/
+├── __init__.py           (rewritten — re-exports from lingtai_kernel)
+├── agent.py              (import BaseAgent from lingtai_kernel, + FileIO + MCP)
+├── config.py             (DELETED — use lingtai_kernel.config)
+├── base_agent.py         (DELETED — use lingtai_kernel.base_agent)
 ├── state.py, types.py, message.py, etc.  (DELETED — re-exported)
-├── capabilities/         (imports updated to stoai_kernel.*)
-├── addons/               (imports updated to stoai_kernel.*)
+├── capabilities/         (imports updated to lingtai_kernel.*)
+├── addons/               (imports updated to lingtai_kernel.*)
 ├── services/
 │   ├── file_io.py        (stays — ABC + LocalFileIOService)
 │   ├── vision.py         (stays)
 │   ├── search.py         (stays)
 │   └── mcp.py            (stays, import updated)
 └── llm/
-    ├── __init__.py        (updated — re-exports from stoai_kernel.llm + registers adapters)
+    ├── __init__.py        (updated — re-exports from lingtai_kernel.llm + registers adapters)
     ├── _register.py       (stays)
     ├── interface_converters.py  (import updated)
     ├── anthropic/         (imports updated)
@@ -93,8 +93,8 @@ stoai/
 BaseAgent currently imports `LocalFileIOService` (non-kernel) at line 122. This must move to Agent.
 
 **Files:**
-- Modify: `src/stoai/base_agent.py:116-123`
-- Modify: `src/stoai/agent.py:44`
+- Modify: `src/lingtai/base_agent.py:116-123`
+- Modify: `src/lingtai/agent.py:44`
 - Test: `tests/test_agent.py`
 
 - [ ] **Step 1: Write test that BaseAgent works without FileIO**
@@ -115,7 +115,7 @@ Expected: FAIL — `_file_io` is a `LocalFileIOService`, not None
 
 - [ ] **Step 3: Update BaseAgent — remove FileIO auto-creation**
 
-In `src/stoai/base_agent.py`, replace lines 118-123:
+In `src/lingtai/base_agent.py`, replace lines 118-123:
 
 ```python
         # FileIOService: auto-create LocalFileIOService for backward compat
@@ -135,7 +135,7 @@ With:
 
 - [ ] **Step 4: Update Agent — add FileIO auto-creation**
 
-In `src/stoai/agent.py`, add after `super().__init__(*args, **kwargs)` (line 44):
+In `src/lingtai/agent.py`, add after `super().__init__(*args, **kwargs)` (line 44):
 
 ```python
         # Auto-create FileIOService if not provided by host
@@ -156,12 +156,12 @@ Expected: All pass (511+)
 
 - [ ] **Step 7: Smoke-test**
 
-Run: `python -c "from stoai import BaseAgent, Agent; print('OK')"`
+Run: `python -c "from lingtai import BaseAgent, Agent; print('OK')"`
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/stoai/base_agent.py src/stoai/agent.py tests/test_agent.py
+git add src/lingtai/base_agent.py src/lingtai/agent.py tests/test_agent.py
 git commit -m "refactor: move FileIO auto-creation from BaseAgent to Agent"
 ```
 
@@ -169,11 +169,11 @@ git commit -m "refactor: move FileIO auto-creation from BaseAgent to Agent"
 
 ### Task 2: Move connect_mcp() from BaseAgent to Agent
 
-`BaseAgent.connect_mcp()` (line 950) imports `MCPClient` from `services.mcp` which stays in stoai. Also move the MCP cleanup from BaseAgent's `stop()`.
+`BaseAgent.connect_mcp()` (line 950) imports `MCPClient` from `services.mcp` which stays in lingtai. Also move the MCP cleanup from BaseAgent's `stop()`.
 
 **Files:**
-- Modify: `src/stoai/base_agent.py:950-1010`
-- Modify: `src/stoai/agent.py`
+- Modify: `src/lingtai/base_agent.py:950-1010`
+- Modify: `src/lingtai/agent.py`
 - Test: `tests/test_agent.py`
 
 - [ ] **Step 1: Write test that connect_mcp is on Agent, not BaseAgent**
@@ -195,7 +195,7 @@ Expected: FAIL — `connect_mcp` is in `BaseAgent.__dict__`
 
 - [ ] **Step 3: Move connect_mcp from BaseAgent to Agent**
 
-Cut the `connect_mcp()` method (lines 950-1000) from `src/stoai/base_agent.py` and paste it into `src/stoai/agent.py` as a method on `Agent`.
+Cut the `connect_mcp()` method (lines 950-1000) from `src/lingtai/base_agent.py` and paste it into `src/lingtai/agent.py` as a method on `Agent`.
 
 Also move the MCP client cleanup from BaseAgent's `stop()` method. In `base_agent.py`, find and remove the MCP cleanup code in `stop()`.
 
@@ -239,12 +239,12 @@ Expected: All pass
 
 - [ ] **Step 6: Smoke-test**
 
-Run: `python -c "from stoai import BaseAgent, Agent; print('OK')"`
+Run: `python -c "from lingtai import BaseAgent, Agent; print('OK')"`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/base_agent.py src/stoai/agent.py tests/test_agent.py
+git add src/lingtai/base_agent.py src/lingtai/agent.py tests/test_agent.py
 git commit -m "refactor: move connect_mcp() from BaseAgent to Agent"
 ```
 
@@ -255,8 +255,8 @@ git commit -m "refactor: move connect_mcp() from BaseAgent to Agent"
 This field is only used by the bash capability. Capability-level config should be passed via `capabilities={"bash": {"policy_file": ...}}`.
 
 **Files:**
-- Modify: `src/stoai/config.py:22`
-- Modify: `src/stoai/capabilities/bash.py:215`
+- Modify: `src/lingtai/config.py:22`
+- Modify: `src/lingtai/capabilities/bash.py:215`
 - Test: `tests/test_agent.py`
 
 - [ ] **Step 1: Write test**
@@ -266,7 +266,7 @@ Add to `tests/test_agent.py`:
 ```python
 def test_agent_config_has_no_bash_policy_file():
     """AgentConfig should not have capability-specific fields."""
-    from stoai.config import AgentConfig
+    from lingtai.config import AgentConfig
     assert not hasattr(AgentConfig, 'bash_policy_file') or 'bash_policy_file' not in AgentConfig.__dataclass_fields__
 ```
 
@@ -277,14 +277,14 @@ Expected: FAIL
 
 - [ ] **Step 3: Remove bash_policy_file from AgentConfig**
 
-In `src/stoai/config.py`, delete line 22:
+In `src/lingtai/config.py`, delete line 22:
 ```python
     bash_policy_file: str | None = None  # path to bash policy JSON
 ```
 
 - [ ] **Step 4: Update bash capability fallback**
 
-In `src/stoai/capabilities/bash.py`, line 215, change:
+In `src/lingtai/capabilities/bash.py`, line 215, change:
 ```python
     resolved_policy_file = policy_file or getattr(agent._config, "bash_policy_file", None)
 ```
@@ -300,12 +300,12 @@ Expected: All PASS
 
 - [ ] **Step 6: Smoke-test**
 
-Run: `python -c "from stoai.config import AgentConfig; print('OK')"`
+Run: `python -c "from lingtai.config import AgentConfig; print('OK')"`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/config.py src/stoai/capabilities/bash.py tests/test_agent.py
+git add src/lingtai/config.py src/lingtai/capabilities/bash.py tests/test_agent.py
 git commit -m "refactor: remove bash_policy_file from AgentConfig"
 ```
 
@@ -327,7 +327,7 @@ def test_base_agent_has_no_non_kernel_imports():
     """BaseAgent module should not import from non-kernel modules."""
     import ast
     from pathlib import Path
-    source = Path("src/stoai/base_agent.py").read_text()
+    source = Path("src/lingtai/base_agent.py").read_text()
     tree = ast.parse(source)
 
     non_kernel = {"services.file_io", "services.mcp", "services.vision", "services.search",
@@ -359,25 +359,25 @@ git commit -m "test: verify BaseAgent has no non-kernel imports"
 
 ---
 
-### Task 5: Create stoai-kernel repository and copy kernel modules
+### Task 5: Create lingtai-kernel repository and copy kernel modules
 
-Create the new repo at `../stoai-kernel/` (sibling directory) with all kernel modules.
+Create the new repo at `../lingtai-kernel/` (sibling directory) with all kernel modules.
 
 **Files:**
-- Create: `../stoai-kernel/` (entire repo structure)
+- Create: `../lingtai-kernel/` (entire repo structure)
 
 - [ ] **Step 1: Create repository structure**
 
 ```bash
-mkdir -p ../stoai-kernel/src/stoai_kernel/intrinsics
-mkdir -p ../stoai-kernel/src/stoai_kernel/services
-mkdir -p ../stoai-kernel/src/stoai_kernel/llm
-mkdir -p ../stoai-kernel/tests
+mkdir -p ../lingtai-kernel/src/lingtai_kernel/intrinsics
+mkdir -p ../lingtai-kernel/src/lingtai_kernel/services
+mkdir -p ../lingtai-kernel/src/lingtai_kernel/llm
+mkdir -p ../lingtai-kernel/tests
 ```
 
 - [ ] **Step 2: Create pyproject.toml**
 
-Write `../stoai-kernel/pyproject.toml`:
+Write `../lingtai-kernel/pyproject.toml`:
 
 ```toml
 [build-system]
@@ -385,7 +385,7 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "stoai-kernel"
+name = "lingtai-kernel"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = []
@@ -406,60 +406,60 @@ testpaths = ["tests"]
 for f in base_agent.py config.py state.py types.py message.py workdir.py \
          session.py tool_executor.py prompt.py logging.py token_counter.py \
          llm_utils.py loop_guard.py tool_timing.py; do
-    cp src/stoai/$f ../stoai-kernel/src/stoai_kernel/$f
+    cp src/lingtai/$f ../lingtai-kernel/src/lingtai_kernel/$f
 done
 
 # Intrinsics (3 intrinsics: mail, system, eigen)
-cp src/stoai/intrinsics/__init__.py ../stoai-kernel/src/stoai_kernel/intrinsics/
-cp src/stoai/intrinsics/mail.py ../stoai-kernel/src/stoai_kernel/intrinsics/
-cp src/stoai/intrinsics/system.py ../stoai-kernel/src/stoai_kernel/intrinsics/
-cp src/stoai/intrinsics/eigen.py ../stoai-kernel/src/stoai_kernel/intrinsics/
+cp src/lingtai/intrinsics/__init__.py ../lingtai-kernel/src/lingtai_kernel/intrinsics/
+cp src/lingtai/intrinsics/mail.py ../lingtai-kernel/src/lingtai_kernel/intrinsics/
+cp src/lingtai/intrinsics/system.py ../lingtai-kernel/src/lingtai_kernel/intrinsics/
+cp src/lingtai/intrinsics/eigen.py ../lingtai-kernel/src/lingtai_kernel/intrinsics/
 # Note: eigen.py has a deferred `from ..llm.interface import TextBlock` which resolves
-# correctly within stoai_kernel since both modules move together.
+# correctly within lingtai_kernel since both modules move together.
 
 # Services (ABCs + kernel impls)
-touch ../stoai-kernel/src/stoai_kernel/services/__init__.py
-cp src/stoai/services/mail.py ../stoai-kernel/src/stoai_kernel/services/
-cp src/stoai/services/logging.py ../stoai-kernel/src/stoai_kernel/services/
+touch ../lingtai-kernel/src/lingtai_kernel/services/__init__.py
+cp src/lingtai/services/mail.py ../lingtai-kernel/src/lingtai_kernel/services/
+cp src/lingtai/services/logging.py ../lingtai-kernel/src/lingtai_kernel/services/
 
 # LLM protocol (no adapters)
-cp src/stoai/llm/base.py ../stoai-kernel/src/stoai_kernel/llm/
-cp src/stoai/llm/interface.py ../stoai-kernel/src/stoai_kernel/llm/
-cp src/stoai/llm/service.py ../stoai-kernel/src/stoai_kernel/llm/
-cp src/stoai/llm/api_gate.py ../stoai-kernel/src/stoai_kernel/llm/
-cp src/stoai/llm/streaming.py ../stoai-kernel/src/stoai_kernel/llm/
+cp src/lingtai/llm/base.py ../lingtai-kernel/src/lingtai_kernel/llm/
+cp src/lingtai/llm/interface.py ../lingtai-kernel/src/lingtai_kernel/llm/
+cp src/lingtai/llm/service.py ../lingtai-kernel/src/lingtai_kernel/llm/
+cp src/lingtai/llm/api_gate.py ../lingtai-kernel/src/lingtai_kernel/llm/
+cp src/lingtai/llm/streaming.py ../lingtai-kernel/src/lingtai_kernel/llm/
 ```
 
 - [ ] **Step 4: Verify file count**
 
 ```bash
-find ../stoai-kernel/src/stoai_kernel -name "*.py" | wc -l
+find ../lingtai-kernel/src/lingtai_kernel -name "*.py" | wc -l
 ```
 Expected: ~25 files
 
-- [ ] **Step 5: Commit the copy (in stoai-kernel repo)**
+- [ ] **Step 5: Commit the copy (in lingtai-kernel repo)**
 
 ```bash
-cd ../stoai-kernel && git init && git add -A && git commit -m "init: copy kernel modules from stoai"
-cd ../stoai
+cd ../lingtai-kernel && git init && git add -A && git commit -m "init: copy kernel modules from lingtai"
+cd ../lingtai
 ```
 
 ---
 
-### Task 6: Create stoai_kernel `__init__.py` and `llm/__init__.py`
+### Task 6: Create lingtai_kernel `__init__.py` and `llm/__init__.py`
 
 Define the public API exports for the kernel package.
 
 **Files:**
-- Create: `../stoai-kernel/src/stoai_kernel/__init__.py`
-- Create: `../stoai-kernel/src/stoai_kernel/llm/__init__.py`
+- Create: `../lingtai-kernel/src/lingtai_kernel/__init__.py`
+- Create: `../lingtai-kernel/src/lingtai_kernel/llm/__init__.py`
 
 - [ ] **Step 1: Create kernel `__init__.py`**
 
-Write `../stoai-kernel/src/stoai_kernel/__init__.py`:
+Write `../lingtai-kernel/src/lingtai_kernel/__init__.py`:
 
 ```python
-"""stoai-kernel — minimal agent kernel: think, communicate, remember, host tools."""
+"""lingtai-kernel — minimal agent kernel: think, communicate, remember, host tools."""
 from .types import UnknownToolError
 from .config import AgentConfig
 from .base_agent import BaseAgent
@@ -479,7 +479,7 @@ __all__ = [
 
 - [ ] **Step 2: Create kernel `llm/__init__.py`**
 
-Write `../stoai-kernel/src/stoai_kernel/llm/__init__.py`:
+Write `../lingtai-kernel/src/lingtai_kernel/llm/__init__.py`:
 
 ```python
 """LLM protocol layer — adapter ABCs, session management, provider-agnostic types."""
@@ -496,39 +496,39 @@ __all__ = [
 ]
 ```
 
-Note: NO adapter registration here. The kernel defines the protocol; `stoai` registers adapters.
+Note: NO adapter registration here. The kernel defines the protocol; `lingtai` registers adapters.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd ../stoai-kernel && git add -A && git commit -m "feat: add public API exports"
-cd ../stoai
+cd ../lingtai-kernel && git add -A && git commit -m "feat: add public API exports"
+cd ../lingtai
 ```
 
 ---
 
-### Task 7: Update all relative imports in stoai-kernel
+### Task 7: Update all relative imports in lingtai-kernel
 
-All kernel modules use `from .xxx import` (relative to `stoai`). These must stay as relative imports but now relative to `stoai_kernel`. Since the internal structure is identical, **most imports need zero changes** — they're already relative within the same package.
+All kernel modules use `from .xxx import` (relative to `lingtai`). These must stay as relative imports but now relative to `lingtai_kernel`. Since the internal structure is identical, **most imports need zero changes** — they're already relative within the same package.
 
 The only imports that need updating are those referencing non-kernel modules that were removed.
 
 **Files:**
-- Modify: `../stoai-kernel/src/stoai_kernel/base_agent.py` (verify no non-kernel imports remain)
-- Modify: `../stoai-kernel/src/stoai_kernel/llm/service.py` (verify no adapter imports)
+- Modify: `../lingtai-kernel/src/lingtai_kernel/base_agent.py` (verify no non-kernel imports remain)
+- Modify: `../lingtai-kernel/src/lingtai_kernel/llm/service.py` (verify no adapter imports)
 
 - [ ] **Step 1: Verify all imports are self-contained**
 
 ```bash
-cd ../stoai-kernel
-grep -rn "from \." src/stoai_kernel/ | grep -v __pycache__ | sort
+cd ../lingtai-kernel
+grep -rn "from \." src/lingtai_kernel/ | grep -v __pycache__ | sort
 ```
 
-Verify every relative import resolves within `stoai_kernel/`. No references to `file_io`, `mcp`, `vision`, `search`, `capabilities`, `addons`, `_register`, or any adapter directory.
+Verify every relative import resolves within `lingtai_kernel/`. No references to `file_io`, `mcp`, `vision`, `search`, `capabilities`, `addons`, `_register`, or any adapter directory.
 
 - [ ] **Step 2: Remove the `_register` import from llm/__init__.py if accidentally copied**
 
-Verify `../stoai-kernel/src/stoai_kernel/llm/__init__.py` does NOT contain:
+Verify `../lingtai-kernel/src/lingtai_kernel/llm/__init__.py` does NOT contain:
 ```python
 from ._register import register_all_adapters
 ```
@@ -537,13 +537,13 @@ from ._register import register_all_adapters
 - [ ] **Step 3: Install and smoke-test**
 
 ```bash
-cd ../stoai-kernel
+cd ../lingtai-kernel
 pip install -e .
-python -c "from stoai_kernel import BaseAgent; print('BaseAgent OK')"
-python -c "from stoai_kernel.llm import LLMService; print('LLMService OK')"
-python -c "from stoai_kernel.services.mail import MailService, TCPMailService; print('Mail OK')"
-python -c "from stoai_kernel.services.logging import LoggingService, JSONLLoggingService; print('Logging OK')"
-python -c "from stoai_kernel.intrinsics import ALL_INTRINSICS; print(f'Intrinsics: {len(ALL_INTRINSICS)} OK')"  # expect 3
+python -c "from lingtai_kernel import BaseAgent; print('BaseAgent OK')"
+python -c "from lingtai_kernel.llm import LLMService; print('LLMService OK')"
+python -c "from lingtai_kernel.services.mail import MailService, TCPMailService; print('Mail OK')"
+python -c "from lingtai_kernel.services.logging import LoggingService, JSONLLoggingService; print('Logging OK')"
+python -c "from lingtai_kernel.intrinsics import ALL_INTRINSICS; print(f'Intrinsics: {len(ALL_INTRINSICS)} OK')"  # expect 3
 ```
 
 Expected: All print OK. 4 intrinsics.
@@ -551,19 +551,19 @@ Expected: All print OK. 4 intrinsics.
 - [ ] **Step 4: Commit**
 
 ```bash
-cd ../stoai-kernel && git add -A && git commit -m "fix: verify all imports are self-contained"
-cd ../stoai
+cd ../lingtai-kernel && git add -A && git commit -m "fix: verify all imports are self-contained"
+cd ../lingtai
 ```
 
 ---
 
 ### Task 8: Copy and adapt kernel tests
 
-Move pure kernel tests to `stoai-kernel/tests/`. Tests that exercise Agent or capabilities stay in `stoai/tests/`.
+Move pure kernel tests to `lingtai-kernel/tests/`. Tests that exercise Agent or capabilities stay in `lingtai/tests/`.
 
 **Files:**
-- Copy: kernel-only tests to `../stoai-kernel/tests/`
-- Modify: update `import stoai.` → `import stoai_kernel.` in copied tests
+- Copy: kernel-only tests to `../lingtai-kernel/tests/`
+- Modify: update `import lingtai.` → `import lingtai_kernel.` in copied tests
 
 **Kernel-only tests** (test modules that ONLY import from kernel):
 - `test_state.py` — AgentState enum
@@ -574,7 +574,7 @@ Move pure kernel tests to `stoai-kernel/tests/`. Tests that exercise Agent or ca
 - `test_prompt.py` — SystemPromptManager
 - `test_loop_guard.py` — LoopGuard
 - `test_token_counter.py` — count_tokens
-- `test_llm_service.py` — LLMService (context limits, registry — but registry tests use `_register.py` which stays in stoai, so only the context limit tests move)
+- `test_llm_service.py` — LLMService (context limits, registry — but registry tests use `_register.py` which stays in lingtai, so only the context limit tests move)
 - `test_llm_utils.py` — send_with_timeout
 - `test_streaming.py` — StreamingAccumulator
 - `test_api_gate.py` — APICallGate
@@ -582,7 +582,7 @@ Move pure kernel tests to `stoai-kernel/tests/`. Tests that exercise Agent or ca
 - `test_services_logging.py` — LoggingService/JSONLLoggingService
 - `test_session.py` — SessionManager
 
-**Integration tests that stay in stoai** (import Agent, capabilities, or adapters):
+**Integration tests that stay in lingtai** (import Agent, capabilities, or adapters):
 - `test_compaction.py` — imports `Agent`, not kernel-only
 - `test_agent.py`, `test_agent_capabilities.py`
 - `test_adapter_registry.py`
@@ -602,22 +602,22 @@ for f in test_state.py test_types.py test_message.py test_workdir.py \
          test_token_counter.py test_llm_utils.py test_streaming.py \
          test_api_gate.py test_services_mail.py test_services_logging.py \
          test_session.py; do
-    cp tests/$f ../stoai-kernel/tests/$f
+    cp tests/$f ../lingtai-kernel/tests/$f
 done
-touch ../stoai-kernel/tests/__init__.py
+touch ../lingtai-kernel/tests/__init__.py
 ```
 
 - [ ] **Step 2: Update imports in copied tests**
 
-In all copied test files, replace `stoai.` with `stoai_kernel.` and `from stoai ` with `from stoai_kernel `:
+In all copied test files, replace `lingtai.` with `lingtai_kernel.` and `from lingtai ` with `from lingtai_kernel `:
 
 ```bash
-cd ../stoai-kernel
+cd ../lingtai-kernel
 # Use sed for bulk replacement
 find tests -name "*.py" -exec sed -i '' \
-    -e 's/from stoai\./from stoai_kernel./g' \
-    -e 's/from stoai /from stoai_kernel /g' \
-    -e 's/import stoai\./import stoai_kernel./g' \
+    -e 's/from lingtai\./from lingtai_kernel./g' \
+    -e 's/from lingtai /from lingtai_kernel /g' \
+    -e 's/import lingtai\./import lingtai_kernel./g' \
     {} +
 ```
 
@@ -625,13 +625,13 @@ Manually verify a few files to ensure correctness.
 
 - [ ] **Step 3: Create a subset of test_llm_service.py for kernel**
 
-The kernel version should only include the context-limit tests, not the adapter registry or multimodal tests (those depend on `_register.py` in stoai):
+The kernel version should only include the context-limit tests, not the adapter registry or multimodal tests (those depend on `_register.py` in lingtai):
 
-Write `../stoai-kernel/tests/test_llm_service.py`:
+Write `../lingtai-kernel/tests/test_llm_service.py`:
 
 ```python
-"""Tests for stoai_kernel.llm.service — model registry and context limits."""
-from stoai_kernel.llm.service import get_context_limit, DEFAULT_CONTEXT_WINDOW
+"""Tests for lingtai_kernel.llm.service — model registry and context limits."""
+from lingtai_kernel.llm.service import get_context_limit, DEFAULT_CONTEXT_WINDOW
 
 
 def test_get_context_limit_unknown():
@@ -648,7 +648,7 @@ def test_get_context_limit_empty():
 - [ ] **Step 4: Run kernel tests**
 
 ```bash
-cd ../stoai-kernel
+cd ../lingtai-kernel
 python -m pytest tests/ -v
 ```
 
@@ -657,22 +657,22 @@ Expected: All PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-cd ../stoai-kernel && git add -A && git commit -m "test: add kernel-only tests"
-cd ../stoai
+cd ../lingtai-kernel && git add -A && git commit -m "test: add kernel-only tests"
+cd ../lingtai
 ```
 
 ---
 
-### Task 9: Update all imports in stoai to use stoai_kernel (BEFORE deletion)
+### Task 9: Update all imports in lingtai to use lingtai_kernel (BEFORE deletion)
 
-Update imports first while old files still exist. Both import paths work during this step (old relative imports still resolve, new `stoai_kernel` imports also work since the kernel is installed). This is safer than deleting first.
+Update imports first while old files still exist. Both import paths work during this step (old relative imports still resolve, new `lingtai_kernel` imports also work since the kernel is installed). This is safer than deleting first.
 
 Do all the import updates described in the original Task 10 below. Once all imports are updated and tests pass, proceed to deletion.
 
-- [ ] **Step 1: Install stoai-kernel as editable dependency**
+- [ ] **Step 1: Install lingtai-kernel as editable dependency**
 
 ```bash
-pip install -e ../stoai-kernel
+pip install -e ../lingtai-kernel
 ```
 
 Then perform all import updates (Steps 1-9 from the original Task 10 section below).
@@ -683,130 +683,130 @@ Then perform all import updates (Steps 1-9 from the original Task 10 section bel
 python -m pytest tests/ -v
 ```
 
-Expected: All pass — both old files and new `stoai_kernel` imports work simultaneously.
+Expected: All pass — both old files and new `lingtai_kernel` imports work simultaneously.
 
 - [ ] **Step 3: Commit import updates**
 
 ```bash
-git add src/stoai/
-git commit -m "refactor: update all imports to use stoai_kernel"
+git add src/lingtai/
+git commit -m "refactor: update all imports to use lingtai_kernel"
 ```
 
 ---
 
-### Task 10: Remove kernel modules from stoai
+### Task 10: Remove kernel modules from lingtai
 
-Now that imports point to `stoai_kernel`, delete the kernel source files from `src/stoai/`.
+Now that imports point to `lingtai_kernel`, delete the kernel source files from `src/lingtai/`.
 
 **Files:**
 - Delete: core modules, intrinsics/, services/mail.py, services/logging.py, llm protocol files
 - Keep: agent.py, capabilities/, addons/, services/{file_io,vision,search,mcp}.py, llm/{adapters,_register,interface_converters}
 
-- [ ] **Step 1: Delete kernel modules from stoai**
+- [ ] **Step 1: Delete kernel modules from lingtai**
 
 ```bash
 # Core kernel modules
-rm src/stoai/base_agent.py
-rm src/stoai/config.py
-rm src/stoai/state.py
-rm src/stoai/types.py
-rm src/stoai/message.py
-rm src/stoai/workdir.py
-rm src/stoai/session.py
-rm src/stoai/tool_executor.py
-rm src/stoai/prompt.py
-rm src/stoai/logging.py
-rm src/stoai/token_counter.py
-rm src/stoai/llm_utils.py
-rm src/stoai/loop_guard.py
-rm src/stoai/tool_timing.py
+rm src/lingtai/base_agent.py
+rm src/lingtai/config.py
+rm src/lingtai/state.py
+rm src/lingtai/types.py
+rm src/lingtai/message.py
+rm src/lingtai/workdir.py
+rm src/lingtai/session.py
+rm src/lingtai/tool_executor.py
+rm src/lingtai/prompt.py
+rm src/lingtai/logging.py
+rm src/lingtai/token_counter.py
+rm src/lingtai/llm_utils.py
+rm src/lingtai/loop_guard.py
+rm src/lingtai/tool_timing.py
 
 # Intrinsics
-rm -r src/stoai/intrinsics/
+rm -r src/lingtai/intrinsics/
 
 # Kernel services (keep file_io, vision, search, mcp)
-rm src/stoai/services/mail.py
-rm src/stoai/services/logging.py
+rm src/lingtai/services/mail.py
+rm src/lingtai/services/logging.py
 
 # LLM protocol (keep adapters, _register, interface_converters)
-rm src/stoai/llm/base.py
-rm src/stoai/llm/interface.py
-rm src/stoai/llm/service.py
-rm src/stoai/llm/api_gate.py
-rm src/stoai/llm/streaming.py
+rm src/lingtai/llm/base.py
+rm src/lingtai/llm/interface.py
+rm src/lingtai/llm/service.py
+rm src/lingtai/llm/api_gate.py
+rm src/lingtai/llm/streaming.py
 ```
 
 - [ ] **Step 2: Verify what remains**
 
 ```bash
-find src/stoai -name "*.py" -not -path "*__pycache__*" | sort
+find src/lingtai -name "*.py" -not -path "*__pycache__*" | sort
 ```
 
 Expected remaining files:
 ```
-src/stoai/__init__.py
-src/stoai/agent.py
-src/stoai/capabilities/__init__.py
-src/stoai/capabilities/bash.py
-src/stoai/capabilities/compose.py
-src/stoai/capabilities/conscience.py
-src/stoai/capabilities/delegate.py
-src/stoai/capabilities/draw.py
-src/stoai/capabilities/edit.py
-src/stoai/capabilities/email.py
-src/stoai/capabilities/glob.py
-src/stoai/capabilities/grep.py
-src/stoai/capabilities/listen.py
-src/stoai/capabilities/psyche.py
-src/stoai/capabilities/read.py
-src/stoai/capabilities/talk.py
-src/stoai/capabilities/vision.py
-src/stoai/capabilities/web_search.py
-src/stoai/capabilities/write.py
-src/stoai/addons/__init__.py
-src/stoai/addons/gmail/__init__.py
-src/stoai/addons/gmail/manager.py
-src/stoai/addons/gmail/service.py
-src/stoai/services/__init__.py
-src/stoai/services/file_io.py
-src/stoai/services/mcp.py
-src/stoai/services/search.py
-src/stoai/services/vision.py
-src/stoai/llm/__init__.py
-src/stoai/llm/_register.py
-src/stoai/llm/interface_converters.py
-src/stoai/llm/anthropic/...
-src/stoai/llm/openai/...
-src/stoai/llm/gemini/...
-src/stoai/llm/minimax/...
-src/stoai/llm/custom/...
+src/lingtai/__init__.py
+src/lingtai/agent.py
+src/lingtai/capabilities/__init__.py
+src/lingtai/capabilities/bash.py
+src/lingtai/capabilities/compose.py
+src/lingtai/capabilities/conscience.py
+src/lingtai/capabilities/delegate.py
+src/lingtai/capabilities/draw.py
+src/lingtai/capabilities/edit.py
+src/lingtai/capabilities/email.py
+src/lingtai/capabilities/glob.py
+src/lingtai/capabilities/grep.py
+src/lingtai/capabilities/listen.py
+src/lingtai/capabilities/psyche.py
+src/lingtai/capabilities/read.py
+src/lingtai/capabilities/talk.py
+src/lingtai/capabilities/vision.py
+src/lingtai/capabilities/web_search.py
+src/lingtai/capabilities/write.py
+src/lingtai/addons/__init__.py
+src/lingtai/addons/gmail/__init__.py
+src/lingtai/addons/gmail/manager.py
+src/lingtai/addons/gmail/service.py
+src/lingtai/services/__init__.py
+src/lingtai/services/file_io.py
+src/lingtai/services/mcp.py
+src/lingtai/services/search.py
+src/lingtai/services/vision.py
+src/lingtai/llm/__init__.py
+src/lingtai/llm/_register.py
+src/lingtai/llm/interface_converters.py
+src/lingtai/llm/anthropic/...
+src/lingtai/llm/openai/...
+src/lingtai/llm/gemini/...
+src/lingtai/llm/minimax/...
+src/lingtai/llm/custom/...
 ```
 
 - [ ] **Step 3: Commit deletion**
 
 ```bash
 git add -A
-git commit -m "refactor: remove kernel modules from stoai (now in stoai-kernel)"
+git commit -m "refactor: remove kernel modules from lingtai (now in lingtai-kernel)"
 ```
 
 ---
 
 ### Task 9 Import Update Details
 
-Reference for Task 9 — every file in `src/stoai/` that imports from kernel modules must be updated to import from `stoai_kernel`.
+Reference for Task 9 — every file in `src/lingtai/` that imports from kernel modules must be updated to import from `lingtai_kernel`.
 
 **Files:**
-- Modify: `src/stoai/agent.py`
-- Modify: `src/stoai/capabilities/*.py` (all 16)
-- Modify: `src/stoai/capabilities/__init__.py`
-- Modify: `src/stoai/services/mcp.py`
-- Modify: `src/stoai/services/file_io.py` (if it imports kernel types)
-- Modify: `src/stoai/addons/gmail/__init__.py`, `service.py`
-- Modify: `src/stoai/llm/__init__.py`
-- Modify: `src/stoai/llm/_register.py`
-- Modify: `src/stoai/llm/interface_converters.py`
-- Modify: `src/stoai/llm/{anthropic,openai,gemini,minimax,custom}/adapter.py`
-- Modify: `src/stoai/llm/minimax/mcp_client.py`, `mcp_media_client.py`
+- Modify: `src/lingtai/agent.py`
+- Modify: `src/lingtai/capabilities/*.py` (all 16)
+- Modify: `src/lingtai/capabilities/__init__.py`
+- Modify: `src/lingtai/services/mcp.py`
+- Modify: `src/lingtai/services/file_io.py` (if it imports kernel types)
+- Modify: `src/lingtai/addons/gmail/__init__.py`, `service.py`
+- Modify: `src/lingtai/llm/__init__.py`
+- Modify: `src/lingtai/llm/_register.py`
+- Modify: `src/lingtai/llm/interface_converters.py`
+- Modify: `src/lingtai/llm/{anthropic,openai,gemini,minimax,custom}/adapter.py`
+- Modify: `src/lingtai/llm/minimax/mcp_client.py`, `mcp_media_client.py`
 
 - [ ] **Step 1: Update agent.py**
 
@@ -814,7 +814,7 @@ Reference for Task 9 — every file in `src/stoai/` that imports from kernel mod
 # Old:
 from .base_agent import BaseAgent
 # New:
-from stoai_kernel.base_agent import BaseAgent
+from lingtai_kernel.base_agent import BaseAgent
 ```
 
 - [ ] **Step 2: Update capabilities/__init__.py**
@@ -824,7 +824,7 @@ Replace `TYPE_CHECKING` import:
 # Old:
 from ..base_agent import BaseAgent
 # New:
-from stoai_kernel.base_agent import BaseAgent
+from lingtai_kernel.base_agent import BaseAgent
 ```
 
 - [ ] **Step 3: Update capability modules**
@@ -835,7 +835,7 @@ For each capability that has `TYPE_CHECKING: from ..base_agent import BaseAgent`
 Change to:
 ```python
 if TYPE_CHECKING:
-    from stoai_kernel.base_agent import BaseAgent
+    from lingtai_kernel.base_agent import BaseAgent
 ```
 
 For capabilities that import `from ..logging import get_logger`:
@@ -843,7 +843,7 @@ For capabilities that import `from ..logging import get_logger`:
 
 Change to:
 ```python
-from stoai_kernel.logging import get_logger
+from lingtai_kernel.logging import get_logger
 ```
 
 For `email.py` that imports from intrinsics:
@@ -851,7 +851,7 @@ For `email.py` that imports from intrinsics:
 # Old:
 from ..intrinsics.mail import (...)
 # New:
-from stoai_kernel.intrinsics.mail import (...)
+from lingtai_kernel.intrinsics.mail import (...)
 ```
 
 For `delegate.py` that imports kernel types:
@@ -860,9 +860,9 @@ For `delegate.py` that imports kernel types:
 from ..services.mail import TCPMailService
 from ..config import AgentConfig
 # New:
-from stoai_kernel.services.mail import TCPMailService
-from stoai_kernel.config import AgentConfig
-# Note: `from ..agent import Agent` stays as-is (relative within stoai)
+from lingtai_kernel.services.mail import TCPMailService
+from lingtai_kernel.config import AgentConfig
+# Note: `from ..agent import Agent` stays as-is (relative within lingtai)
 ```
 
 - [ ] **Step 4: Update services/**
@@ -872,7 +872,7 @@ In `services/mcp.py`:
 # Old:
 from ..logging import get_logger
 # New:
-from stoai_kernel.logging import get_logger
+from lingtai_kernel.logging import get_logger
 ```
 
 In `services/vision.py` and `services/search.py` (TYPE_CHECKING imports):
@@ -880,7 +880,7 @@ In `services/vision.py` and `services/search.py` (TYPE_CHECKING imports):
 # Old:
 from ..llm.service import LLMService
 # New:
-from stoai_kernel.llm.service import LLMService
+from lingtai_kernel.llm.service import LLMService
 ```
 
 - [ ] **Step 5: Update addons/**
@@ -890,7 +890,7 @@ In `addons/__init__.py` (TYPE_CHECKING):
 # Old:
 from ..base_agent import BaseAgent
 # New:
-from stoai_kernel.base_agent import BaseAgent
+from lingtai_kernel.base_agent import BaseAgent
 ```
 
 In `addons/gmail/__init__.py`:
@@ -898,7 +898,7 @@ In `addons/gmail/__init__.py`:
 # Old:
 from ...services.mail import MailService, TCPMailService
 # New:
-from stoai_kernel.services.mail import MailService, TCPMailService
+from lingtai_kernel.services.mail import MailService, TCPMailService
 ```
 
 In `addons/gmail/service.py`:
@@ -906,7 +906,7 @@ In `addons/gmail/service.py`:
 # Old:
 from ...services.mail import MailService
 # New:
-from stoai_kernel.services.mail import MailService
+from lingtai_kernel.services.mail import MailService
 ```
 
 In `addons/gmail/manager.py` (TYPE_CHECKING + deferred):
@@ -915,8 +915,8 @@ In `addons/gmail/manager.py` (TYPE_CHECKING + deferred):
 from ...base_agent import BaseAgent  # TYPE_CHECKING
 from ...message import _make_message, MSG_REQUEST  # deferred
 # New:
-from stoai_kernel.base_agent import BaseAgent
-from stoai_kernel.message import _make_message, MSG_REQUEST
+from lingtai_kernel.base_agent import BaseAgent
+from lingtai_kernel.message import _make_message, MSG_REQUEST
 ```
 
 - [ ] **Step 6: Update llm adapter modules**
@@ -934,7 +934,7 @@ Change:
 # Old:
 from ...logging import get_logger
 # New:
-from stoai_kernel.logging import get_logger
+from lingtai_kernel.logging import get_logger
 ```
 
 For adapters that import from `..base`, `..interface`, `..streaming`, `..interface_converters`:
@@ -944,14 +944,14 @@ from ..base import LLMAdapter, ChatSession, ...
 from ..interface import ChatInterface, ...
 from ..streaming import StreamingAccumulator
 # New:
-from stoai_kernel.llm.base import LLMAdapter, ChatSession, ...
-from stoai_kernel.llm.interface import ChatInterface, ...
-from stoai_kernel.llm.streaming import StreamingAccumulator
+from lingtai_kernel.llm.base import LLMAdapter, ChatSession, ...
+from lingtai_kernel.llm.interface import ChatInterface, ...
+from lingtai_kernel.llm.streaming import StreamingAccumulator
 ```
 
-Note: `..interface_converters` stays as relative import since `interface_converters.py` is still in `stoai.llm/`:
+Note: `..interface_converters` stays as relative import since `interface_converters.py` is still in `lingtai.llm/`:
 ```python
-from ..interface_converters import ...  # stays relative — both in stoai.llm
+from ..interface_converters import ...  # stays relative — both in lingtai.llm
 ```
 
 But `interface_converters.py` itself imports from kernel:
@@ -959,15 +959,15 @@ But `interface_converters.py` itself imports from kernel:
 # Old:
 from .interface import ChatInterface, TextBlock, ...
 # New:
-from stoai_kernel.llm.interface import ChatInterface, TextBlock, ...
+from lingtai_kernel.llm.interface import ChatInterface, TextBlock, ...
 ```
 
 - [ ] **Step 7: Update llm/__init__.py**
 
 ```python
 """LLM adapter layer — multi-provider support with kernel protocol re-exports."""
-from stoai_kernel.llm.base import LLMAdapter, ChatSession, LLMResponse, ToolCall, FunctionSchema
-from stoai_kernel.llm.service import LLMService
+from lingtai_kernel.llm.base import LLMAdapter, ChatSession, LLMResponse, ToolCall, FunctionSchema
+from lingtai_kernel.llm.service import LLMService
 
 __all__ = [
     "LLMAdapter",
@@ -989,36 +989,36 @@ _register_all_adapters()
 # Old:
 from .service import LLMService
 # New:
-from stoai_kernel.llm.service import LLMService
+from lingtai_kernel.llm.service import LLMService
 ```
 
 - [ ] **Step 9: Smoke-test imports**
 
 ```bash
-python -c "from stoai.agent import Agent; print('Agent OK')"
-python -c "from stoai.capabilities.vision import VisionManager; print('vision OK')"
-python -c "from stoai.llm import LLMService; print('LLM OK')"
-python -c "import stoai; print('stoai OK')"
+python -c "from lingtai.agent import Agent; print('Agent OK')"
+python -c "from lingtai.capabilities.vision import VisionManager; print('vision OK')"
+python -c "from lingtai.llm import LLMService; print('LLM OK')"
+python -c "import lingtai; print('lingtai OK')"
 ```
 
 - [ ] **Step 10: These import updates are performed as part of Task 9.**
 
 ---
 
-### Task 11: Rewrite stoai `__init__.py` and `llm/__init__.py` with re-exports
+### Task 11: Rewrite lingtai `__init__.py` and `llm/__init__.py` with re-exports
 
-The main `__init__.py` must re-export kernel types so `from stoai import BaseAgent` still works.
+The main `__init__.py` must re-export kernel types so `from lingtai import BaseAgent` still works.
 
 **Files:**
-- Modify: `src/stoai/__init__.py`
+- Modify: `src/lingtai/__init__.py`
 
 - [ ] **Step 1: Rewrite `__init__.py`**
 
 ```python
-"""stoai — generic AI agent framework with intrinsic tools, composable capabilities, and pluggable services."""
+"""lingtai — generic AI agent framework with intrinsic tools, composable capabilities, and pluggable services."""
 
 # Re-export kernel public API (backward compatibility)
-from stoai_kernel import (
+from lingtai_kernel import (
     BaseAgent,
     AgentConfig,
     AgentState,
@@ -1038,10 +1038,10 @@ from .capabilities.delegate import DelegateManager
 from .capabilities.email import EmailManager
 
 # Services — kernel
-from stoai_kernel.services.mail import MailService, TCPMailService
-from stoai_kernel.services.logging import LoggingService, JSONLLoggingService
+from lingtai_kernel.services.mail import MailService, TCPMailService
+from lingtai_kernel.services.logging import LoggingService, JSONLLoggingService
 
-# Services — stoai
+# Services — lingtai
 from .services.file_io import FileIOService, LocalFileIOService, GrepMatch
 from .services.vision import VisionService, LLMVisionService
 from .services.search import SearchService, LLMSearchService, SearchResult
@@ -1080,62 +1080,62 @@ __all__ = [
 - [ ] **Step 2: Smoke-test re-exports**
 
 ```bash
-python -c "from stoai import BaseAgent, Agent, AgentConfig, AgentState, Message; print('re-exports OK')"
-python -c "from stoai import MailService, TCPMailService, LoggingService; print('kernel services OK')"
-python -c "from stoai import FileIOService, LocalFileIOService; print('stoai services OK')"
+python -c "from lingtai import BaseAgent, Agent, AgentConfig, AgentState, Message; print('re-exports OK')"
+python -c "from lingtai import MailService, TCPMailService, LoggingService; print('kernel services OK')"
+python -c "from lingtai import FileIOService, LocalFileIOService; print('lingtai services OK')"
 ```
 
 - [ ] **Step 3: Do NOT commit yet** — continue to Task 12.
 
 ---
 
-### Task 12: Update stoai pyproject.toml
+### Task 12: Update lingtai pyproject.toml
 
-Add `stoai-kernel` as a hard dependency.
+Add `lingtai-kernel` as a hard dependency.
 
 **Files:**
 - Modify: `pyproject.toml`
 
-- [ ] **Step 1: Add stoai-kernel dependency**
+- [ ] **Step 1: Add lingtai-kernel dependency**
 
 In `pyproject.toml`, add to `[project]`:
 ```toml
-dependencies = ["stoai-kernel"]
+dependencies = ["lingtai-kernel"]
 ```
 
-Or during dev, keep `dependencies = []` and rely on `pip install -e ../stoai-kernel`.
+Or during dev, keep `dependencies = []` and rely on `pip install -e ../lingtai-kernel`.
 
 - [ ] **Step 2: Install both packages in dev mode**
 
 ```bash
-pip install -e ../stoai-kernel
+pip install -e ../lingtai-kernel
 pip install -e .
 ```
 
 - [ ] **Step 3: Smoke-test the full stack**
 
 ```bash
-python -c "import stoai_kernel; print('kernel OK')"
-python -c "import stoai; print('stoai OK')"
-python -c "from stoai import BaseAgent, Agent; print('imports OK')"
-python -c "from stoai.llm import LLMService; print(sorted(LLMService._adapter_registry.keys()))"
+python -c "import lingtai_kernel; print('kernel OK')"
+python -c "import lingtai; print('lingtai OK')"
+python -c "from lingtai import BaseAgent, Agent; print('imports OK')"
+python -c "from lingtai.llm import LLMService; print(sorted(LLMService._adapter_registry.keys()))"
 ```
 
 - [ ] **Step 4: Commit everything from Tasks 9-12**
 
 ```bash
 git add -A
-git commit -m "refactor: remove kernel modules, import from stoai_kernel
+git commit -m "refactor: remove kernel modules, import from lingtai_kernel
 
-Kernel modules now live in stoai-kernel (separate repo).
+Kernel modules now live in lingtai-kernel (separate repo).
 All imports updated. Re-exports preserve backward compatibility."
 ```
 
 ---
 
-### Task 13: Update stoai tests to import from stoai_kernel where needed
+### Task 13: Update lingtai tests to import from lingtai_kernel where needed
 
-Tests in `stoai/tests/` that directly imported kernel internals need updating.
+Tests in `lingtai/tests/` that directly imported kernel internals need updating.
 
 **Files:**
 - Modify: `tests/test_agent.py` and others that import kernel types directly
@@ -1149,16 +1149,16 @@ python -m pytest tests/ --collect-only 2>&1 | grep "ImportError\|ModuleNotFoundE
 - [ ] **Step 2: Fix imports in test files**
 
 For each test file that fails to import:
-- Replace `from stoai.base_agent import BaseAgent` → `from stoai import BaseAgent` (uses re-export)
-- Replace `from stoai.config import AgentConfig` → `from stoai import AgentConfig`
-- Replace `from stoai.state import AgentState` → `from stoai import AgentState`
-- Replace `from stoai.llm.service import LLMService` → `from stoai.llm import LLMService` (re-exported via stoai.llm)
-- Replace `from stoai.llm.base import ...` → `from stoai.llm import ...`
-- Replace `from stoai.services.mail import ...` → `from stoai import MailService, TCPMailService`
-- Replace `from stoai.services.logging import ...` → `from stoai import LoggingService, JSONLLoggingService`
-- Replace `from stoai.intrinsics import ...` → `from stoai_kernel.intrinsics import ...`
+- Replace `from lingtai.base_agent import BaseAgent` → `from lingtai import BaseAgent` (uses re-export)
+- Replace `from lingtai.config import AgentConfig` → `from lingtai import AgentConfig`
+- Replace `from lingtai.state import AgentState` → `from lingtai import AgentState`
+- Replace `from lingtai.llm.service import LLMService` → `from lingtai.llm import LLMService` (re-exported via lingtai.llm)
+- Replace `from lingtai.llm.base import ...` → `from lingtai.llm import ...`
+- Replace `from lingtai.services.mail import ...` → `from lingtai import MailService, TCPMailService`
+- Replace `from lingtai.services.logging import ...` → `from lingtai import LoggingService, JSONLLoggingService`
+- Replace `from lingtai.intrinsics import ...` → `from lingtai_kernel.intrinsics import ...`
 
-The strategy: use `stoai` re-exports for public API, use `stoai_kernel` directly only for kernel internals (like intrinsics, session, etc.).
+The strategy: use `lingtai` re-exports for public API, use `lingtai_kernel` directly only for kernel internals (like intrinsics, session, etc.).
 
 - [ ] **Step 3: Run full test suite**
 
@@ -1179,18 +1179,18 @@ git commit -m "test: update imports after kernel extraction"
 
 ### Task 14: Final verification
 
-- [ ] **Step 1: Run stoai-kernel tests**
+- [ ] **Step 1: Run lingtai-kernel tests**
 
 ```bash
-cd ../stoai-kernel && python -m pytest tests/ -v
+cd ../lingtai-kernel && python -m pytest tests/ -v
 ```
 
 Expected: All PASS
 
-- [ ] **Step 2: Run stoai tests**
+- [ ] **Step 2: Run lingtai tests**
 
 ```bash
-cd ../stoai && python -m pytest tests/ -v
+cd ../lingtai && python -m pytest tests/ -v
 ```
 
 Expected: All PASS (511+)
@@ -1200,45 +1200,45 @@ Expected: All PASS (511+)
 ```bash
 # Kernel standalone
 python -c "
-from stoai_kernel import BaseAgent
-from stoai_kernel.llm import LLMService, LLMAdapter
-from stoai_kernel.services.mail import MailService, TCPMailService
-from stoai_kernel.intrinsics import ALL_INTRINSICS
+from lingtai_kernel import BaseAgent
+from lingtai_kernel.llm import LLMService, LLMAdapter
+from lingtai_kernel.services.mail import MailService, TCPMailService
+from lingtai_kernel.intrinsics import ALL_INTRINSICS
 print(f'Kernel OK: {len(ALL_INTRINSICS)} intrinsics')
 "
 
-# stoai with re-exports
+# lingtai with re-exports
 python -c "
-from stoai import BaseAgent, Agent, AgentConfig
-from stoai import MailService, FileIOService
-from stoai.llm import LLMService
-print(f'stoai OK: {len(LLMService._adapter_registry)} adapters registered')
+from lingtai import BaseAgent, Agent, AgentConfig
+from lingtai import MailService, FileIOService
+from lingtai.llm import LLMService
+print(f'lingtai OK: {len(LLMService._adapter_registry)} adapters registered')
 "
 
 # Third-party extension simulation
 python -c "
-from stoai_kernel import BaseAgent
-from stoai_kernel.llm import LLMAdapter, LLMService
+from lingtai_kernel import BaseAgent
+from lingtai_kernel.llm import LLMAdapter, LLMService
 print('Third-party kernel import OK')
 "
 ```
 
-- [ ] **Step 4: Verify stoai-kernel has zero non-stdlib dependencies**
+- [ ] **Step 4: Verify lingtai-kernel has zero non-stdlib dependencies**
 
 ```bash
-cd ../stoai-kernel
+cd ../lingtai-kernel
 python -c "
 import importlib, ast
 from pathlib import Path
 
 stdlib = set(importlib.util.find_spec(m).origin for m in ['os','sys','json','threading'] if importlib.util.find_spec(m))
-for f in Path('src/stoai_kernel').rglob('*.py'):
+for f in Path('src/lingtai_kernel').rglob('*.py'):
     tree = ast.parse(f.read_text())
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 top = alias.name.split('.')[0]
-                if top not in ('stoai_kernel',) and importlib.util.find_spec(top) is None:
+                if top not in ('lingtai_kernel',) and importlib.util.find_spec(top) is None:
                     print(f'WARNING: {f} imports non-stdlib: {alias.name}')
 print('Dependency check complete')
 "
@@ -1247,6 +1247,6 @@ print('Dependency check complete')
 - [ ] **Step 5: Final commit and tag**
 
 ```bash
-cd ../stoai-kernel && git add -A && git commit -m "v0.1.0: stoai-kernel initial release" && git tag v0.1.0
-cd ../stoai && git add -A && git commit -m "v0.1.0: stoai depends on stoai-kernel"
+cd ../lingtai-kernel && git add -A && git commit -m "v0.1.0: lingtai-kernel initial release" && git tag v0.1.0
+cd ../lingtai && git add -A && git commit -m "v0.1.0: lingtai depends on lingtai-kernel"
 ```

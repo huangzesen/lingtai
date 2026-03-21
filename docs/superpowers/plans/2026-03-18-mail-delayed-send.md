@@ -15,8 +15,8 @@
 ### Task 1: Add outbox helpers and `_mailman` thread to mail intrinsic
 
 **Files:**
-- Modify: `src/stoai/intrinsics/mail.py:1-17` (imports + docstring)
-- Modify: `src/stoai/intrinsics/mail.py:19-70` (SCHEMA)
+- Modify: `src/lingtai/intrinsics/mail.py:1-17` (imports + docstring)
+- Modify: `src/lingtai/intrinsics/mail.py:19-70` (SCHEMA)
 - Create new functions after line 230 (after `_persist_to_inbox`)
 - Test: `tests/test_mail_intrinsic.py`
 
@@ -179,7 +179,7 @@ Expected: FAIL — `"sent"` not in result status, no outbox/sent dirs
 
 - [ ] **Step 3: Add new imports to mail.py**
 
-In `src/stoai/intrinsics/mail.py`, add `threading` and `timedelta` to imports:
+In `src/lingtai/intrinsics/mail.py`, add `threading` and `timedelta` to imports:
 
 ```python
 import threading
@@ -190,7 +190,7 @@ Fix docstring from "6 actions" to "5 actions" on line 1.
 
 - [ ] **Step 4: Add `delay` to SCHEMA**
 
-In `src/stoai/intrinsics/mail.py`, add to the `"properties"` dict in SCHEMA:
+In `src/lingtai/intrinsics/mail.py`, add to the `"properties"` dict in SCHEMA:
 
 ```python
 "delay": {
@@ -201,7 +201,7 @@ In `src/stoai/intrinsics/mail.py`, add to the `"properties"` dict in SCHEMA:
 
 - [ ] **Step 5: Add `_outbox_dir`, `_sent_dir`, `_persist_to_outbox`, `_move_to_sent`, `_mailman`**
 
-Add after `_persist_to_inbox` (after line 230) in `src/stoai/intrinsics/mail.py`:
+Add after `_persist_to_inbox` (after line 230) in `src/lingtai/intrinsics/mail.py`:
 
 ```python
 def _outbox_dir(agent) -> Path:
@@ -299,7 +299,7 @@ def _mailman(agent, msg_id: str, payload: dict, deliver_at: datetime,
 
 - [ ] **Step 6: Rewrite `_send` to use outbox + mailman**
 
-Replace the `_send` function in `src/stoai/intrinsics/mail.py` (lines 237-289) with:
+Replace the `_send` function in `src/lingtai/intrinsics/mail.py` (lines 237-289) with:
 
 ```python
 def _send(agent, args: dict) -> dict:
@@ -378,13 +378,13 @@ Expected: ALL tests pass
 
 - [ ] **Step 10: Smoke test**
 
-Run: `python -c "import stoai.intrinsics.mail; print('ok')"`
+Run: `python -c "import lingtai.intrinsics.mail; print('ok')"`
 Expected: `ok`
 
 - [ ] **Step 11: Commit**
 
 ```bash
-git add src/stoai/intrinsics/mail.py tests/test_mail_intrinsic.py
+git add src/lingtai/intrinsics/mail.py tests/test_mail_intrinsic.py
 git commit -m "feat: unify mail send through outbox → mailman → sent pipeline"
 ```
 
@@ -393,9 +393,9 @@ git commit -m "feat: unify mail send through outbox → mailman → sent pipelin
 ### Task 2: Add archive and delete to email capability
 
 **Files:**
-- Modify: `src/stoai/capabilities/email.py:23-26` (imports)
-- Modify: `src/stoai/capabilities/email.py:31-121` (SCHEMA)
-- Modify: `src/stoai/capabilities/email.py:240-263` (handle dispatch)
+- Modify: `src/lingtai/capabilities/email.py:23-26` (imports)
+- Modify: `src/lingtai/capabilities/email.py:31-121` (SCHEMA)
+- Modify: `src/lingtai/capabilities/email.py:240-263` (handle dispatch)
 - Add new methods to `EmailManager`
 - Test: `tests/test_layers_email.py`
 
@@ -512,7 +512,7 @@ Expected: FAIL — no `archive` or `delete` action
 
 - [ ] **Step 3: Update email SCHEMA**
 
-In `src/stoai/capabilities/email.py`, update the SCHEMA:
+In `src/lingtai/capabilities/email.py`, update the SCHEMA:
 
 Add `"archive"` and `"delete"` to the action enum (line 37):
 ```python
@@ -751,13 +751,13 @@ Expected: ALL tests pass (new archive/delete tests + existing tests)
 
 - [ ] **Step 12: Smoke test**
 
-Run: `python -c "import stoai.capabilities.email; print('ok')"`
+Run: `python -c "import lingtai.capabilities.email; print('ok')"`
 Expected: `ok`
 
 - [ ] **Step 13: Commit**
 
 ```bash
-git add src/stoai/capabilities/email.py tests/test_layers_email.py
+git add src/lingtai/capabilities/email.py tests/test_layers_email.py
 git commit -m "feat: add archive and delete to email capability"
 ```
 
@@ -766,8 +766,8 @@ git commit -m "feat: add archive and delete to email capability"
 ### Task 3: Route email send through outbox → mailman pipeline
 
 **Files:**
-- Modify: `src/stoai/capabilities/email.py:23-26` (imports)
-- Modify: `src/stoai/capabilities/email.py:269-386` (EmailManager._send)
+- Modify: `src/lingtai/capabilities/email.py:23-26` (imports)
+- Modify: `src/lingtai/capabilities/email.py:269-386` (EmailManager._send)
 - Test: `tests/test_layers_email.py`
 
 - [ ] **Step 1: Write failing tests for email send through mailman**
@@ -853,7 +853,7 @@ Expected: FAIL — status is still `"delivered"`, not `"sent"`
 
 - [ ] **Step 3: Update email.py imports**
 
-Add to imports in `src/stoai/capabilities/email.py` (extending the existing import from `..intrinsics.mail`):
+Add to imports in `src/lingtai/capabilities/email.py` (extending the existing import from `..intrinsics.mail`):
 
 ```python
 import threading
@@ -1052,13 +1052,13 @@ Expected: ALL tests pass
 
 - [ ] **Step 8: Smoke test**
 
-Run: `python -c "import stoai.capabilities.email; print('ok')"`
+Run: `python -c "import lingtai.capabilities.email; print('ok')"`
 Expected: `ok`
 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/stoai/capabilities/email.py tests/test_layers_email.py
+git add src/lingtai/capabilities/email.py tests/test_layers_email.py
 git commit -m "feat: route email send through outbox → mailman pipeline, add delay support"
 ```
 
@@ -1096,7 +1096,7 @@ Expected: ALL tests pass
 
 - [ ] **Step 4: Smoke test the whole package**
 
-Run: `python -c "import stoai; print('ok')"`
+Run: `python -c "import lingtai; print('ok')"`
 Expected: `ok`
 
 - [ ] **Step 5: Commit**

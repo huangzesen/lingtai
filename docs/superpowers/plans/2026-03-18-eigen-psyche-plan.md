@@ -9,7 +9,7 @@
 - `psyche` replaces `anima` as a capability. It provides: `character` (identity), `library` (external brain), and upgrades eigen's `memory.edit` → `construct(ids, notes)` which builds memory from library entries + free text. `molt` is inherited from eigen.
 - Psyche upgrades eigen the same way email upgrades the mail intrinsic — via `override_intrinsic`.
 
-**Tech Stack:** Python, existing stoai intrinsic/capability patterns
+**Tech Stack:** Python, existing lingtai intrinsic/capability patterns
 
 ---
 
@@ -17,12 +17,12 @@
 
 | File | Action | Responsibility |
 |------|--------|----------------|
-| `src/stoai/intrinsics/eigen.py` | **Create** | New intrinsic: memory edit/load + molt. Replaces `memory` intrinsic. |
-| `src/stoai/capabilities/psyche.py` | **Create** | New capability: character + library + memory construct/load + molt (inherited). Replaces `anima`. |
-| `src/stoai/intrinsics/memory.py` | **Delete** | Replaced by eigen |
-| `src/stoai/capabilities/anima.py` | **Delete** | Replaced by psyche |
-| `src/stoai/base_agent.py` | **Modify** | Wire eigen as intrinsic (replacing memory), update molt pressure to reference eigen/psyche |
-| `src/stoai/agent.py` | **Modify** | Map `"psyche"` capability name (replace `"anima"`), keep `"anima"` as alias for backward compat during migration |
+| `src/lingtai/intrinsics/eigen.py` | **Create** | New intrinsic: memory edit/load + molt. Replaces `memory` intrinsic. |
+| `src/lingtai/capabilities/psyche.py` | **Create** | New capability: character + library + memory construct/load + molt (inherited). Replaces `anima`. |
+| `src/lingtai/intrinsics/memory.py` | **Delete** | Replaced by eigen |
+| `src/lingtai/capabilities/anima.py` | **Delete** | Replaced by psyche |
+| `src/lingtai/base_agent.py` | **Modify** | Wire eigen as intrinsic (replacing memory), update molt pressure to reference eigen/psyche |
+| `src/lingtai/agent.py` | **Modify** | Map `"psyche"` capability name (replace `"anima"`), keep `"anima"` as alias for backward compat during migration |
 | `tests/test_eigen.py` | **Create** | Tests for eigen intrinsic |
 | `tests/test_psyche.py` | **Create** | Tests for psyche capability |
 | `tests/test_anima.py` | **Delete or update** | Migrate to test_psyche.py |
@@ -32,13 +32,13 @@
 ### Task 1: Create `eigen` intrinsic
 
 **Files:**
-- Create: `src/stoai/intrinsics/eigen.py`
-- Modify: `src/stoai/base_agent.py` (wire eigen instead of memory)
+- Create: `src/lingtai/intrinsics/eigen.py`
+- Modify: `src/lingtai/base_agent.py` (wire eigen instead of memory)
 - Create: `tests/test_eigen.py`
 
 - [ ] **Step 1: Write eigen intrinsic**
 
-`src/stoai/intrinsics/eigen.py`:
+`src/lingtai/intrinsics/eigen.py`:
 
 ```python
 """Eigen intrinsic — bare essentials of agent self.
@@ -261,12 +261,12 @@ Run: `source venv/bin/activate && python -m pytest tests/test_eigen.py -v`
 
 - [ ] **Step 5: Smoke test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/intrinsics/eigen.py src/stoai/base_agent.py tests/test_eigen.py
+git add src/lingtai/intrinsics/eigen.py src/lingtai/base_agent.py tests/test_eigen.py
 git commit -m "feat: eigen intrinsic — memory edit/load + molt"
 ```
 
@@ -275,7 +275,7 @@ git commit -m "feat: eigen intrinsic — memory edit/load + molt"
 ### Task 2: Create `psyche` capability (replaces anima)
 
 **Files:**
-- Create: `src/stoai/capabilities/psyche.py`
+- Create: `src/lingtai/capabilities/psyche.py`
 - Create: `tests/test_psyche.py`
 
 - [ ] **Step 1: Create psyche.py**
@@ -388,7 +388,7 @@ Run: `source venv/bin/activate && python -m pytest tests/test_psyche.py -v`
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/psyche.py tests/test_psyche.py
+git add src/lingtai/capabilities/psyche.py tests/test_psyche.py
 git commit -m "feat: psyche capability — character + library + memory construct"
 ```
 
@@ -397,10 +397,10 @@ git commit -m "feat: psyche capability — character + library + memory construc
 ### Task 3: Wire psyche capability + clean up
 
 **Files:**
-- Modify: `src/stoai/agent.py` (register `"psyche"` capability, keep `"anima"` as alias)
-- Modify: `src/stoai/capabilities/__init__.py` (if capability registry exists)
-- Delete: `src/stoai/intrinsics/memory.py` (replaced by eigen)
-- Delete: `src/stoai/capabilities/anima.py` (replaced by psyche)
+- Modify: `src/lingtai/agent.py` (register `"psyche"` capability, keep `"anima"` as alias)
+- Modify: `src/lingtai/capabilities/__init__.py` (if capability registry exists)
+- Delete: `src/lingtai/intrinsics/memory.py` (replaced by eigen)
+- Delete: `src/lingtai/capabilities/anima.py` (replaced by psyche)
 - Modify: `app/web/examples/orchestrator.py` (rename `anima` → `psyche` in capabilities)
 
 - [ ] **Step 1: Register psyche in agent.py**
@@ -410,8 +410,8 @@ Find where capabilities are mapped to setup functions. Add `"psyche"` pointing t
 - [ ] **Step 2: Delete old files**
 
 ```bash
-rm src/stoai/intrinsics/memory.py
-rm src/stoai/capabilities/anima.py
+rm src/lingtai/intrinsics/memory.py
+rm src/lingtai/capabilities/anima.py
 rm tests/test_anima.py
 ```
 
@@ -442,7 +442,7 @@ f"{tool_name}(object=context, action=molt, summary=<briefing>)"
 
 Grep for remaining `anima` and `memory` intrinsic references:
 ```bash
-grep -r "anima\|from.*intrinsics.*memory" src/stoai/ --include="*.py"
+grep -r "anima\|from.*intrinsics.*memory" src/lingtai/ --include="*.py"
 ```
 Fix any remaining references.
 
@@ -452,7 +452,7 @@ Run: `source venv/bin/activate && python -m pytest tests/ -v`
 
 - [ ] **Step 7: Smoke test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 8: Commit**
 

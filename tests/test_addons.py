@@ -3,23 +3,23 @@ from unittest.mock import MagicMock, patch
 
 
 def test_addon_registry():
-    from stoai.addons import _BUILTIN
+    from lingtai.addons import _BUILTIN
     assert "imap" in _BUILTIN
 
 
 def test_agent_addon_lifecycle():
     """Agent should accept addons parameter."""
-    from stoai.agent import Agent
+    from lingtai.agent import Agent
     import inspect
     sig = inspect.signature(Agent.__init__)
     assert "addons" in sig.parameters
 
 
 def test_setup_single_account():
-    from stoai.addons.imap import setup
+    from lingtai.addons.imap import setup
     agent = MagicMock()
     agent._working_dir = "/tmp/test"
-    with patch("stoai.addons.imap.TCPMailService"):
+    with patch("lingtai.addons.imap.TCPMailService"):
         mgr = setup(agent, email_address="a@gmail.com", email_password="x",
                     bridge_port=8399)
     assert mgr is not None
@@ -28,10 +28,10 @@ def test_setup_single_account():
 
 
 def test_setup_multi_account():
-    from stoai.addons.imap import setup
+    from lingtai.addons.imap import setup
     agent = MagicMock()
     agent._working_dir = "/tmp/test"
-    with patch("stoai.addons.imap.TCPMailService"):
+    with patch("lingtai.addons.imap.TCPMailService"):
         mgr = setup(agent, accounts=[
             {"email_address": "a@gmail.com", "email_password": "x"},
             {"email_address": "b@outlook.com", "email_password": "y"},
@@ -43,7 +43,7 @@ def test_setup_multi_account():
 
 
 def test_setup_no_account_raises():
-    from stoai.addons.imap import setup
+    from lingtai.addons.imap import setup
     agent = MagicMock()
     agent._working_dir = "/tmp/test"
     import pytest

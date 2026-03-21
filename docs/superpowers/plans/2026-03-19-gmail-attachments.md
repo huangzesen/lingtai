@@ -13,7 +13,7 @@
 ### Task 1: Outbound — `GoogleMailService.send()` attachment support
 
 **Files:**
-- Modify: `src/stoai/addons/gmail/service.py:1-19` (imports), `src/stoai/addons/gmail/service.py:136-159` (`send` method)
+- Modify: `src/lingtai/addons/gmail/service.py:1-19` (imports), `src/lingtai/addons/gmail/service.py:136-159` (`send` method)
 - Test: `tests/test_addon_gmail_service.py`
 
 - [ ] **Step 1: Write failing test for send with attachments**
@@ -32,7 +32,7 @@ def test_send_with_attachments(tmp_path):
     img_path = tmp_path / "photo.png"
     img_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
 
-    with patch("stoai.addons.gmail.service.smtplib.SMTP") as MockSMTP:
+    with patch("lingtai.addons.gmail.service.smtplib.SMTP") as MockSMTP:
         mock_smtp = MagicMock()
         MockSMTP.return_value.__enter__ = MagicMock(return_value=mock_smtp)
         MockSMTP.return_value.__exit__ = MagicMock(return_value=False)
@@ -59,7 +59,7 @@ def test_send_without_attachments_still_works():
         gmail_address="agent@gmail.com",
         gmail_password="test",
     )
-    with patch("stoai.addons.gmail.service.smtplib.SMTP") as MockSMTP:
+    with patch("lingtai.addons.gmail.service.smtplib.SMTP") as MockSMTP:
         mock_smtp = MagicMock()
         MockSMTP.return_value.__enter__ = MagicMock(return_value=mock_smtp)
         MockSMTP.return_value.__exit__ = MagicMock(return_value=False)
@@ -97,7 +97,7 @@ Expected: 3 new tests FAIL (no attachment handling in `send()`)
 
 - [ ] **Step 3: Implement attachment support in `GoogleMailService.send()`**
 
-In `src/stoai/addons/gmail/service.py`, add imports at the top:
+In `src/lingtai/addons/gmail/service.py`, add imports at the top:
 
 ```python
 import mimetypes
@@ -169,7 +169,7 @@ Expected: All tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/addons/gmail/service.py tests/test_addon_gmail_service.py
+git add src/lingtai/addons/gmail/service.py tests/test_addon_gmail_service.py
 git commit -m "feat(gmail): add outbound attachment support to GoogleMailService.send()"
 ```
 
@@ -178,7 +178,7 @@ git commit -m "feat(gmail): add outbound attachment support to GoogleMailService
 ### Task 2: Inbound — extract and save attachments from received emails
 
 **Files:**
-- Modify: `src/stoai/addons/gmail/service.py:46-80` (`_extract_text_body`), `src/stoai/addons/gmail/service.py:186-214` (`_deliver_email`), `src/stoai/addons/gmail/service.py:279-305` (`_fetch_and_deliver`)
+- Modify: `src/lingtai/addons/gmail/service.py:46-80` (`_extract_text_body`), `src/lingtai/addons/gmail/service.py:186-214` (`_deliver_email`), `src/lingtai/addons/gmail/service.py:279-305` (`_fetch_and_deliver`)
 - Test: `tests/test_addon_gmail_service.py`
 
 - [ ] **Step 1: Write failing test for inbound attachment extraction**
@@ -234,7 +234,7 @@ Expected: FAIL (`_deliver_email` doesn't accept `attachments` param)
 
 - [ ] **Step 3: Implement inbound attachment handling**
 
-Modify `_deliver_email` in `src/stoai/addons/gmail/service.py`:
+Modify `_deliver_email` in `src/lingtai/addons/gmail/service.py`:
 
 ```python
 def _deliver_email(
@@ -305,7 +305,7 @@ from email.mime.base import MIMEBase
 from email.mime.text import MIMEText as StdMIMEText
 from email import encoders as std_encoders
 
-from stoai.addons.gmail.service import _extract_attachments
+from lingtai.addons.gmail.service import _extract_attachments
 
 
 def test_extract_attachments_from_multipart():
@@ -378,7 +378,7 @@ Expected: FAIL (`_extract_attachments` does not exist yet)
 
 - [ ] **Step 7: Implement `_extract_attachments` helper**
 
-Add to `src/stoai/addons/gmail/service.py` (after `_strip_html_tags`):
+Add to `src/lingtai/addons/gmail/service.py` (after `_strip_html_tags`):
 
 ```python
 def _extract_attachments(msg) -> list[dict]:
@@ -465,7 +465,7 @@ Expected: All PASS
 - [ ] **Step 11: Commit**
 
 ```bash
-git add src/stoai/addons/gmail/service.py tests/test_addon_gmail_service.py
+git add src/lingtai/addons/gmail/service.py tests/test_addon_gmail_service.py
 git commit -m "feat(gmail): extract and save inbound email attachments"
 ```
 
@@ -474,7 +474,7 @@ git commit -m "feat(gmail): extract and save inbound email attachments"
 ### Task 3: Manager — expose attachments in tool schema and pass through on send/read
 
 **Files:**
-- Modify: `src/stoai/addons/gmail/manager.py:27-101` (SCHEMA/DESCRIPTION), `src/stoai/addons/gmail/manager.py:313-395` (`_send`), `src/stoai/addons/gmail/manager.py:415-444` (`_read`)
+- Modify: `src/lingtai/addons/gmail/manager.py:27-101` (SCHEMA/DESCRIPTION), `src/lingtai/addons/gmail/manager.py:313-395` (`_send`), `src/lingtai/addons/gmail/manager.py:415-444` (`_read`)
 - Test: `tests/test_addon_gmail_manager.py`
 
 - [ ] **Step 1: Write failing test for send with attachments via manager**
@@ -575,7 +575,7 @@ Expected: New tests FAIL
 
 - [ ] **Step 4: Update SCHEMA to include attachments field**
 
-In `src/stoai/addons/gmail/manager.py`, add to `SCHEMA["properties"]`:
+In `src/lingtai/addons/gmail/manager.py`, add to `SCHEMA["properties"]`:
 
 ```python
 "attachments": {
@@ -719,12 +719,12 @@ Expected: All PASS
 
 - [ ] **Step 8: Smoke test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 Expected: Clean import, no errors
 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/stoai/addons/gmail/manager.py tests/test_addon_gmail_manager.py
+git add src/lingtai/addons/gmail/manager.py tests/test_addon_gmail_manager.py
 git commit -m "feat(gmail): expose attachments in tool schema and read results"
 ```

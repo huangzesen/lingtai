@@ -1,18 +1,18 @@
-# StoAI Symposium — Design Spec
+# 灵台 Symposium — Design Spec
 
 **Date:** 2026-03-16
-**Repo:** `stoai-symposium/` (separate git repo, sibling to `stoai/`)
+**Repo:** `lingtai-symposium/` (separate git repo, sibling to `lingtai/`)
 **Purpose:** A research orchestration app where an orchestrator agent delegates subagents and a memory agent to collaboratively investigate topics, with a React frontend showing a live kanban and agent connection graph.
 
 ## Overview
 
-Symposium is the first proper application built on stoai. It consists of:
+Symposium is the first proper application built on lingtai. It consists of:
 
-1. **A Python backend** — single async process that hosts an HTTP/WebSocket server and spawns stoai agents
+1. **A Python backend** — single async process that hosts an HTTP/WebSocket server and spawns lingtai agents
 2. **A React frontend** — Vite + TypeScript app with a kanban board, agent graph visualization, and LTM panel
 3. **Two MCP tools** — shared context injected into all agents as `MCPTool` instances
 
-The backend is thin — intelligence lives in stoai agents. The backend provides shared state (agent registry + LTM) and bridges it to the frontend via WebSocket.
+The backend is thin — intelligence lives in lingtai agents. The backend provides shared state (agent registry + LTM) and bridges it to the frontend via WebSocket.
 
 ## Agent Architecture
 
@@ -32,7 +32,7 @@ The backend is thin — intelligence lives in stoai agents. The backend provides
     SubA    SubB    MemoryAgent
 ```
 
-All agents are peers in the filesystem sense (siblings under `base_dir`), but logically form a tree rooted at the orchestrator. Note: subagents cannot sub-delegate (stoai's delegate capability explicitly skips itself when replaying capabilities to children).
+All agents are peers in the filesystem sense (siblings under `base_dir`), but logically form a tree rooted at the orchestrator. Note: subagents cannot sub-delegate (lingtai's delegate capability explicitly skips itself when replaying capabilities to children).
 
 ### Communication
 
@@ -117,14 +117,14 @@ The orchestrator's system prompt explicitly instructs this pattern. The registry
 - **Python 3.11+**
 - **Starlette** (async HTTP/WebSocket server)
 - **Uvicorn** (ASGI server)
-- **stoai** (agent framework, installed as dependency)
+- **lingtai** (agent framework, installed as dependency)
 
 ### File Structure
 
 ```
-stoai-symposium/
+lingtai-symposium/
 ├── backend/
-│   ├── pyproject.toml          # depends on stoai, starlette, uvicorn
+│   ├── pyproject.toml          # depends on lingtai, starlette, uvicorn
 │   ├── src/symposium/
 │   │   ├── __init__.py
 │   │   ├── app.py              # Entry point: wire registry + server + orchestrator
@@ -318,12 +318,12 @@ Three-panel layout:
 
 ```bash
 # Terminal 1: Backend
-cd stoai-symposium/backend
-pip install -e .  # installs symposium + stoai dependency
+cd lingtai-symposium/backend
+pip install -e .  # installs symposium + lingtai dependency
 python -m symposium  # starts server on http://localhost:8080
 
 # Terminal 2: Frontend (dev mode)
-cd stoai-symposium/frontend
+cd lingtai-symposium/frontend
 npm install
 npm run dev  # Vite dev server with proxy to backend
 
@@ -338,7 +338,7 @@ User opens `http://localhost:8080`, types a research task, and watches the agent
 
 ```toml
 dependencies = [
-    "stoai",           # agent framework (editable install during dev)
+    "lingtai",           # agent framework (editable install during dev)
     "starlette",       # async HTTP/WebSocket
     "uvicorn",         # ASGI server
 ]

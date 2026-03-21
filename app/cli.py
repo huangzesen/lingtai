@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sys
 import threading
-from stoai.services.mail import TCPMailService
+from lingtai.services.mail import TCPMailService
 
 
 class CLIChannel:

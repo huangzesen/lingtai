@@ -16,8 +16,8 @@
 
 | File | Action | Responsibility |
 |------|--------|----------------|
-| `src/stoai/services/mail.py` | Modify | Change persist path to `mailbox/inbox/`, inject `_mailbox_id` + `received_at` into payload |
-| `src/stoai/capabilities/email.py` | Rewrite | Remove in-memory mailbox, read/write filesystem, add search action |
+| `src/lingtai/services/mail.py` | Modify | Change persist path to `mailbox/inbox/`, inject `_mailbox_id` + `received_at` into payload |
+| `src/lingtai/capabilities/email.py` | Rewrite | Remove in-memory mailbox, read/write filesystem, add search action |
 | `tests/test_layers_email.py` | Rewrite | All tests use `tmp_path` filesystem fixtures instead of in-memory access |
 | `tests/test_mail_service.py` | Modify | Update persist path assertions from `mailbox/` to `mailbox/inbox/` |
 
@@ -28,7 +28,7 @@
 ### Task 1: Update TCPMailService persist path and inject metadata
 
 **Files:**
-- Modify: `src/stoai/services/mail.py:170-191` (the `_handle_connection` persist block)
+- Modify: `src/lingtai/services/mail.py:170-191` (the `_handle_connection` persist block)
 - Test: `tests/test_mail_service.py` (if exists, update path assertions)
 
 - [ ] **Step 1: Update persist path from `mailbox/` to `mailbox/inbox/`**
@@ -66,7 +66,7 @@ Fix any path-related failures.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/stoai/services/mail.py tests/
+git add src/lingtai/services/mail.py tests/
 git commit -m "refactor: mail service persists to mailbox/inbox/, injects _mailbox_id + received_at"
 ```
 
@@ -77,7 +77,7 @@ git commit -m "refactor: mail service persists to mailbox/inbox/, injects _mailb
 ### Task 2: Rewrite EmailManager to use filesystem
 
 **Files:**
-- Rewrite: `src/stoai/capabilities/email.py`
+- Rewrite: `src/lingtai/capabilities/email.py`
 
 This is the core rewrite. Replace the entire `EmailManager` class. The new class has no in-memory state — all operations go through the filesystem.
 
@@ -581,12 +581,12 @@ def setup(agent: "BaseAgent") -> EmailManager:
 
 - [ ] **Step 3: Smoke-test the import**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/stoai/capabilities/email.py
+git add src/lingtai/capabilities/email.py
 git commit -m "refactor: rewrite email capability to use filesystem-based mailbox"
 ```
 
@@ -613,8 +613,8 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 from datetime import datetime, timezone
 
-from stoai.agent import BaseAgent
-from stoai.config import AgentConfig
+from lingtai.agent import BaseAgent
+from lingtai.config import AgentConfig
 
 
 def make_mock_service():
@@ -949,7 +949,7 @@ Keep `test_email_send_multi_to`, `test_email_send_cc_visible`, `test_email_send_
 
 - [ ] **Step 9: Run all tests**
 
-Run: `python -c "import stoai"` (smoke test)
+Run: `python -c "import lingtai"` (smoke test)
 Run: `pytest tests/test_layers_email.py -v`
 Run: `pytest tests/ -x -q`
 

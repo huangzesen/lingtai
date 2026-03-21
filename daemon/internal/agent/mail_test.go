@@ -22,7 +22,7 @@ func mockServer(t *testing.T, port int, banner string, handler func(net.Conn)) n
 			return
 		}
 		defer conn.Close()
-		fmt.Fprintf(conn, "STOAI %s\n", banner)
+		fmt.Fprintf(conn, "LINGTAI %s\n", banner)
 		handler(conn)
 	}()
 	return ln
@@ -117,8 +117,8 @@ func TestMailListener_Receive(t *testing.T) {
 	buf := make([]byte, 256)
 	n, _ := conn.Read(buf)
 	banner := string(buf[:n])
-	if len(banner) == 0 || banner[:5] != "STOAI" {
-		t.Errorf("expected STOAI banner, got %q", banner)
+	if len(banner) == 0 || banner[:5] != "LINGTAI" {
+		t.Errorf("expected LINGTAI banner, got %q", banner)
 	}
 
 	payload, _ := json.Marshal(map[string]interface{}{

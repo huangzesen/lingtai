@@ -14,10 +14,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"stoai-daemon/internal/agent"
-	"stoai-daemon/internal/config"
-	"stoai-daemon/internal/i18n"
-	"stoai-daemon/internal/manage"
+	"lingtai-daemon/internal/agent"
+	"lingtai-daemon/internal/config"
+	"lingtai-daemon/internal/i18n"
+	"lingtai-daemon/internal/manage"
 )
 
 // mailReceivedMsg wraps a received TCP mail message.

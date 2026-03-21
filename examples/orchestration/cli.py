@@ -22,9 +22,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from stoai.services.mail import TCPMailService
+from lingtai.services.mail import TCPMailService
 
-PLAYGROUND = Path.home() / ".stoai" / "orchestration" / "playground"
+PLAYGROUND = Path.home() / ".lingtai" / "orchestration" / "playground"
 SERVICE_JSON = PLAYGROUND / "service.json"
 USER_DIR = PLAYGROUND / "user"
 

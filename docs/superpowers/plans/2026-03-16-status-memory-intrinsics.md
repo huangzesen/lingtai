@@ -14,10 +14,10 @@
 
 | File | Action | Responsibility |
 |------|--------|----------------|
-| `src/stoai/intrinsics/status.py` | Create | Schema and description for status intrinsic |
-| `src/stoai/intrinsics/memory.py` | Create | Schema and description for memory intrinsic |
-| `src/stoai/intrinsics/__init__.py` | Modify | Register both with `handler=None` |
-| `src/stoai/agent.py` | Modify | Git init in `start()`, `_started_at`/`_uptime_anchor`, `_handle_status`, `_handle_memory`, wire intrinsics, LTM migration, auto-load, manifest changes |
+| `src/lingtai/intrinsics/status.py` | Create | Schema and description for status intrinsic |
+| `src/lingtai/intrinsics/memory.py` | Create | Schema and description for memory intrinsic |
+| `src/lingtai/intrinsics/__init__.py` | Modify | Register both with `handler=None` |
+| `src/lingtai/agent.py` | Modify | Git init in `start()`, `_started_at`/`_uptime_anchor`, `_handle_status`, `_handle_memory`, wire intrinsics, LTM migration, auto-load, manifest changes |
 | `tests/test_status.py` | Create | Status intrinsic tests |
 | `tests/test_memory.py` | Create | Memory intrinsic tests |
 | `tests/test_agent.py` | Modify | Intrinsic count 9 → 11, LTM migration tests |
@@ -29,7 +29,7 @@
 ### Task 1: Git init in `start()`
 
 **Files:**
-- Modify: `src/stoai/agent.py`
+- Modify: `src/lingtai/agent.py`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -44,7 +44,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.agent import BaseAgent
+from lingtai.agent import BaseAgent
 
 
 def make_mock_service():
@@ -146,7 +146,7 @@ Expected: FAIL — no git init logic exists yet
 
 - [ ] **Step 3: Implement git init in `start()`**
 
-In `src/stoai/agent.py`, add a helper method and call it from `start()`.
+In `src/lingtai/agent.py`, add a helper method and call it from `start()`.
 
 Add this method after `_release_lock()` (around line 827):
 
@@ -171,12 +171,12 @@ Add this method after `_release_lock()` (around line 827):
 
             # Configure git identity for this repo
             subprocess.run(
-                ["git", "config", "user.email", "agent@stoai"],
+                ["git", "config", "user.email", "agent@lingtai"],
                 cwd=self._working_dir,
                 capture_output=True, check=True,
             )
             subprocess.run(
-                ["git", "config", "user.name", "StoAI Agent"],
+                ["git", "config", "user.name", "灵台 Agent"],
                 cwd=self._working_dir,
                 capture_output=True, check=True,
             )
@@ -249,25 +249,25 @@ Expected: ALL PASS
 
 - [ ] **Step 5: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 Expected: no errors
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/agent.py tests/test_git_init.py
+git add src/lingtai/agent.py tests/test_git_init.py
 git commit -m "feat: git init agent working directory on start"
 ```
 
 ### Task 2: Status schema module + registration
 
 **Files:**
-- Create: `src/stoai/intrinsics/status.py`
-- Modify: `src/stoai/intrinsics/__init__.py`
+- Create: `src/lingtai/intrinsics/status.py`
+- Modify: `src/lingtai/intrinsics/__init__.py`
 
 - [ ] **Step 1: Create status schema module**
 
-Create `src/stoai/intrinsics/status.py`:
+Create `src/lingtai/intrinsics/status.py`:
 
 ```python
 """Status intrinsic — agent self-inspection.
@@ -325,8 +325,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.agent import BaseAgent
-from stoai.intrinsics import ALL_INTRINSICS
+from lingtai.agent import BaseAgent
+from lingtai.intrinsics import ALL_INTRINSICS
 
 
 def make_mock_service():
@@ -358,7 +358,7 @@ Expected: FAIL
 
 - [ ] **Step 4: Register status in `__init__.py`**
 
-In `src/stoai/intrinsics/__init__.py`, add `status` to the import and registry:
+In `src/lingtai/intrinsics/__init__.py`, add `status` to the import and registry:
 
 ```python
 from . import read, edit, write, glob, grep, mail, vision, web_search, clock, status
@@ -376,19 +376,19 @@ Expected: PASS
 
 - [ ] **Step 6: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/intrinsics/status.py src/stoai/intrinsics/__init__.py tests/test_status.py
+git add src/lingtai/intrinsics/status.py src/lingtai/intrinsics/__init__.py tests/test_status.py
 git commit -m "feat: add status intrinsic schema and register"
 ```
 
 ### Task 3: Wire status + implement `_handle_status`
 
 **Files:**
-- Modify: `src/stoai/agent.py`
+- Modify: `src/lingtai/agent.py`
 
 - [ ] **Step 1: Write failing tests**
 
@@ -595,24 +595,24 @@ Expected: ALL PASS
 
 - [ ] **Step 6: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/agent.py tests/test_status.py
+git add src/lingtai/agent.py tests/test_status.py
 git commit -m "feat: implement status intrinsic with show action"
 ```
 
 ### Task 4: Memory schema module + registration
 
 **Files:**
-- Create: `src/stoai/intrinsics/memory.py`
-- Modify: `src/stoai/intrinsics/__init__.py`
+- Create: `src/lingtai/intrinsics/memory.py`
+- Modify: `src/lingtai/intrinsics/__init__.py`
 
 - [ ] **Step 1: Create memory schema module**
 
-Create `src/stoai/intrinsics/memory.py`:
+Create `src/lingtai/intrinsics/memory.py`:
 
 ```python
 """Memory intrinsic — long-term memory management.
@@ -670,8 +670,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.agent import BaseAgent
-from stoai.intrinsics import ALL_INTRINSICS
+from lingtai.agent import BaseAgent
+from lingtai.intrinsics import ALL_INTRINSICS
 
 
 def make_mock_service():
@@ -703,7 +703,7 @@ Expected: FAIL
 
 - [ ] **Step 4: Register memory in `__init__.py`**
 
-In `src/stoai/intrinsics/__init__.py`, add `memory` to the import and registry:
+In `src/lingtai/intrinsics/__init__.py`, add `memory` to the import and registry:
 
 ```python
 from . import read, edit, write, glob, grep, mail, vision, web_search, clock, status, memory
@@ -721,12 +721,12 @@ Expected: PASS
 
 - [ ] **Step 6: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/intrinsics/memory.py src/stoai/intrinsics/__init__.py tests/test_memory.py
+git add src/lingtai/intrinsics/memory.py src/lingtai/intrinsics/__init__.py tests/test_memory.py
 git commit -m "feat: add memory intrinsic schema and register"
 ```
 
@@ -735,7 +735,7 @@ git commit -m "feat: add memory intrinsic schema and register"
 ### Task 5: Wire memory + implement `_handle_memory`
 
 **Files:**
-- Modify: `src/stoai/agent.py`
+- Modify: `src/lingtai/agent.py`
 
 - [ ] **Step 1: Write failing tests**
 
@@ -1047,19 +1047,19 @@ Expected: ALL PASS
 
 - [ ] **Step 6: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/agent.py tests/test_memory.py
+git add src/lingtai/agent.py tests/test_memory.py
 git commit -m "feat: implement memory intrinsic with load action and git"
 ```
 
 ### Task 6: LTM migration from manifest to file
 
 **Files:**
-- Modify: `src/stoai/agent.py`
+- Modify: `src/lingtai/agent.py`
 
 - [ ] **Step 1: Write failing tests**
 
@@ -1249,12 +1249,12 @@ Expected: ALL PASS
 
 - [ ] **Step 5: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/agent.py tests/test_memory.py
+git add src/lingtai/agent.py tests/test_memory.py
 git commit -m "feat: migrate LTM from manifest to ltm/ltm.md file"
 ```
 
@@ -1339,11 +1339,11 @@ Expected: ALL PASS
 
 - [ ] **Step 6: Smoke-test**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/agent.py tests/test_agent.py
+git add src/lingtai/agent.py tests/test_agent.py
 git commit -m "test: update intrinsic count and LTM tests for file-based flow"
 ```

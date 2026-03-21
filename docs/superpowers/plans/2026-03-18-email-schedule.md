@@ -15,10 +15,10 @@
 ### Task 1: Schema and routing — schedule object + handle() dispatch
 
 **Files:**
-- Modify: `src/stoai/capabilities/email.py:34-127` (SCHEMA)
-- Modify: `src/stoai/capabilities/email.py:126` (`required`)
-- Modify: `src/stoai/capabilities/email.py:129-146` (DESCRIPTION)
-- Modify: `src/stoai/capabilities/email.py:264-291` (`handle()`)
+- Modify: `src/lingtai/capabilities/email.py:34-127` (SCHEMA)
+- Modify: `src/lingtai/capabilities/email.py:126` (`required`)
+- Modify: `src/lingtai/capabilities/email.py:129-146` (DESCRIPTION)
+- Modify: `src/lingtai/capabilities/email.py:264-291` (`handle()`)
 - Test: `tests/test_layers_email.py`
 
 - [ ] **Step 1: Write failing tests for schedule routing**
@@ -65,7 +65,7 @@ Expected: FAIL — no `schedule` in schema, `handle()` doesn't check for it.
 
 - [ ] **Step 3: Add schedule to SCHEMA, update required and DESCRIPTION, update handle()**
 
-In `src/stoai/capabilities/email.py`:
+In `src/lingtai/capabilities/email.py`:
 
 1. Add `schedule` property to `SCHEMA["properties"]`:
 
@@ -163,13 +163,13 @@ Expected: ALL PASS — existing tests pass `action` so routing is unchanged.
 
 - [ ] **Step 6: Smoke-test the module**
 
-Run: `python -c "import stoai.capabilities.email"`
+Run: `python -c "import lingtai.capabilities.email"`
 Expected: no errors.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/capabilities/email.py tests/test_layers_email.py
+git add src/lingtai/capabilities/email.py tests/test_layers_email.py
 git commit -m "feat(email): add schedule sub-object to schema and routing"
 ```
 
@@ -178,7 +178,7 @@ git commit -m "feat(email): add schedule sub-object to schema and routing"
 ### Task 2: schedule.create — persist and spawn daemon thread
 
 **Files:**
-- Modify: `src/stoai/capabilities/email.py` (`EmailManager.__init__`, `_schedule_create`)
+- Modify: `src/lingtai/capabilities/email.py` (`EmailManager.__init__`, `_schedule_create`)
 - Test: `tests/test_layers_email.py`
 
 - [ ] **Step 1: Write failing tests for schedule create**
@@ -326,7 +326,7 @@ Expected: FAIL — `_schedule_create` returns `{"error": "not implemented"}`.
 
 - [ ] **Step 3: Implement _schedule_create and forward _schedule metadata in _send()**
 
-In `src/stoai/capabilities/email.py`:
+In `src/lingtai/capabilities/email.py`:
 
 1. In `_send()`, after building `sent_record` (before writing to disk), add `_schedule` forwarding:
 
@@ -533,12 +533,12 @@ Expected: ALL PASS
 
 - [ ] **Step 6: Smoke-test the module**
 
-Run: `python -c "import stoai.capabilities.email"`
+Run: `python -c "import lingtai.capabilities.email"`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/capabilities/email.py tests/test_layers_email.py
+git add src/lingtai/capabilities/email.py tests/test_layers_email.py
 git commit -m "feat(email): implement schedule.create with daemon thread and disk persistence"
 ```
 
@@ -547,7 +547,7 @@ git commit -m "feat(email): implement schedule.create with daemon thread and dis
 ### Task 3: Duplicate guard bypass for scheduled sends
 
 **Files:**
-- Modify: `src/stoai/capabilities/email.py:297-414` (`_send()`)
+- Modify: `src/lingtai/capabilities/email.py:297-414` (`_send()`)
 - Test: `tests/test_layers_email.py`
 
 - [ ] **Step 1: Write failing test for duplicate guard bypass**
@@ -623,7 +623,7 @@ Expected: ALL PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/email.py tests/test_layers_email.py
+git add src/lingtai/capabilities/email.py tests/test_layers_email.py
 git commit -m "feat(email): bypass duplicate guard for scheduled sends"
 ```
 
@@ -632,7 +632,7 @@ git commit -m "feat(email): bypass duplicate guard for scheduled sends"
 ### Task 4: schedule.cancel
 
 **Files:**
-- Modify: `src/stoai/capabilities/email.py` (`_schedule_cancel`)
+- Modify: `src/lingtai/capabilities/email.py` (`_schedule_cancel`)
 - Test: `tests/test_layers_email.py`
 
 - [ ] **Step 1: Write failing tests for schedule cancel**
@@ -758,7 +758,7 @@ Expected: ALL PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/email.py tests/test_layers_email.py
+git add src/lingtai/capabilities/email.py tests/test_layers_email.py
 git commit -m "feat(email): implement schedule.cancel with event-based wakeup"
 ```
 
@@ -767,7 +767,7 @@ git commit -m "feat(email): implement schedule.cancel with event-based wakeup"
 ### Task 5: schedule.list
 
 **Files:**
-- Modify: `src/stoai/capabilities/email.py` (`_schedule_list`)
+- Modify: `src/lingtai/capabilities/email.py` (`_schedule_list`)
 - Test: `tests/test_layers_email.py`
 
 - [ ] **Step 1: Write failing tests for schedule list**
@@ -905,7 +905,7 @@ Expected: ALL PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/email.py tests/test_layers_email.py
+git add src/lingtai/capabilities/email.py tests/test_layers_email.py
 git commit -m "feat(email): implement schedule.list"
 ```
 
@@ -914,7 +914,7 @@ git commit -m "feat(email): implement schedule.list"
 ### Task 6: Recovery on start
 
 **Files:**
-- Modify: `src/stoai/capabilities/email.py` (`setup()`, `EmailManager`)
+- Modify: `src/lingtai/capabilities/email.py` (`setup()`, `EmailManager`)
 - Test: `tests/test_layers_email.py`
 
 - [ ] **Step 1: Write failing test for recovery**
@@ -1060,12 +1060,12 @@ Expected: ALL PASS
 
 - [ ] **Step 6: Smoke-test the module**
 
-Run: `python -c "import stoai.capabilities.email"`
+Run: `python -c "import lingtai.capabilities.email"`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/capabilities/email.py tests/test_layers_email.py
+git add src/lingtai/capabilities/email.py tests/test_layers_email.py
 git commit -m "feat(email): add schedule recovery on setup"
 ```
 

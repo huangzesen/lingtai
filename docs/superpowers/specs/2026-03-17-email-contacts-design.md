@@ -66,7 +66,7 @@ The existing `"address"` property already exists in the schema (used by `send`).
 
 | Action | Path |
 |--------|------|
-| Modify | `src/stoai/capabilities/email.py` |
+| Modify | `src/lingtai/capabilities/email.py` |
 
 ## Implementation notes
 

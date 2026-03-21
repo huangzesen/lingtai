@@ -17,13 +17,13 @@
 ### Task 1: LoggingService ABC + JSONLLoggingService
 
 **Files:**
-- Create: `src/stoai/services/logging.py`
+- Create: `src/lingtai/services/logging.py`
 - Test: `tests/test_services_logging.py`
 
 - [ ] **Step 1: Write the service module**
 
 ```python
-# src/stoai/services/logging.py
+# src/lingtai/services/logging.py
 """LoggingService — structured event logging backing agent observability.
 
 First implementation: JSONLLoggingService (append JSON lines to a file).
@@ -87,12 +87,12 @@ class JSONLLoggingService(LoggingService):
 
 ```python
 # tests/test_services_logging.py
-"""Tests for stoai.services.logging."""
+"""Tests for lingtai.services.logging."""
 import json
 import threading
 from pathlib import Path
 
-from stoai.services.logging import LoggingService, JSONLLoggingService
+from lingtai.services.logging import LoggingService, JSONLLoggingService
 
 
 class TestJSONLLoggingService:
@@ -195,7 +195,7 @@ Expected: All 8 tests PASS
 
 - [ ] **Step 4: Export from `__init__.py`**
 
-Modify: `src/stoai/__init__.py`
+Modify: `src/lingtai/__init__.py`
 
 Add after the SearchService import line:
 ```python
@@ -210,13 +210,13 @@ Add to `__all__`:
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `source venv/bin/activate && python -c "from stoai import LoggingService, JSONLLoggingService; print('OK')"`
+Run: `source venv/bin/activate && python -c "from lingtai import LoggingService, JSONLLoggingService; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/services/logging.py tests/test_services_logging.py src/stoai/__init__.py
+git add src/lingtai/services/logging.py tests/test_services_logging.py src/lingtai/__init__.py
 git commit -m "feat: add LoggingService ABC + JSONLLoggingService"
 ```
 
@@ -227,11 +227,11 @@ git commit -m "feat: add LoggingService ABC + JSONLLoggingService"
 ### Task 2: Add logging_service to BaseAgent constructor + _log() helper
 
 **Files:**
-- Modify: `src/stoai/agent.py`
+- Modify: `src/lingtai/agent.py`
 
 - [ ] **Step 1: Add `logging_service` parameter to `__init__`**
 
-In `src/stoai/agent.py`, add `logging_service` parameter after `streaming`:
+In `src/lingtai/agent.py`, add `logging_service` parameter after `streaming`:
 
 ```python
         cancel_event: threading.Event | None = None,
@@ -264,20 +264,20 @@ Add after the `_set_state()` method (around line 611), before the main loop sect
 
 - [ ] **Step 3: Smoke-test**
 
-Run: `source venv/bin/activate && python -c "import stoai" && python -m pytest tests/test_agent.py -q`
+Run: `source venv/bin/activate && python -c "import lingtai" && python -m pytest tests/test_agent.py -q`
 Expected: All agent tests pass, no import errors
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/stoai/agent.py
+git add src/lingtai/agent.py
 git commit -m "feat: add logging_service param and _log() helper to BaseAgent"
 ```
 
 ### Task 3: Wire 13 log call sites into BaseAgent
 
 **Files:**
-- Modify: `src/stoai/agent.py`
+- Modify: `src/lingtai/agent.py`
 
 - [ ] **Step 1: `_set_state()` — log `agent_state`**
 
@@ -429,13 +429,13 @@ In `_on_email_received()`, after `self.inbox.put(msg)`, add:
 
 - [ ] **Step 14: Run all tests**
 
-Run: `source venv/bin/activate && python -c "import stoai" && python -m pytest tests/ -q`
+Run: `source venv/bin/activate && python -c "import lingtai" && python -m pytest tests/ -q`
 Expected: All tests pass
 
 - [ ] **Step 15: Commit**
 
 ```bash
-git add src/stoai/agent.py
+git add src/lingtai/agent.py
 git commit -m "feat: wire 13 log call sites into BaseAgent"
 ```
 
@@ -455,8 +455,8 @@ Append to `tests/test_services_logging.py`:
 
 ```python
 from unittest.mock import MagicMock
-from stoai import BaseAgent
-from stoai.llm import ToolCall
+from lingtai import BaseAgent
+from lingtai.llm import ToolCall
 
 
 def make_mock_service():
@@ -481,7 +481,7 @@ class TestBaseAgentLoggingIntegration:
         # Register a simple tool
         agent.add_tool("greet", {"type": "object", "properties": {}}, lambda args: {"status": "ok"})
 
-        from stoai.loop_guard import LoopGuard
+        from lingtai.loop_guard import LoopGuard
         guard = LoopGuard()
         errors = []
         tc = ToolCall(name="greet", args={})
@@ -506,7 +506,7 @@ class TestBaseAgentLoggingIntegration:
         )
         agent.add_tool("greet", {"type": "object", "properties": {}}, lambda args: {"status": "ok"})
 
-        from stoai.loop_guard import LoopGuard
+        from lingtai.loop_guard import LoopGuard
         guard = LoopGuard()
         errors = []
         tc = ToolCall(name="greet", args={})
@@ -517,7 +517,7 @@ class TestBaseAgentLoggingIntegration:
         log_file = tmp_path / "agent.jsonl"
         log_svc = JSONLLoggingService(log_file)
 
-        from stoai import AgentState
+        from lingtai import AgentState
         agent = BaseAgent(
             agent_id="test",
             service=make_mock_service(),
@@ -581,5 +581,5 @@ git commit -m "docs: update for LoggingService (6th service)"
 
 - [ ] **Step 4: Final verification**
 
-Run: `source venv/bin/activate && python -c "import stoai" && python -m pytest tests/ -q`
+Run: `source venv/bin/activate && python -c "import lingtai" && python -m pytest tests/ -q`
 Expected: All tests pass, no import errors

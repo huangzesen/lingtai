@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.11+, pytest, unittest.mock
 
-**Spec:** `docs/superpowers/specs/2026-03-18-stoai-kernel-extraction-design.md`
+**Spec:** `docs/superpowers/specs/2026-03-18-lingtai-kernel-extraction-design.md`
 
 ---
 
@@ -16,14 +16,14 @@
 
 | Action | File | Responsibility |
 |--------|------|---------------|
-| Modify | `src/stoai/llm/service.py` | Remove multimodal methods, add `register_adapter()`, registry-based `_create_adapter()`, remove `provider_config` param |
-| Modify | `src/stoai/llm/base.py` | Remove multimodal methods from `LLMAdapter` ABC (web_search, generate_vision, generate_image, generate_music, text_to_speech, transcribe, analyze_audio) |
-| Create | `src/stoai/llm/_register.py` | Register all 5 adapter factories with `LLMService` |
-| Modify | `src/stoai/llm/__init__.py` | Auto-call `register_all_adapters()` on import |
-| Modify | `src/stoai/capabilities/vision.py` | Call adapter directly instead of `service.generate_vision()` |
-| Modify | `src/stoai/capabilities/web_search.py` | Call adapter directly instead of `service.web_search()` |
-| Modify | `src/stoai/agent.py` | Remove `_CAPABILITY_PROVIDER_KEYS`, pass provider to capabilities via kwargs instead of poking `service._config` |
-| Modify | `src/stoai/capabilities/delegate.py:113` | Read provider from `cap_kwargs` instead of removed `_capability_providers` |
+| Modify | `src/lingtai/llm/service.py` | Remove multimodal methods, add `register_adapter()`, registry-based `_create_adapter()`, remove `provider_config` param |
+| Modify | `src/lingtai/llm/base.py` | Remove multimodal methods from `LLMAdapter` ABC (web_search, generate_vision, generate_image, generate_music, text_to_speech, transcribe, analyze_audio) |
+| Create | `src/lingtai/llm/_register.py` | Register all 5 adapter factories with `LLMService` |
+| Modify | `src/lingtai/llm/__init__.py` | Auto-call `register_all_adapters()` on import |
+| Modify | `src/lingtai/capabilities/vision.py` | Call adapter directly instead of `service.generate_vision()` |
+| Modify | `src/lingtai/capabilities/web_search.py` | Call adapter directly instead of `service.web_search()` |
+| Modify | `src/lingtai/agent.py` | Remove `_CAPABILITY_PROVIDER_KEYS`, pass provider to capabilities via kwargs instead of poking `service._config` |
+| Modify | `src/lingtai/capabilities/delegate.py:113` | Read provider from `cap_kwargs` instead of removed `_capability_providers` |
 | Modify | `tests/test_llm_service.py` | Update tests for new registry pattern, remove multimodal routing tests |
 | Modify | `tests/test_vision_capability.py` | Update tests to pass `provider` kwarg or use VisionService |
 | Modify | `tests/test_web_search_capability.py` | Update tests to pass `provider` kwarg or use SearchService |
@@ -35,7 +35,7 @@
 
 **Files:**
 - Create: `tests/test_adapter_registry.py`
-- Modify: `src/stoai/llm/service.py:158-230`
+- Modify: `src/lingtai/llm/service.py:158-230`
 
 - [ ] **Step 1: Write failing tests for adapter registry**
 
@@ -44,8 +44,8 @@
 """Tests for LLMService adapter registry."""
 from __future__ import annotations
 from unittest.mock import MagicMock
-from stoai.llm.service import LLMService
-from stoai.llm.base import LLMAdapter
+from lingtai.llm.service import LLMService
+from lingtai.llm.base import LLMAdapter
 
 
 def _make_stub_adapter(**kwargs):
@@ -105,7 +105,7 @@ Expected: FAIL — `register_adapter` does not exist yet
 
 - [ ] **Step 3: Add `register_adapter()` and registry-based `_create_adapter()` to LLMService**
 
-In `src/stoai/llm/service.py`, add to the `LLMService` class:
+In `src/lingtai/llm/service.py`, add to the `LLMService` class:
 
 ```python
 class LLMService:
@@ -138,7 +138,7 @@ Replace the existing `_create_adapter()` method with:
             raise RuntimeError(
                 f"No adapter registered for provider {provider!r}. "
                 f"Registered: {', '.join(sorted(self._adapter_registry)) or '(none)'}. "
-                f"If using stoai, ensure 'import stoai' runs before creating LLMService."
+                f"If using lingtai, ensure 'import lingtai' runs before creating LLMService."
             )
 
         # Pass all context to factory — each factory decides what it needs
@@ -158,13 +158,13 @@ Expected: PASS
 
 - [ ] **Step 5: Smoke-test the module**
 
-Run: `python -c "from stoai.llm.service import LLMService; print('OK')"`
+Run: `python -c "from lingtai.llm.service import LLMService; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add tests/test_adapter_registry.py src/stoai/llm/service.py
+git add tests/test_adapter_registry.py src/lingtai/llm/service.py
 git commit -m "feat(llm): add adapter registry to LLMService"
 ```
 
@@ -173,8 +173,8 @@ git commit -m "feat(llm): add adapter registry to LLMService"
 ### Task 2: Create adapter registration module
 
 **Files:**
-- Create: `src/stoai/llm/_register.py`
-- Modify: `src/stoai/llm/__init__.py`
+- Create: `src/lingtai/llm/_register.py`
+- Modify: `src/lingtai/llm/__init__.py`
 
 - [ ] **Step 1: Write failing test for adapter registration**
 
@@ -182,8 +182,8 @@ Add to `tests/test_adapter_registry.py`:
 
 ```python
 def test_default_adapters_registered():
-    """All default adapters should be registered after importing stoai.llm."""
-    from stoai.llm._register import register_all_adapters
+    """All default adapters should be registered after importing lingtai.llm."""
+    from lingtai.llm._register import register_all_adapters
     # Clear and re-register
     saved = dict(LLMService._adapter_registry)
     LLMService._adapter_registry.clear()
@@ -202,7 +202,7 @@ Expected: FAIL — `_register` module does not exist
 - [ ] **Step 3: Create `_register.py`**
 
 ```python
-# src/stoai/llm/_register.py
+# src/lingtai/llm/_register.py
 """Register all built-in LLM adapter factories with LLMService.
 
 Each factory uses lazy imports so provider SDKs are only loaded when first used.
@@ -257,7 +257,7 @@ def register_all_adapters() -> None:
 
 - [ ] **Step 4: Update `__init__.py` to auto-register**
 
-In `src/stoai/llm/__init__.py`, add at the end:
+In `src/lingtai/llm/__init__.py`, add at the end:
 
 ```python
 # Register built-in adapters on import
@@ -277,13 +277,13 @@ Expected: All tests pass — existing behavior unchanged since old `_create_adap
 
 - [ ] **Step 7: Smoke-test**
 
-Run: `python -c "from stoai.llm import LLMService; print(sorted(LLMService._adapter_registry.keys()))"`
+Run: `python -c "from lingtai.llm import LLMService; print(sorted(LLMService._adapter_registry.keys()))"`
 Expected: Prints list including gemini, anthropic, openai, minimax, custom, deepseek, etc.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/stoai/llm/_register.py src/stoai/llm/__init__.py tests/test_adapter_registry.py
+git add src/lingtai/llm/_register.py src/lingtai/llm/__init__.py tests/test_adapter_registry.py
 git commit -m "feat(llm): register all built-in adapters via registry"
 ```
 
@@ -292,7 +292,7 @@ git commit -m "feat(llm): register all built-in adapters via registry"
 ### Task 3: Remove multimodal methods from LLMAdapter ABC
 
 **Files:**
-- Modify: `src/stoai/llm/base.py:342-401`
+- Modify: `src/lingtai/llm/base.py:342-401`
 - Modify: `tests/test_llm_service.py:17-39`
 
 The multimodal methods on `LLMAdapter` (`web_search`, `generate_vision`, `generate_image`, `generate_music`, `text_to_speech`, `transcribe`, `analyze_audio`) are not kernel concerns. They stay on the individual adapter implementations that support them but are removed from the base ABC.
@@ -301,12 +301,12 @@ Note: `make_multimodal_message` must stay on `LLMAdapter` — it's used by `Chat
 
 - [ ] **Step 1: Verify which adapter implementations override these methods**
 
-Run: `grep -rn "def web_search\|def generate_vision\|def generate_image\|def generate_music\|def text_to_speech\|def transcribe\|def analyze_audio" src/stoai/llm/`
+Run: `grep -rn "def web_search\|def generate_vision\|def generate_image\|def generate_music\|def text_to_speech\|def transcribe\|def analyze_audio" src/lingtai/llm/`
 Check which adapters actually implement these methods (they'll keep their implementations, just no longer inherit the default from ABC).
 
 - [ ] **Step 2: Remove multimodal methods from LLMAdapter in `base.py`**
 
-Delete lines 342-401 of `src/stoai/llm/base.py` (the `web_search`, `generate_vision`, `generate_image`, `generate_music`, `text_to_speech`, `transcribe`, `analyze_audio` methods). Keep `make_multimodal_message` as it is (abstract method, used for chat-context vision).
+Delete lines 342-401 of `src/lingtai/llm/base.py` (the `web_search`, `generate_vision`, `generate_image`, `generate_music`, `text_to_speech`, `transcribe`, `analyze_audio` methods). Keep `make_multimodal_message` as it is (abstract method, used for chat-context vision).
 
 - [ ] **Step 3: Update the test for base adapter**
 
@@ -319,13 +319,13 @@ Expected: PASS
 
 - [ ] **Step 5: Smoke-test**
 
-Run: `python -c "from stoai.llm.base import LLMAdapter; print('OK')"`
+Run: `python -c "from lingtai.llm.base import LLMAdapter; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/llm/base.py tests/test_llm_service.py
+git add src/lingtai/llm/base.py tests/test_llm_service.py
 git commit -m "refactor(llm): remove multimodal methods from LLMAdapter ABC"
 ```
 
@@ -334,12 +334,12 @@ git commit -m "refactor(llm): remove multimodal methods from LLMAdapter ABC"
 ### Task 4: Remove multimodal methods from LLMService
 
 **Files:**
-- Modify: `src/stoai/llm/service.py:277-369`
+- Modify: `src/lingtai/llm/service.py:277-369`
 - Modify: `tests/test_llm_service.py`
 
 - [ ] **Step 1: Remove multimodal methods from LLMService**
 
-Delete lines 277-369 of `src/stoai/llm/service.py` — the entire "Capability routing" section:
+Delete lines 277-369 of `src/lingtai/llm/service.py` — the entire "Capability routing" section:
 - `web_search()`
 - `make_multimodal_message()`
 - `generate_vision()`
@@ -387,13 +387,13 @@ Expected: PASS
 
 - [ ] **Step 6: Smoke-test**
 
-Run: `python -c "from stoai.llm.service import LLMService; print('OK')"`
+Run: `python -c "from lingtai.llm.service import LLMService; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/llm/service.py tests/test_llm_service.py
+git add src/lingtai/llm/service.py tests/test_llm_service.py
 git commit -m "refactor(llm): remove multimodal methods and provider_config from LLMService"
 ```
 
@@ -402,8 +402,8 @@ git commit -m "refactor(llm): remove multimodal methods and provider_config from
 ### Task 5: Update vision capability to call adapter directly
 
 **Files:**
-- Modify: `src/stoai/capabilities/vision.py:79`
-- Modify: `src/stoai/capabilities/vision.py:46-51` (setup function)
+- Modify: `src/lingtai/capabilities/vision.py:79`
+- Modify: `src/lingtai/capabilities/vision.py:46-51` (setup function)
 
 The vision capability currently calls `self._agent.service.generate_vision()`. After the refactor, it needs to resolve the provider itself and call the adapter directly.
 
@@ -415,8 +415,8 @@ The vision capability currently calls `self._agent.service.generate_vision()`. A
 def test_vision_calls_adapter_directly():
     """Vision capability should call adapter.generate_vision() directly."""
     from unittest.mock import MagicMock, patch
-    from stoai.capabilities.vision import VisionManager
-    from stoai.llm.base import LLMResponse
+    from lingtai.capabilities.vision import VisionManager
+    from lingtai.llm.base import LLMResponse
 
     agent = MagicMock()
     agent._working_dir = "/tmp"
@@ -448,7 +448,7 @@ Expected: FAIL — `VisionManager` doesn't accept `vision_provider` yet
 
 - [ ] **Step 3: Update VisionManager**
 
-In `src/stoai/capabilities/vision.py`:
+In `src/lingtai/capabilities/vision.py`:
 
 ```python
 class VisionManager:
@@ -578,13 +578,13 @@ Expected: All PASS
 
 - [ ] **Step 7: Smoke-test**
 
-Run: `python -c "from stoai.capabilities.vision import VisionManager; print('OK')"`
+Run: `python -c "from lingtai.capabilities.vision import VisionManager; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/stoai/capabilities/vision.py tests/test_adapter_registry.py tests/test_vision_capability.py
+git add src/lingtai/capabilities/vision.py tests/test_adapter_registry.py tests/test_vision_capability.py
 git commit -m "refactor(vision): call adapter directly instead of LLMService"
 ```
 
@@ -593,7 +593,7 @@ git commit -m "refactor(vision): call adapter directly instead of LLMService"
 ### Task 6: Update web_search capability to call adapter directly
 
 **Files:**
-- Modify: `src/stoai/capabilities/web_search.py:57`
+- Modify: `src/lingtai/capabilities/web_search.py:57`
 
 - [ ] **Step 1: Write failing test**
 
@@ -603,8 +603,8 @@ git commit -m "refactor(vision): call adapter directly instead of LLMService"
 def test_web_search_calls_adapter_directly():
     """web_search capability should call adapter.web_search() directly."""
     from unittest.mock import MagicMock
-    from stoai.capabilities.web_search import WebSearchManager
-    from stoai.llm.base import LLMResponse
+    from lingtai.capabilities.web_search import WebSearchManager
+    from lingtai.llm.base import LLMResponse
 
     agent = MagicMock()
     adapter = MagicMock()
@@ -613,7 +613,7 @@ def test_web_search_calls_adapter_directly():
     agent.service._get_provider_defaults.return_value = {"model": "gemini-test"}
 
     mgr = WebSearchManager(agent, web_search_provider="gemini")
-    result = mgr.handle({"query": "stoai agent framework"})
+    result = mgr.handle({"query": "lingtai agent framework"})
     assert result["status"] == "ok"
     adapter.web_search.assert_called_once()
 ```
@@ -625,7 +625,7 @@ Expected: FAIL — `WebSearchManager` doesn't accept `web_search_provider`
 
 - [ ] **Step 3: Update WebSearchManager**
 
-In `src/stoai/capabilities/web_search.py`:
+In `src/lingtai/capabilities/web_search.py`:
 
 ```python
 class WebSearchManager:
@@ -727,13 +727,13 @@ Expected: All PASS
 
 - [ ] **Step 7: Smoke-test**
 
-Run: `python -c "from stoai.capabilities.web_search import WebSearchManager; print('OK')"`
+Run: `python -c "from lingtai.capabilities.web_search import WebSearchManager; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/stoai/capabilities/web_search.py tests/test_adapter_registry.py tests/test_web_search_capability.py
+git add src/lingtai/capabilities/web_search.py tests/test_adapter_registry.py tests/test_web_search_capability.py
 git commit -m "refactor(web_search): call adapter directly instead of LLMService"
 ```
 
@@ -742,7 +742,7 @@ git commit -m "refactor(web_search): call adapter directly instead of LLMService
 ### Task 7: Remove provider routing from Agent
 
 **Files:**
-- Modify: `src/stoai/agent.py:27-75`
+- Modify: `src/lingtai/agent.py:27-75`
 
 The `_CAPABILITY_PROVIDER_KEYS` mapping and the code that pokes providers into `service._config` must be removed. Instead, the `provider` kwarg is passed through to each capability's `setup()` function naturally (it already goes through `**cap_kwargs`).
 
@@ -754,7 +754,7 @@ The `_CAPABILITY_PROVIDER_KEYS` mapping and the code that pokes providers into `
 def test_agent_passes_provider_to_capability():
     """Agent should pass provider kwarg through to capability setup."""
     from unittest.mock import MagicMock, patch
-    from stoai.agent import Agent
+    from lingtai.agent import Agent
 
     # We just need to verify that provider= reaches the capability setup
     with patch.object(Agent, '__init__', lambda self, *a, **kw: None):
@@ -771,7 +771,7 @@ Expected: FAIL — `_CAPABILITY_PROVIDER_KEYS` still exists
 
 - [ ] **Step 3: Update Agent**
 
-In `src/stoai/agent.py`, remove:
+In `src/lingtai/agent.py`, remove:
 - The `_CAPABILITY_PROVIDER_KEYS` class attribute (lines 28-35)
 - The provider routing loop (lines 65-75) that pokes into `service._config`
 - The `_capability_providers` attribute
@@ -781,7 +781,7 @@ The `provider` kwarg in `capabilities={"vision": {"provider": "gemini"}}` alread
 
 - [ ] **Step 4: Update delegate capability**
 
-In `src/stoai/capabilities/delegate.py`, update the provider inheritance at line 113. Since `_capability_providers` is removed and `provider` now stays in `cap_kwargs` (no longer popped), read it directly:
+In `src/lingtai/capabilities/delegate.py`, update the provider inheritance at line 113. Since `_capability_providers` is removed and `provider` now stays in `cap_kwargs` (no longer popped), read it directly:
 
 Replace:
 ```python
@@ -858,13 +858,13 @@ Expected: All tests pass
 
 - [ ] **Step 7: Smoke-test**
 
-Run: `python -c "from stoai import Agent; print('OK')"`
+Run: `python -c "from lingtai import Agent; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/stoai/agent.py src/stoai/capabilities/delegate.py tests/test_adapter_registry.py
+git add src/lingtai/agent.py src/lingtai/capabilities/delegate.py tests/test_adapter_registry.py
 git commit -m "refactor(agent): remove provider routing, pass provider to capabilities directly"
 ```
 
@@ -883,18 +883,18 @@ Expected: All tests pass
 - [ ] **Step 2: Smoke-test all modified modules**
 
 ```bash
-python -c "from stoai.llm.service import LLMService; print('LLMService OK')"
-python -c "from stoai.llm.base import LLMAdapter; print('LLMAdapter OK')"
-python -c "from stoai.llm._register import register_all_adapters; print('register OK')"
-python -c "from stoai.capabilities.vision import VisionManager; print('vision OK')"
-python -c "from stoai.capabilities.web_search import WebSearchManager; print('web_search OK')"
-python -c "from stoai.agent import Agent; print('Agent OK')"
-python -c "import stoai; print('stoai OK')"
+python -c "from lingtai.llm.service import LLMService; print('LLMService OK')"
+python -c "from lingtai.llm.base import LLMAdapter; print('LLMAdapter OK')"
+python -c "from lingtai.llm._register import register_all_adapters; print('register OK')"
+python -c "from lingtai.capabilities.vision import VisionManager; print('vision OK')"
+python -c "from lingtai.capabilities.web_search import WebSearchManager; print('web_search OK')"
+python -c "from lingtai.agent import Agent; print('Agent OK')"
+python -c "import lingtai; print('lingtai OK')"
 ```
 
 - [ ] **Step 3: Verify LLMService is now kernel-ready**
 
-Confirm that `src/stoai/llm/service.py` has:
+Confirm that `src/lingtai/llm/service.py` has:
 - No imports from adapter subdirectories (gemini, anthropic, etc.)
 - No multimodal methods
 - No `provider_config` parameter

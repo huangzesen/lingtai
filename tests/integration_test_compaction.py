@@ -24,8 +24,8 @@ if env_path.exists():
             v = v.strip().strip("'\"")  # strip surrounding quotes
             os.environ.setdefault(k.strip(), v)
 
-from stoai_kernel.llm.service import LLMService, COMPACTION_PROMPT, get_context_limit
-from stoai_kernel.llm.interface import TextBlock
+from lingtai_kernel.llm.service import LLMService, COMPACTION_PROMPT, get_context_limit
+from lingtai_kernel.llm.interface import TextBlock
 
 
 def main():

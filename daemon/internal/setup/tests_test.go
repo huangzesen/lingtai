@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"stoai-daemon/internal/config"
+	"lingtai-daemon/internal/config"
 )
 
 func TestTestEnvVar_Set(t *testing.T) {

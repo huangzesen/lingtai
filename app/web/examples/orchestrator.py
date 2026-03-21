@@ -9,8 +9,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from stoai import AgentConfig
-from stoai.llm import LLMService
+from lingtai import AgentConfig
+from lingtai.llm import LLMService
 
 from ..server.state import AppState
 

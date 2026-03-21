@@ -1,4 +1,4 @@
-from stoai_kernel.token_counter import count_tokens
+from lingtai_kernel.token_counter import count_tokens
 
 def test_count_tokens_returns_positive():
     """count_tokens should return a positive integer for any non-empty string."""

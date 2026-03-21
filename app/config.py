@@ -7,7 +7,7 @@ from pathlib import Path
 
 _DEFAULTS = {
     "agent_name": "orchestrator",
-    "base_dir": "~/.stoai",
+    "base_dir": "~/.lingtai",
     "max_turns": 50,
     "agent_port": 8501,
     "cli": False,

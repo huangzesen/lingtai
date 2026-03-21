@@ -17,7 +17,7 @@
 ### Task 1: Add `working_dir` property to BaseAgent
 
 **Files:**
-- Modify: `src/stoai/agent.py:569-575` (properties section)
+- Modify: `src/lingtai/agent.py:569-575` (properties section)
 - Test: `tests/test_agent.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -26,7 +26,7 @@ In `tests/test_agent.py`, add:
 
 ```python
 def test_working_dir_property(tmp_path):
-    from stoai.agent import BaseAgent
+    from lingtai.agent import BaseAgent
     from unittest.mock import MagicMock
     svc = MagicMock()
     svc.get_adapter.return_value = MagicMock()
@@ -36,7 +36,7 @@ def test_working_dir_property(tmp_path):
     assert agent.working_dir == tmp_path
 
 def test_working_dir_property_default():
-    from stoai.agent import BaseAgent
+    from lingtai.agent import BaseAgent
     from pathlib import Path
     from unittest.mock import MagicMock
     svc = MagicMock()
@@ -54,7 +54,7 @@ Expected: FAIL with `AttributeError: 'BaseAgent' object has no attribute 'workin
 
 - [ ] **Step 3: Add the property**
 
-In `src/stoai/agent.py`, after the `state` property (~line 575), add:
+In `src/lingtai/agent.py`, after the `state` property (~line 575), add:
 
 ```python
 @property
@@ -70,12 +70,12 @@ Expected: PASS
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/agent.py tests/test_agent.py
+git add src/lingtai/agent.py tests/test_agent.py
 git commit -m "feat: add public working_dir property to BaseAgent"
 ```
 
@@ -84,7 +84,7 @@ git commit -m "feat: add public working_dir property to BaseAgent"
 ### Task 2: Add LLMAdapter media methods
 
 **Files:**
-- Modify: `src/stoai/llm/base.py:335-357` (after `generate_vision` method)
+- Modify: `src/lingtai/llm/base.py:335-357` (after `generate_vision` method)
 - Test: `tests/test_llm_service.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -94,7 +94,7 @@ In `tests/test_llm_service.py`, add:
 ```python
 def test_adapter_generate_image_raises_not_implemented():
     """Base LLMAdapter media methods raise NotImplementedError."""
-    from stoai.llm.base import LLMAdapter
+    from lingtai.llm.base import LLMAdapter
     from unittest.mock import MagicMock
     # Create a minimal concrete subclass (all abstract methods must be overridden)
     class StubAdapter(LLMAdapter):
@@ -103,7 +103,7 @@ def test_adapter_generate_image_raises_not_implemented():
         def make_tool_result_message(self, *a, **kw): pass
         def make_multimodal_message(self, *a, **kw): pass
         def is_quota_error(self, *a, **kw): return False
-    from stoai.llm.base import LLMResponse
+    from lingtai.llm.base import LLMResponse
     adapter = StubAdapter()
     import pytest
     with pytest.raises(NotImplementedError):
@@ -125,7 +125,7 @@ Expected: FAIL with `AttributeError: 'StubAdapter' object has no attribute 'gene
 
 - [ ] **Step 3: Add the five methods to LLMAdapter**
 
-In `src/stoai/llm/base.py`, after the `generate_vision` method (~line 357), add:
+In `src/lingtai/llm/base.py`, after the `generate_vision` method (~line 357), add:
 
 ```python
 def generate_image(self, prompt: str, model: str) -> bytes:
@@ -178,12 +178,12 @@ Expected: PASS
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `python -c "from stoai.llm.base import LLMAdapter"`
+Run: `python -c "from lingtai.llm.base import LLMAdapter"`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/llm/base.py tests/test_llm_service.py
+git add src/lingtai/llm/base.py tests/test_llm_service.py
 git commit -m "feat: add media generation/recognition methods to LLMAdapter"
 ```
 
@@ -192,7 +192,7 @@ git commit -m "feat: add media generation/recognition methods to LLMAdapter"
 ### Task 3: Add LLMService gateway methods
 
 **Files:**
-- Modify: `src/stoai/llm/service.py:353-357` (after `generate_vision` method)
+- Modify: `src/lingtai/llm/service.py:353-357` (after `generate_vision` method)
 - Test: `tests/test_llm_service.py`
 
 - [ ] **Step 1: Write the failing tests**
@@ -202,7 +202,7 @@ In `tests/test_llm_service.py`, add:
 ```python
 def test_generate_image_no_provider():
     """generate_image raises RuntimeError when image_provider not configured."""
-    from stoai.llm.service import LLMService
+    from lingtai.llm.service import LLMService
     from unittest.mock import MagicMock, patch
     import pytest
     # Patch _create_adapter to avoid real SDK imports
@@ -213,7 +213,7 @@ def test_generate_image_no_provider():
 
 def test_generate_image_routes_to_adapter():
     """generate_image routes to the configured adapter."""
-    from stoai.llm.service import LLMService
+    from lingtai.llm.service import LLMService
     from unittest.mock import MagicMock, patch
     adapter = MagicMock()
     adapter.generate_image.return_value = b"PNG_BYTES"
@@ -231,7 +231,7 @@ def test_generate_image_routes_to_adapter():
     adapter.generate_image.assert_called_once_with("a cat", model="mm-img")
 
 def test_text_to_speech_no_provider():
-    from stoai.llm.service import LLMService
+    from lingtai.llm.service import LLMService
     from unittest.mock import MagicMock, patch
     import pytest
     with patch.object(LLMService, '_create_adapter', return_value=MagicMock()):
@@ -240,7 +240,7 @@ def test_text_to_speech_no_provider():
         svc.text_to_speech("hello")
 
 def test_transcribe_no_provider():
-    from stoai.llm.service import LLMService
+    from lingtai.llm.service import LLMService
     from unittest.mock import MagicMock, patch
     import pytest
     with patch.object(LLMService, '_create_adapter', return_value=MagicMock()):
@@ -256,7 +256,7 @@ Expected: FAIL with `AttributeError`
 
 - [ ] **Step 3: Add the five gateway methods to LLMService**
 
-In `src/stoai/llm/service.py`, after the `generate_vision` method, add:
+In `src/lingtai/llm/service.py`, after the `generate_vision` method, add:
 
 ```python
 def generate_image(self, prompt: str) -> bytes:
@@ -317,12 +317,12 @@ Expected: PASS
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `python -c "from stoai.llm.service import LLMService"`
+Run: `python -c "from lingtai.llm.service import LLMService"`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/llm/service.py tests/test_llm_service.py
+git add src/lingtai/llm/service.py tests/test_llm_service.py
 git commit -m "feat: add media gateway methods to LLMService"
 ```
 
@@ -333,7 +333,7 @@ git commit -m "feat: add media gateway methods to LLMService"
 ### Task 4: Create `draw` capability
 
 **Files:**
-- Create: `src/stoai/capabilities/draw.py`
+- Create: `src/lingtai/capabilities/draw.py`
 - Test: `tests/test_layers_draw.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -349,7 +349,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.capabilities.draw import DrawManager, setup as setup_draw
+from lingtai.capabilities.draw import DrawManager, setup as setup_draw
 
 
 def make_mock_agent(tmp_path):
@@ -413,11 +413,11 @@ class TestSetupDraw:
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_layers_draw.py -v`
-Expected: FAIL with `ModuleNotFoundError: No module named 'stoai.capabilities.draw'`
+Expected: FAIL with `ModuleNotFoundError: No module named 'lingtai.capabilities.draw'`
 
 - [ ] **Step 3: Implement `draw.py`**
 
-Create `src/stoai/capabilities/draw.py`:
+Create `src/lingtai/capabilities/draw.py`:
 
 ```python
 """Draw capability — text-to-image generation via LLM adapter."""
@@ -496,12 +496,12 @@ Expected: PASS (all 6 tests)
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `python -c "from stoai.capabilities.draw import DrawManager, setup"`
+Run: `python -c "from lingtai.capabilities.draw import DrawManager, setup"`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/draw.py tests/test_layers_draw.py
+git add src/lingtai/capabilities/draw.py tests/test_layers_draw.py
 git commit -m "feat: add draw capability (text-to-image)"
 ```
 
@@ -510,7 +510,7 @@ git commit -m "feat: add draw capability (text-to-image)"
 ### Task 5: Create `compose` capability
 
 **Files:**
-- Create: `src/stoai/capabilities/compose.py`
+- Create: `src/lingtai/capabilities/compose.py`
 - Test: `tests/test_layers_compose.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -524,7 +524,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.capabilities.compose import ComposeManager, setup as setup_compose
+from lingtai.capabilities.compose import ComposeManager, setup as setup_compose
 
 
 def make_mock_agent(tmp_path):
@@ -591,7 +591,7 @@ Expected: FAIL with `ModuleNotFoundError`
 
 - [ ] **Step 3: Implement `compose.py`**
 
-Create `src/stoai/capabilities/compose.py`:
+Create `src/lingtai/capabilities/compose.py`:
 
 ```python
 """Compose capability — music generation via LLM adapter."""
@@ -677,12 +677,12 @@ Expected: PASS
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `python -c "from stoai.capabilities.compose import ComposeManager, setup"`
+Run: `python -c "from lingtai.capabilities.compose import ComposeManager, setup"`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/compose.py tests/test_layers_compose.py
+git add src/lingtai/capabilities/compose.py tests/test_layers_compose.py
 git commit -m "feat: add compose capability (text-to-music)"
 ```
 
@@ -691,7 +691,7 @@ git commit -m "feat: add compose capability (text-to-music)"
 ### Task 6: Create `talk` capability
 
 **Files:**
-- Create: `src/stoai/capabilities/talk.py`
+- Create: `src/lingtai/capabilities/talk.py`
 - Test: `tests/test_layers_talk.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -705,7 +705,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.capabilities.talk import TalkManager, setup as setup_talk
+from lingtai.capabilities.talk import TalkManager, setup as setup_talk
 
 
 def make_mock_agent(tmp_path):
@@ -764,7 +764,7 @@ Expected: FAIL with `ModuleNotFoundError`
 
 - [ ] **Step 3: Implement `talk.py`**
 
-Create `src/stoai/capabilities/talk.py`:
+Create `src/lingtai/capabilities/talk.py`:
 
 ```python
 """Talk capability — text-to-speech via LLM adapter."""
@@ -843,12 +843,12 @@ Expected: PASS
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `python -c "from stoai.capabilities.talk import TalkManager, setup"`
+Run: `python -c "from lingtai.capabilities.talk import TalkManager, setup"`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/talk.py tests/test_layers_talk.py
+git add src/lingtai/capabilities/talk.py tests/test_layers_talk.py
 git commit -m "feat: add talk capability (text-to-speech)"
 ```
 
@@ -857,7 +857,7 @@ git commit -m "feat: add talk capability (text-to-speech)"
 ### Task 7: Create `listen` capability
 
 **Files:**
-- Create: `src/stoai/capabilities/listen.py`
+- Create: `src/lingtai/capabilities/listen.py`
 - Test: `tests/test_layers_listen.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -871,7 +871,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from stoai.capabilities.listen import ListenManager, setup as setup_listen
+from lingtai.capabilities.listen import ListenManager, setup as setup_listen
 
 
 def make_mock_agent(tmp_path):
@@ -956,7 +956,7 @@ Expected: FAIL with `ModuleNotFoundError`
 
 - [ ] **Step 3: Implement `listen.py`**
 
-Create `src/stoai/capabilities/listen.py`:
+Create `src/lingtai/capabilities/listen.py`:
 
 ```python
 """Listen capability — speech transcription and audio analysis via LLM adapter."""
@@ -1047,12 +1047,12 @@ Expected: PASS
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `python -c "from stoai.capabilities.listen import ListenManager, setup"`
+Run: `python -c "from lingtai.capabilities.listen import ListenManager, setup"`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/listen.py tests/test_layers_listen.py
+git add src/lingtai/capabilities/listen.py tests/test_layers_listen.py
 git commit -m "feat: add listen capability (speech transcription + audio analysis)"
 ```
 
@@ -1061,7 +1061,7 @@ git commit -m "feat: add listen capability (speech transcription + audio analysi
 ### Task 8: Register capabilities in `__init__.py`
 
 **Files:**
-- Modify: `src/stoai/capabilities/__init__.py:11-15`
+- Modify: `src/lingtai/capabilities/__init__.py:11-15`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1070,7 +1070,7 @@ In `tests/test_layers_draw.py`, add at the bottom:
 ```python
 class TestAddCapabilityIntegration:
     def test_add_capability_draw(self, tmp_path):
-        from stoai.agent import BaseAgent
+        from lingtai.agent import BaseAgent
         from unittest.mock import MagicMock
         svc = MagicMock()
         svc.get_adapter.return_value = MagicMock()
@@ -1088,7 +1088,7 @@ Expected: FAIL with `ValueError: Unknown capability: 'draw'`
 
 - [ ] **Step 3: Add to `_BUILTIN`**
 
-In `src/stoai/capabilities/__init__.py`, update the `_BUILTIN` dict:
+In `src/lingtai/capabilities/__init__.py`, update the `_BUILTIN` dict:
 
 ```python
 _BUILTIN: dict[str, str] = {
@@ -1114,12 +1114,12 @@ Expected: ALL PASS
 
 - [ ] **Step 6: Smoke-test import**
 
-Run: `python -c "import stoai"`
+Run: `python -c "import lingtai"`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/capabilities/__init__.py tests/test_layers_draw.py
+git add src/lingtai/capabilities/__init__.py tests/test_layers_draw.py
 git commit -m "feat: register draw/compose/talk/listen in capability registry"
 ```
 
@@ -1130,8 +1130,8 @@ git commit -m "feat: register draw/compose/talk/listen in capability registry"
 ### Task 9: Add `attachments` to mail message model and intrinsic schema
 
 **Files:**
-- Modify: `src/stoai/intrinsics/mail.py`
-- Modify: `src/stoai/services/mail.py` (MailMessage if it exists, or the dict-based message format)
+- Modify: `src/lingtai/intrinsics/mail.py`
+- Modify: `src/lingtai/services/mail.py` (MailMessage if it exists, or the dict-based message format)
 - Test: `tests/test_intrinsics_comm.py`
 
 Note: The current mail system uses plain dicts, not a MailMessage dataclass. The intrinsic schema needs an `attachments` field. The TCPMailService just passes dicts through.
@@ -1142,7 +1142,7 @@ In `tests/test_intrinsics_comm.py`, add:
 
 ```python
 def test_mail_schema_has_attachments():
-    from stoai.intrinsics.mail import SCHEMA
+    from lingtai.intrinsics.mail import SCHEMA
     assert "attachments" in SCHEMA["properties"]
     assert SCHEMA["properties"]["attachments"]["type"] == "array"
 ```
@@ -1154,7 +1154,7 @@ Expected: FAIL with `KeyError: 'attachments'`
 
 - [ ] **Step 3: Add `attachments` to mail SCHEMA**
 
-In `src/stoai/intrinsics/mail.py`, add to the `properties` dict inside `SCHEMA`:
+In `src/lingtai/intrinsics/mail.py`, add to the `properties` dict inside `SCHEMA`:
 
 ```python
 "attachments": {
@@ -1172,7 +1172,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/stoai/intrinsics/mail.py tests/test_intrinsics_comm.py
+git add src/lingtai/intrinsics/mail.py tests/test_intrinsics_comm.py
 git commit -m "feat: add attachments field to mail intrinsic schema"
 ```
 
@@ -1181,7 +1181,7 @@ git commit -m "feat: add attachments field to mail intrinsic schema"
 ### Task 10: Implement filesystem-based mailbox and attachment transfer in TCPMailService
 
 **Files:**
-- Modify: `src/stoai/services/mail.py`
+- Modify: `src/lingtai/services/mail.py`
 - Test: `tests/test_services_mail.py`
 
 This is the core of mail attachments. The TCPMailService needs to:
@@ -1346,14 +1346,14 @@ Expected: FAIL (TCPMailService doesn't accept `working_dir`, doesn't handle atta
 
 - [ ] **Step 3: Implement attachment support in TCPMailService**
 
-Modify `src/stoai/services/mail.py`:
+Modify `src/lingtai/services/mail.py`:
 
 1. Add `working_dir` parameter to `TCPMailService.__init__()` (default `None`)
 2. In `send()`: if message has `attachments` list, read each file, base64-encode, replace the `attachments` field with `[{filename, data}]` in the wire message. Return `False` if any file not found.
 3. In `_handle_connection()`: if received message has encoded attachments, create `mailbox/<uuid>/attachments/` dir, decode and save files, replace attachment data with local paths, save `message.json`. Increase size limit to 100MB.
 4. All received messages (even without attachments) get persisted to the mailbox.
 
-The key changes to `src/stoai/services/mail.py`:
+The key changes to `src/lingtai/services/mail.py`:
 
 Add imports at top:
 ```python
@@ -1434,12 +1434,12 @@ Expected: ALL PASS (both old and new tests)
 
 - [ ] **Step 5: Smoke-test import**
 
-Run: `python -c "from stoai.services.mail import TCPMailService"`
+Run: `python -c "from lingtai.services.mail import TCPMailService"`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/services/mail.py tests/test_services_mail.py
+git add src/lingtai/services/mail.py tests/test_services_mail.py
 git commit -m "feat: add attachment support to TCPMailService with filesystem mailbox"
 ```
 
@@ -1448,7 +1448,7 @@ git commit -m "feat: add attachment support to TCPMailService with filesystem ma
 ### Task 11: Wire mail attachments through BaseAgent handler
 
 **Files:**
-- Modify: `src/stoai/agent.py` (the `_handle_mail` or mail dispatch section)
+- Modify: `src/lingtai/agent.py` (the `_handle_mail` or mail dispatch section)
 - Test: `tests/test_intrinsics_comm.py`
 
 The `_handle_mail` in agent.py needs to:
@@ -1467,7 +1467,7 @@ Add to `tests/test_intrinsics_comm.py`:
 ```python
 def test_mail_send_passes_attachments():
     """Mail handler should pass attachments to mail service."""
-    from stoai.agent import BaseAgent
+    from lingtai.agent import BaseAgent
     from unittest.mock import MagicMock, patch
     from pathlib import Path
 
@@ -1532,7 +1532,7 @@ Expected: ALL PASS
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/agent.py tests/test_intrinsics_comm.py
+git add src/lingtai/agent.py tests/test_intrinsics_comm.py
 git commit -m "feat: wire mail attachments through BaseAgent handler"
 ```
 
@@ -1541,7 +1541,7 @@ git commit -m "feat: wire mail attachments through BaseAgent handler"
 ### Task 12: Update email capability for attachments
 
 **Files:**
-- Modify: `src/stoai/capabilities/email.py`
+- Modify: `src/lingtai/capabilities/email.py`
 - Test: `tests/test_layers_email.py`
 
 The email capability needs to:
@@ -1598,7 +1598,7 @@ Expected: FAIL
 
 - [ ] **Step 3: Update email capability**
 
-In `src/stoai/capabilities/email.py`:
+In `src/lingtai/capabilities/email.py`:
 
 1. Add `attachments` to SCHEMA properties:
    ```python
@@ -1634,7 +1634,7 @@ In the email capability's `setup()`, update the system prompt to include:
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/stoai/capabilities/email.py tests/test_layers_email.py
+git add src/lingtai/capabilities/email.py tests/test_layers_email.py
 git commit -m "feat: add attachment support to email capability"
 ```
 
@@ -1652,7 +1652,7 @@ Expected: ALL PASS
 
 - [ ] **Step 2: Smoke-test full import**
 
-Run: `python -c "import stoai; from stoai.capabilities.draw import DrawManager; from stoai.capabilities.compose import ComposeManager; from stoai.capabilities.talk import TalkManager; from stoai.capabilities.listen import ListenManager"`
+Run: `python -c "import lingtai; from lingtai.capabilities.draw import DrawManager; from lingtai.capabilities.compose import ComposeManager; from lingtai.capabilities.talk import TalkManager; from lingtai.capabilities.listen import ListenManager"`
 
 - [ ] **Step 3: Verify all capabilities can be added together**
 
@@ -1660,7 +1660,7 @@ Run:
 ```python
 python -c "
 from unittest.mock import MagicMock
-from stoai.agent import BaseAgent
+from lingtai.agent import BaseAgent
 svc = MagicMock()
 svc.get_adapter.return_value = MagicMock()
 svc.provider = 'gemini'

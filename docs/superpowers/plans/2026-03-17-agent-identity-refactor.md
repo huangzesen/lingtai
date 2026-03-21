@@ -6,7 +6,7 @@
 
 **Architecture:** `BaseAgent.__init__` auto-generates `agent_id` as a 12-char hex UUID. New required parameter `agent_name` replaces the old `agent_id` parameter. `WorkingDir` uses `agent_name` for the directory name. Billboard, manifest, discovery, and JSONL logs all carry both fields. Remove `instance_id` (agent_id IS the instance id now).
 
-**Tech Stack:** Python 3.11+, stoai framework
+**Tech Stack:** Python 3.11+, lingtai framework
 
 ---
 
@@ -26,15 +26,15 @@
 
 | Action | Path | What Changes |
 |--------|------|-------------|
-| Modify | `src/stoai/base_agent.py` | Constructor: `agent_name` replaces `agent_id` param, auto-generate `agent_id`. Add `agent_name` attribute. Update manifest, billboard, discovery, logging. |
-| Modify | `src/stoai/workdir.py` | Constructor takes `agent_name` instead of `agent_id`. Path = `{base_dir}/{agent_name}/`. Rename `_agent_id` to `_agent_name`. |
-| Modify | `src/stoai/session.py` | Constructor takes both `agent_id` and `agent_name`. |
-| Modify | `src/stoai/agent.py` | Pass-through: forward `agent_name` to `BaseAgent.__init__`. |
-| Modify | `src/stoai/intrinsics/status.py` | Return both `agent_id` and `agent_name` in status show. |
-| Modify | `src/stoai/intrinsics/mail.py` | Fallback sender uses `agent_id` (not name). |
-| Modify | `src/stoai/capabilities/email.py` | Fallback sender/receiver uses `agent_id`. |
-| Modify | `src/stoai/capabilities/delegate.py` | Child naming: `agent_name=f"{parent.agent_name}_delegate_{port}"`. Return both id and name. |
-| Modify | `src/stoai/services/mail.py` | Banner uses `agent_id` (already does via `_banner_id`). |
+| Modify | `src/lingtai/base_agent.py` | Constructor: `agent_name` replaces `agent_id` param, auto-generate `agent_id`. Add `agent_name` attribute. Update manifest, billboard, discovery, logging. |
+| Modify | `src/lingtai/workdir.py` | Constructor takes `agent_name` instead of `agent_id`. Path = `{base_dir}/{agent_name}/`. Rename `_agent_id` to `_agent_name`. |
+| Modify | `src/lingtai/session.py` | Constructor takes both `agent_id` and `agent_name`. |
+| Modify | `src/lingtai/agent.py` | Pass-through: forward `agent_name` to `BaseAgent.__init__`. |
+| Modify | `src/lingtai/intrinsics/status.py` | Return both `agent_id` and `agent_name` in status show. |
+| Modify | `src/lingtai/intrinsics/mail.py` | Fallback sender uses `agent_id` (not name). |
+| Modify | `src/lingtai/capabilities/email.py` | Fallback sender/receiver uses `agent_id`. |
+| Modify | `src/lingtai/capabilities/delegate.py` | Child naming: `agent_name=f"{parent.agent_name}_delegate_{port}"`. Return both id and name. |
+| Modify | `src/lingtai/services/mail.py` | Banner uses `agent_id` (already does via `_banner_id`). |
 | Modify | `app/web/server/state.py` | `register_agent` takes `agent_name`. `AgentEntry` has both fields. |
 | Modify | `app/web/server/routes.py` | `/api/agents` returns both `id` and `name`. |
 | Modify | `app/web/run.py` | Pass `agent_name` instead of `agent_id`. |
@@ -53,7 +53,7 @@
 ### Task 1: Refactor WorkingDir to use agent_name
 
 **Files:**
-- Modify: `src/stoai/workdir.py`
+- Modify: `src/lingtai/workdir.py`
 
 - [ ] **Step 1: Rename constructor param and internal field**
 
@@ -67,13 +67,13 @@ Change `WorkingDir.__init__`:
 - [ ] **Step 2: Smoke-test**
 
 ```bash
-python -c "from stoai.workdir import WorkingDir; print('OK')"
+python -c "from lingtai.workdir import WorkingDir; print('OK')"
 ```
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/stoai/workdir.py
+git add src/lingtai/workdir.py
 git commit -m "refactor: WorkingDir uses agent_name instead of agent_id"
 ```
 
@@ -82,7 +82,7 @@ git commit -m "refactor: WorkingDir uses agent_name instead of agent_id"
 ### Task 2: Refactor BaseAgent constructor
 
 **Files:**
-- Modify: `src/stoai/base_agent.py`
+- Modify: `src/lingtai/base_agent.py`
 
 This is the biggest single change. The constructor signature changes from `agent_id: str` to `agent_name: str`, and `agent_id` becomes auto-generated.
 
@@ -139,7 +139,7 @@ def _log(self, event_type: str, **fields) -> None:
 ```python
 def _get_discovery_info(self) -> dict:
     info = {
-        "_stoai": "agent",
+        "_lingtai": "agent",
         "agent_id": self.agent_id,
         "agent_name": self.agent_name,
         # ... rest same ...
@@ -153,13 +153,13 @@ The `send()` method returns a result dict. Update it to include `agent_name` if 
 - [ ] **Step 6: Smoke-test**
 
 ```bash
-python -c "from stoai.base_agent import BaseAgent; print('OK')"
+python -c "from lingtai.base_agent import BaseAgent; print('OK')"
 ```
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/stoai/base_agent.py
+git add src/lingtai/base_agent.py
 git commit -m "refactor: BaseAgent auto-generates agent_id, adds agent_name"
 ```
 
@@ -168,7 +168,7 @@ git commit -m "refactor: BaseAgent auto-generates agent_id, adds agent_name"
 ### Task 3: Update SessionManager
 
 **Files:**
-- Modify: `src/stoai/session.py`
+- Modify: `src/lingtai/session.py`
 
 - [ ] **Step 1: Add agent_name parameter**
 
@@ -179,7 +179,7 @@ SessionManager constructor gets both `agent_id` (UUID) and `agent_name`:
 - [ ] **Step 2: Commit**
 
 ```bash
-git add src/stoai/session.py
+git add src/lingtai/session.py
 git commit -m "refactor: SessionManager accepts both agent_id and agent_name"
 ```
 
@@ -188,7 +188,7 @@ git commit -m "refactor: SessionManager accepts both agent_id and agent_name"
 ### Task 4: Update Agent subclass
 
 **Files:**
-- Modify: `src/stoai/agent.py`
+- Modify: `src/lingtai/agent.py`
 
 - [ ] **Step 1: Change constructor to forward agent_name**
 
@@ -197,13 +197,13 @@ git commit -m "refactor: SessionManager accepts both agent_id and agent_name"
 - [ ] **Step 2: Smoke-test**
 
 ```bash
-python -c "from stoai import Agent; print('OK')"
+python -c "from lingtai import Agent; print('OK')"
 ```
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/stoai/agent.py
+git add src/lingtai/agent.py
 git commit -m "refactor: Agent forwards agent_name to BaseAgent"
 ```
 
@@ -214,8 +214,8 @@ git commit -m "refactor: Agent forwards agent_name to BaseAgent"
 ### Task 5: Update intrinsics
 
 **Files:**
-- Modify: `src/stoai/intrinsics/status.py`
-- Modify: `src/stoai/intrinsics/mail.py`
+- Modify: `src/lingtai/intrinsics/status.py`
+- Modify: `src/lingtai/intrinsics/mail.py`
 
 - [ ] **Step 1: Update status intrinsic**
 
@@ -232,7 +232,7 @@ Fallback sender: `agent._mail_service.address or agent.agent_id` — this is alr
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/stoai/intrinsics/
+git add src/lingtai/intrinsics/
 git commit -m "refactor: intrinsics use agent_name + agent_id"
 ```
 
@@ -241,8 +241,8 @@ git commit -m "refactor: intrinsics use agent_name + agent_id"
 ### Task 6: Update capabilities
 
 **Files:**
-- Modify: `src/stoai/capabilities/email.py`
-- Modify: `src/stoai/capabilities/delegate.py`
+- Modify: `src/lingtai/capabilities/email.py`
+- Modify: `src/lingtai/capabilities/delegate.py`
 
 - [ ] **Step 1: Update email capability**
 
@@ -266,7 +266,7 @@ Return dict:
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/stoai/capabilities/
+git add src/lingtai/capabilities/
 git commit -m "refactor: capabilities use agent_name"
 ```
 
@@ -495,7 +495,7 @@ python -m app.web
 
 Verify:
 - `curl http://localhost:8080/api/agents` returns agents with both `id` (UUID) and `name`
-- Billboard files appear in `~/.stoai/billboard/` with UUID filenames
+- Billboard files appear in `~/.lingtai/billboard/` with UUID filenames
 - Agent working dirs are named by `agent_name` (e.g. `alice/`, not UUID)
 
 - [ ] **Step 3: Verify JSONL log format**
