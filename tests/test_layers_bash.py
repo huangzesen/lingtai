@@ -183,7 +183,7 @@ class TestAddCapability:
         svc.get_adapter.return_value = MagicMock()
         svc.provider = "gemini"
         svc.model = "gemini-test"
-        agent = Agent(agent_name="test", service=svc, base_dir=tmp_path,
+        agent = Agent(service=svc, agent_name="test", base_dir=tmp_path,
                            capabilities={"bash": {"yolo": True}})
         mgr = agent.get_capability("bash")
         assert isinstance(mgr, BashManager)
@@ -197,7 +197,7 @@ class TestAddCapability:
         svc.get_adapter.return_value = MagicMock()
         svc.provider = "gemini"
         svc.model = "gemini-test"
-        agent = Agent(agent_name="test", service=svc, base_dir=tmp_path,
+        agent = Agent(service=svc, agent_name="test", base_dir=tmp_path,
                            capabilities={"bash": {"policy_file": str(policy_file)}})
         mgr = agent.get_capability("bash")
         assert isinstance(mgr, BashManager)

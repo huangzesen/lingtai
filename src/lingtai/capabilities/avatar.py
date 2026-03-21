@@ -182,7 +182,8 @@ class AvatarManager:
         if self._max_agents > 0:
             live = len(list(parent._base_dir.glob("*/.agent.json")))
             if live >= self._max_agents:
-                return {"error": f"Agent limit reached ({live}/{self._max_agents})"}
+                lang = parent._config.language
+                return {"error": t(lang, "avatar.limit_reached", live=live, max=self._max_agents)}
 
         # Resolve spawn parameters
         covenant = args.get("covenant") or parent._prompt_manager.read_section("covenant") or ""

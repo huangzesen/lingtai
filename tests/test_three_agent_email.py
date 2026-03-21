@@ -43,14 +43,16 @@ def _get_free_port():
 
 def _make_agent(name: str, port: int, base_dir: Path):
     """Create an agent with a real TCPMailService and email capability."""
-    mail_svc = TCPMailService(listen_port=port, working_dir=base_dir / name)
+    # Create agent first to get its agent_id-based working_dir
     agent = Agent(
-        agent_name=name,
         service=_make_mock_service(),
-        mail_service=mail_svc,
+        agent_name=name,
         base_dir=base_dir,
         capabilities=["email"],
     )
+    # Wire up mail service after construction (needs working_dir from agent)
+    mail_svc = TCPMailService(listen_port=port, working_dir=agent.working_dir)
+    agent._mail_service = mail_svc
     mgr = agent.get_capability("email")
     return agent, mgr
 
@@ -109,7 +111,7 @@ class TestThreeAgentEmail:
         return f"127.0.0.1:{self.ports[name]}"
 
     def _dir(self, name: str) -> Path:
-        return self.base_dir / name
+        return self.agents[name].working_dir
 
     def _wait_for_inbox(self, name: str, count: int, timeout: float = 5.0):
         """Wait until the agent's inbox has at least `count` messages."""

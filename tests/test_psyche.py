@@ -24,7 +24,7 @@ def make_mock_service():
 
 def test_psyche_setup_removes_eigen_intrinsic(tmp_path):
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["psyche"],
     )
     assert "eigen" not in agent._intrinsics
@@ -34,7 +34,7 @@ def test_psyche_setup_removes_eigen_intrinsic(tmp_path):
 
 def test_psyche_manager_accessible(tmp_path):
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["psyche"],
     )
     mgr = agent.get_capability("psyche")
@@ -45,7 +45,7 @@ def test_psyche_manager_accessible(tmp_path):
 def test_anima_alias_works(tmp_path):
     """'anima' should be an alias for 'psyche'."""
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["anima"],
     )
     assert "eigen" not in agent._intrinsics
@@ -62,7 +62,7 @@ def test_anima_alias_works(tmp_path):
 
 def test_character_update_writes_character(tmp_path):
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         covenant="You are helpful",
         capabilities=["psyche"],
     )
@@ -76,7 +76,7 @@ def test_character_update_writes_character(tmp_path):
 
 def test_character_update_empty_clears_character(tmp_path):
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["psyche"],
     )
     mgr = agent.get_capability("psyche")
@@ -89,7 +89,7 @@ def test_character_update_empty_clears_character(tmp_path):
 
 def test_character_load_combines_covenant_and_character(tmp_path):
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         covenant="You are helpful",
         capabilities=["psyche"],
     )
@@ -112,7 +112,7 @@ def test_character_load_combines_covenant_and_character(tmp_path):
 
 def test_memory_edit_content_only(tmp_path):
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["psyche"],
     )
     mgr = agent.get_capability("psyche")
@@ -125,7 +125,7 @@ def test_memory_edit_content_only(tmp_path):
 
 def test_memory_edit_with_files(tmp_path):
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["psyche"],
     )
     # Create files to import
@@ -150,7 +150,7 @@ def test_memory_edit_with_files(tmp_path):
 
 def test_memory_edit_files_only(tmp_path):
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["psyche"],
     )
     (agent.working_dir / "data.txt").write_text("file data")
@@ -169,7 +169,7 @@ def test_memory_edit_files_only(tmp_path):
 
 def test_memory_edit_missing_file_errors(tmp_path):
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["psyche"],
     )
     mgr = agent.get_capability("psyche")
@@ -185,7 +185,7 @@ def test_memory_edit_missing_file_errors(tmp_path):
 
 def test_memory_edit_empty_errors(tmp_path):
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["psyche"],
     )
     mgr = agent.get_capability("psyche")
@@ -201,7 +201,7 @@ def test_memory_edit_empty_errors(tmp_path):
 
 def test_memory_load_delegates_to_eigen(tmp_path):
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["psyche"],
     )
     agent.start()
@@ -240,7 +240,7 @@ def test_molt_delegates_to_eigen(tmp_path):
     svc.create_session.side_effect = fake_create_session
 
     agent = Agent(
-        agent_name="test", service=svc, base_dir=tmp_path,
+        service=svc, agent_name="test", base_dir=tmp_path,
         capabilities=["psyche"],
     )
     agent.start()
@@ -295,7 +295,7 @@ def test_psyche_schema_has_files_field():
 
 def test_invalid_object(tmp_path):
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["psyche"],
     )
     mgr = agent.get_capability("psyche")
@@ -306,7 +306,7 @@ def test_invalid_object(tmp_path):
 
 def test_invalid_action_for_object(tmp_path):
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["psyche"],
     )
     mgr = agent.get_capability("psyche")
@@ -318,7 +318,7 @@ def test_invalid_action_for_object(tmp_path):
 
 def test_psyche_stop_does_not_overwrite_memory_md(tmp_path):
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["psyche"],
     )
     mem_file = agent.working_dir / "system" / "memory.md"

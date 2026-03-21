@@ -123,8 +123,7 @@ class TestBaseAgentLoggingIntegration:
         from lingtai_kernel.tool_executor import ToolExecutor
 
         agent = BaseAgent(
-            agent_name="test",
-            service=make_mock_service(),
+            service=make_mock_service(), agent_name="test",
             base_dir=tmp_path,
         )
         agent.add_tool("greet", schema={"type": "object", "properties": {}}, handler=lambda args: {"status": "ok"})
@@ -144,7 +143,7 @@ class TestBaseAgentLoggingIntegration:
         executor.execute([tc], collected_errors=errors)
 
         # Log file should exist in working dir
-        log_file = tmp_path / "test" / "logs" / "events.jsonl"
+        log_file = agent.working_dir / "logs" / "events.jsonl"
         assert log_file.is_file()
         events = agent._log_service.get_events()
         types = [e["type"] for e in events]
@@ -160,8 +159,7 @@ class TestBaseAgentLoggingIntegration:
         from lingtai_kernel.tool_executor import ToolExecutor
 
         agent = BaseAgent(
-            agent_name="test",
-            service=make_mock_service(),
+            service=make_mock_service(), agent_name="test",
             base_dir=tmp_path,
         )
         agent.add_tool("greet", schema={"type": "object", "properties": {}}, handler=lambda args: {"status": "ok"})
@@ -181,7 +179,7 @@ class TestBaseAgentLoggingIntegration:
         executor.execute([tc], collected_errors=errors)
 
         # Log file should exist in working dir
-        log_file = tmp_path / "test" / "logs" / "events.jsonl"
+        log_file = agent.working_dir / "logs" / "events.jsonl"
         assert log_file.is_file()
         events = agent._log_service.get_events()
         types = [e["type"] for e in events]
@@ -190,8 +188,7 @@ class TestBaseAgentLoggingIntegration:
     def test_state_change_logged(self, tmp_path):
         """State transitions are logged."""
         agent = BaseAgent(
-            agent_name="test",
-            service=make_mock_service(),
+            service=make_mock_service(), agent_name="test",
             base_dir=tmp_path,
         )
         agent._set_state(AgentState.ACTIVE, reason="test")

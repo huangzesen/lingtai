@@ -33,7 +33,7 @@ def test_system_in_all_intrinsics():
 
 
 def test_system_wired_in_agent(tmp_path):
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
     assert "system" in agent._intrinsics
 
 
@@ -43,21 +43,21 @@ def test_system_wired_in_agent(tmp_path):
 
 
 def test_system_show_returns_identity(tmp_path):
-    agent = BaseAgent(agent_name="alice", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="alice", base_dir=tmp_path)
     agent.start()
     try:
         result = agent._intrinsics["system"]({"action": "show"})
         assert result["status"] == "ok"
         identity = result["identity"]
         assert identity["agent_name"] == "alice"
-        assert "alice" in identity["working_dir"]
+        assert agent.agent_id in identity["working_dir"]
         assert identity["mail_address"] is None
     finally:
         agent.stop()
 
 
 def test_system_show_returns_runtime(tmp_path):
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
     agent.start()
     try:
         time.sleep(0.1)
@@ -70,7 +70,7 @@ def test_system_show_returns_runtime(tmp_path):
 
 
 def test_system_show_returns_tokens(tmp_path):
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
     agent.start()
     try:
         result = agent._intrinsics["system"]({"action": "show"})
@@ -105,7 +105,7 @@ def test_system_show_with_mail_service(tmp_path):
 
 
 def test_system_show_context_null_without_session(tmp_path):
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
     result = agent._intrinsics["system"]({"action": "show"})
     ctx = result["tokens"]["context"]
     assert ctx["window_size"] is None
@@ -119,13 +119,13 @@ def test_system_show_context_null_without_session(tmp_path):
 
 def test_mail_arrived_event_exists(tmp_path):
     """Agent should have a _mail_arrived threading.Event."""
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
     assert isinstance(agent._mail_arrived, threading.Event)
     assert not agent._mail_arrived.is_set()
 
 
 def test_system_sleep_with_seconds(tmp_path):
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
 
     start = time.monotonic()
     result = agent._intrinsics["system"]({"action": "sleep", "seconds": 0.1})
@@ -137,7 +137,7 @@ def test_system_sleep_with_seconds(tmp_path):
 
 
 def test_system_sleep_wakes_on_mail(tmp_path):
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
 
     def fire_mail():
         time.sleep(0.1)
@@ -157,7 +157,7 @@ def test_system_sleep_wakes_on_mail(tmp_path):
 
 
 def test_system_sleep_indefinite_wakes_on_mail(tmp_path):
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
 
     def fire_mail():
         time.sleep(0.1)
@@ -177,14 +177,14 @@ def test_system_sleep_indefinite_wakes_on_mail(tmp_path):
 
 
 def test_system_sleep_caps_at_300(tmp_path):
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
     agent._mail_arrived.set()
     result = agent._intrinsics["system"]({"action": "sleep", "seconds": 9999})
     assert result["status"] == "ok"
 
 
 def test_system_sleep_wakes_on_silence(tmp_path):
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
 
     def fire_silence():
         time.sleep(0.1)
@@ -204,7 +204,7 @@ def test_system_sleep_wakes_on_silence(tmp_path):
 
 
 def test_system_sleep_negative_seconds(tmp_path):
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
     result = agent._intrinsics["system"]({"action": "sleep", "seconds": -5})
     assert result["status"] == "error"
 
@@ -215,7 +215,7 @@ def test_system_sleep_negative_seconds(tmp_path):
 
 
 def test_system_shutdown(tmp_path):
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
     result = agent._intrinsics["system"]({"action": "shutdown", "reason": "need bash"})
     assert result["status"] == "ok"
     assert "Shutdown initiated" in result["message"]
@@ -229,7 +229,7 @@ def test_system_shutdown(tmp_path):
 
 
 def test_system_restart(tmp_path):
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
     result = agent._intrinsics["system"]({"action": "restart", "reason": "new tools"})
     assert result["status"] == "ok"
     assert "Restart initiated" in result["message"]
@@ -244,6 +244,6 @@ def test_system_restart(tmp_path):
 
 
 def test_system_unknown_action(tmp_path):
-    agent = BaseAgent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
     result = agent._intrinsics["system"]({"action": "bogus"})
     assert result["status"] == "error"

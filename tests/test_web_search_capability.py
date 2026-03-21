@@ -19,7 +19,7 @@ def make_mock_service():
 
 def test_web_search_added_by_capability(tmp_path):
     """capabilities=['web_search'] should register the web_search tool."""
-    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+    agent = Agent(service=make_mock_service(), agent_name="test", base_dir=tmp_path,
                        capabilities=["web_search"])
     assert "web_search" in agent._mcp_handlers
 
@@ -52,7 +52,7 @@ def test_web_search_with_dedicated_service(tmp_path):
     mock_result.snippet = "Python programming language"
     mock_search_svc = MagicMock()
     mock_search_svc.search.return_value = [mock_result]
-    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+    agent = Agent(service=make_mock_service(), agent_name="test", base_dir=tmp_path,
                        capabilities={"web_search": {"search_service": mock_search_svc}})
     result = agent._mcp_handlers["web_search"]({"query": "python"})
     assert result["status"] == "ok"
@@ -62,7 +62,7 @@ def test_web_search_with_dedicated_service(tmp_path):
 
 def test_web_search_missing_query(tmp_path):
     """web_search should return error for missing query."""
-    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+    agent = Agent(service=make_mock_service(), agent_name="test", base_dir=tmp_path,
                        capabilities=["web_search"])
     result = agent._mcp_handlers["web_search"]({"query": ""})
     assert result.get("status") == "error"
@@ -70,7 +70,7 @@ def test_web_search_missing_query(tmp_path):
 
 def test_web_search_falls_back_to_main_provider(tmp_path):
     """web_search without explicit provider should fall back to agent's main provider."""
-    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+    agent = Agent(service=make_mock_service(), agent_name="test", base_dir=tmp_path,
                        capabilities=["web_search"])
     adapter = agent.service.get_adapter.return_value
     adapter.web_search.return_value = MagicMock(text="search results")

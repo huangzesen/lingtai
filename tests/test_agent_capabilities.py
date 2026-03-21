@@ -16,7 +16,7 @@ def make_mock_service():
 
 def test_agent_no_capabilities(tmp_path):
     """Agent with no capabilities works like BaseAgent."""
-    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path)
+    agent = Agent(service=make_mock_service(), agent_name="test", base_dir=tmp_path)
     assert agent._capabilities == []
     assert agent._capability_managers == {}
     agent.stop(timeout=1.0)
@@ -25,7 +25,7 @@ def test_agent_no_capabilities(tmp_path):
 def test_agent_capabilities_list(tmp_path):
     """capabilities= as list of strings registers capabilities."""
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["vision", "web_search"],
     )
     assert len(agent._capabilities) == 2
@@ -39,7 +39,7 @@ def test_agent_capabilities_list(tmp_path):
 def test_agent_capabilities_dict(tmp_path):
     """capabilities= as dict registers capabilities with kwargs."""
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities={"vision": {}, "web_search": {}},
     )
     assert len(agent._capabilities) == 2
@@ -50,7 +50,7 @@ def test_agent_capabilities_dict(tmp_path):
 def test_agent_get_capability(tmp_path):
     """get_capability() returns the manager instance."""
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["vision"],
     )
     mgr = agent.get_capability("vision")
@@ -62,7 +62,7 @@ def test_agent_get_capability(tmp_path):
 def test_agent_seal_after_start(tmp_path):
     """add_tool() raises after start() on Agent too."""
     agent = Agent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
         capabilities=["vision"],
     )
     agent.start()

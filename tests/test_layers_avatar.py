@@ -84,7 +84,7 @@ class TestAvatarManager:
         # Parent + a1 = 2 manifests, next spawn should be refused
         r2 = mgr.handle({"name": "a2"})
         assert "error" in r2
-        assert "Agent limit" in r2["error"]
+        assert "total agents=2" in r2["error"]
 
 
 class TestSetupAvatar:

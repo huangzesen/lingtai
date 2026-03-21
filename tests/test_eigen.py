@@ -24,7 +24,7 @@ def make_mock_service():
 def test_eigen_memory_edit(tmp_path):
     """eigen memory edit writes to system/memory.md."""
     agent = BaseAgent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
     )
     result = agent._intrinsics["eigen"]({"object": "memory", "action": "edit", "content": "hello world"})
     assert result["status"] == "ok"
@@ -36,7 +36,7 @@ def test_eigen_memory_edit(tmp_path):
 def test_eigen_memory_edit_empty_clears(tmp_path):
     """eigen memory edit with empty content clears memory file."""
     agent = BaseAgent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
     )
     # First write something
     agent._intrinsics["eigen"]({"object": "memory", "action": "edit", "content": "data"})
@@ -56,7 +56,7 @@ def test_eigen_memory_edit_empty_clears(tmp_path):
 def test_eigen_memory_load(tmp_path):
     """eigen memory load injects into system prompt."""
     agent = BaseAgent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
     )
     agent.start()
     try:
@@ -76,7 +76,7 @@ def test_eigen_memory_load(tmp_path):
 def test_eigen_memory_load_empty(tmp_path):
     """eigen memory load with empty file deletes section."""
     agent = BaseAgent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
     )
     agent.start()
     try:
@@ -110,7 +110,7 @@ def test_eigen_molt_uses_summary(tmp_path):
     svc.create_session.side_effect = fake_create_session
 
     agent = BaseAgent(
-        agent_name="test", service=svc, base_dir=tmp_path,
+        service=svc, agent_name="test", base_dir=tmp_path,
     )
     agent.start()
     try:
@@ -138,7 +138,7 @@ def test_eigen_molt_uses_summary(tmp_path):
 def test_eigen_molt_rejects_empty(tmp_path):
     """molt with empty summary returns error."""
     agent = BaseAgent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
     )
     result = agent._intrinsics["eigen"]({"object": "context", "action": "molt", "summary": ""})
     assert "error" in result
@@ -148,7 +148,7 @@ def test_eigen_molt_rejects_empty(tmp_path):
 def test_eigen_molt_rejects_missing_summary(tmp_path):
     """molt without summary arg returns error."""
     agent = BaseAgent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
     )
     result = agent._intrinsics["eigen"]({"object": "context", "action": "molt"})
     assert "error" in result
@@ -178,7 +178,7 @@ def test_eigen_forget_wipes_context(tmp_path):
     svc.create_session.side_effect = fake_create_session
 
     agent = BaseAgent(
-        agent_name="test", service=svc, base_dir=tmp_path,
+        service=svc, agent_name="test", base_dir=tmp_path,
     )
     agent.start()
     try:
@@ -202,7 +202,7 @@ def test_eigen_forget_wipes_context(tmp_path):
 
 def test_eigen_unknown_object(tmp_path):
     agent = BaseAgent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
     )
     result = agent._intrinsics["eigen"]({"object": "bogus", "action": "edit"})
     assert "error" in result
@@ -211,7 +211,7 @@ def test_eigen_unknown_object(tmp_path):
 
 def test_eigen_unknown_action(tmp_path):
     agent = BaseAgent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
     )
     result = agent._intrinsics["eigen"]({"object": "memory", "action": "bogus"})
     assert "error" in result
@@ -221,7 +221,7 @@ def test_eigen_unknown_action(tmp_path):
 def test_eigen_is_intrinsic_not_memory(tmp_path):
     """eigen replaces memory in intrinsics."""
     agent = BaseAgent(
-        agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", base_dir=tmp_path,
     )
     assert "eigen" in agent._intrinsics
     assert "memory" not in agent._intrinsics

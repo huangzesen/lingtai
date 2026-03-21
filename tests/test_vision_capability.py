@@ -19,7 +19,7 @@ def make_mock_service():
 
 def test_vision_added_by_capability(tmp_path):
     """capabilities=['vision'] should register the vision tool."""
-    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+    agent = Agent(service=make_mock_service(), agent_name="test", base_dir=tmp_path,
                        capabilities=["vision"])
     assert "vision" in agent._mcp_handlers
 
@@ -51,7 +51,7 @@ def test_vision_with_dedicated_service(tmp_path):
     """Vision capability should use VisionService if provided."""
     mock_vision_svc = MagicMock()
     mock_vision_svc.analyze_image.return_value = "A dog in the park"
-    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+    agent = Agent(service=make_mock_service(), agent_name="test", base_dir=tmp_path,
                        capabilities={"vision": {"vision_service": mock_vision_svc}})
     img_path = agent.working_dir / "test.jpg"
     img_path.write_bytes(b"\xff\xd8\xff fake jpeg")
@@ -63,7 +63,7 @@ def test_vision_with_dedicated_service(tmp_path):
 
 def test_vision_missing_image(tmp_path):
     """Vision should return error for missing image file."""
-    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+    agent = Agent(service=make_mock_service(), agent_name="test", base_dir=tmp_path,
                        capabilities=["vision"])
     result = agent._mcp_handlers["vision"]({"image_path": "/nonexistent/image.png"})
     assert result.get("status") == "error"
@@ -92,7 +92,7 @@ def test_vision_relative_path_via_adapter(tmp_path):
 
 def test_vision_falls_back_to_main_provider(tmp_path):
     """Vision without explicit provider should fall back to agent's main provider."""
-    agent = Agent(agent_name="test", service=make_mock_service(), base_dir=tmp_path,
+    agent = Agent(service=make_mock_service(), agent_name="test", base_dir=tmp_path,
                        capabilities=["vision"])
     img_path = agent.working_dir / "test.png"
     img_path.write_bytes(b"\x89PNG fake")

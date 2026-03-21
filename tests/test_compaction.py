@@ -418,8 +418,7 @@ def _make_agent_with_psyche(tmp_path):
     svc.provider = "gemini"
     svc.model = "gemini-test"
     return Agent(
-        agent_name="test",
-        service=svc,
+        service=svc, agent_name="test",
         base_dir=tmp_path,
         capabilities=["psyche"],
     )
@@ -482,7 +481,7 @@ def test_compaction_resets_warning_counter(tmp_path):
     svc.create_session.side_effect = fake_create_session
 
     agent = Agent(
-        agent_name="test", service=svc, base_dir=tmp_path,
+        service=svc, agent_name="test", base_dir=tmp_path,
         capabilities=["psyche"],
     )
     agent.start()
