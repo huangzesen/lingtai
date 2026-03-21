@@ -35,30 +35,32 @@ Before writing to a recipient's inbox, the sender verifies the destination AND t
 
 1. Read `{address}/.agent.json` — verify it exists, is valid JSON
 2. If the recipient is in the sender's contacts, verify `agent_id` matches the contact's stored `agent_id`. If the recipient is NOT in contacts (e.g., replying to an unknown sender from a `from` field), skip `agent_id` verification — the `.agent.json` existence check alone is sufficient.
-3. Read `{address}/.agent.heartbeat` — verify the timestamp is within 1 second of current time. If missing or stale → agent is dead.
+3. Read `{address}/.agent.heartbeat` — verify the timestamp is within 2 seconds of current time. If missing or stale → agent is dead.
 4. If all checks pass → write to `{address}/{mailbox_rel}/inbox/{uuid}/`
 
 Failure cases:
 - `.agent.json` missing → error: "no agent at this address"
 - `agent_id` mismatch (contact exists) → error: "agent at this address has changed"
-- `.agent.heartbeat` missing or stale (>1s old) → error: "agent is not running"
+- `.agent.heartbeat` missing or stale (>2s old) → error: "agent is not running"
 
 This makes local mail a health-check protocol — agents always know whether peers are alive at the point of communication.
 
 ## Heartbeat
 
-The `.agent.heartbeat` file is a plain-text UTC timestamp, written by the mail service's polling thread every ~0.5 seconds. It serves as the sole liveness signal — no PID checks, no lock probing, fully cross-platform.
+The `.agent.heartbeat` file is a plain-text UTC timestamp, written by the agent's **main loop** (~1s interval). It serves as the sole liveness signal — no PID checks, no lock probing, fully cross-platform.
 
 ```
 {working_dir}/.agent.heartbeat    ← "2026-03-21T10:00:00.500000Z"
 ```
 
-- **Writer**: the `FilesystemMailService` polling thread (already ticking every ~0.5s to check inbox) writes the heartbeat as part of each tick — zero additional cost.
-- **Reader**: any sender reads this file and compares against current UTC time. Alive if `now - heartbeat < 1s`.
-- **Startup**: first heartbeat written when `listen()` starts.
+- **Writer**: the agent's `run_loop` — written at natural loop points (after LLM response, after tool execution, during `system.sleep`). NOT written by the mail polling thread.
+- **Reader**: any sender reads this file and compares against current UTC time. Alive if `now - heartbeat < 2s`.
+- **Startup**: first heartbeat written when the agent's main loop begins.
 - **Clean shutdown**: `stop()` deletes the file.
-- **Crash**: file contains a stale timestamp — the 1s threshold catches this naturally.
-- **Human participant**: the Go daemon's mailbox polling thread writes the human's heartbeat.
+- **Crash / stuck**: heartbeat goes stale — the 2s threshold catches this naturally. A brain-dead agent (polling thread alive but main loop stuck) correctly shows as dead.
+- **Human participant**: the Go daemon writes the human's heartbeat on its own tick.
+
+**Key design choice**: heartbeat comes from the main loop, not the polling thread. This ensures that an agent whose `run_loop` has failed or gotten stuck is correctly reported as dead, even if the inbox polling thread is still running. The polling thread can still receive `kill` mail to force-terminate the process.
 
 ## Message Delivery
 
