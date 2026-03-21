@@ -1,6 +1,7 @@
 package setup
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -16,14 +17,22 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+//go:embed defaults/covenant_en.md
+var defaultCovenantEN string
+
+//go:embed defaults/covenant_zh.md
+var defaultCovenantZH string
+
+//go:embed defaults/bash_policy.json
+var defaultBashPolicy string
+
 // Steps in the wizard.
 type step int
 
 const (
 	StepLang step = iota
 	StepModel
-	StepVision
-	StepWebSearch
+	StepMultimodal
 	StepIMAP
 	StepTelegram
 	StepGeneral
@@ -36,10 +45,8 @@ func (s step) String() string {
 		return i18n.S("setup_lang")
 	case StepModel:
 		return i18n.S("setup_model")
-	case StepVision:
-		return i18n.S("setup_vision") + " (Esc)"
-	case StepWebSearch:
-		return i18n.S("setup_websearch") + " (Esc)"
+	case StepMultimodal:
+		return i18n.S("setup_multimodal") + " (Esc)"
 	case StepIMAP:
 		return "IMAP (Esc)"
 	case StepTelegram:
@@ -83,26 +90,76 @@ var providerModels = map[string]string{
 	"custom":    "",
 }
 
-// Vision provider defaults (only minimax and gemini supported).
-var visionProviders = []string{"minimax", "gemini"}
-var visionModels = map[string]string{
-	"minimax": "MiniMax-M2.7-highspeed",
-	"gemini":  "gemini-3.1-pro",
-}
-var visionEndpoints = map[string]string{
-	"minimax": "https://api.minimax.chat/v1",
-	"gemini":  "https://generativelanguage.googleapis.com",
+// mmCapability describes a multimodal capability row in the wizard grid.
+type mmCapability struct {
+	name      string            // display name
+	configKey string            // JSON key in model.json
+	envSuffix string            // for env var naming
+	providers []string
+	models    map[string]string
+	endpoints map[string]string
 }
 
-// Web search provider defaults (only minimax and gemini supported).
-var webSearchProviders = []string{"minimax", "gemini"}
-var webSearchModels = map[string]string{
-	"minimax": "MiniMax-M2.7-highspeed",
-	"gemini":  "gemini-3.1-pro",
+var mmCaps = []mmCapability{
+	{
+		name: "Vision", configKey: "vision", envSuffix: "VISION",
+		providers: []string{"minimax", "gemini"},
+		models:    map[string]string{"minimax": "MiniMax-M2.7-highspeed", "gemini": "gemini-3.1-pro"},
+		endpoints: map[string]string{"minimax": "https://api.minimaxi.com", "gemini": "https://generativelanguage.googleapis.com"},
+	},
+	{
+		name: "Web Search", configKey: "web_search", envSuffix: "WEB_SEARCH",
+		providers: []string{"minimax", "gemini"},
+		models:    map[string]string{"minimax": "MiniMax-M2.7-highspeed", "gemini": "gemini-3.1-pro"},
+		endpoints: map[string]string{"minimax": "https://api.minimaxi.com", "gemini": "https://generativelanguage.googleapis.com"},
+	},
+	{
+		name: "Talk (TTS)", configKey: "talk", envSuffix: "TALK",
+		providers: []string{"minimax"},
+		models:    map[string]string{"minimax": ""},
+		endpoints: map[string]string{"minimax": "https://api.minimaxi.com"},
+	},
+	{
+		name: "Compose", configKey: "compose", envSuffix: "COMPOSE",
+		providers: []string{"minimax"},
+		models:    map[string]string{"minimax": ""},
+		endpoints: map[string]string{"minimax": "https://api.minimaxi.com"},
+	},
+	{
+		name: "Draw", configKey: "draw", envSuffix: "DRAW",
+		providers: []string{"minimax"},
+		models:    map[string]string{"minimax": ""},
+		endpoints: map[string]string{"minimax": "https://api.minimaxi.com"},
+	},
+	{
+		name: "Listen", configKey: "listen", envSuffix: "LISTEN",
+		providers: []string{"local"},
+		models:    map[string]string{"local": ""},
+		endpoints: map[string]string{},
+	},
 }
-var webSearchEndpoints = map[string]string{
-	"minimax": "https://api.minimax.chat/v1",
-	"gemini":  "https://generativelanguage.googleapis.com",
+
+// mmCapState holds the mutable state for one multimodal capability row.
+type mmCapState struct {
+	providerIdx   int
+	keyInput      textinput.Model
+	endpointInput textinput.Model
+}
+
+func newMMCapState(row int) mmCapState {
+	cap := mmCaps[row]
+	p := cap.providers[0]
+	ep := cap.endpoints[p]
+
+	keyInput := newTextInput("API key", "")
+	keyInput.EchoMode = textinput.EchoPassword
+	keyInput.EchoCharacter = '•'
+	keyInput.Width = 30
+
+	endpointInput := newTextInput("https://...", ep)
+	endpointInput.Width = 38
+
+	return mmCapState{providerIdx: 0, keyInput: keyInput, endpointInput: endpointInput}
 }
 
 // field is a labeled text input.
@@ -128,9 +185,12 @@ type wizardModel struct {
 	langIdx int
 
 	// provider selector state
-	providerIdx          int
-	visionProviderIdx    int
-	webSearchProviderIdx int
+	providerIdx int
+
+	// multimodal grid state
+	mmRows []mmCapState
+	mmRow  int // active row (0-5)
+	mmCol  int // active column: 0=provider, 1=key, 2=endpoint
 
 	// test results per step
 	testResults map[step]*TestResult
@@ -183,28 +243,10 @@ func newWizardModel(outputDir string) wizardModel {
 		{label: "Endpoint", input: newTextInput("https://...", providerEndpoints[defaultProvider])},
 	}
 
-	// Step: Vision
-	defaultVisionProvider := visionProviders[0]
-	visionKeyInput := newTextInput(i18n.S("setup_same_key"), "")
-	visionKeyInput.EchoMode = textinput.EchoPassword
-	visionKeyInput.EchoCharacter = '•'
-	m.fields[StepVision] = []field{
-		{label: "Provider", input: newTextInput(defaultVisionProvider, defaultVisionProvider)},
-		{label: "Model", input: newTextInput("model name", visionModels[defaultVisionProvider])},
-		{label: "API key", input: visionKeyInput},
-		{label: "Endpoint", input: newTextInput("https://...", visionEndpoints[defaultVisionProvider])},
-	}
-
-	// Step: Web Search
-	defaultWSProvider := webSearchProviders[0]
-	wsKeyInput := newTextInput(i18n.S("setup_same_key"), "")
-	wsKeyInput.EchoMode = textinput.EchoPassword
-	wsKeyInput.EchoCharacter = '•'
-	m.fields[StepWebSearch] = []field{
-		{label: "Provider", input: newTextInput(defaultWSProvider, defaultWSProvider)},
-		{label: "Model", input: newTextInput("model name", webSearchModels[defaultWSProvider])},
-		{label: "API key", input: wsKeyInput},
-		{label: "Endpoint", input: newTextInput("https://...", webSearchEndpoints[defaultWSProvider])},
+	// Step: Multimodal grid
+	m.mmRows = make([]mmCapState, len(mmCaps))
+	for i := range mmCaps {
+		m.mmRows[i] = newMMCapState(i)
 	}
 
 	// Step: IMAP
@@ -235,8 +277,8 @@ func newWizardModel(outputDir string) wizardModel {
 		{label: "Agent name", input: newTextInput("orchestrator", "orchestrator")},
 		{label: "Base directory", input: newTextInput(defaultBase, defaultBase)},
 		{label: "Agent port", input: newTextInput("8501", "8501")},
-		{label: "Bash policy file", input: newTextInput("(optional)", "")},
-		{label: "Covenant", input: newTextInput("(optional)", "")},
+		{label: "Bash policy (default: ~/.lingtai/bash_policy.json)", input: newTextInput("Enter = use default", "")},
+		{label: "Covenant (default: ~/.lingtai/covenant.md)", input: newTextInput("Enter = use default", "")},
 	}
 
 	// Step: Review has no fields
@@ -334,66 +376,33 @@ func (m *wizardModel) loadExisting() {
 		m.fields[StepModel][3].input.SetValue(modelCfg.BaseURL)
 	}
 
-	// Vision sub-config
-	if vRaw, ok := modelRaw["vision"]; ok {
-		var vCfg struct {
+	// Multimodal sub-configs
+	for i, cap := range mmCaps {
+		capRaw, ok := modelRaw[cap.configKey]
+		if !ok {
+			continue
+		}
+		var capCfg struct {
 			Provider  string `json:"provider"`
-			Model     string `json:"model"`
 			APIKeyEnv string `json:"api_key_env"`
 			BaseURL   string `json:"base_url"`
 		}
-		if json.Unmarshal(vRaw, &vCfg) == nil {
-			if vCfg.Provider != "" {
-				for idx, p := range visionProviders {
-					if p == vCfg.Provider {
-						m.visionProviderIdx = idx
+		if json.Unmarshal(capRaw, &capCfg) == nil {
+			if capCfg.Provider != "" {
+				for idx, p := range cap.providers {
+					if p == capCfg.Provider {
+						m.mmRows[i].providerIdx = idx
 						break
 					}
 				}
-				m.fields[StepVision][0].input.SetValue(vCfg.Provider)
 			}
-			if vCfg.Model != "" {
-				m.fields[StepVision][1].input.SetValue(vCfg.Model)
-			}
-			if vCfg.APIKeyEnv != "" {
-				if key := os.Getenv(vCfg.APIKeyEnv); key != "" {
-					m.fields[StepVision][2].input.SetValue(key)
+			if capCfg.APIKeyEnv != "" {
+				if key := os.Getenv(capCfg.APIKeyEnv); key != "" {
+					m.mmRows[i].keyInput.SetValue(key)
 				}
 			}
-			if vCfg.BaseURL != "" {
-				m.fields[StepVision][3].input.SetValue(vCfg.BaseURL)
-			}
-		}
-	}
-
-	// Web search sub-config
-	if wsRaw, ok := modelRaw["web_search"]; ok {
-		var wsCfg struct {
-			Provider  string `json:"provider"`
-			Model     string `json:"model"`
-			APIKeyEnv string `json:"api_key_env"`
-			BaseURL   string `json:"base_url"`
-		}
-		if json.Unmarshal(wsRaw, &wsCfg) == nil {
-			if wsCfg.Provider != "" {
-				for idx, p := range webSearchProviders {
-					if p == wsCfg.Provider {
-						m.webSearchProviderIdx = idx
-						break
-					}
-				}
-				m.fields[StepWebSearch][0].input.SetValue(wsCfg.Provider)
-			}
-			if wsCfg.Model != "" {
-				m.fields[StepWebSearch][1].input.SetValue(wsCfg.Model)
-			}
-			if wsCfg.APIKeyEnv != "" {
-				if key := os.Getenv(wsCfg.APIKeyEnv); key != "" {
-					m.fields[StepWebSearch][2].input.SetValue(key)
-				}
-			}
-			if wsCfg.BaseURL != "" {
-				m.fields[StepWebSearch][3].input.SetValue(wsCfg.BaseURL)
+			if capCfg.BaseURL != "" {
+				m.mmRows[i].endpointInput.SetValue(capCfg.BaseURL)
 			}
 		}
 	}
@@ -491,7 +500,7 @@ func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "esc":
 			// Skip optional steps
-			if m.step == StepVision || m.step == StepWebSearch || m.step == StepIMAP || m.step == StepTelegram {
+			if m.step == StepMultimodal || m.step == StepIMAP || m.step == StepTelegram {
 				m.advanceStep()
 				return m, nil
 			}
@@ -500,6 +509,14 @@ func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.step == StepLang {
 				m.langIdx = (m.langIdx + 1) % len(i18n.Languages)
 				i18n.Lang = i18n.Languages[m.langIdx]
+				return m, nil
+			}
+			if m.step == StepMultimodal {
+				if msg.String() == "tab" {
+					m.mmTabNext()
+				} else {
+					m.mmMoveRow(+1)
+				}
 				return m, nil
 			}
 			if m.step == StepReview {
@@ -518,6 +535,14 @@ func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.step == StepLang {
 				m.langIdx = (m.langIdx - 1 + len(i18n.Languages)) % len(i18n.Languages)
 				i18n.Lang = i18n.Languages[m.langIdx]
+				return m, nil
+			}
+			if m.step == StepMultimodal {
+				if msg.String() == "shift+tab" {
+					m.mmTabPrev()
+				} else {
+					m.mmMoveRow(-1)
+				}
 				return m, nil
 			}
 			if m.step == StepReview {
@@ -541,14 +566,12 @@ func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.syncProviderDefaults()
 				return m, nil
 			}
-			if m.step == StepVision && m.focus == 0 {
-				m.visionProviderIdx = (m.visionProviderIdx - 1 + len(visionProviders)) % len(visionProviders)
-				m.syncVisionDefaults()
-				return m, nil
-			}
-			if m.step == StepWebSearch && m.focus == 0 {
-				m.webSearchProviderIdx = (m.webSearchProviderIdx - 1 + len(webSearchProviders)) % len(webSearchProviders)
-				m.syncWebSearchDefaults()
+			if m.step == StepMultimodal && m.mmCol == 0 {
+				cap := mmCaps[m.mmRow]
+				if len(cap.providers) > 1 {
+					m.mmRows[m.mmRow].providerIdx = (m.mmRows[m.mmRow].providerIdx - 1 + len(cap.providers)) % len(cap.providers)
+					m.syncMMDefaults(m.mmRow)
+				}
 				return m, nil
 			}
 
@@ -561,14 +584,12 @@ func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.syncProviderDefaults()
 				return m, nil
 			}
-			if m.step == StepVision && m.focus == 0 {
-				m.visionProviderIdx = (m.visionProviderIdx + 1) % len(visionProviders)
-				m.syncVisionDefaults()
-				return m, nil
-			}
-			if m.step == StepWebSearch && m.focus == 0 {
-				m.webSearchProviderIdx = (m.webSearchProviderIdx + 1) % len(webSearchProviders)
-				m.syncWebSearchDefaults()
+			if m.step == StepMultimodal && m.mmCol == 0 {
+				cap := mmCaps[m.mmRow]
+				if len(cap.providers) > 1 {
+					m.mmRows[m.mmRow].providerIdx = (m.mmRows[m.mmRow].providerIdx + 1) % len(cap.providers)
+					m.syncMMDefaults(m.mmRow)
+				}
 				return m, nil
 			}
 
@@ -598,6 +619,15 @@ func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Update the focused text input
+	if m.step == StepMultimodal {
+		var cmd tea.Cmd
+		if m.mmCol == 1 {
+			m.mmRows[m.mmRow].keyInput, cmd = m.mmRows[m.mmRow].keyInput.Update(msg)
+		} else if m.mmCol == 2 {
+			m.mmRows[m.mmRow].endpointInput, cmd = m.mmRows[m.mmRow].endpointInput.Update(msg)
+		}
+		return m, cmd
+	}
 	if m.step != StepReview && m.step != StepLang {
 		fields := m.fields[m.step]
 		if m.focus < len(fields) {
@@ -618,23 +648,79 @@ func (m *wizardModel) syncProviderDefaults() {
 	m.fields[StepModel][3].input.SetValue(providerEndpoints[p])
 }
 
-func (m *wizardModel) syncVisionDefaults() {
-	p := visionProviders[m.visionProviderIdx]
-	m.fields[StepVision][0].input.SetValue(p)
-	m.fields[StepVision][1].input.SetValue(visionModels[p])
-	m.fields[StepVision][3].input.SetValue(visionEndpoints[p])
+func (m *wizardModel) mmIsLocal(row int) bool {
+	return mmCaps[row].providers[m.mmRows[row].providerIdx] == "local"
 }
 
-func (m *wizardModel) syncWebSearchDefaults() {
-	p := webSearchProviders[m.webSearchProviderIdx]
-	m.fields[StepWebSearch][0].input.SetValue(p)
-	m.fields[StepWebSearch][1].input.SetValue(webSearchModels[p])
-	m.fields[StepWebSearch][3].input.SetValue(webSearchEndpoints[p])
+func (m *wizardModel) mmBlurCurrent() {
+	if m.mmCol == 1 {
+		m.mmRows[m.mmRow].keyInput.Blur()
+	}
+	if m.mmCol == 2 {
+		m.mmRows[m.mmRow].endpointInput.Blur()
+	}
+}
+
+func (m *wizardModel) mmFocusCurrent() {
+	if m.mmCol == 1 {
+		m.mmRows[m.mmRow].keyInput.Focus()
+	}
+	if m.mmCol == 2 {
+		m.mmRows[m.mmRow].endpointInput.Focus()
+	}
+}
+
+func (m *wizardModel) mmMoveRow(delta int) {
+	m.mmBlurCurrent()
+	m.mmRow = (m.mmRow + delta + len(mmCaps)) % len(mmCaps)
+	m.mmFocusCurrent()
+}
+
+func (m *wizardModel) mmTabNext() {
+	m.mmBlurCurrent()
+	if m.mmIsLocal(m.mmRow) {
+		m.mmRow = (m.mmRow + 1) % len(mmCaps)
+		m.mmCol = 0
+	} else {
+		next := (m.mmCol + 1) % 3
+		if next == 0 {
+			m.mmRow = (m.mmRow + 1) % len(mmCaps)
+		}
+		m.mmCol = next
+	}
+	m.mmFocusCurrent()
+}
+
+func (m *wizardModel) mmTabPrev() {
+	m.mmBlurCurrent()
+	if m.mmCol == 0 {
+		m.mmRow = (m.mmRow - 1 + len(mmCaps)) % len(mmCaps)
+		if m.mmIsLocal(m.mmRow) {
+			m.mmCol = 0
+		} else {
+			m.mmCol = 2
+		}
+	} else {
+		m.mmCol--
+	}
+	m.mmFocusCurrent()
+}
+
+func (m *wizardModel) syncMMDefaults(row int) {
+	cap := mmCaps[row]
+	p := cap.providers[m.mmRows[row].providerIdx]
+	if ep, ok := cap.endpoints[p]; ok {
+		m.mmRows[row].endpointInput.SetValue(ep)
+	} else {
+		m.mmRows[row].endpointInput.SetValue("")
+	}
 }
 
 func (m *wizardModel) advanceStep() {
 	// Blur current fields
-	if fields, ok := m.fields[m.step]; ok {
+	if m.step == StepMultimodal {
+		m.mmBlurCurrent()
+	} else if fields, ok := m.fields[m.step]; ok {
 		for i := range fields {
 			fields[i].input.Blur()
 		}
@@ -643,12 +729,84 @@ func (m *wizardModel) advanceStep() {
 
 	m.step++
 	m.focus = 0
+	m.mmRow = 0
+	m.mmCol = 0
 
 	// Focus first field of new step
-	if fields, ok := m.fields[m.step]; ok && len(fields) > 0 {
-		fields[0].input.Focus()
-		m.fields[m.step] = fields
+	if m.step != StepMultimodal {
+		if fields, ok := m.fields[m.step]; ok && len(fields) > 0 {
+			fields[0].input.Focus()
+			m.fields[m.step] = fields
+		}
 	}
+}
+
+func (m wizardModel) renderMultimodal() string {
+	var b strings.Builder
+
+	// Column headers
+	b.WriteString(fmt.Sprintf("  %-16s %-20s %-24s %s\n",
+		"Capability", "Provider", "API Key", "Endpoint"))
+	b.WriteString("  " + strings.Repeat("\u2500", 72) + "\n")
+
+	for i, cap := range mmCaps {
+		state := m.mmRows[i]
+		p := cap.providers[state.providerIdx]
+		isActive := i == m.mmRow
+		isLocal := p == "local"
+
+		// Cursor
+		cursor := "  "
+		if isActive {
+			cursor = promptStyle.Render("> ")
+		}
+
+		// Capability name
+		capName := fmt.Sprintf("%-14s", cap.name)
+		if isActive {
+			capName = promptStyle.Render(capName)
+		}
+
+		// Provider
+		var provStr string
+		if isActive && m.mmCol == 0 && len(cap.providers) > 1 {
+			provStr = fmt.Sprintf("\u25c0 %-8s \u25b6", p)
+		} else {
+			provStr = fmt.Sprintf("  %-8s  ", p)
+		}
+		provStr = fmt.Sprintf("%-18s", provStr)
+
+		// Key
+		var keyStr string
+		if isLocal {
+			keyStr = fmt.Sprintf("%-22s", dimStyle.Render("no config needed"))
+		} else if isActive && m.mmCol == 1 {
+			keyStr = state.keyInput.View()
+		} else if state.keyInput.Value() != "" {
+			keyStr = fmt.Sprintf("%-22s", "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022")
+		} else {
+			keyStr = fmt.Sprintf("%-22s", dimStyle.Render("(no key)"))
+		}
+
+		// Endpoint
+		var epStr string
+		if isLocal {
+			epStr = dimStyle.Render("runs locally")
+		} else if isActive && m.mmCol == 2 {
+			epStr = state.endpointInput.View()
+		} else if state.endpointInput.Value() != "" {
+			epStr = state.endpointInput.Value()
+		} else {
+			epStr = dimStyle.Render("(no endpoint)")
+		}
+
+		b.WriteString(fmt.Sprintf("%s%s %s %s  %s\n", cursor, capName, provStr, keyStr, epStr))
+	}
+
+	// Hints
+	b.WriteString("\n" + dimStyle.Render("\u2191/\u2193: move row | Tab: next field | \u2190/\u2192: cycle provider | Enter: next step | Esc: skip") + "\n")
+
+	return b.String()
 }
 
 func (m wizardModel) View() string {
@@ -679,7 +837,7 @@ func (m wizardModel) View() string {
 	}
 
 	// Progress bar
-	allSteps := []step{StepLang, StepModel, StepVision, StepWebSearch, StepIMAP, StepTelegram, StepGeneral, StepReview}
+	allSteps := []step{StepLang, StepModel, StepMultimodal, StepIMAP, StepTelegram, StepGeneral, StepReview}
 	for i, s := range allSteps {
 		name := s.String()
 		if s == m.step {
@@ -712,6 +870,11 @@ func (m wizardModel) View() string {
 		return b.String()
 	}
 
+	if m.step == StepMultimodal {
+		b.WriteString(m.renderMultimodal())
+		return b.String()
+	}
+
 	if m.step == StepReview {
 		b.WriteString(m.renderReview())
 		b.WriteString("\n" + dimStyle.Render("Enter → save, Ctrl+C → abort") + "\n")
@@ -735,7 +898,7 @@ func (m wizardModel) View() string {
 		}
 
 		label := f.label
-		if (m.step == StepModel || m.step == StepVision || m.step == StepWebSearch) && i == 0 {
+		if m.step == StepModel && i == 0 {
 			label = fmt.Sprintf("%s (left/right to cycle)", label)
 		}
 
@@ -756,7 +919,7 @@ func (m wizardModel) View() string {
 	// Hints
 	b.WriteString("\n")
 	hints := []string{"Tab/Down: next field", "Shift+Tab/Up: prev field", "Enter: next step"}
-	if m.step == StepVision || m.step == StepWebSearch || m.step == StepIMAP || m.step == StepTelegram {
+	if m.step == StepIMAP || m.step == StepTelegram {
 		hints = append(hints, "Esc: skip")
 	}
 	if m.step == StepIMAP || m.step == StepTelegram {
@@ -787,38 +950,30 @@ func (m wizardModel) renderReview() string {
 		b.WriteString(fmt.Sprintf("  Endpoint:    %s\n", endpoint))
 	}
 
-	// Vision
-	if visionProvider := m.fieldVal(StepVision, 0); visionProvider != "" && m.fieldVal(StepVision, 1) != "" {
-		b.WriteString("\n" + promptStyle.Render("Vision:") + "\n")
-		b.WriteString(fmt.Sprintf("  Provider:    %s\n", visionProvider))
-		b.WriteString(fmt.Sprintf("  Model:       %s\n", m.fieldVal(StepVision, 1)))
-		if m.fieldVal(StepVision, 2) != "" {
+	// Multimodal capabilities
+	for i, cap := range mmCaps {
+		state := m.mmRows[i]
+		p := cap.providers[state.providerIdx]
+		if p == "local" {
+			b.WriteString(fmt.Sprintf("\n"+dimStyle.Render("%s: runs locally")+"\n", cap.name))
+			continue
+		}
+		key := state.keyInput.Value()
+		ep := state.endpointInput.Value()
+		if key == "" && ep == "" {
+			b.WriteString(fmt.Sprintf("\n"+dimStyle.Render("%s: skipped")+"\n", cap.name))
+			continue
+		}
+		b.WriteString(fmt.Sprintf("\n"+promptStyle.Render("%s:")+"\n", cap.name))
+		b.WriteString(fmt.Sprintf("  Provider:    %s\n", p))
+		if key != "" {
 			b.WriteString(fmt.Sprintf("  API key:     %s\n", "••••••••"))
 		} else {
 			b.WriteString(fmt.Sprintf("  API key:     %s\n", dimStyle.Render("reusing main key")))
 		}
-		if endpoint := m.fieldVal(StepVision, 3); endpoint != "" {
-			b.WriteString(fmt.Sprintf("  Endpoint:    %s\n", endpoint))
+		if ep != "" {
+			b.WriteString(fmt.Sprintf("  Endpoint:    %s\n", ep))
 		}
-	} else {
-		b.WriteString("\n" + dimStyle.Render("Vision: skipped") + "\n")
-	}
-
-	// Web Search
-	if wsProvider := m.fieldVal(StepWebSearch, 0); wsProvider != "" && m.fieldVal(StepWebSearch, 1) != "" {
-		b.WriteString("\n" + promptStyle.Render("Web Search:") + "\n")
-		b.WriteString(fmt.Sprintf("  Provider:    %s\n", wsProvider))
-		b.WriteString(fmt.Sprintf("  Model:       %s\n", m.fieldVal(StepWebSearch, 1)))
-		if m.fieldVal(StepWebSearch, 2) != "" {
-			b.WriteString(fmt.Sprintf("  API key:     %s\n", "••••••••"))
-		} else {
-			b.WriteString(fmt.Sprintf("  API key:     %s\n", dimStyle.Render("reusing main key")))
-		}
-		if endpoint := m.fieldVal(StepWebSearch, 3); endpoint != "" {
-			b.WriteString(fmt.Sprintf("  Endpoint:    %s\n", endpoint))
-		}
-	} else {
-		b.WriteString("\n" + dimStyle.Render("Web Search: skipped") + "\n")
 	}
 
 	// IMAP
@@ -884,13 +1039,12 @@ func (m wizardModel) runTest() tea.Cmd {
 	case StepIMAP:
 		return func() tea.Msg {
 			email := m.fieldVal(StepIMAP, 0)
-			passEnv := m.fieldVal(StepIMAP, 1)
+			pass := m.fieldVal(StepIMAP, 1)
 			imapHost := m.fieldVal(StepIMAP, 2)
 			imapPortStr := m.fieldVal(StepIMAP, 3)
 
-			pass := os.Getenv(passEnv)
 			if pass == "" {
-				return testResultMsg{step: StepIMAP, result: TestResult{OK: false, Message: fmt.Sprintf("env var %s is not set", passEnv)}}
+				return testResultMsg{step: StepIMAP, result: TestResult{OK: false, Message: "password is required"}}
 			}
 
 			imapPort, _ := strconv.Atoi(imapPortStr)
@@ -904,10 +1058,9 @@ func (m wizardModel) runTest() tea.Cmd {
 
 	case StepTelegram:
 		return func() tea.Msg {
-			tokenEnv := m.fieldVal(StepTelegram, 0)
-			token := os.Getenv(tokenEnv)
+			token := m.fieldVal(StepTelegram, 0)
 			if token == "" {
-				return testResultMsg{step: StepTelegram, result: TestResult{OK: false, Message: fmt.Sprintf("env var %s is not set", tokenEnv)}}
+				return testResultMsg{step: StepTelegram, result: TestResult{OK: false, Message: "bot token is required"}}
 			}
 			r := TestTelegram(token)
 			return testResultMsg{step: StepTelegram, result: r}
@@ -939,44 +1092,32 @@ func (m wizardModel) writeConfig() ([]string, error) {
 		modelCfg["base_url"] = endpoint
 	}
 
-	// Vision config (if not skipped)
-	if visionProvider := m.fieldVal(StepVision, 0); visionProvider != "" && m.fieldVal(StepVision, 1) != "" {
-		visionKeyEnv := apiKeyEnv // reuse main key by default
-		if visionKey := m.fieldVal(StepVision, 2); visionKey != "" {
-			visionKeyEnv = strings.ToUpper(visionProvider) + "_API_KEY"
-			if visionKeyEnv == apiKeyEnv {
-				visionKeyEnv = strings.ToUpper(visionProvider) + "_VISION_API_KEY"
-			}
+	// Multimodal capability configs
+	for i, cap := range mmCaps {
+		state := m.mmRows[i]
+		p := cap.providers[state.providerIdx]
+		if p == "local" {
+			continue
 		}
-		visionCfg := map[string]interface{}{
-			"provider":    visionProvider,
-			"model":       m.fieldVal(StepVision, 1),
-			"api_key_env": visionKeyEnv,
+		key := state.keyInput.Value()
+		ep := state.endpointInput.Value()
+		if key == "" && ep == "" {
+			continue
 		}
-		if endpoint := m.fieldVal(StepVision, 3); endpoint != "" {
-			visionCfg["base_url"] = endpoint
-		}
-		modelCfg["vision"] = visionCfg
-	}
 
-	// Web search config (if not skipped)
-	if wsProvider := m.fieldVal(StepWebSearch, 0); wsProvider != "" && m.fieldVal(StepWebSearch, 1) != "" {
-		wsKeyEnv := apiKeyEnv // reuse main key by default
-		if wsKey := m.fieldVal(StepWebSearch, 2); wsKey != "" {
-			wsKeyEnv = strings.ToUpper(wsProvider) + "_API_KEY"
-			if wsKeyEnv == apiKeyEnv {
-				wsKeyEnv = strings.ToUpper(wsProvider) + "_WEB_SEARCH_API_KEY"
-			}
+		capKeyEnv := apiKeyEnv // reuse main key by default
+		if key != "" && key != m.fieldVal(StepModel, 2) {
+			capKeyEnv = strings.ToUpper(p) + "_" + cap.envSuffix + "_API_KEY"
 		}
-		wsCfg := map[string]interface{}{
-			"provider":    wsProvider,
-			"model":       m.fieldVal(StepWebSearch, 1),
-			"api_key_env": wsKeyEnv,
+
+		capCfg := map[string]interface{}{
+			"provider":    p,
+			"api_key_env": capKeyEnv,
 		}
-		if endpoint := m.fieldVal(StepWebSearch, 3); endpoint != "" {
-			wsCfg["base_url"] = endpoint
+		if ep != "" {
+			capCfg["base_url"] = ep
 		}
-		modelCfg["web_search"] = wsCfg
+		modelCfg[cap.configKey] = capCfg
 	}
 
 	modelPath := filepath.Join(m.outputDir, "model.json")
@@ -999,12 +1140,17 @@ func (m wizardModel) writeConfig() ([]string, error) {
 		"agent_port": port,
 	}
 
-	if v := m.fieldVal(StepGeneral, 3); v != "" {
-		cfg["bash_policy"] = v
+	bashPolicy := m.fieldVal(StepGeneral, 3)
+	if bashPolicy == "" {
+		bashPolicy = filepath.Join(m.outputDir, "bash_policy.json")
 	}
-	if v := m.fieldVal(StepGeneral, 4); v != "" {
-		cfg["covenant"] = v
+	cfg["bash_policy"] = bashPolicy
+
+	covenant := m.fieldVal(StepGeneral, 4)
+	if covenant == "" {
+		covenant = filepath.Join(m.outputDir, "covenant.md")
 	}
+	cfg["covenant"] = covenant
 
 	// IMAP config
 	if email := m.fieldVal(StepIMAP, 0); email != "" {
@@ -1038,21 +1184,18 @@ func (m wizardModel) writeConfig() ([]string, error) {
 	if apiKey := m.fieldVal(StepModel, 2); apiKey != "" {
 		envLines = append(envLines, fmt.Sprintf("%s=%s", apiKeyEnv, apiKey))
 	}
-	if visionKey := m.fieldVal(StepVision, 2); visionKey != "" && visionKey != m.fieldVal(StepModel, 2) {
-		visionProvider := m.fieldVal(StepVision, 0)
-		visionKeyEnv := strings.ToUpper(visionProvider) + "_API_KEY"
-		if visionKeyEnv == apiKeyEnv {
-			visionKeyEnv = strings.ToUpper(visionProvider) + "_VISION_API_KEY"
+	// Multimodal capability keys
+	for i, cap := range mmCaps {
+		state := m.mmRows[i]
+		p := cap.providers[state.providerIdx]
+		if p == "local" {
+			continue
 		}
-		envLines = append(envLines, fmt.Sprintf("%s=%s", visionKeyEnv, visionKey))
-	}
-	if wsKey := m.fieldVal(StepWebSearch, 2); wsKey != "" && wsKey != m.fieldVal(StepModel, 2) {
-		wsProvider := m.fieldVal(StepWebSearch, 0)
-		wsKeyEnv := strings.ToUpper(wsProvider) + "_API_KEY"
-		if wsKeyEnv == apiKeyEnv {
-			wsKeyEnv = strings.ToUpper(wsProvider) + "_WEB_SEARCH_API_KEY"
+		key := state.keyInput.Value()
+		if key != "" && key != m.fieldVal(StepModel, 2) {
+			capKeyEnv := strings.ToUpper(p) + "_" + cap.envSuffix + "_API_KEY"
+			envLines = append(envLines, fmt.Sprintf("%s=%s", capKeyEnv, key))
 		}
-		envLines = append(envLines, fmt.Sprintf("%s=%s", wsKeyEnv, wsKey))
 	}
 	if password := m.fieldVal(StepIMAP, 1); password != "" {
 		envLines = append(envLines, fmt.Sprintf("IMAP_PASSWORD=%s", password))
@@ -1067,6 +1210,24 @@ func (m wizardModel) writeConfig() ([]string, error) {
 			return written, fmt.Errorf("writing .env: %w", err)
 		}
 		written = append(written, envPath)
+	}
+
+	// 4. Default files
+	bashPolicyPath := filepath.Join(m.outputDir, "bash_policy.json")
+	if _, err := os.Stat(bashPolicyPath); os.IsNotExist(err) {
+		os.WriteFile(bashPolicyPath, []byte(defaultBashPolicy), 0644)
+		written = append(written, bashPolicyPath)
+	}
+
+	covenantPath := filepath.Join(m.outputDir, "covenant.md")
+	if _, err := os.Stat(covenantPath); os.IsNotExist(err) {
+		defaultCovenant := defaultCovenantEN
+		langCode := i18n.Languages[m.langIdx]
+		if langCode == "zh" || langCode == "lzh" {
+			defaultCovenant = defaultCovenantZH
+		}
+		os.WriteFile(covenantPath, []byte(defaultCovenant), 0644)
+		written = append(written, covenantPath)
 	}
 
 	return written, nil

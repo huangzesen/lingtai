@@ -59,9 +59,7 @@ var translations = map[string]map[string]string{
 		"setup_lang_hint": "↑/↓ to select, Enter to confirm",
 		"setup_saved":     "Configuration saved successfully!",
 		"setup_files":     "Files written:",
-		"setup_vision":    "Vision",
-		"setup_websearch": "Web Search",
-		"setup_same_key":  "leave blank to reuse main key",
+		"setup_multimodal": "Multimodal",
 	},
 	"zh": {
 		"title":           "灵台",
@@ -91,9 +89,7 @@ var translations = map[string]map[string]string{
 		"setup_lang_hint": "↑/↓ 选择，Enter 确认",
 		"setup_saved":     "配置保存成功！",
 		"setup_files":     "已写入文件：",
-		"setup_vision":    "视觉模型",
-		"setup_websearch": "搜索模型",
-		"setup_same_key":  "留空则复用主密钥",
+		"setup_multimodal": "多模态",
 	},
 	"lzh": {
 		"title":           "灵台",
@@ -123,9 +119,7 @@ var translations = map[string]map[string]string{
 		"setup_lang_hint": "↑/↓ 择之，Enter 定之",
 		"setup_saved":     "设定已录！",
 		"setup_files":     "所录之档：",
-		"setup_vision":    "目视之设",
-		"setup_websearch": "搜寻之设",
-		"setup_same_key":  "留白则沿用主钥",
+		"setup_multimodal": "诸能",
 	},
 }
 

@@ -16,6 +16,10 @@ type ModelConfig struct {
 	BaseURL   string       `json:"base_url,omitempty"`
 	Vision    *ModelConfig `json:"vision,omitempty"`
 	WebSearch *ModelConfig `json:"web_search,omitempty"`
+	Talk      *ModelConfig `json:"talk,omitempty"`
+	Compose   *ModelConfig `json:"compose,omitempty"`
+	Draw      *ModelConfig `json:"draw,omitempty"`
+	Listen    *ModelConfig `json:"listen,omitempty"`
 }
 
 // IMAPConfig holds IMAP addon settings (passed through to Python).
