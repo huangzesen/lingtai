@@ -53,7 +53,7 @@ The `.agent.heartbeat` file is a plain-text UTC timestamp, serving as the extern
 {working_dir}/.agent.heartbeat    ← "2026-03-21T10:00:00.500000Z"
 ```
 
-**Relationship to existing heartbeat**: The kernel already has a heartbeat daemon thread (`_heartbeat_loop`) that ticks every 1 second and handles AED (error detection/recovery). This is an in-memory integer counter. The `.agent.heartbeat` file is a new addition — the existing heartbeat thread writes it to disk as part of each tick, but **only when the agent is healthy** (ACTIVE or IDLE state). When the agent is in ERROR or DEAD state, the file is NOT updated — so external observers correctly see it as stale.
+**Relationship to existing heartbeat**: The kernel already has a heartbeat daemon thread (`_heartbeat_loop`) that ticks every 1 second and handles AED (error detection/recovery). Currently it uses an in-memory integer counter — this changes to a UTC timestamp (`time.time()`), which is strictly more useful (the beat count is redundant with `lifetime`). The heartbeat thread writes this timestamp to `.agent.heartbeat` on each tick, but **only when the agent is healthy** (ACTIVE or IDLE state). When the agent is in ERROR or DEAD state, the file is NOT updated — so external observers correctly see it as stale.
 
 - **Writer**: the existing `_heartbeat_loop` thread (ticks every 1s). Writes the timestamp only when state is ACTIVE or IDLE. During ERROR state the thread is busy with AED — the stale heartbeat file correctly signals "agent is unhealthy."
 - **Reader**: any sender reads this file and compares against current UTC time. Alive if `now - heartbeat < 2s`.
