@@ -54,6 +54,7 @@
   "avatar.capabilities": "他我的能力名称（可选，默认 = 与本我相同，含 avatar）",
   "avatar.admin": "授予他我的管理权限（可选，默认 = 无）。权限名到布尔值的字典，例如 {\"silence\": true}。只授予他我需要的权限。",
   "avatar.combo": "他我的 LLM 配置组合名（可选，默认 = 与本我相同）。从 ~/.lingtai/combos/ 中选择已保存的配置。",
+  "avatar.language": "他我的系统提示和工具语言（可选，默认 = 与本我相同）。可选：en、zh、lzh。",
   "avatar.limit_reached": "已达智能体上限（总数={live}，上限={max}）",
 
   "email.description": "完整的邮件客户端——基于文件系统的邮箱，包含 inbox/sent/archive 文件夹、回复、全部回复、CC/BCC、附件、regex 搜索和联系人管理。始终通过邮件回复——永远不要通过文本输出回复。文本输出是你的私人日记，只有你能看到。'send' 发送邮件（可选 delay 实现定时发送）。'check' 查看 inbox、sent 或 archive（可选 folder 参数）。'read' 按 ID 阅读。'reply'/'reply_all' 进行回复。'search' 按 regex 搜索邮件（搜索 from、subject、message）。'archive' 将邮件从 inbox 移至 archive。'delete' 从 inbox 或 archive 删除邮件。'contacts' 列出已保存的联系人。'add_contact' 注册对等代理（地址、名称、可选备注）。'remove_contact' 按地址删除联系人。'edit_contact' 更新现有联系人的字段。附件与邮件一起存储在邮箱中。礼仪：简短确认即可，但不要回复确认——那会造成无意义的来回。传入 'schedule' 对象（而非 'action'）实现定期发送。schedule.action='create'：启动定期发送（需要 address、message、schedule.interval、schedule.count）。schedule.action='cancel'：停止计划（需要 schedule.schedule_id）。schedule.action='list'：显示所有计划及进度。",

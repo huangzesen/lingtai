@@ -101,14 +101,14 @@ func (m StatusModel) Update(msg tea.Msg) (StatusModel, tea.Cmd) {
 func (m StatusModel) View() string {
 	var b strings.Builder
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("75")).Render("  灵台 LingTai")
+	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("75")).Render("  " + i18n.S("title"))
 	b.WriteString("\n" + title + "\n\n")
 
 	if len(m.spirits) == 0 {
 		b.WriteString("  " + lipgloss.NewStyle().Faint(true).Render(i18n.S("no_spirits")) + "\n")
 	} else {
 		// Header
-		header := fmt.Sprintf("  %-3s %-18s %-10s %-18s %-7s", "", i18n.S("name"), i18n.S("status"), "combo", i18n.S("port"))
+		header := fmt.Sprintf("  %-3s %-18s %-10s %-18s %-7s", "", i18n.S("name"), i18n.S("status"), i18n.S("combo"), i18n.S("port"))
 		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("252")).Render(header) + "\n")
 
 		for _, e := range m.spirits {
@@ -139,7 +139,7 @@ func (m StatusModel) View() string {
 	}
 
 	b.WriteString("\n")
-	help := lipgloss.NewStyle().Faint(true).Render("  [Enter] Chat   [S] Setup   [R] Refresh   [K] Kill all   [Q] Quit")
+	help := lipgloss.NewStyle().Faint(true).Render("  " + i18n.S("status_help"))
 	b.WriteString(help + "\n")
 
 	return b.String()

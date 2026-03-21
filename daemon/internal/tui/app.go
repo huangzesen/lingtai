@@ -56,8 +56,9 @@ type ChatModel struct {
 	messages []string
 
 	// Verbose mode (Ctrl+O): on-demand JSONL rendering
-	verbose       bool
-	verboseOffset int64 // byte offset into JSONL file — resume from here
+	verbose            bool
+	verboseOffset      int64 // byte offset into JSONL file — resume from here
+	verboseStartIdx    int   // index in messages[] where verbose output begins
 
 	// Daemon switching: which daemon the TUI talks to
 	activeName string // agent name of current target
@@ -110,8 +111,15 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlO:
 			m.verbose = !m.verbose
 			if m.verbose {
+				m.verboseStartIdx = len(m.messages)
 				m.readVerboseLines()
 				cmds = append(cmds, m.verboseTick())
+			} else {
+				// Remove verbose lines
+				if m.verboseStartIdx < len(m.messages) {
+					m.messages = m.messages[:m.verboseStartIdx]
+				}
+				m.verboseOffset = 0
 			}
 			m.updateViewport()
 		case tea.KeyTab:
@@ -200,7 +208,7 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m ChatModel) View() string {
 	if !m.ready {
-		return "\n  Initializing..."
+		return "\n  " + i18n.S("starting")
 	}
 
 	statusLeft := TitleStyle.Render(i18n.S("title")) + " " + ActiveChannel.Render(m.activeName)
@@ -328,7 +336,7 @@ func (m *ChatModel) handleCommand(text string) bool {
 				return true
 			}
 		}
-		m.messages = append(m.messages, errorStyle.Render(fmt.Sprintf("Unknown daemon: %s", target)))
+		m.messages = append(m.messages, errorStyle.Render(fmt.Sprintf("%s: %s", i18n.S("unknown_daemon"), target)))
 		return true
 	}
 
@@ -342,7 +350,7 @@ func (m *ChatModel) switchDaemon(name string, port int) {
 	m.mail = agent.NewMailClient(fmt.Sprintf("127.0.0.1:%d", port))
 	m.verboseOffset = 0 // reset verbose to read new daemon's log from start
 	m.messages = append(m.messages, AgentMsg.Render(
-		fmt.Sprintf("Switched to %s (port %d)", name, port),
+		fmt.Sprintf("%s %s (port %d)", i18n.S("switched_to"), name, port),
 	))
 }
 

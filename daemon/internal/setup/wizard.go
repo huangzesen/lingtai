@@ -57,7 +57,8 @@ const (
 const (
 	fieldAgentName = 0
 	fieldAgentPort = 1
-	fieldBashPolicy = 2
+	fieldAgentLang = 2
+	fieldBashPolicy = 3
 )
 
 func (s step) String() string {
@@ -95,7 +96,7 @@ var providers = []string{"minimax", "openai", "anthropic", "gemini", "custom"}
 
 // Default endpoints for known providers (empty = provider SDK default).
 var providerEndpoints = map[string]string{
-	"minimax":   "https://api.minimaxi.com/v1",
+	"minimax":   "https://api.minimaxi.com/anthropic",
 	"openai":    "https://api.openai.com/v1",
 	"anthropic": "https://api.anthropic.com",
 	"gemini":    "https://generativelanguage.googleapis.com",
@@ -116,7 +117,8 @@ var mmQuickEndpoints = []string{
 	"https://api.minimaxi.com", // china (default)
 	"https://api.minimax.io",   // international
 }
-var mmQuickEndpointLabels = []string{"China", "International"}
+// mmQuickEndpointLabelKeys maps to i18n keys for endpoint labels.
+var mmQuickEndpointLabelKeys = []string{"mm_china", "mm_international"}
 
 // mmCapability describes a multimodal capability row in the wizard grid.
 type mmCapability struct {
@@ -215,7 +217,8 @@ type WizardModel struct {
 	comboName textinput.Model // for naming the combo on save
 
 	// language selector state
-	langIdx int
+	langIdx      int
+	agentLangIdx int // agent language (may differ from TUI language)
 
 	// provider selector state
 	providerIdx int
@@ -277,7 +280,8 @@ func NewWizardModel(outputDir string) WizardModel {
 	m := WizardModel{
 		step:        StepCombo,
 		outputDir:   outputDir,
-		langIdx:     initialLangIdx,
+		langIdx:      initialLangIdx,
+		agentLangIdx: initialLangIdx,
 		providerIdx: 0,
 		testResults: make(map[step]*TestResult),
 		fields:      make(map[step][]field),
@@ -347,6 +351,7 @@ func NewWizardModel(outputDir string) WizardModel {
 	m.fields[StepGeneral] = []field{
 		{label: "field_agent_name", input: newTextInput("orchestrator", "orchestrator")},
 		{label: "field_agent_port", input: newTextInput("8501", "8501")},
+		{label: "field_agent_lang", input: newTextInput("", "")}, // placeholder, rendered as selector
 		{label: "field_bash_policy", input: newTextInput("", "")},
 	}
 
@@ -381,14 +386,13 @@ func (m *WizardModel) loadExisting() {
 	// Load .env secrets
 	config.LoadDotenv(configsDir)
 
-	// Language
+	// Language (agent language — does not change TUI language)
 	var lang string
 	if v, ok := raw["language"]; ok {
 		json.Unmarshal(v, &lang)
 		for idx, code := range i18n.Languages {
 			if code == lang {
-				m.langIdx = idx
-				i18n.Lang = lang
+				m.agentLangIdx = idx
 				break
 			}
 		}
@@ -738,6 +742,10 @@ func (m WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.step == StepLang {
 				break
 			}
+			if m.step == StepGeneral && m.focus == fieldAgentLang {
+				m.agentLangIdx = (m.agentLangIdx - 1 + len(i18n.Languages)) % len(i18n.Languages)
+				return m, nil
+			}
 			if m.step == StepModel && m.focus == 0 {
 				m.providerIdx = (m.providerIdx - 1 + len(providers)) % len(providers)
 				m.syncProviderDefaults()
@@ -764,6 +772,10 @@ func (m WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "right":
 			if m.step == StepLang {
 				break
+			}
+			if m.step == StepGeneral && m.focus == fieldAgentLang {
+				m.agentLangIdx = (m.agentLangIdx + 1) % len(i18n.Languages)
+				return m, nil
 			}
 			if m.step == StepModel && m.focus == 0 {
 				m.providerIdx = (m.providerIdx + 1) % len(providers)
@@ -1091,12 +1103,11 @@ func (m *WizardModel) applyCombo(c combo.Combo) {
 		os.Setenv(k, v)
 	}
 
-	// Set language from combo config
+	// Set agent language from combo config (does not change TUI language)
 	if lang, ok := c.Config["language"].(string); ok {
 		for idx, code := range i18n.Languages {
 			if code == lang {
-				m.langIdx = idx
-				i18n.Lang = code
+				m.agentLangIdx = idx
 				break
 			}
 		}
@@ -1140,9 +1151,9 @@ func (m WizardModel) renderMMChooser() string {
 	var b strings.Builder
 
 	choices := []string{
-		"MiniMax Quick Setup",
-		"Manual Configuration",
-		"Skip",
+		i18n.S("mm_quick_setup"),
+		i18n.S("mm_manual"),
+		i18n.S("mm_skip"),
 	}
 	descs := []string{
 		"Enter two API keys — fills vision, web search, talk, compose, draw automatically",
@@ -1159,22 +1170,23 @@ func (m WizardModel) renderMMChooser() string {
 		}
 	}
 
-	b.WriteString("\n" + dimStyle.Render("↑/↓ to select, Enter to confirm") + "\n")
+	b.WriteString("\n" + dimStyle.Render(i18n.S("setup_lang_hint")) + "\n")
 	return b.String()
 }
 
 func (m WizardModel) renderMMQuick() string {
 	var b strings.Builder
 
-	b.WriteString(promptStyle.Render("MiniMax Quick Setup") + "\n\n")
+	b.WriteString(promptStyle.Render(i18n.S("mm_quick_setup")) + "\n\n")
 
 	// Endpoint selector
 	ep := mmQuickEndpoints[m.mmQuickEndpoint]
-	epLabel := mmQuickEndpointLabels[m.mmQuickEndpoint]
+	epLabel := i18n.S(mmQuickEndpointLabelKeys[m.mmQuickEndpoint])
+	endpointLabel := i18n.S("mm_endpoint")
 	if m.mmQuickFocus == 0 {
-		b.WriteString(fmt.Sprintf("  %s Endpoint: ◀ %s (%s) ▶\n", promptStyle.Render(">"), ep, epLabel))
+		b.WriteString(fmt.Sprintf("  %s %s: ◀ %s (%s) ▶\n", promptStyle.Render(">"), endpointLabel, ep, epLabel))
 	} else {
-		b.WriteString(fmt.Sprintf("    Endpoint: %s (%s)\n", dimStyle.Render(ep), dimStyle.Render(epLabel)))
+		b.WriteString(fmt.Sprintf("    %s: %s (%s)\n", endpointLabel, dimStyle.Render(ep), dimStyle.Render(epLabel)))
 	}
 	b.WriteString("\n")
 
@@ -1215,9 +1227,9 @@ func (m WizardModel) renderMsgChooser() string {
 	var b strings.Builder
 
 	choices := []struct{ name, desc string }{
-		{"IMAP Email", "Connect to an IMAP/SMTP email account"},
-		{"Telegram Bot", "Connect a Telegram bot"},
-		{"Skip", "Skip external messaging setup"},
+		{i18n.S("msg_imap"), "Connect to an IMAP/SMTP email account"},
+		{i18n.S("msg_telegram"), "Connect a Telegram bot"},
+		{i18n.S("msg_skip"), "Skip external messaging setup"},
 	}
 
 	// Show checkmarks for completed configs
@@ -1435,9 +1447,9 @@ func (m WizardModel) View() string {
 		case 0:
 			b.WriteString(m.renderMsgChooser())
 		case 1:
-			b.WriteString(m.renderMsgFields(StepIMAP, "IMAP / SMTP"))
+			b.WriteString(m.renderMsgFields(StepIMAP, i18n.S("msg_imap")))
 		case 2:
-			b.WriteString(m.renderMsgFields(StepTelegram, "Telegram"))
+			b.WriteString(m.renderMsgFields(StepTelegram, i18n.S("msg_telegram")))
 		}
 		return b.String()
 	}
@@ -1467,6 +1479,16 @@ func (m WizardModel) View() string {
 		label := i18n.S(f.label)
 		if m.step == StepModel && i == 0 {
 			label = fmt.Sprintf("%s (%s)", label, i18n.S("setup_cycle_hint"))
+		}
+
+		// Agent language field: render as selector instead of text input
+		if m.step == StepGeneral && i == fieldAgentLang {
+			agentLangCode := i18n.Languages[m.agentLangIdx]
+			agentLangLabel := i18n.LanguageLabels[agentLangCode]
+			selectorText := fmt.Sprintf("\u25c0 %s (%s) \u25b6", agentLangLabel, agentLangCode)
+			b.WriteString(fmt.Sprintf("%s%s\n", cursor, promptStyle.Render(label+" ("+i18n.S("setup_cycle_hint")+")")))
+			b.WriteString(fmt.Sprintf("  %s\n", selectorText))
+			continue
 		}
 
 		b.WriteString(fmt.Sprintf("%s%s\n", cursor, promptStyle.Render(label)))
@@ -1560,10 +1582,11 @@ func (m WizardModel) renderReview() string {
 
 	// General
 	b.WriteString("\n" + promptStyle.Render("General:") + "\n")
-	b.WriteString(fmt.Sprintf("  Agent Name: %s\n", m.fieldVal(StepGeneral, fieldAgentName)))
-	b.WriteString(fmt.Sprintf("  Port:       %s\n", m.fieldVal(StepGeneral, fieldAgentPort)))
+	b.WriteString(fmt.Sprintf("  Agent Name:     %s\n", m.fieldVal(StepGeneral, fieldAgentName)))
+	b.WriteString(fmt.Sprintf("  Port:           %s\n", m.fieldVal(StepGeneral, fieldAgentPort)))
+	b.WriteString(fmt.Sprintf("  Agent Language: %s (%s)\n", i18n.LanguageLabels[i18n.Languages[m.agentLangIdx]], i18n.Languages[m.agentLangIdx]))
 	if v := m.fieldVal(StepGeneral, fieldBashPolicy); v != "" {
-		b.WriteString(fmt.Sprintf("  Bash Policy: %s\n", v))
+		b.WriteString(fmt.Sprintf("  Bash Policy:    %s\n", v))
 	}
 
 	// Combo name
@@ -1702,9 +1725,11 @@ func (m WizardModel) writeConfig() ([]string, error) {
 	comboNameVal := m.comboName.Value()
 	cfg := map[string]interface{}{
 		"model":      "model.json",
-		"language":   i18n.Languages[m.langIdx],
+		"language":   i18n.Languages[m.agentLangIdx],
 		"agent_name": agentName,
 		"agent_port": port,
+		"cli":        true,
+		"cli_port":   port + 1,
 	}
 	if comboNameVal != "" {
 		cfg["combo_name"] = comboNameVal
@@ -1819,7 +1844,7 @@ func (m WizardModel) writeConfig() ([]string, error) {
 			Config: map[string]interface{}{
 				"agent_name": agentName,
 				"agent_port": port,
-				"language":   i18n.Languages[m.langIdx],
+				"language":   i18n.Languages[m.agentLangIdx],
 			},
 			Env: envMap,
 		})

@@ -101,6 +101,7 @@
   "avatar.capabilities": "他我之能力名称（可选，默认与本我同，含 avatar）",
   "avatar.admin": "授予他我之管理权（可选，默认无）。权限名至布尔之字典，如 {\"silence\": true}。只授他我所需之权。",
   "avatar.combo": "他我之 LLM 配置组合名（可选，默认与本我同）。自 ~/.lingtai/combos/ 中择已存之配置。",
+  "avatar.language": "他我之系统提示与工具之言（可选，默认与本我同）。可择：en、zh、lzh。",
   "avatar.limit_reached": "诸我已满（总数={live}，上限={max}）",
 
   "email.description": "飞鸽传书——完备之邮驿，含收信/已发/典藏诸匣、回书、群复、CC/BCC、附件、正则检索与通讯录。凡回复必以飞鸽——切勿以文字输出作复。文字输出乃汝之私记，唯汝可见。'send'飞鸽传书（可选 delay 以定时发送）。'check'查阅收信、已发或典藏（可选 folder）。'read'以 ID 展信。'reply'/'reply_all'回书/群复。'search'以正则式搜信（搜 from、subject、message）。'archive'将收信归入典藏。'delete'焚信。'contacts'查阅通讯录。'add_contact'添友。'remove_contact'删友。'edit_contact'改友。附件与书信同存于邮匣。礼：简短知悉即可，然勿回复知悉——徒增往复。传入'schedule'对象（替'action'）以定期发信。schedule.action='create'：设定期发信（须 address、message、schedule.interval、schedule.count）。schedule.action='cancel'：撤期（须 schedule.schedule_id）。schedule.action='list'：查阅诸定期及进度。",

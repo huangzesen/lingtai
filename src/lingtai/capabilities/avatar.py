@@ -60,6 +60,11 @@ def get_schema(lang: str = "en") -> dict:
                 "type": "string",
                 "description": t(lang, "avatar.combo"),
             },
+            "language": {
+                "type": "string",
+                "enum": ["en", "zh", "lzh"],
+                "description": t(lang, "avatar.language"),
+            },
         },
         "required": ["name"],
     }
@@ -237,6 +242,8 @@ class AvatarManager:
             peer_provider = parent._config.provider
             peer_model = parent._config.model
 
+        peer_language = args.get("language") or parent._config.language
+
         from lingtai_kernel.config import AgentConfig
         peer_config = AgentConfig(
             max_turns=parent._config.max_turns,
@@ -244,7 +251,7 @@ class AvatarManager:
             model=peer_model,
             retry_timeout=parent._config.retry_timeout,
             thinking_budget=parent._config.thinking_budget,
-            language=parent._config.language,
+            language=peer_language,
         )
 
         avatar = Agent(
@@ -287,6 +294,7 @@ class AvatarManager:
             combo=combo_name or "",
             provider=peer_provider,
             model=peer_model,
+            language=peer_language,
         )
 
         return {

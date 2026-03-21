@@ -191,11 +191,14 @@ def main(config_path: str | None = None) -> None:
         provider_defaults=model_cfg.get("provider_defaults", {}),
     )
 
-    # Build mail service
-    mail_service = TCPMailService(listen_port=cfg["agent_port"])
-
     base_dir = Path(cfg["base_dir"]).expanduser()
     agent_name = cfg.get("agent_name", "orchestrator")
+
+    # Build mail service — working_dir enables disk-backed mailbox
+    mail_service = TCPMailService(
+        listen_port=cfg["agent_port"],
+        working_dir=base_dir / agent_name,
+    )
 
     # Build capabilities and addons
     capabilities = _build_capabilities(cfg)

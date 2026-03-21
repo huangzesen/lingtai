@@ -9,6 +9,7 @@ import (
 
 	"lingtai-daemon/internal/agent"
 	"lingtai-daemon/internal/config"
+	"lingtai-daemon/internal/i18n"
 	"lingtai-daemon/internal/setup"
 )
 
@@ -199,7 +200,7 @@ func (m RootModel) View() string {
 	case ViewChat:
 		return m.chat.View()
 	case ViewStarting:
-		return fmt.Sprintf("\n  %s  Starting agent...\n", startingStyle.Render("灵台"))
+		return fmt.Sprintf("\n  %s  %s\n", startingStyle.Render(i18n.S("title")), i18n.S("starting"))
 	default:
 		return m.status.View()
 	}
