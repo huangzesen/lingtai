@@ -33,18 +33,32 @@ Mail-to-mail, email-to-email. Bridging between services is not lingtai's concern
 
 Before writing to a recipient's inbox, the sender verifies the destination AND that the recipient is alive:
 
-1. Read `{address}/.agent.json`
-2. Verify it exists and is valid JSON
-3. If the recipient is in the sender's contacts, verify `agent_id` matches the contact's stored `agent_id`. If the recipient is NOT in contacts (e.g., replying to an unknown sender from a `from` field), skip `agent_id` verification — the `.agent.json` existence check alone is sufficient.
-4. Check `pid` field — verify the process is alive (`os.kill(pid, 0)` on Unix). If `pid` is `null` or the process is dead → error: "agent is not running"
-5. If all checks pass → write to `{address}/{mailbox_rel}/inbox/{uuid}/`
+1. Read `{address}/.agent.json` — verify it exists, is valid JSON
+2. If the recipient is in the sender's contacts, verify `agent_id` matches the contact's stored `agent_id`. If the recipient is NOT in contacts (e.g., replying to an unknown sender from a `from` field), skip `agent_id` verification — the `.agent.json` existence check alone is sufficient.
+3. Read `{address}/.agent.heartbeat` — verify the timestamp is within 1 second of current time. If missing or stale → agent is dead.
+4. If all checks pass → write to `{address}/{mailbox_rel}/inbox/{uuid}/`
 
 Failure cases:
 - `.agent.json` missing → error: "no agent at this address"
 - `agent_id` mismatch (contact exists) → error: "agent at this address has changed"
-- `pid` is `null` or process dead → error: "agent is not running"
+- `.agent.heartbeat` missing or stale (>1s old) → error: "agent is not running"
 
 This makes local mail a health-check protocol — agents always know whether peers are alive at the point of communication.
+
+## Heartbeat
+
+The `.agent.heartbeat` file is a plain-text UTC timestamp, written by the mail service's polling thread every ~0.5 seconds. It serves as the sole liveness signal — no PID checks, no lock probing, fully cross-platform.
+
+```
+{working_dir}/.agent.heartbeat    ← "2026-03-21T10:00:00.500000Z"
+```
+
+- **Writer**: the `FilesystemMailService` polling thread (already ticking every ~0.5s to check inbox) writes the heartbeat as part of each tick — zero additional cost.
+- **Reader**: any sender reads this file and compares against current UTC time. Alive if `now - heartbeat < 1s`.
+- **Startup**: first heartbeat written when `listen()` starts.
+- **Clean shutdown**: `stop()` deletes the file.
+- **Crash**: file contains a stale timestamp — the 1s threshold catches this naturally.
+- **Human participant**: the Go daemon's mailbox polling thread writes the human's heartbeat.
 
 ## Message Delivery
 
@@ -138,7 +152,6 @@ Humans get a working directory with the same structure as agents. The only disti
 {
   "agent_id": "human_zesen",
   "agent_name": "Zesen",
-  "pid": 54321,
   "started_at": "...",
   "working_dir": "/Users/huangzesen/agents/human_zesen",
   "admin": null,
@@ -147,13 +160,7 @@ Humans get a working directory with the same structure as agents. The only disti
 }
 ```
 
-The `pid` field is the daemon's PID for human participants. If the daemon dies, agents can't reach the human — which is correct.
-
-### PID Lifecycle
-
-- **Startup**: agent writes `os.getpid()` to `.agent.json`
-- **Clean shutdown**: agent sets `pid` to `null`
-- **Crash**: stale PID left in file — the OS-level check (`os.kill(pid, 0)`) catches this. The PID either doesn't exist or belongs to a different process. On Unix, PID reuse is extremely unlikely in practice for short-lived agents.
+Liveness is determined by `.agent.heartbeat`, not by any field in `.agent.json`. The Go daemon writes the human's heartbeat via the same polling loop that monitors the human's inbox.
 
 **Human's directory structure** (same as agent):
 ```
