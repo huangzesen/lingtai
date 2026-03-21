@@ -63,7 +63,7 @@ const (
 func (s step) String() string {
 	switch s {
 	case StepCombo:
-		return "Combo"
+		return i18n.S("setup_combo")
 	case StepLang:
 		return i18n.S("setup_lang")
 	case StepModel:
@@ -291,10 +291,10 @@ func newWizardModel(outputDir string) wizardModel {
 	apiKeyInput.EchoMode = textinput.EchoPassword
 	apiKeyInput.EchoCharacter = '•'
 	m.fields[StepModel] = []field{
-		{label: "Provider", input: newTextInput(defaultProvider, defaultProvider)},
-		{label: "Model", input: newTextInput("model name", providerModels[defaultProvider])},
-		{label: "API key", input: apiKeyInput},
-		{label: "Endpoint", input: newTextInput("https://...", providerEndpoints[defaultProvider])},
+		{label: "field_provider", input: newTextInput(defaultProvider, defaultProvider)},
+		{label: "field_model", input: newTextInput("model name", providerModels[defaultProvider])},
+		{label: "field_api_key", input: apiKeyInput},
+		{label: "field_endpoint", input: newTextInput("https://...", providerEndpoints[defaultProvider])},
 	}
 
 	// Step: Multimodal
@@ -318,12 +318,12 @@ func newWizardModel(outputDir string) wizardModel {
 	imapPassInput.EchoMode = textinput.EchoPassword
 	imapPassInput.EchoCharacter = '•'
 	m.fields[StepIMAP] = []field{
-		{label: "Email address", input: newTextInput("you@example.com", "")},
-		{label: "Password", input: imapPassInput},
-		{label: "IMAP host", input: newTextInput("imap.example.com", "")},
-		{label: "IMAP port", input: newTextInput("993", "993")},
-		{label: "SMTP host", input: newTextInput("smtp.example.com", "")},
-		{label: "SMTP port", input: newTextInput("587", "587")},
+		{label: "field_email", input: newTextInput("you@example.com", "")},
+		{label: "field_password", input: imapPassInput},
+		{label: "field_imap_host", input: newTextInput("imap.example.com", "")},
+		{label: "field_imap_port", input: newTextInput("993", "993")},
+		{label: "field_smtp_host", input: newTextInput("smtp.example.com", "")},
+		{label: "field_smtp_port", input: newTextInput("587", "587")},
 	}
 
 	// Step: Telegram
@@ -331,14 +331,14 @@ func newWizardModel(outputDir string) wizardModel {
 	telegramInput.EchoMode = textinput.EchoPassword
 	telegramInput.EchoCharacter = '•'
 	m.fields[StepTelegram] = []field{
-		{label: "Bot token", input: telegramInput},
+		{label: "field_bot_token", input: telegramInput},
 	}
 
 	// Step: General
 	m.fields[StepGeneral] = []field{
-		{label: "Agent name", input: newTextInput("orchestrator", "orchestrator")},
-		{label: "Agent port", input: newTextInput("8501", "8501")},
-		{label: "Bash policy (Enter = use default)", input: newTextInput("Enter = use default", "")},
+		{label: "field_agent_name", input: newTextInput("orchestrator", "orchestrator")},
+		{label: "field_agent_port", input: newTextInput("8501", "8501")},
+		{label: "field_bash_policy", input: newTextInput("", "")},
 	}
 
 	// Step: Review has no fields
@@ -1244,7 +1244,7 @@ func (m wizardModel) renderMsgFields(fieldStep step, title string) string {
 		if i == m.focus {
 			cursor = promptStyle.Render("> ")
 		}
-		b.WriteString(fmt.Sprintf("%s%s\n", cursor, promptStyle.Render(f.label)))
+		b.WriteString(fmt.Sprintf("%s%s\n", cursor, promptStyle.Render(i18n.S(f.label))))
 		b.WriteString(fmt.Sprintf("  %s\n", f.input.View()))
 	}
 
@@ -1370,14 +1370,14 @@ func (m wizardModel) View() string {
 	// Combo selector
 	if m.step == StepCombo {
 		var cb strings.Builder
-		cb.WriteString("\n  Select a combo or create new:\n\n")
+		cb.WriteString("\n  " + i18n.S("combo_select") + "\n\n")
 
 		// "Create new" option
 		cursor := " "
 		if m.comboIdx == -1 {
 			cursor = ">"
 		}
-		cb.WriteString(fmt.Sprintf("  %s [Create new]\n", cursor))
+		cb.WriteString(fmt.Sprintf("  %s [%s]\n", cursor, i18n.S("combo_create_new")))
 
 		// List existing combos
 		for i, c := range m.combos {
@@ -1390,7 +1390,7 @@ func (m wizardModel) View() string {
 			cb.WriteString(fmt.Sprintf("  %s %s (%s/%s)\n", cursor, c.Name, provider, model))
 		}
 
-		cb.WriteString("\n" + dimStyle.Render("  ↑/↓ navigate  Enter select") + "\n")
+		cb.WriteString("\n" + dimStyle.Render("  "+i18n.S("combo_hint")) + "\n")
 		b.WriteString(cb.String())
 		return b.String()
 	}
@@ -1455,9 +1455,9 @@ func (m wizardModel) View() string {
 			cursor = promptStyle.Render("> ")
 		}
 
-		label := f.label
+		label := i18n.S(f.label)
 		if m.step == StepModel && i == 0 {
-			label = fmt.Sprintf("%s (left/right to cycle)", label)
+			label = fmt.Sprintf("%s (%s)", label, i18n.S("setup_cycle_hint"))
 		}
 
 		b.WriteString(fmt.Sprintf("%s%s\n", cursor, promptStyle.Render(label)))
@@ -1558,7 +1558,7 @@ func (m wizardModel) renderReview() string {
 	}
 
 	// Combo name
-	b.WriteString("\n" + promptStyle.Render("Save as combo:") + " ")
+	b.WriteString("\n" + promptStyle.Render(i18n.S("combo_save_as")) + " ")
 	b.WriteString(m.comboName.View() + "\n")
 
 	// Save location
