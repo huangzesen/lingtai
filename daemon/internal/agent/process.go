@@ -28,8 +28,14 @@ type StartOptions struct {
 func Start(opts StartOptions) (*Process, error) {
 	os.MkdirAll(opts.WorkingDir, 0755)
 
+	// Resolve the lingtai project root relative to the daemon binary.
+	// The binary lives at <project>/daemon/lingtai, so project root is ../
+	exe, _ := os.Executable()
+	exeDir := filepath.Dir(exe)
+	projectRoot := filepath.Dir(exeDir) // daemon/ -> project root
+
 	cmd := exec.Command("python", "-m", "app", opts.ConfigPath)
-	cmd.Dir = filepath.Dir(opts.ConfigPath)
+	cmd.Dir = projectRoot
 
 	p := &Process{
 		cmd:        cmd,
