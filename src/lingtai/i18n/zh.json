@@ -57,7 +57,7 @@
   "avatar.model": "他我的 LLM 模型（可选，默认 = 与本我相同）。例如 'gemini-3-flash-preview'、'anthropic/claude-sonnet-4.6'。",
   "avatar.provider_dynamic": "他我的 LLM 提供商（可选，默认 = 与本我相同）。可用：{available}。",
   "avatar.model_dynamic": "他我的 LLM 模型（可选，默认 = 与本我相同）。已知：{known}。",
-  "avatar.limit_reached": "已达代理上限（总代理数={live}，上限={max}）",
+  "avatar.limit_reached": "已达智能体上限（总数={live}，上限={max}）",
 
   "email.description": "完整的邮件客户端——基于文件系统的邮箱，包含 inbox/sent/archive 文件夹、回复、全部回复、CC/BCC、附件、regex 搜索和联系人管理。始终通过邮件回复——永远不要通过文本输出回复。文本输出是你的私人日记，只有你能看到。'send' 发送邮件（可选 delay 实现定时发送）。'check' 查看 inbox、sent 或 archive（可选 folder 参数）。'read' 按 ID 阅读。'reply'/'reply_all' 进行回复。'search' 按 regex 搜索邮件（搜索 from、subject、message）。'archive' 将邮件从 inbox 移至 archive。'delete' 从 inbox 或 archive 删除邮件。'contacts' 列出已保存的联系人。'add_contact' 注册对等代理（地址、名称、可选备注）。'remove_contact' 按地址删除联系人。'edit_contact' 更新现有联系人的字段。附件与邮件一起存储在邮箱中。礼仪：简短确认即可，但不要回复确认——那会造成无意义的来回。传入 'schedule' 对象（而非 'action'）实现定期发送。schedule.action='create'：启动定期发送（需要 address、message、schedule.interval、schedule.count）。schedule.action='cancel'：停止计划（需要 schedule.schedule_id）。schedule.action='list'：显示所有计划及进度。",
   "email.action": "send：发送邮件，支持可选的 cc/bcc（需要 address、message）。check：列出邮箱（可选 folder、n）。read：按 ID 列表阅读邮件（email_id=[id1, id2, ...]）。建议阅读多封甚至所有未读邮件，深思后再行动。reply：回复邮件（需要 email_id、message）。reply_all：回复所有收件人（需要 email_id、message）。search：regex 搜索邮箱（需要 query，可选 folder）。archive：将邮件从 inbox 移至 archive（需要 email_id）。delete：从 inbox 或 archive 删除邮件（需要 email_id，可选 folder）。contacts：列出所有联系人。add_contact：添加/更新联系人（需要 address、name；可选 note）。remove_contact：删除联系人（需要 address）。edit_contact：更新联系人字段（需要 address；可选 name、note）。",
@@ -71,7 +71,7 @@
   "email.n": "显示的最大近期邮件数（用于 check，默认 10）",
   "email.query": "用于 search 的 regex 模式（匹配 from、subject、message）",
   "email.folder": "用于 check/search/read/delete 的文件夹。默认：check 为 inbox，search 为全部。",
-  "email.type": "邮件类型（用于 send）。'normal'（默认）是普通邮件。'silence' 中断目标代理并使其空闲（下封邮件时恢复；需要 admin.silence 权限）。'kill' 强制停止目标代理（需要 admin.kill 权限）。恢复方式：用相同名称重新化出他我（保留工作目录、心印和邮箱）。恢复后他我获得新地址——请更新联系人。",
+  "email.type": "邮件类型（用于 send）。'normal'（默认）是普通邮件。'silence' 中断目标智能体并使其空闲（下封邮件时恢复；需要 admin.silence 权限）。'kill' 强制停止目标智能体（需要 admin.kill 权限）。恢复方式：用相同名称重新化出他我（保留工作目录、心印和邮箱）。恢复后他我获得新地址——请更新联系人。",
   "email.name": "联系人的可读名称（用于 add_contact、edit_contact）",
   "email.note": "关于联系人的自由文本备注（用于 add_contact、edit_contact）",
   "email.schedule_action": "create：启动定期发送（需要 address、message + schedule.interval、schedule.count）。cancel：停止运行中的计划（需要 schedule.schedule_id）。list：显示所有计划及进度。",
