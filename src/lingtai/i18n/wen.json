@@ -27,8 +27,9 @@
   "mail.query_description": "search 之正则式（于 from、subject、message 中检索）",
 
   "eigen.description": "核心自治——工作笔记与上下文之管。memory：edit 写入工作笔记（system/memory.md），load 将其载入当前意识。context：molt 蜕凡——书简报于未来之己，对话之录尽数清去，汝之摘要成为新起之上下文。蜕凡之前，先将要务另存。",
-  "eigen.object_description": "memory：汝之工作笔记（system/memory.md）。context：管理对话上下文。",
-  "eigen.action_description": "memory：edit | load。\ncontext：molt。",
+  "eigen.object_description": "memory：汝之工作笔记（system/memory.md）。context：管理对话上下文。name：汝之真名（一設不易）。",
+  "eigen.action_description": "memory：edit | load。\ncontext：molt。\nname：set。",
+  "eigen.name_description": "汝之真名——一設不易。以content書汝所擇之名。",
   "eigen.content_description": "用于 memory edit 之文本。",
   "eigen.summary_description": "用于 context molt：致未来己之简报——蜕凡后汝唯一可见者。载明所为何事、所得何物、尚余何务、与谁协作。约一万 token 为上限。",
 

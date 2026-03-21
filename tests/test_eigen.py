@@ -226,3 +226,36 @@ def test_eigen_is_intrinsic_not_memory(tmp_path):
     assert "eigen" in agent._intrinsics
     assert "memory" not in agent._intrinsics
     agent.stop(timeout=1.0)
+
+
+# ---------------------------------------------------------------------------
+# Name action (true name)
+# ---------------------------------------------------------------------------
+
+def test_eigen_name_sets_agent_name(tmp_path):
+    """eigen name action sets agent true name."""
+    agent = BaseAgent(service=make_mock_service(), base_dir=tmp_path)
+    assert agent.agent_name is None
+    result = agent._intrinsics["eigen"]({"object": "name", "action": "set", "content": "悟空"})
+    assert result["status"] == "ok"
+    assert result["name"] == "悟空"
+    assert agent.agent_name == "悟空"
+    agent.stop(timeout=1.0)
+
+
+def test_eigen_name_rejects_second_set(tmp_path):
+    """eigen name action fails if already named."""
+    agent = BaseAgent(service=make_mock_service(), base_dir=tmp_path, agent_name="alice")
+    result = agent._intrinsics["eigen"]({"object": "name", "action": "set", "content": "bob"})
+    assert "error" in result
+    assert agent.agent_name == "alice"  # unchanged
+    agent.stop(timeout=1.0)
+
+
+def test_eigen_name_rejects_empty(tmp_path):
+    """eigen name action fails with empty name."""
+    agent = BaseAgent(service=make_mock_service(), base_dir=tmp_path)
+    result = agent._intrinsics["eigen"]({"object": "name", "action": "set", "content": ""})
+    assert "error" in result
+    assert agent.agent_name is None  # still unnamed
+    agent.stop(timeout=1.0)
