@@ -55,12 +55,12 @@ The `.agent.heartbeat` file is a plain-text UTC timestamp, serving as the extern
 
 **Relationship to existing heartbeat**: The kernel already has a heartbeat daemon thread (`_heartbeat_loop`) that ticks every 1 second and handles AED (error detection/recovery). Currently it uses an in-memory integer counter — this changes to a UTC timestamp (`time.time()`), which is strictly more useful (the beat count is redundant with `lifetime`). The heartbeat thread writes this timestamp to `.agent.heartbeat` on each tick, but **only when the agent is healthy** (ACTIVE or IDLE state). When the agent is in ERROR or DEAD state, the file is NOT updated — so external observers correctly see it as stale.
 
-- **Writer**: the existing `_heartbeat_loop` thread (ticks every 1s). Writes the timestamp when state is `ACTIVE`, `IDLE`, or `ERROR`. The `ERROR` state means AED is in progress — the agent is still fighting to recover, so it's considered alive. Only `DEAD` state (AED failed after `cpr_timeout`) stops the heartbeat — the thread exits and the file goes stale.
+- **Writer**: the existing `_heartbeat_loop` thread (ticks every 1s). Writes the timestamp when state is `ACTIVE`, `IDLE`, or `STUCK`. The `STUCK` state means AED is in progress — the agent is still fighting to recover, so it's considered alive. Only `DEAD` state (AED failed after `cpr_timeout`) stops the heartbeat — the thread exits and the file goes stale. (Note: `ERROR` is renamed to `STUCK` as part of this work — see state rename below.)
 - **Reader**: any sender reads this file and compares against current UTC time. Alive if `now - heartbeat < 2s`.
 - **Startup**: first heartbeat written when `_start_heartbeat()` is called.
 - **Clean shutdown**: `_stop_heartbeat()` deletes the file.
 - **Crash**: file contains a stale timestamp — the 2s threshold catches this naturally.
-- **ERROR state**: heartbeat thread keeps running and keeps writing — AED is in progress, agent is still alive and attempting recovery. Mail can still be delivered.
+- **STUCK state** (formerly ERROR): heartbeat thread keeps running and keeps writing — AED is in progress, agent is still alive and attempting recovery. Mail can still be delivered.
 - **Human participant**: the Go daemon writes the human's heartbeat on its own tick.
 
 The mail polling thread runs independently and can still receive `kill` mail even when the heartbeat file is stale (agent in ERROR). This allows the daemon to force-terminate a stuck agent.
@@ -262,6 +262,19 @@ No scanning of `base_dir`, no registry, no discovery protocol.
 | `config/loader.go` | Remove port-based mail config |
 | `tui/app.go` | Filesystem-based send/receive |
 | Agent startup | Wait for `.agent.json` instead of `WaitForPort` |
+
+## Agent State Rename (Prerequisite)
+
+As part of this work, `AgentState.ERROR` is renamed to `AgentState.STUCK`. The four states become:
+
+| State | Meaning |
+|-------|---------|
+| `ACTIVE` | Running (LLM call, tool execution, processing) |
+| `IDLE` | Waiting for input |
+| `STUCK` | Something went wrong, AED attempting recovery |
+| `DEAD` | AED failed after `cpr_timeout`, agent is done |
+
+This rename touches `state.py`, `base_agent.py`, heartbeat logic, i18n strings, tests, and any lingtai code referencing `AgentState.ERROR`. It should be done first as a clean commit before the mail changes.
 
 ## Migration
 
