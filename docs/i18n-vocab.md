@@ -21,7 +21,7 @@ Never mix lzh vocabulary (他我, 本我, 化出, 蜕凡, 归寂, 转世) into z
 
 | Concept | en | zh (中文) | lzh (文言) |
 |---|---|---|---|
-| character (psyche) | character | 人设 | 心印 |
+| character (psyche) | character | 修行志 | 心印 |
 | memory | memory | 记忆 | 记忆 |
 | library | library | 知识库 | 藏经阁 |
 | library entry | entry | 条目 | 经卷 |
