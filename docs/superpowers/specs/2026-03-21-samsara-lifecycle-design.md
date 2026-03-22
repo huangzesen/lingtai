@@ -1,4 +1,4 @@
-# Samsara Lifecycle Control — Design Spec
+# Karma Lifecycle Control — Design Spec
 
 **Date:** 2026-03-21
 **Status:** Draft
@@ -22,14 +22,14 @@ Mail should be pure messaging. Lifecycle control should live in the system intri
 Two admin keys replace the old per-action gates:
 
 ```python
-admin={"samsara": True}                  # silence, quell, revive
-admin={"samsara": True, "nirvana": True} # + annihilate
+admin={"karma": True}                  # silence, quell, revive
+admin={"karma": True, "nirvana": True} # + annihilate
 ```
 
-- **samsara** (轮回) — authority over the cycle of activity and dormancy. Gates: silence, quell, revive.
-- **nirvana** (涅槃) — authority to permanently remove an agent from the cycle. Gates: annihilate.
+- **karma** (业) — the force of one's actions upon others. The 本我's actions on its 分身 shape the destiny of the entire agent network — and since the avatars are extensions of self, this is karma in the truest sense: your actions on others come back to affect you. Gates: silence, quell, revive.
+- **nirvana** (涅槃) — authority to permanently release an agent from the cycle. Gates: annihilate.
 
-Kernel defaults both to `False`. Lingtai sets `samsara=True` for the 本我 (primary agent), `False` for 他我 (avatars). `nirvana` is always `False` unless explicitly granted.
+Kernel defaults both to `False`. Lingtai sets `karma=True` for the 本我 (primary agent), `False` for 他我 (avatars). `nirvana` is always `False` unless explicitly granted.
 
 The admin check is performed by the **caller** (self-check). The kernel trusts that callers with the admin key act in good faith. Humans can trigger the same operations directly (e.g., writing signal files or calling `start()`/`stop()` on the Python object).
 
@@ -69,7 +69,7 @@ Mail loses all lifecycle control. The `type` field remains but `silence` and `ki
 
 The email capability (lingtai layer) continues to build on top of mail with reply, CC/BCC, contacts, archive, scheduled sends, etc. None of these are lifecycle operations.
 
-### System Intrinsic — Samsara/Nirvana Actions
+### System Intrinsic — Karma/Nirvana Actions
 
 The system intrinsic gains four new actions for lifecycle control over other agents:
 
@@ -79,20 +79,20 @@ The system intrinsic gains four new actions for lifecycle control over other age
 | `sleep` | self | — | unchanged |
 | `shutdown` | self | — | unchanged |
 | `restart` | self | — | unchanged |
-| `silence` | other (by address) | `samsara` | Write `.silence` signal file to target's working dir |
-| `quell` | other (by address) | `samsara` | Write `.quell` signal file to target's working dir |
-| `revive` | other (by address) | `samsara` | Reconstruct agent from working dir, call `start()` |
+| `silence` | other (by address) | `karma` | Write `.silence` signal file to target's working dir |
+| `quell` | other (by address) | `karma` | Write `.quell` signal file to target's working dir |
+| `revive` | other (by address) | `karma` | Reconstruct agent from working dir, call `start()` |
 | `annihilate` | other (by address) | `nirvana` | Quell first if alive, then `shutil.rmtree(working_dir)` |
 
 **Address format:** In the filesystem mail model, an address IS the working directory path. The system intrinsic uses the same address format — the path is passed directly to handshake functions.
 
-**Self-targeting:** Samsara/nirvana actions target **other** agents only. Self-lifecycle is handled by existing actions: `shutdown` (= self-quell) and `restart` (= self-rebirth). Self-annihilate is forbidden — an agent cannot delete its own working dir while running.
+**Self-targeting:** Karma/nirvana actions target **other** agents only. Self-lifecycle is handled by existing actions: `shutdown` (= self-quell) and `restart` (= self-rebirth). Self-annihilate is forbidden — an agent cannot delete its own working dir while running.
 
 #### Silence (打断)
 
 Interrupts a living agent's current work without stopping it.
 
-1. Caller checks `admin.samsara` — reject if not authorized.
+1. Caller checks `admin.karma` — reject if not authorized.
 2. Validate target: `handshake.is_agent(address)` and `handshake.is_alive(address)`.
 3. Write `.silence` file to target's working dir.
 4. Target's heartbeat loop detects `.silence`, sets `_cancel_event`, deletes the file.
@@ -102,7 +102,7 @@ Interrupts a living agent's current work without stopping it.
 
 Stops a living agent — it becomes dormant. Quell is the external equivalent of `shutdown`; the agent ends up in the same `DORMANT` state.
 
-1. Caller checks `admin.samsara` — reject if not authorized.
+1. Caller checks `admin.karma` — reject if not authorized.
 2. Validate target: `handshake.is_agent(address)` and `handshake.is_alive(address)`.
 3. Write `.quell` file to target's working dir.
 4. Target's heartbeat loop detects `.quell`, sets `_shutdown` (does NOT call `self.stop()` directly — that would deadlock the heartbeat thread). The run loop exits naturally when it sees `_shutdown`, and cleanup proceeds normally.
@@ -114,7 +114,7 @@ If the target is already dormant, return an error.
 
 Restarts a dormant agent.
 
-1. Caller checks `admin.samsara` — reject if not authorized.
+1. Caller checks `admin.karma` — reject if not authorized.
 2. Validate target: `handshake.is_agent(address)`.
 3. Validate target is dormant (heartbeat stale or absent).
 4. Delegate to `_revive_agent(address)` hook — the hook handles full reconstruction and calls `start()` internally.
@@ -133,7 +133,7 @@ If no override is provided (pure kernel usage), the system intrinsic returns an 
 
 #### Annihilate (湮灭)
 
-Permanently removes an agent — exits the cycle of samsara.
+Permanently removes an agent — released from the cycle.
 
 1. Caller checks `admin.nirvana` — reject if not authorized.
 2. Validate target: `handshake.is_agent(address)`.
@@ -173,7 +173,7 @@ def manifest(path: str | Path) -> dict:
 
 Used by:
 - `FilesystemMailService.send()` — existing handshake before mail delivery
-- System intrinsic samsara/nirvana actions — validate target before acting
+- System intrinsic karma/nirvana actions — validate target before acting
 - Lingtai's revive logic — read manifest to reconstruct agent
 
 ### Avatar Capability — Spawn + Ledger Only
@@ -195,7 +195,7 @@ Avatar no longer handles:
 
 ### Backward-Incompatible Changes
 
-1. `admin={"silence": True, "kill": True}` → `admin={"samsara": True}`. Old keys no longer recognized.
+1. `admin={"silence": True, "kill": True}` → `admin={"karma": True}`. Old keys no longer recognized.
 2. `AgentState.DEAD` → `AgentState.DORMANT`. All code referencing `DEAD` must update.
 3. Mail `type="kill"` and `type="silence"` removed. Mail `type` field stays for normal/email-capability use.
 4. `_on_mail_received` no longer handles silence/kill routing.
@@ -215,7 +215,7 @@ Avatar no longer handles:
 **lingtai:**
 - `capabilities/avatar.py` — strip to spawn + ledger only
 - `capabilities/email.py` — remove kill/silence type handling from send
-- `agent.py` — set `admin={"samsara": True}` for 本我
+- `agent.py` — set `admin={"karma": True}` for 本我
 - LLM config persistence — ensure model/provider info is written to agent working dir
 
 **Tests:**
