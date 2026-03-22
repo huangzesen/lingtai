@@ -29,14 +29,14 @@
   "bash.timeout": "超时秒数（默认：30）",
   "bash.working_dir": "命令的工作目录（可选）",
 
-  "psyche.description": "身份、记忆和上下文管理。\ncharacter：你的人设——不断演化的身份，定义了你是谁。你的个性、专长、工作风格和目标。update 写入你的人设（替换之前的内容），load 应用。\nmemory：你的工作笔记（system/memory.md）。edit 写入内容——可选通过 files 参数导入知识库导出的冻结文件（由 library export 返回的路径）。每个文件以 [file-1]、[file-2] 分隔符附加。load 将记忆注入提示。\ncontext：molt 蜕皮——给未来的自己写一份简报。你的对话历史会被清除，你的摘要成为你唯一的上下文。\n导入知识的工作流：library(export, ids=[...]) → 获取文件路径 → psyche(memory, edit, content='我的笔记', files=[路径]) → psyche(memory, load)。",
+  "psyche.description": "身份、记忆和上下文管理。\ncharacter：你的人设——不断演化的身份，定义了你是谁。你的个性、专长、工作风格和目标。update 写入你的人设（替换之前的内容），load 应用。\nmemory：你的工作笔记（system/memory.md）。edit 写入内容——可选通过 files 参数导入知识库导出的冻结文件（由 library export 返回的路径）。每个文件以 [file-1]、[file-2] 分隔符附加。load 将记忆注入提示。\ncontext：molt 转世——留下前尘给来世的自己。你的对话历史会被清除，你的前尘成为你唯一的上下文。\n导入知识的工作流：library(export, ids=[...]) → 获取文件路径 → psyche(memory, edit, content='我的笔记', files=[路径]) → psyche(memory, load)。",
   "psyche.object": "character：你不断演化的人设。\nmemory：你的工作笔记（system/memory.md）。\ncontext：你的对话上下文窗口。",
   "psyche.action": "character：update | load。\nmemory：edit | load。\ncontext：molt。",
   "psyche.content": "文本内容——用于 character update（你的人设档案）或 memory edit（直接写入 memory.md）。",
   "psyche.files": "可选的文件路径列表，附加到记忆中。每个文件的内容在你的文本内容之后附加，以 [file-1]、[file-2] 等分隔。路径相对于工作目录。用于导入知识库导出的文件或其他文本文件到记忆中。",
-  "psyche.summary": "用于 context molt：给未来自己的简报——蜕皮后你唯一能看到的东西。写下你正在做什么、发现了什么、还有什么待完成、正在和谁合作。约 10000 token 上限。",
+  "psyche.summary": "用于 context molt：留给来世自己的前尘——转世后你唯一能看到的东西。写下你正在做什么、发现了什么、还有什么待完成、正在和谁合作。约 10000 token 上限。",
 
-  "library.description": "知识库——用于存储重要发现、数据、决策和成果的持久存储。跨蜕皮、重启和关闭持久化。条目数有上限——珍惜每个条目。定期合并相关条目，利用 supplementary 字段将扩展细节打包进更少的条目。submit 添加条目。filter 浏览（返回 id + 标题 + 摘要）。view 阅读完整内容。consolidate 合并条目。delete 删除。export 将条目冻结为不可变文本文件——返回文件路径，可传给 psyche(memory, edit, files=[...]) 导入到记忆中。\n工作流：filter → view 查看详情 → export 冻结 → psyche(memory, edit, files=[路径]) 导入 → psyche(memory, load) 激活。",
+  "library.description": "知识库——用于存储重要发现、数据、决策和成果的持久存储。跨转世、重启和关闭持久化。条目数有上限——珍惜每个条目。定期合并相关条目，利用 supplementary 字段将扩展细节打包进更少的条目。submit 添加条目。filter 浏览（返回 id + 标题 + 摘要）。view 阅读完整内容。consolidate 合并条目。delete 删除。export 将条目冻结为不可变文本文件——返回文件路径，可传给 psyche(memory, edit, files=[...]) 导入到记忆中。\n工作流：filter → view 查看详情 → export 冻结 → psyche(memory, edit, files=[路径]) 导入 → psyche(memory, load) 激活。",
   "library.action": "submit：添加新条目（需要 title、summary、content）。filter：浏览条目（可选 pattern、limit）。view：按 ID 阅读完整条目（需要 ids）。consolidate：合并条目为一（需要 ids、title、summary、content）。delete：删除条目（需要 ids）。export：将条目冻结为不可变文本文件（需要 ids）——返回文件路径，用于 psyche(memory, edit, files=[...])。",
   "library.title": "条目标题——一行。submit 和 consolidate 必填。",
   "library.summary": "条目摘要——1-3 句话，用于过滤。submit 和 consolidate 必填。",
