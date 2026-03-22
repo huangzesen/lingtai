@@ -56,8 +56,7 @@ def main():
         mail_service=mail_svc,
         config=AgentConfig(
             max_turns=50,
-            flow=True,           # soul flow mode ON
-            flow_delay=15.0,     # whisper every 15s of idle
+            soul_delay=15.0,     # whisper every 15s of idle
             language="zh",       # all kernel strings in Chinese
         ),
         base_dir=base_dir,

@@ -231,8 +231,8 @@ def main(config_path: str | None = None) -> None:
         config=AgentConfig(
             max_turns=cfg.get("max_turns", 50),
             language=cfg.get("language", "en"),
-            lifetime=cfg.get("lifetime", 86400.0),
-            flow_delay=cfg.get("flow_delay", 120.0),
+            vigil=cfg.get("vigil", 86400.0),
+            soul_delay=cfg.get("soul_delay", 120.0),
         ),
         base_dir=base_dir,
         streaming=cfg.get("streaming", True),
