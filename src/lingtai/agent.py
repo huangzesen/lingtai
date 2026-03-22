@@ -50,6 +50,9 @@ class Agent(BaseAgent):
         addons: dict[str, dict] | None = None,
         **kwargs: Any,
     ):
+        # Default karma authority for the primary agent (本我)
+        kwargs.setdefault("admin", {"karma": True})
+
         super().__init__(*args, **kwargs)
 
         # Persist LLM config for revive (self-sufficient agents contract)

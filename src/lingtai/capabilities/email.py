@@ -95,7 +95,7 @@ def get_schema(lang: str = "en") -> dict:
             },
             "type": {
                 "type": "string",
-                "enum": ["normal", "silence", "kill"],
+                "enum": ["normal"],
                 "description": t(lang, "email.type"),
             },
             "name": {
@@ -556,10 +556,6 @@ class EmailManager:
         cc = args.get("cc") or []
         bcc = args.get("bcc") or []
         delay = args.get("delay", 0)
-
-        # Privilege gate
-        if mail_type != "normal" and not self._agent._admin.get(mail_type):
-            return {"error": f"Not authorized to send type={mail_type!r} mail (requires admin.{mail_type}=True)"}
 
         if isinstance(raw_address, str):
             to_list = [raw_address] if raw_address else []
