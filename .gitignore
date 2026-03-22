@@ -41,3 +41,4 @@ app/web/frontend/dist/
 
 # Runtime data (agent working dirs, configs)
 .lingtai/
+.chat_history.json
