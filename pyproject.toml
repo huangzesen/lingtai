@@ -21,3 +21,6 @@ all = ["lingtai[gemini,openai,anthropic,minimax,duckduckgo,trafilatura,telegram]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

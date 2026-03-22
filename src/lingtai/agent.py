@@ -12,6 +12,7 @@ from typing import Any
 from pathlib import Path
 
 from lingtai_kernel.base_agent import BaseAgent
+from lingtai_kernel.llm.service import LLMService
 from lingtai_kernel.prompt import build_system_prompt
 
 _BASE_PROMPTS: dict[str, str] = {}
@@ -50,6 +51,22 @@ class Agent(BaseAgent):
         **kwargs: Any,
     ):
         super().__init__(*args, **kwargs)
+
+        # Persist LLM config for revive (self-sufficient agents contract)
+        _service = args[0] if args else kwargs.get("service")
+        if _service is not None:
+            import json as _json
+            llm_config: dict[str, Any] = {
+                "provider": _service._provider,
+                "model": _service._model,
+            }
+            if getattr(_service, "_base_url", None):
+                llm_config["base_url"] = _service._base_url
+            llm_dir = self._working_dir / "system"
+            llm_dir.mkdir(exist_ok=True)
+            (llm_dir / "llm.json").write_text(
+                _json.dumps(llm_config, ensure_ascii=False)
+            )
 
         # Auto-create FileIOService if not provided by host
         if self._file_io is None:
@@ -185,6 +202,39 @@ class Agent(BaseAgent):
             except Exception as e:
                 logger.warning("[%s] MCP %s: failed to load: %s",
                                self.agent_name, name, e)
+
+    def _revive_agent(self, address: str) -> "Agent | None":
+        """Reconstruct and start a dormant agent from its working dir."""
+        import json
+        from lingtai_kernel.handshake import is_agent, manifest
+
+        target = Path(address)
+        if not is_agent(target):
+            return None
+
+        # Read persisted config
+        agent_meta = manifest(target)
+        llm_path = target / "system" / "llm.json"
+        if not llm_path.is_file():
+            return None
+        llm_config = json.loads(llm_path.read_text())
+
+        # Reconstruct LLMService
+        svc = LLMService(
+            provider=llm_config["provider"],
+            model=llm_config["model"],
+            base_url=llm_config.get("base_url"),
+        )
+
+        # Reconstruct Agent — use the existing working dir (same agent_id)
+        revived = Agent(
+            svc,
+            agent_name=agent_meta.get("agent_name"),
+            agent_id=agent_meta.get("agent_id"),
+            base_dir=str(target.parent),
+        )
+        revived.start()
+        return revived
 
     def start(self) -> None:
         super().start()

@@ -157,3 +157,67 @@ class TestSystemIntrinsicKarma:
         result = handle(agent, {"action": "revive", "address": str(target_dir)})
         assert "error" in result
         assert "not supported" in result["message"].lower()
+
+
+class TestReviveLingtai:
+    """Revive via lingtai Agent (full reconstruction)."""
+
+    def test_revive_reconstructs_agent(self, tmp_path):
+        from lingtai.agent import Agent
+
+        svc = MagicMock()
+        svc.create_session.return_value = MagicMock()
+        svc._provider = "mock"
+        svc._model = "test-model"
+        svc._base_url = None
+
+        # Create an agent — this should persist LLM config
+        agent = Agent(svc, base_dir=str(tmp_path), agent_id="alice000001",
+                      agent_name="alice", admin={"karma": True})
+
+        # Verify LLM config was persisted to working dir
+        import json
+        llm_config_path = agent.working_dir / "system" / "llm.json"
+        assert llm_config_path.is_file()
+        llm_config = json.loads(llm_config_path.read_text())
+        assert llm_config["provider"] == "mock"
+        assert llm_config["model"] == "test-model"
+
+    def test_revive_agent_hook_returns_agent(self, tmp_path):
+        from lingtai.agent import Agent
+        from unittest.mock import patch
+
+        svc = MagicMock()
+        svc.create_session.return_value = MagicMock()
+        svc._provider = "mock"
+        svc._model = "test-model"
+        svc._base_url = None
+
+        # Create a "dormant" agent — construct, persist, don't start
+        agents_dir = tmp_path / "agents"
+        agents_dir.mkdir()
+        target = Agent(svc, base_dir=str(agents_dir), agent_id="bobbob000001",
+                       agent_name="bob")
+        target_dir = str(target.working_dir)
+
+        # Create the reviving agent
+        reviver_dir = tmp_path / "reviver"
+        reviver_dir.mkdir()
+        reviver = Agent(svc, base_dir=str(reviver_dir), agent_id="admin000001",
+                        agent_name="admin", admin={"karma": True})
+
+        # Release the lock on the target (simulate a dormant/dead agent)
+        target._workdir.release_lock()
+
+        # Patch LLMService so reconstruction doesn't fail (no adapter registered for "mock")
+        mock_svc = MagicMock()
+        mock_svc.create_session.return_value = MagicMock()
+        mock_svc._provider = "mock"
+        mock_svc._model = "test-model"
+        mock_svc._base_url = None
+
+        with patch("lingtai.agent.LLMService", return_value=mock_svc):
+            revived = reviver._revive_agent(target_dir)
+
+        assert revived is not None
+        assert revived.agent_name == "bob"
