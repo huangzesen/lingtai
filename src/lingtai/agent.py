@@ -48,10 +48,14 @@ class Agent(BaseAgent):
         *args: Any,
         capabilities: list[str] | dict[str, dict] | None = None,
         addons: dict[str, dict] | None = None,
+        combo_name: str | None = None,
         **kwargs: Any,
     ):
         # Default karma authority for the primary agent (本我)
         kwargs.setdefault("admin", {"karma": True})
+
+        # Store combo name before super().__init__ (not forwarded to BaseAgent)
+        self._combo_name = combo_name
 
         super().__init__(*args, **kwargs)
 
@@ -133,11 +137,13 @@ class Agent(BaseAgent):
         return mgr
 
     def _build_manifest(self) -> dict:
-        """Extend kernel manifest with capabilities."""
+        """Extend kernel manifest with capabilities and combo."""
         data = super()._build_manifest()
         caps = getattr(self, "_capabilities", None)
         if caps:
             data["capabilities"] = caps
+        if self._combo_name:
+            data["combo"] = self._combo_name
         return data
 
     def _build_system_prompt(self) -> str:
@@ -213,38 +219,69 @@ class Agent(BaseAgent):
         """Reconstruct and start a dormant agent from its working dir."""
         import json
         from lingtai_kernel.handshake import is_agent, manifest
+        from lingtai_kernel.config import AgentConfig
 
         target = Path(address)
         if not is_agent(target):
             return None
 
-        # Read persisted config
         agent_meta = manifest(target)
-        llm_path = target / "system" / "llm.json"
-        if not llm_path.is_file():
-            return None
-        llm_config = json.loads(llm_path.read_text())
 
-        # Reconstruct LLMService
+        # Resolve LLM config from combo or llm.json
+        combo_name = agent_meta.get("combo")
+        llm_config = None
+
+        if combo_name:
+            combo_path = Path.home() / ".lingtai" / "combos" / f"{combo_name}.json"
+            if not combo_path.is_file():
+                combo_path = target / "combo.json"
+            if combo_path.is_file():
+                combo_data = json.loads(combo_path.read_text())
+                model_cfg = combo_data.get("model", {})
+                llm_config = {
+                    "provider": model_cfg.get("provider"),
+                    "model": model_cfg.get("model"),
+                    "base_url": model_cfg.get("base_url"),
+                }
+                import os
+                for key, val in combo_data.get("env", {}).items():
+                    if val:
+                        os.environ.setdefault(key, val)
+
+        if llm_config is None:
+            llm_path = target / "system" / "llm.json"
+            if not llm_path.is_file():
+                return None
+            llm_config = json.loads(llm_path.read_text())
+
         svc = LLMService(
             provider=llm_config["provider"],
             model=llm_config["model"],
             base_url=llm_config.get("base_url"),
         )
 
-        # Reconstruct capabilities from manifest
-        caps_raw = agent_meta.get("capabilities")  # [(name, kwargs), ...]
+        caps_raw = agent_meta.get("capabilities")
         capabilities = None
         if caps_raw:
             capabilities = {name: kw for name, kw in caps_raw}
 
-        # Reconstruct Agent — use the existing working dir (same agent_id)
+        revived_config = AgentConfig(
+            provider=llm_config["provider"],
+            model=llm_config["model"],
+            vigil=agent_meta.get("vigil", 3600.0),
+            soul_delay=agent_meta.get("soul_delay", 120.0),
+            language=agent_meta.get("language", "en"),
+        )
+
         revived = Agent(
             svc,
             agent_name=agent_meta.get("agent_name"),
             agent_id=agent_meta.get("agent_id"),
             base_dir=str(target.parent),
             capabilities=capabilities,
+            admin=agent_meta.get("admin", {}),
+            config=revived_config,
+            combo_name=combo_name,
         )
         revived.start()
         return revived
