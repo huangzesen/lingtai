@@ -20,7 +20,7 @@
   "mail.subject_description": "书信之题（用于 send）",
   "mail.message_description": "书信之文（用于 send）",
   "mail.attachments_description": "随书附之文卷路径（用于 send）",
-  "mail.type_description": "书信之类（用于 send）。'normal'（默认）为常书。'silence'中断目标使其入定（下书唤醒；须 admin.silence 之权）。'kill'强令目标归寂（须 admin.kill 之权）。恢复之法：以同名重新化出他我。",
+  "mail.type_description": "书信之类（用于 send）。默认为 'normal'。",
   "mail.delay_description": "投递前延迟之秒数（默认：0）",
   "mail.id_description": "用于 read 或 delete 之书信 ID",
   "mail.n_description": "check 中所示最大书信数（默认：尽列）",

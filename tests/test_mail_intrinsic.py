@@ -89,20 +89,9 @@ class TestSend:
         assert "error" in result
         assert "address" in result["error"]
 
-    def test_send_privilege_gate(self, tmp_path):
+    def test_send_type_field_passes_through(self, tmp_path):
         agent = _make_mock_agent(tmp_path)
-        # silence type requires admin.silence
-        result = handle(agent, {
-            "action": "send",
-            "address": "127.0.0.1:8888",
-            "message": "shh",
-            "type": "silence",
-        })
-        assert "error" in result
-        assert "admin.silence" in result["error"]
-
-        # With privilege, it works
-        agent._admin = {"silence": True}
+        # type field is no longer gated — mail is pure messaging
         result = handle(agent, {
             "action": "send",
             "address": "127.0.0.1:8888",
