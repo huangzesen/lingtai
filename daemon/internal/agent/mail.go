@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -52,13 +51,17 @@ func (w *MailWriter) Send(payload map[string]interface{}) error {
 	if _, err := fmt.Sscanf(string(hbData), "%f", &ts); err != nil {
 		return fmt.Errorf("agent at %s has invalid heartbeat", w.recipientDir)
 	}
-	age := math.Abs(float64(time.Now().Unix()) - ts)
-	if age >= 2.0 {
+	now := float64(time.Now().UnixNano()) / 1e9
+	age := now - ts
+	if age >= 2.0 || age < 0 {
 		return fmt.Errorf("agent at %s is not running (heartbeat stale by %.1fs)", w.recipientDir, age)
 	}
 
-	// 3. Create inbox entry
+	// 3. Create inbox entry with mailbox metadata
 	msgID := generateUUID()
+	payload["_mailbox_id"] = msgID
+	payload["received_at"] = time.Now().UTC().Format("2006-01-02T15:04:05Z")
+
 	inboxDir := filepath.Join(w.recipientDir, w.mailboxRel, "inbox", msgID)
 	if err := os.MkdirAll(inboxDir, 0755); err != nil {
 		return fmt.Errorf("create inbox dir: %w", err)
