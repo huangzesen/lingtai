@@ -1,7 +1,7 @@
 # Filesystem-Based Mail: Path as Address
 
 **Date**: 2026-03-21
-**Status**: Draft
+**Status**: Implemented
 **Scope**: lingtai-kernel + lingtai + Go daemon
 
 ## Problem
