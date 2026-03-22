@@ -93,6 +93,10 @@ def get_schema(lang: str = "en") -> dict:
                 "enum": ["inbox", "sent", "archive"],
                 "description": t(lang, "email.folder"),
             },
+            "delay": {
+                "type": "integer",
+                "description": t(lang, "email.delay"),
+            },
             "type": {
                 "type": "string",
                 "enum": ["normal"],

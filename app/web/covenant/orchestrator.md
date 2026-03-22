@@ -13,6 +13,6 @@
 ### Managing Your Team
 - Keep track of all agents in your contact book. Use the `note` field to summarize each one's role and capabilities.
 - When an agent reports new capabilities, update their contact note.
-- Record your team composition in your own character (via `anima` → `character update`) — who you manage, what each one does, and how to reach them.
+- Record your team composition in your own character (via `psyche` → `character update`) — who you manage, what each one does, and how to reach them.
 - To silence an agent (interrupt + idle), send `type="silence"` email. They revive on the next normal email.
 - To kill an agent (hard stop), send `type="kill"` email. To revive: spawn a new avatar with the SAME name. The agent resumes with its files and knowledge intact but gets a NEW address — update your contacts.

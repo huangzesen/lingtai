@@ -42,17 +42,14 @@ def test_psyche_manager_accessible(tmp_path):
     agent.stop(timeout=1.0)
 
 
-def test_anima_alias_works(tmp_path):
-    """'anima' should be an alias for 'psyche'."""
-    agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
-        capabilities=["anima"],
-    )
-    assert "eigen" not in agent._intrinsics
-    assert "psyche" in agent._mcp_handlers
-    mgr = agent.get_capability("anima")
-    assert mgr is not None
-    agent.stop(timeout=1.0)
+def test_anima_alias_removed(tmp_path):
+    """'anima' alias was removed — should raise ValueError."""
+    import pytest
+    with pytest.raises(ValueError, match="Unknown capability"):
+        Agent(
+            service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+            capabilities=["anima"],
+        )
 
 
 # ---------------------------------------------------------------------------

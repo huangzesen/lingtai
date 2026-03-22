@@ -127,7 +127,7 @@ def main():
             "file": {},
             "web_search": {},
             "vision": {},
-            "anima": {},
+            "psyche": {},
             "avatar": {},
         },
     )

@@ -164,7 +164,7 @@ def main():
         "email": {},
         "file": {},
         "web_search": {},
-        "anima": {},
+        "psyche": {},
     })
 
     # IMAP addon

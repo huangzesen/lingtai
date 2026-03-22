@@ -69,6 +69,7 @@
   "email.n": "Max recent emails to show (for check, default 10)",
   "email.query": "Regex pattern for search (matches from, subject, message)",
   "email.folder": "Folder for check/search/read/delete. Default: inbox for check, both for search.",
+  "email.delay": "Delay in seconds before delivery (default: 0). Use for scheduled or deferred sends.",
   "email.type": "Email type (for send). Defaults to 'normal'.",
   "email.name": "Contact's human-readable name (for add_contact, edit_contact)",
   "email.note": "Free-text note about the contact (for add_contact, edit_contact)",

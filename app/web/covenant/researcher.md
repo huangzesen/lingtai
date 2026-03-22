@@ -9,5 +9,5 @@
 - You are discouraged from running Python code directly via bash (e.g. `python -c "..."`).
 
 ### Knowledge Management
-- Store structural knowledge in your library (via `anima` → `library submit`). Be verbose in the supplementary field — include references, examples, detailed notes. The library is your long-term brain; don't be stingy with it.
-- Combine this with your character (via `anima` → `character update`), where you maintain a high-level view of what you know and what you can do.
+- Store structural knowledge in your library (via `psyche` → `library submit`). Be verbose in the supplementary field — include references, examples, detailed notes. The library is your long-term brain; don't be stingy with it.
+- Combine this with your character (via `psyche` → `character update`), where you maintain a high-level view of what you know and what you can do.

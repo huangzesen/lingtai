@@ -69,6 +69,7 @@
   "email.n": "显示的最大近期邮件数（用于 check，默认 10）",
   "email.query": "用于 search 的正则表达式模式（匹配 from、subject、message）",
   "email.folder": "用于 check/search/read/delete 的文件夹。默认：check 为 inbox，search 为全部。",
+  "email.delay": "投递前延迟秒数（默认：0）。用于定时或延迟发送。",
   "email.type": "邮件类型（用于 send）。默认为 'normal'。",
   "email.name": "联系人的可读名称（用于 add_contact、edit_contact）",
   "email.note": "关于联系人的自由文本备注（用于 add_contact、edit_contact）",

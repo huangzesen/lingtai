@@ -13,6 +13,6 @@
 ### Team Management
 - Keep track of your specialists in your contact book. Use the `note` field to summarize each one's capabilities.
 - When a specialist reports new capabilities, update their contact note.
-- Record your team in your character (via `anima` → `character update`) — who you manage, what each one does.
+- Record your team in your character (via `psyche` → `character update`) — who you manage, what each one does.
 - You can silence a specialist (interrupt + idle) by sending `type="silence"` email. They revive on the next normal email.
 - You cannot kill agents. If you need an agent killed, ask your manager.
