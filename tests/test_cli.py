@@ -19,7 +19,7 @@ def _write_init(tmp_path: Path, overrides: dict | None = None) -> Path:
                 "base_url": None,
             },
             "capabilities": {},
-            "soul": {"delay": 30, "awaken": True},
+            "soul": {"delay": 30},
             "vigil": 60,
             "max_turns": 10,
             "admin": {"karma": True},
@@ -27,6 +27,7 @@ def _write_init(tmp_path: Path, overrides: dict | None = None) -> Path:
         },
         "covenant": "Be helpful.",
         "memory": "I remember nothing.",
+        "prompt": "",
     }
     if overrides:
         data.update(overrides)

@@ -23,7 +23,7 @@ def _write_init(tmp_path: Path) -> None:
                 "base_url": None,
             },
             "capabilities": {},
-            "soul": {"delay": 5, "awaken": True},
+            "soul": {"delay": 5},
             "vigil": 10,
             "max_turns": 5,
             "admin": {},
@@ -31,6 +31,7 @@ def _write_init(tmp_path: Path) -> None:
         },
         "covenant": "You are a test agent.",
         "memory": "",
+        "prompt": "",
     }
     (tmp_path / "init.json").write_text(json.dumps(data))
 

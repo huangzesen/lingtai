@@ -16,7 +16,7 @@ def _valid_init() -> dict:
                 "base_url": None,
             },
             "capabilities": {},
-            "soul": {"delay": 120, "awaken": False},
+            "soul": {"delay": 120},
             "vigil": 3600,
             "max_turns": 50,
             "admin": {"karma": True},
@@ -24,6 +24,7 @@ def _valid_init() -> dict:
         },
         "covenant": "",
         "memory": "",
+        "prompt": "",
     }
 
 

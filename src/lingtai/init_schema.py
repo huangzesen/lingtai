@@ -9,6 +9,7 @@ def validate_init(data: dict) -> None:
         "manifest": dict,
         "covenant": str,
         "memory": str,
+        "prompt": str,
     }, prefix="")
 
     manifest = data["manifest"]
@@ -27,7 +28,6 @@ def validate_init(data: dict) -> None:
     soul = manifest["soul"]
     _require_keys(soul, {
         "delay": (int, float),
-        "awaken": bool,
     }, prefix="manifest.soul")
 
     llm = manifest["llm"]

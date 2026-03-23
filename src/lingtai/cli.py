@@ -56,7 +56,6 @@ def build_agent(data: dict, working_dir: Path) -> Agent:
     config = AgentConfig(
         vigil=m["vigil"],
         soul_delay=soul["delay"],
-        awaken=soul["awaken"],
         max_turns=m["max_turns"],
         language=m["language"],
     )
@@ -115,6 +114,13 @@ def run(working_dir: Path) -> None:
 
     try:
         agent.start()
+
+        # Inject starting prompt if provided
+        prompt = data.get("prompt", "")
+        if prompt:
+            from lingtai_kernel.message import _make_message, MSG_REQUEST
+            agent.inbox.put(_make_message(MSG_REQUEST, "system", prompt))
+
         # Block until the agent shuts down (vigil, .quell, or external stop)
         agent._shutdown.wait()
     finally:
