@@ -132,7 +132,11 @@ class Agent(BaseAgent):
         """
         from .capabilities import setup_capability
 
-        self._capabilities.append((name, dict(kwargs)))
+        serializable_kw = {
+            k: v for k, v in kwargs.items()
+            if isinstance(v, (str, int, float, bool, type(None), list, dict))
+        }
+        self._capabilities.append((name, serializable_kw))
         mgr = setup_capability(self, name, **kwargs)
         self._capability_managers[name] = mgr
         return mgr
