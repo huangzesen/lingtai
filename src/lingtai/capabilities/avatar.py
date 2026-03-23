@@ -139,7 +139,7 @@ class AvatarManager:
                 return {
                     "status": "already_active",
                     "address": existing._mail_service.address if existing._mail_service else None,
-                    "agent_id": existing.agent_id,
+                    "working_dir": str(existing._working_dir),
                     "agent_name": existing.agent_name,
                     "message": (
                         f"'{peer_name}' is already running. "
@@ -151,7 +151,8 @@ class AvatarManager:
 
         # Agent count guard
         if self._max_agents > 0:
-            live = len(list(parent._base_dir.glob("*/.agent.json")))
+            base_dir = parent._working_dir.parent
+            live = len(list(base_dir.glob("*/.agent.json")))
             if live >= self._max_agents:
                 lang = parent._config.language
                 return {"error": t(lang, "avatar.limit_reached", live=live, max=self._max_agents)}
@@ -173,7 +174,7 @@ class AvatarManager:
         # Spawn peer agent
         import secrets
         avatar_id = secrets.token_hex(3)
-        avatar_working_dir = parent._base_dir / avatar_id
+        avatar_working_dir = parent._working_dir.parent / avatar_id
         mail_svc = FilesystemMailService(working_dir=avatar_working_dir)
 
         # Resolve combo for LLM config
@@ -216,11 +217,10 @@ class AvatarManager:
 
         avatar = Agent(
             agent_name=peer_name,
-            agent_id=avatar_id,
             service=parent.service,
             mail_service=mail_svc,
             config=peer_config,
-            base_dir=parent._base_dir,
+            working_dir=avatar_working_dir,
             streaming=parent._streaming,
             covenant=covenant,
             memory=memory,
@@ -240,7 +240,7 @@ class AvatarManager:
             )
 
         if reasoning:
-            avatar.send(reasoning, sender=parent.agent_id)
+            avatar.send(reasoning, sender=str(parent._working_dir))
 
         # Record
         self._peers[peer_name] = avatar
@@ -248,7 +248,7 @@ class AvatarManager:
         self._append_ledger(
             "avatar", peer_name,
             address=address,
-            agent_id=avatar.agent_id,
+            working_dir=str(avatar._working_dir),
             mission=reasoning or "",
             privileges=admin,
             capabilities=cap_names,
@@ -261,7 +261,6 @@ class AvatarManager:
         return {
             "status": "ok",
             "address": address,
-            "agent_id": avatar.agent_id,
             "agent_name": avatar.agent_name,
         }
 

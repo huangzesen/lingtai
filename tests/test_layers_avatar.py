@@ -27,7 +27,6 @@ class TestAvatarManager:
         assert result["status"] == "ok"
         assert "address" in result
         assert result["address"]  # filesystem path (non-empty string)
-        assert "agent_id" in result
         assert "agent_name" in result
 
     def test_spawn_with_role(self, tmp_path):
