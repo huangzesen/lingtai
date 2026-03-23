@@ -113,6 +113,8 @@ class PsycheManager:
         content = args.get("content", "")
         self._character_path.parent.mkdir(exist_ok=True)
         self._character_path.write_text(content)
+        # Auto-load into system prompt
+        self._character_load({})
         return {"status": "ok", "path": str(self._character_path)}
 
     def _character_load(self, _args: dict) -> dict:
@@ -191,9 +193,12 @@ class PsycheManager:
         combined = "\n\n".join(parts)
 
         # Delegate to eigen for the actual write
-        return self._eigen_handler({
+        result = self._eigen_handler({
             "object": "memory", "action": "edit", "content": combined,
         })
+        # Auto-load into system prompt
+        self._memory_load({})
+        return result
 
     def _memory_load(self, args: dict) -> dict:
         """Delegate to eigen's memory load."""

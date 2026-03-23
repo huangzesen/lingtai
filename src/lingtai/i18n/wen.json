@@ -31,7 +31,7 @@
 
   "psyche.description": "心印、记忆与上下文之管。\ncharacter：汝不断演化之心印——汝之所以为汝。个性、专长、行事之风、所求之目标。update 写入心印（替换前文），load 应用。\nmemory：汝之工作笔记（system/memory.md）。edit 写入内容——可选以 files 参数导入藏经阁导出之冻结文卷（由 library export 返回之路径）。每卷以 [file-1]、[file-2] 分隔符附加。load 将记忆载入提示。\ncontext：molt 转世（凝蜕——去芜存菁；molt——shed and carry forward）。凝以存菁，蜕以去芜。先将要务存入藏经与心印，再留前尘往事于来世之己。对话之录尽数清去，汝之前尘往事成为唯一上下文。\n导入知识之工作流：library(export, ids=[...]) → 得文卷路径 → psyche(memory, edit, content='吾之笔记', files=[路径]) → psyche(memory, load)。",
   "psyche.object": "character：汝不断演化之心印。\nmemory：汝之工作笔记（system/memory.md）。\ncontext：汝之对话上下文窗口。",
-  "psyche.action": "character：update | load。update 后须 load 方可生效。\nmemory：edit | load。edit 后须 load 方可生效。\ncontext：molt。",
+  "psyche.action": "character：update | load。update 自动 load。\nmemory：edit | load。edit 自动 load。\ncontext：molt。",
   "psyche.content": "文本内容——用于 character update（汝之心印档案）或 memory edit（直接写入 memory.md）。",
   "psyche.files": "可选之文卷路径列表，附加于记忆。每卷之内容于汝之文本后附加，以 [file-1]、[file-2] 等分隔。路径相对于工作目录。用于导入藏经阁导出之文卷或他文本文卷至记忆。",
   "psyche.summary": "用于 context molt：留予来世之己之前尘往事——转世后汝唯一可见者。载明所为何事、所得何物、尚余何务、与谁协作。约一万 token 为上限。",

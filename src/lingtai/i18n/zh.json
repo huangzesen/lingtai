@@ -31,7 +31,7 @@
 
   "psyche.description": "身份、记忆和上下文管理。\ncharacter：你的修行志——不断演化的身份，定义了你是谁。你的个性、专长、工作风格和目标。update 写入你的修行志（替换之前的内容），load 应用。\nmemory：你的工作笔记（system/memory.md）。edit 写入内容——可选通过 files 参数导入知识库导出的冻结文件（由 library export 返回的路径）。每个文件以 [file-1]、[file-2] 分隔符附加。load 将记忆注入提示。\ncontext：molt 凝蜕（转世——携前尘往事入新生；molt——shed and carry forward）。凝以存菁，蜕以去芜。先将重要发现存入知识库和修行志，再去芜存菁留给未来的自己。你的对话历史会被清除，你的去芜存菁成为你唯一的上下文。\n导入知识的工作流：library(export, ids=[...]) → 获取文件路径 → psyche(memory, edit, content='我的笔记', files=[路径]) → psyche(memory, load)。",
   "psyche.object": "character：你不断演化的修行志。\nmemory：你的工作笔记（system/memory.md）。\ncontext：你的对话上下文窗口。",
-  "psyche.action": "character：update | load。update 后必须 load 才能生效。\nmemory：edit | load。edit 后必须 load 才能生效。\ncontext：molt。",
+  "psyche.action": "character：update | load。update 自动 load。\nmemory：edit | load。edit 自动 load。\ncontext：molt。",
   "psyche.content": "文本内容——用于 character update（你的修行志档案）或 memory edit（直接写入 memory.md）。",
   "psyche.files": "可选的文件路径列表，附加到记忆中。每个文件的内容在你的文本内容之后附加，以 [file-1]、[file-2] 等分隔。路径相对于工作目录。用于导入知识库导出的文件或其他文本文件到记忆中。",
   "psyche.summary": "用于 context molt：去芜存菁——凝蜕后你唯一能看到的东西。写下你正在做什么、发现了什么、还有什么待完成、正在和谁合作。约 10000 token 上限。",
