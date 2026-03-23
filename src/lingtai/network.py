@@ -24,17 +24,16 @@ from pathlib import Path
 @dataclass
 class AgentNode:
     """An agent discovered in the network."""
-    agent_id: str
+    address: str                     # working directory path (primary key)
     agent_name: str
-    address: str | None = None       # TCP address if listening
     working_dir: Path | None = None  # resolved filesystem path
 
 
 @dataclass
 class AvatarEdge:
     """A parent → child spawning relationship."""
-    parent_id: str
-    child_id: str
+    parent_address: str              # working dir path of parent
+    child_address: str               # working dir path of child
     child_name: str
     spawned_at: float                # timestamp from ledger
     mission: str = ""
@@ -46,7 +45,7 @@ class AvatarEdge:
 @dataclass
 class ContactEdge:
     """An agent's declared knowledge of another address."""
-    owner_id: str                    # who has this contact
+    owner_address: str               # working dir path of the agent who has this contact
     target_address: str              # the contact's address
     target_name: str = ""            # display name in contacts
     note: str = ""
@@ -55,7 +54,7 @@ class ContactEdge:
 @dataclass
 class MailRecord:
     """Metadata of a single email (body stripped)."""
-    sender: str                      # address or agent_id
+    sender: str                      # sender address
     recipients: list[str]            # to + cc
     subject: str = ""
     timestamp: str = ""              # ISO timestamp (sent_at or received_at)
@@ -66,7 +65,7 @@ class MailRecord:
 @dataclass
 class MailEdge:
     """Aggregated communication from sender → recipient."""
-    sender: str                      # address or agent_id
+    sender: str                      # sender address
     recipient: str
     count: int = 0
     last_at: str = ""                # ISO timestamp of most recent
@@ -84,27 +83,22 @@ class AgentNetwork:
 
     # -- convenience queries --------------------------------------------------
 
-    def children_of(self, agent_id: str) -> list[AgentNode]:
-        """Return avatar nodes spawned by *agent_id*."""
-        child_ids = [e.child_id for e in self.avatar_edges
-                     if e.parent_id == agent_id]
-        return [self.nodes[cid] for cid in child_ids if cid in self.nodes]
+    def children_of(self, address: str) -> list[AgentNode]:
+        """Return avatar nodes spawned by *address* (working dir path)."""
+        child_addresses = [e.child_address for e in self.avatar_edges
+                           if e.parent_address == address]
+        return [self.nodes[ca] for ca in child_addresses if ca in self.nodes]
 
-    def contacts_of(self, agent_id: str) -> list[ContactEdge]:
-        """Return contacts declared by *agent_id*."""
-        return [e for e in self.contact_edges if e.owner_id == agent_id]
+    def contacts_of(self, address: str) -> list[ContactEdge]:
+        """Return contacts declared by *address* (working dir path)."""
+        return [e for e in self.contact_edges if e.owner_address == address]
 
-    def mail_of(self, agent_id: str) -> list[MailEdge]:
-        """Return all mail edges where *agent_id* is sender or recipient."""
-        node = self.nodes.get(agent_id)
-        if node is None:
+    def mail_of(self, address: str) -> list[MailEdge]:
+        """Return all mail edges where *address* is sender or recipient."""
+        if address not in self.nodes:
             return []
-        # Match on agent_id or address
-        ids = {agent_id}
-        if node.address:
-            ids.add(node.address)
         return [e for e in self.mail_edges
-                if e.sender in ids or e.recipient in ids]
+                if e.sender == address or e.recipient == address]
 
 
 # ---------------------------------------------------------------------------
@@ -159,13 +153,13 @@ def _discover_agents(base_dir: Path) -> dict[str, AgentNode]:
         manifest = _read_json(manifest_path)
         if manifest is None or not isinstance(manifest, dict):
             continue
-        agent_id = manifest.get("agent_id", "")
-        if not agent_id:
+        # Manifests store the working dir path as "address" (primary key)
+        address = manifest.get("address", "")
+        if not address:
             continue
-        nodes[agent_id] = AgentNode(
-            agent_id=agent_id,
+        nodes[address] = AgentNode(
+            address=address,
             agent_name=manifest.get("agent_name", ""),
-            address=manifest.get("address"),
             working_dir=child,
         )
     return nodes
@@ -174,7 +168,7 @@ def _discover_agents(base_dir: Path) -> dict[str, AgentNode]:
 def _build_avatar_edges(nodes: dict[str, AgentNode]) -> list[AvatarEdge]:
     """Pass 2 — read delegates/ledger.jsonl for each node."""
     edges: list[AvatarEdge] = []
-    for agent_id, node in list(nodes.items()):
+    for parent_address, node in list(nodes.items()):
         if node.working_dir is None:
             continue
         ledger_path = node.working_dir / "delegates" / "ledger.jsonl"
@@ -194,20 +188,20 @@ def _build_avatar_edges(nodes: dict[str, AgentNode]) -> list[AvatarEdge]:
                 continue
             if record.get("event") != "avatar":
                 continue
-            child_id = record.get("agent_id", "")
-            if not child_id:
+            # Avatar ledger (written by avatar.py) records child's working dir path
+            child_address = record.get("working_dir", "")
+            if not child_address:
                 continue
             # Ensure child node exists (may be from a dead avatar)
-            if child_id not in nodes:
-                nodes[child_id] = AgentNode(
-                    agent_id=child_id,
+            if child_address not in nodes:
+                nodes[child_address] = AgentNode(
+                    address=child_address,
                     agent_name=record.get("name", ""),
-                    address=record.get("address"),
                     working_dir=None,
                 )
             edges.append(AvatarEdge(
-                parent_id=agent_id,
-                child_id=child_id,
+                parent_address=parent_address,
+                child_address=child_address,
                 child_name=record.get("name", ""),
                 spawned_at=record.get("ts", 0.0),
                 mission=record.get("mission", ""),
@@ -221,7 +215,7 @@ def _build_avatar_edges(nodes: dict[str, AgentNode]) -> list[AvatarEdge]:
 def _build_contact_edges(nodes: dict[str, AgentNode]) -> list[ContactEdge]:
     """Pass 3 — read mailbox/contacts.json for each node."""
     edges: list[ContactEdge] = []
-    for agent_id, node in nodes.items():
+    for owner_address, node in nodes.items():
         if node.working_dir is None:
             continue
         contacts_path = node.working_dir / "mailbox" / "contacts.json"
@@ -232,7 +226,7 @@ def _build_contact_edges(nodes: dict[str, AgentNode]) -> list[ContactEdge]:
             if not isinstance(entry, dict):
                 continue
             edges.append(ContactEdge(
-                owner_id=agent_id,
+                owner_address=owner_address,
                 target_address=entry.get("address", ""),
                 target_name=entry.get("name", ""),
                 note=entry.get("note", ""),

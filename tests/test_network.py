@@ -23,13 +23,13 @@ from lingtai.network import (
 # Helpers — create filesystem structures
 # ---------------------------------------------------------------------------
 
-def _write_manifest(agent_dir: Path, agent_id: str, agent_name: str,
-                    address: str | None = None) -> None:
+def _write_manifest(agent_dir: Path, agent_name: str) -> str:
+    """Write a manifest with address = str(agent_dir). Returns the address."""
     agent_dir.mkdir(parents=True, exist_ok=True)
-    manifest = {"agent_id": agent_id, "agent_name": agent_name}
-    if address:
-        manifest["address"] = address
+    address = str(agent_dir)
+    manifest = {"address": address, "agent_name": agent_name}
     (agent_dir / ".agent.json").write_text(json.dumps(manifest))
+    return address
 
 
 def _write_ledger(agent_dir: Path, entries: list[dict]) -> None:
@@ -60,16 +60,16 @@ def _write_mail(agent_dir: Path, folder: str, messages: list[dict]) -> None:
 # ---------------------------------------------------------------------------
 
 def test_discover_agents(tmp_path):
-    _write_manifest(tmp_path / "alice", "aaa111", "alice", "127.0.0.1:8001")
-    _write_manifest(tmp_path / "bob", "bbb222", "bob")
+    alice_addr = _write_manifest(tmp_path / "alice", "alice")
+    bob_addr = _write_manifest(tmp_path / "bob", "bob")
 
     net = build_network(tmp_path)
 
     assert len(net.nodes) == 2
-    assert "aaa111" in net.nodes
-    assert net.nodes["aaa111"].agent_name == "alice"
-    assert net.nodes["aaa111"].address == "127.0.0.1:8001"
-    assert net.nodes["bbb222"].address is None
+    assert alice_addr in net.nodes
+    assert net.nodes[alice_addr].agent_name == "alice"
+    assert bob_addr in net.nodes
+    assert net.nodes[bob_addr].agent_name == "bob"
 
 
 def test_empty_base_dir(tmp_path):
@@ -92,7 +92,7 @@ def test_skip_bad_manifest(tmp_path):
     bad = tmp_path / "bad_json"
     bad.mkdir()
     (bad / ".agent.json").write_text("{invalid}")
-    # Directory with manifest missing agent_id
+    # Directory with manifest missing address
     no_id = tmp_path / "no_id"
     no_id.mkdir()
     (no_id / ".agent.json").write_text(json.dumps({"agent_name": "orphan"}))
@@ -106,14 +106,14 @@ def test_skip_bad_manifest(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_avatar_edges(tmp_path):
-    _write_manifest(tmp_path / "parent", "ppp111", "parent")
-    _write_manifest(tmp_path / "child", "ccc111", "child")
+    parent_addr = _write_manifest(tmp_path / "parent", "parent")
+    child_addr = _write_manifest(tmp_path / "child", "child")
     _write_ledger(tmp_path / "parent", [
         {
             "ts": 1710000000.0,
             "event": "avatar",
             "name": "child",
-            "agent_id": "ccc111",
+            "working_dir": child_addr,
             "address": "127.0.0.1:9001",
             "mission": "do research",
             "capabilities": ["file", "web_search"],
@@ -126,8 +126,8 @@ def test_avatar_edges(tmp_path):
 
     assert len(net.avatar_edges) == 1
     edge = net.avatar_edges[0]
-    assert edge.parent_id == "ppp111"
-    assert edge.child_id == "ccc111"
+    assert edge.parent_address == parent_addr
+    assert edge.child_address == child_addr
     assert edge.child_name == "child"
     assert edge.mission == "do research"
     assert edge.capabilities == ["file", "web_search"]
@@ -136,30 +136,32 @@ def test_avatar_edges(tmp_path):
 
 def test_avatar_dead_child_added_to_nodes(tmp_path):
     """A child referenced in ledger but without its own manifest should be added."""
-    _write_manifest(tmp_path / "parent", "ppp111", "parent")
+    parent_addr = _write_manifest(tmp_path / "parent", "parent")
+    ghost_dir = str(tmp_path / "ghost")
     _write_ledger(tmp_path / "parent", [
         {
             "ts": 1710000000.0,
             "event": "avatar",
             "name": "ghost",
-            "agent_id": "ggg111",
+            "working_dir": ghost_dir,
             "address": "127.0.0.1:9999",
         },
     ])
 
     net = build_network(tmp_path)
 
-    assert "ggg111" in net.nodes
-    assert net.nodes["ggg111"].agent_name == "ghost"
-    assert net.nodes["ggg111"].working_dir is None  # no manifest dir
+    assert ghost_dir in net.nodes
+    assert net.nodes[ghost_dir].agent_name == "ghost"
+    assert net.nodes[ghost_dir].working_dir is None  # no manifest dir
 
 
 def test_avatar_reactivate_event_skipped(tmp_path):
     """Only 'avatar' events create edges, not 'reactivate'."""
-    _write_manifest(tmp_path / "parent", "ppp111", "parent")
+    parent_addr = _write_manifest(tmp_path / "parent", "parent")
+    c1_dir = str(tmp_path / "c1")
     _write_ledger(tmp_path / "parent", [
-        {"ts": 1.0, "event": "avatar", "name": "c1", "agent_id": "c11"},
-        {"ts": 2.0, "event": "reactivate", "name": "c1", "agent_id": "c11"},
+        {"ts": 1.0, "event": "avatar", "name": "c1", "working_dir": c1_dir},
+        {"ts": 2.0, "event": "reactivate", "name": "c1", "working_dir": c1_dir},
     ])
 
     net = build_network(tmp_path)
@@ -167,18 +169,18 @@ def test_avatar_reactivate_event_skipped(tmp_path):
 
 
 def test_children_of(tmp_path):
-    _write_manifest(tmp_path / "parent", "ppp111", "parent")
-    _write_manifest(tmp_path / "c1", "c11", "c1")
-    _write_manifest(tmp_path / "c2", "c22", "c2")
+    parent_addr = _write_manifest(tmp_path / "parent", "parent")
+    c1_addr = _write_manifest(tmp_path / "c1", "c1")
+    c2_addr = _write_manifest(tmp_path / "c2", "c2")
     _write_ledger(tmp_path / "parent", [
-        {"ts": 1.0, "event": "avatar", "name": "c1", "agent_id": "c11"},
-        {"ts": 2.0, "event": "avatar", "name": "c2", "agent_id": "c22"},
+        {"ts": 1.0, "event": "avatar", "name": "c1", "working_dir": c1_addr},
+        {"ts": 2.0, "event": "avatar", "name": "c2", "working_dir": c2_addr},
     ])
 
     net = build_network(tmp_path)
-    children = net.children_of("ppp111")
+    children = net.children_of(parent_addr)
     assert len(children) == 2
-    assert {c.agent_id for c in children} == {"c11", "c22"}
+    assert {c.address for c in children} == {c1_addr, c2_addr}
 
 
 # ---------------------------------------------------------------------------
@@ -186,7 +188,7 @@ def test_children_of(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_contact_edges(tmp_path):
-    _write_manifest(tmp_path / "alice", "aaa111", "alice")
+    alice_addr = _write_manifest(tmp_path / "alice", "alice")
     _write_contacts(tmp_path / "alice", [
         {"address": "127.0.0.1:9001", "name": "Bob", "note": "researcher"},
         {"address": "127.0.0.1:9002", "name": "Carol", "note": ""},
@@ -196,14 +198,14 @@ def test_contact_edges(tmp_path):
 
     assert len(net.contact_edges) == 2
     bob_edge = [e for e in net.contact_edges if e.target_name == "Bob"][0]
-    assert bob_edge.owner_id == "aaa111"
+    assert bob_edge.owner_address == alice_addr
     assert bob_edge.target_address == "127.0.0.1:9001"
     assert bob_edge.note == "researcher"
 
 
 def test_contacts_of(tmp_path):
-    _write_manifest(tmp_path / "alice", "aaa111", "alice")
-    _write_manifest(tmp_path / "bob", "bbb222", "bob")
+    alice_addr = _write_manifest(tmp_path / "alice", "alice")
+    bob_addr = _write_manifest(tmp_path / "bob", "bob")
     _write_contacts(tmp_path / "alice", [
         {"address": "127.0.0.1:9001", "name": "Bob", "note": ""},
     ])
@@ -212,13 +214,13 @@ def test_contacts_of(tmp_path):
     ])
 
     net = build_network(tmp_path)
-    alice_contacts = net.contacts_of("aaa111")
+    alice_contacts = net.contacts_of(alice_addr)
     assert len(alice_contacts) == 1
     assert alice_contacts[0].target_name == "Bob"
 
 
 def test_no_contacts_file(tmp_path):
-    _write_manifest(tmp_path / "alice", "aaa111", "alice")
+    _write_manifest(tmp_path / "alice", "alice")
     net = build_network(tmp_path)
     assert net.contact_edges == []
 
@@ -228,7 +230,7 @@ def test_no_contacts_file(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_mail_edges_from_sent(tmp_path):
-    _write_manifest(tmp_path / "alice", "aaa111", "alice", "127.0.0.1:8001")
+    alice_addr = _write_manifest(tmp_path / "alice", "alice")
     _write_mail(tmp_path / "alice", "sent", [
         {
             "from": "127.0.0.1:8001",
@@ -259,7 +261,7 @@ def test_mail_edges_from_sent(tmp_path):
 
 
 def test_mail_edges_from_inbox(tmp_path):
-    _write_manifest(tmp_path / "bob", "bbb222", "bob", "127.0.0.1:9001")
+    bob_addr = _write_manifest(tmp_path / "bob", "bob")
     _write_mail(tmp_path / "bob", "inbox", [
         {
             "from": "127.0.0.1:8001",
@@ -280,7 +282,7 @@ def test_mail_edges_from_inbox(tmp_path):
 
 
 def test_mail_edges_with_cc(tmp_path):
-    _write_manifest(tmp_path / "alice", "aaa111", "alice", "127.0.0.1:8001")
+    alice_addr = _write_manifest(tmp_path / "alice", "alice")
     _write_mail(tmp_path / "alice", "sent", [
         {
             "from": "127.0.0.1:8001",
@@ -306,8 +308,8 @@ def test_mail_deduplication_across_inbox_and_sent(tmp_path):
     This is correct — each folder is a separate view. The mail_edge aggregates
     by (sender, recipient) key so the count reflects total observations.
     """
-    _write_manifest(tmp_path / "alice", "aaa111", "alice", "127.0.0.1:8001")
-    _write_manifest(tmp_path / "bob", "bbb222", "bob", "127.0.0.1:9001")
+    alice_addr = _write_manifest(tmp_path / "alice", "alice")
+    bob_addr = _write_manifest(tmp_path / "bob", "bob")
     _write_mail(tmp_path / "alice", "sent", [
         {
             "from": "127.0.0.1:8001",
@@ -332,12 +334,12 @@ def test_mail_deduplication_across_inbox_and_sent(tmp_path):
 
 
 def test_mail_of(tmp_path):
-    _write_manifest(tmp_path / "alice", "aaa111", "alice", "127.0.0.1:8001")
-    _write_manifest(tmp_path / "bob", "bbb222", "bob", "127.0.0.1:9001")
+    alice_addr = _write_manifest(tmp_path / "alice", "alice")
+    bob_addr = _write_manifest(tmp_path / "bob", "bob")
     _write_mail(tmp_path / "alice", "sent", [
         {
-            "from": "127.0.0.1:8001",
-            "to": ["127.0.0.1:9001"],
+            "from": alice_addr,
+            "to": [bob_addr],
             "subject": "hello",
             "sent_at": "2026-03-20T10:00:00Z",
         },
@@ -345,10 +347,10 @@ def test_mail_of(tmp_path):
 
     net = build_network(tmp_path)
 
-    # mail_of matches by agent_id or address
-    alice_mail = net.mail_of("aaa111")
+    # mail_of matches by address (working dir path)
+    alice_mail = net.mail_of(alice_addr)
     assert len(alice_mail) == 1
-    assert alice_mail[0].sender == "127.0.0.1:8001"
+    assert alice_mail[0].sender == alice_addr
 
 
 def test_mail_of_unknown_agent(tmp_path):
@@ -363,8 +365,8 @@ def test_mail_of_unknown_agent(tmp_path):
 def test_full_network(tmp_path):
     """Build a complete network with all three layers."""
     # Set up agents
-    _write_manifest(tmp_path / "boss", "boss01", "boss", "127.0.0.1:8000")
-    _write_manifest(tmp_path / "worker", "work01", "worker", "127.0.0.1:8001")
+    boss_addr = _write_manifest(tmp_path / "boss", "boss")
+    worker_addr = _write_manifest(tmp_path / "worker", "worker")
 
     # Boss spawned worker
     _write_ledger(tmp_path / "boss", [
@@ -372,7 +374,7 @@ def test_full_network(tmp_path):
             "ts": 1710000000.0,
             "event": "avatar",
             "name": "worker",
-            "agent_id": "work01",
+            "working_dir": worker_addr,
             "address": "127.0.0.1:8001",
             "mission": "process data",
             "capabilities": ["file"],
