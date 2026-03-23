@@ -12,8 +12,6 @@ venv/
 .env
 .worktrees/
 .claude/
-app/web/config.json
-app/email/config.json
 .playwright-mcp/
 
 # Agent runtime artifacts (working dirs from examples)
@@ -31,10 +29,6 @@ plot_example.py
 scatter_plot.*
 test/
 playground
-
-# Web dashboard frontend build
-app/web/frontend/node_modules/
-app/web/frontend/dist/
 
 # Superpowers brainstorm sessions
 .superpowers/
