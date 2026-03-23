@@ -68,8 +68,9 @@ class Agent(BaseAgent):
                     "provider": _service.provider,
                     "model": _service.model,
                 }
-                if getattr(_service, "_base_url", None):
-                    llm_config["base_url"] = _service._base_url
+                _base_url = getattr(_service, "_base_url", None)
+                if isinstance(_base_url, str) and _base_url:
+                    llm_config["base_url"] = _base_url
                 llm_dir = self._working_dir / "system"
                 llm_dir.mkdir(exist_ok=True)
                 (llm_dir / "llm.json").write_text(
@@ -276,8 +277,7 @@ class Agent(BaseAgent):
         revived = Agent(
             svc,
             agent_name=agent_meta.get("agent_name"),
-            agent_id=agent_meta.get("agent_id"),
-            base_dir=str(target.parent),
+            working_dir=target,
             capabilities=capabilities,
             admin=agent_meta.get("admin", {}),
             config=revived_config,

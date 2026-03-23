@@ -29,14 +29,15 @@ def test_eigen_in_all_intrinsics():
     assert "eigen" in ALL_INTRINSICS
     assert "memory" not in ALL_INTRINSICS
     info = ALL_INTRINSICS["eigen"]
-    schema = info["schema"]
+    mod = info["module"]
+    schema = mod.get_schema()
     assert "edit" in schema["properties"]["action"]["enum"]
     assert "load" in schema["properties"]["action"]["enum"]
     assert "molt" in schema["properties"]["action"]["enum"]
 
 
 def test_eigen_wired_in_agent(tmp_path):
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     assert "eigen" in agent._intrinsics
     assert "memory" not in agent._intrinsics
     agent.stop(timeout=1.0)
@@ -50,7 +51,7 @@ def test_eigen_wired_in_agent(tmp_path):
 def test_covenant_constructor_arg_writes_to_system(tmp_path):
     """covenant= constructor arg should write to system/covenant.md."""
     agent = BaseAgent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         covenant="You are a helpful agent",
     )
     covenant_file = agent.working_dir / "system" / "covenant.md"
@@ -62,7 +63,7 @@ def test_covenant_constructor_arg_writes_to_system(tmp_path):
 def test_memory_constructor_arg_writes_to_system(tmp_path):
     """memory= constructor arg should write to system/memory.md."""
     agent = BaseAgent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         memory="initial memory",
     )
     memory_file = agent.working_dir / "system" / "memory.md"
@@ -74,7 +75,7 @@ def test_memory_constructor_arg_writes_to_system(tmp_path):
 def test_covenant_is_protected_section(tmp_path):
     """Covenant should be a protected prompt section."""
     agent = BaseAgent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         covenant="researcher",
     )
     sections = agent._prompt_manager.list_sections()
@@ -88,7 +89,7 @@ def test_existing_system_files_not_overwritten(tmp_path):
     """If system/memory.md already exists, constructor arg should not overwrite it."""
     # First create an agent so its working dir (with agent_id) exists
     agent1 = BaseAgent(
-        service=make_mock_service(), agent_name="test", agent_id="t1", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "t1",
         memory="existing content",
     )
     working_dir = agent1.working_dir
@@ -99,7 +100,7 @@ def test_existing_system_files_not_overwritten(tmp_path):
     # The semantic of this test is that memory= doesn't overwrite existing memory.md.
     # We verify this by checking the first agent wrote it correctly.
     agent2 = BaseAgent(
-        service=make_mock_service(), agent_name="test", agent_id="t2", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "t2",
         memory="constructor ltm",
     )
     # New agent has its own dir, so memory=constructor ltm is written fresh
@@ -114,7 +115,7 @@ def test_existing_system_files_not_overwritten(tmp_path):
 
 def test_memory_edit(tmp_path):
     """Edit should write content to disk without injecting into prompt."""
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     result = agent._intrinsics["eigen"]({"object": "memory", "action": "edit", "content": "hello world"})
     assert result["status"] == "ok"
     assert result["size_bytes"] == len("hello world".encode())
@@ -125,7 +126,7 @@ def test_memory_edit(tmp_path):
 
 def test_memory_edit_then_load(tmp_path):
     """Edit + load workflow: edit writes to disk, load injects into prompt."""
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     agent.start()
     try:
         agent._intrinsics["eigen"]({"object": "memory", "action": "edit", "content": "important fact"})
@@ -139,7 +140,7 @@ def test_memory_edit_then_load(tmp_path):
 
 
 def test_memory_load(tmp_path):
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     agent.start()
     try:
         memory_file = agent.working_dir / "system" / "memory.md"
@@ -154,7 +155,7 @@ def test_memory_load(tmp_path):
 
 
 def test_memory_load_empty_removes_section(tmp_path):
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     agent.start()
     try:
         agent._intrinsics["eigen"]({"object": "memory", "action": "edit", "content": "some content"})
@@ -169,7 +170,7 @@ def test_memory_load_empty_removes_section(tmp_path):
 
 
 def test_memory_load_no_change_no_commit(tmp_path):
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     agent.start()
     try:
         agent._intrinsics["eigen"]({"object": "memory", "action": "load"})
@@ -180,14 +181,14 @@ def test_memory_load_no_change_no_commit(tmp_path):
 
 
 def test_memory_unknown_action(tmp_path):
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     result = agent._intrinsics["eigen"]({"object": "memory", "action": "diff"})
     assert "error" in result
     agent.stop(timeout=1.0)
 
 
 def test_memory_creates_files_if_missing(tmp_path):
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     agent.start()
     try:
         import shutil

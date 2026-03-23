@@ -13,16 +13,16 @@ _TEST_ID = "a1b2c3d4e5f6"
 
 
 def test_init_creates_agent_dir(tmp_path):
-    wd = WorkingDir(base_dir=tmp_path, agent_id=_TEST_ID)
+    wd = WorkingDir(working_dir=tmp_path / _TEST_ID)
     assert wd.path == tmp_path / _TEST_ID
     assert wd.path.is_dir()
 
 
 def test_lock_prevents_second_instance(tmp_path):
-    wd1 = WorkingDir(base_dir=tmp_path, agent_id=_TEST_ID)
+    wd1 = WorkingDir(working_dir=tmp_path / _TEST_ID)
     wd1.acquire_lock()
     try:
-        wd2 = WorkingDir(base_dir=tmp_path, agent_id=_TEST_ID)
+        wd2 = WorkingDir(working_dir=tmp_path / _TEST_ID)
         with pytest.raises(RuntimeError, match="already in use"):
             wd2.acquire_lock()
     finally:
@@ -30,16 +30,16 @@ def test_lock_prevents_second_instance(tmp_path):
 
 
 def test_lock_release_allows_reuse(tmp_path):
-    wd1 = WorkingDir(base_dir=tmp_path, agent_id=_TEST_ID)
+    wd1 = WorkingDir(working_dir=tmp_path / _TEST_ID)
     wd1.acquire_lock()
     wd1.release_lock()
-    wd2 = WorkingDir(base_dir=tmp_path, agent_id=_TEST_ID)
+    wd2 = WorkingDir(working_dir=tmp_path / _TEST_ID)
     wd2.acquire_lock()  # should not raise
     wd2.release_lock()
 
 
 def test_git_init_creates_repo(tmp_path):
-    wd = WorkingDir(base_dir=tmp_path, agent_id=_TEST_ID)
+    wd = WorkingDir(working_dir=tmp_path / _TEST_ID)
     wd.init_git()
     assert (wd.path / ".git").is_dir()
     assert (wd.path / ".gitignore").is_file()
@@ -48,7 +48,7 @@ def test_git_init_creates_repo(tmp_path):
 
 
 def test_git_init_skips_if_already_initialized(tmp_path):
-    wd = WorkingDir(base_dir=tmp_path, agent_id=_TEST_ID)
+    wd = WorkingDir(working_dir=tmp_path / _TEST_ID)
     wd.init_git()
     result1 = subprocess.run(
         ["git", "rev-list", "--count", "HEAD"],
@@ -63,12 +63,12 @@ def test_git_init_skips_if_already_initialized(tmp_path):
 
 
 def test_read_manifest_returns_empty_when_missing(tmp_path):
-    wd = WorkingDir(base_dir=tmp_path, agent_id=_TEST_ID)
+    wd = WorkingDir(working_dir=tmp_path / _TEST_ID)
     assert wd.read_manifest() == ""
 
 
 def test_write_and_read_manifest(tmp_path):
-    wd = WorkingDir(base_dir=tmp_path, agent_id=_TEST_ID)
+    wd = WorkingDir(working_dir=tmp_path / _TEST_ID)
     manifest = {"agent_name": "alice", "covenant": "researcher", "started_at": "2026-01-01T00:00:00Z"}
     wd.write_manifest(manifest)
     covenant = wd.read_manifest()
@@ -76,7 +76,7 @@ def test_write_and_read_manifest(tmp_path):
 
 
 def test_diff_and_commit(tmp_path):
-    wd = WorkingDir(base_dir=tmp_path, agent_id=_TEST_ID)
+    wd = WorkingDir(working_dir=tmp_path / _TEST_ID)
     wd.init_git()
     # Write to tracked file
     memory_file = wd.path / "system" / "memory.md"
@@ -87,7 +87,7 @@ def test_diff_and_commit(tmp_path):
 
 
 def test_diff_and_commit_no_changes(tmp_path):
-    wd = WorkingDir(base_dir=tmp_path, agent_id=_TEST_ID)
+    wd = WorkingDir(working_dir=tmp_path / _TEST_ID)
     wd.init_git()
     diff_text, commit_hash = wd.diff_and_commit("system/memory.md", "memory")
     assert diff_text is None
@@ -95,7 +95,7 @@ def test_diff_and_commit_no_changes(tmp_path):
 
 
 def test_diff_read_only(tmp_path):
-    wd = WorkingDir(base_dir=tmp_path, agent_id=_TEST_ID)
+    wd = WorkingDir(working_dir=tmp_path / _TEST_ID)
     wd.init_git()
     memory_file = wd.path / "system" / "memory.md"
     memory_file.write_text("new content")
@@ -109,15 +109,15 @@ def test_diff_read_only(tmp_path):
     assert status.stdout.strip()  # still dirty
 
 
-def test_invalid_agent_id_raises(tmp_path):
-    with pytest.raises(ValueError, match="non-empty path-safe"):
-        WorkingDir(base_dir=tmp_path, agent_id="")
-    with pytest.raises(ValueError, match="non-empty path-safe"):
-        WorkingDir(base_dir=tmp_path, agent_id="bad/id")
-
-
-def test_arbitrary_agent_id(tmp_path):
-    """agent_id can be any path-safe string, not just 12-char hex."""
-    wd = WorkingDir(base_dir=tmp_path, agent_id="orchestrator")
+def test_working_dir_accepts_any_path(tmp_path):
+    """working_dir can be any valid path."""
+    wd = WorkingDir(working_dir=tmp_path / "orchestrator")
     assert wd.path == tmp_path / "orchestrator"
+    assert wd.path.is_dir()
+
+
+def test_working_dir_creates_parents(tmp_path):
+    """working_dir creates parent directories as needed."""
+    wd = WorkingDir(working_dir=tmp_path / "deep" / "nested" / "agent")
+    assert wd.path == tmp_path / "deep" / "nested" / "agent"
     assert wd.path.is_dir()

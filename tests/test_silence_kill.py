@@ -37,7 +37,7 @@ def make_mock_service():
 
 def test_cancel_event_always_created(tmp_path):
     """Agent should always have _cancel_event (no external injection)."""
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     assert isinstance(agent._cancel_event, threading.Event)
     assert not agent._cancel_event.is_set()
 
@@ -49,14 +49,14 @@ def test_cancel_event_always_created(tmp_path):
 
 def test_admin_dict_stored_defaults_empty(tmp_path):
     """Agent without admin= should have an empty _admin dict."""
-    agent = BaseAgent(service=make_mock_service(), agent_name="a", agent_id="t1", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="a", working_dir=tmp_path / "t1")
     assert agent._admin == {}
 
 
 def test_karma_admin_stored(tmp_path):
     """admin={"karma": True} should be stored on the agent as-is."""
     agent = BaseAgent(
-        service=make_mock_service(), agent_name="b", agent_id="t2", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="b", working_dir=tmp_path / "t2",
         admin={"karma": True},
     )
     assert agent._admin.get("karma") is True
@@ -65,7 +65,7 @@ def test_karma_admin_stored(tmp_path):
 def test_nirvana_admin_stored(tmp_path):
     """admin={"nirvana": True} should be stored on the agent as-is."""
     agent = BaseAgent(
-        service=make_mock_service(), agent_name="c", agent_id="t3", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="c", working_dir=tmp_path / "t3",
         admin={"nirvana": True},
     )
     assert agent._admin.get("nirvana") is True
@@ -74,7 +74,7 @@ def test_nirvana_admin_stored(tmp_path):
 def test_old_admin_keys_ignored(tmp_path):
     """admin={"silence": True} should NOT grant karma authority."""
     agent = BaseAgent(
-        service=make_mock_service(), agent_name="d", agent_id="t4", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="d", working_dir=tmp_path / "t4",
         admin={"silence": True, "kill": True},
     )
     # Old keys are stored as-is (agent just persists the dict), but they do
@@ -94,7 +94,7 @@ def test_sequential_execution_stops_on_cancel(tmp_path):
     from lingtai_kernel.tool_executor import ToolExecutor
     from lingtai.llm import ToolCall
 
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     agent._cancel_event.set()
 
     tc = ToolCall(name="system", args={"action": "show"}, id="tc1")
@@ -124,7 +124,7 @@ def test_sequential_execution_stops_on_cancel(tmp_path):
 
 def test_normal_email_notifies_inbox(tmp_path):
     """Normal-type mail should send a notification to agent inbox."""
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     agent._on_mail_received({
         "_mailbox_id": "test123",
         "from": "colleague", "to": "test", "subject": "hello",
@@ -137,7 +137,7 @@ def test_normal_email_notifies_inbox(tmp_path):
 def test_non_admin_can_send_normal_mail(tmp_path):
     """Non-admin should be able to send normal mail."""
     agent = BaseAgent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path, admin={},
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test", admin={},
     )
     mock_mail = MagicMock()
     mock_mail.address = "127.0.0.1:8000"
@@ -158,7 +158,7 @@ def test_non_admin_can_send_normal_mail(tmp_path):
 
 def test_mail_type_silence_treated_as_normal(tmp_path):
     """Sending type='silence' via mail should work like normal mail — no cancel."""
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     assert not agent._cancel_event.is_set()
 
     agent._on_mail_received({
@@ -175,7 +175,7 @@ def test_mail_type_silence_treated_as_normal(tmp_path):
 
 def test_mail_type_kill_treated_as_normal(tmp_path):
     """Sending type='kill' via mail should work like normal mail — no shutdown."""
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     assert not agent._cancel_event.is_set()
 
     agent._on_mail_received({

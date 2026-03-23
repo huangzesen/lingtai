@@ -24,7 +24,7 @@ def make_mock_service():
 
 def test_library_setup_registers_tool(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     assert "library" in agent._mcp_handlers
@@ -33,7 +33,7 @@ def test_library_setup_registers_tool(tmp_path):
 
 def test_library_manager_accessible(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     mgr = agent.get_capability("library")
@@ -44,7 +44,7 @@ def test_library_manager_accessible(tmp_path):
 def test_library_independent_of_psyche(tmp_path):
     """Library can be used without psyche — eigen stays intact."""
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     assert "eigen" in agent._intrinsics
@@ -59,7 +59,7 @@ def test_library_independent_of_psyche(tmp_path):
 
 def test_submit_creates_entry(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     mgr = agent.get_capability("library")
@@ -79,7 +79,7 @@ def test_submit_creates_entry(tmp_path):
 
 def test_submit_requires_title(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     mgr = agent.get_capability("library")
@@ -90,7 +90,7 @@ def test_submit_requires_title(tmp_path):
 
 def test_submit_enforces_limit(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities={"library": {"library_limit": 2}},
     )
     mgr = agent.get_capability("library")
@@ -109,7 +109,7 @@ def test_submit_enforces_limit(tmp_path):
 
 def test_filter_with_pattern(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     mgr = agent.get_capability("library")
@@ -123,7 +123,7 @@ def test_filter_with_pattern(tmp_path):
 
 def test_filter_all(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     mgr = agent.get_capability("library")
@@ -136,7 +136,7 @@ def test_filter_all(tmp_path):
 
 def test_filter_with_limit(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     mgr = agent.get_capability("library")
@@ -154,7 +154,7 @@ def test_filter_with_limit(tmp_path):
 
 def test_view_returns_content(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     mgr = agent.get_capability("library")
@@ -167,7 +167,7 @@ def test_view_returns_content(tmp_path):
 
 def test_view_invalid_id(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     mgr = agent.get_capability("library")
@@ -183,7 +183,7 @@ def test_view_invalid_id(tmp_path):
 
 def test_consolidate(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     mgr = agent.get_capability("library")
@@ -211,7 +211,7 @@ def test_consolidate(tmp_path):
 
 def test_delete(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     mgr = agent.get_capability("library")
@@ -233,7 +233,7 @@ def test_delete(tmp_path):
 
 def test_export_creates_files(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     mgr = agent.get_capability("library")
@@ -257,7 +257,7 @@ def test_export_creates_files(tmp_path):
 
 def test_export_includes_supplementary(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     mgr = agent.get_capability("library")
@@ -274,7 +274,7 @@ def test_export_includes_supplementary(tmp_path):
 
 def test_export_returns_relative_paths(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     mgr = agent.get_capability("library")
@@ -289,7 +289,7 @@ def test_export_returns_relative_paths(tmp_path):
 
 def test_export_invalid_id(tmp_path):
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
     mgr = agent.get_capability("library")
@@ -301,7 +301,7 @@ def test_export_invalid_id(tmp_path):
 def test_export_to_memory_edit_workflow(tmp_path):
     """Full workflow: library export → psyche memory.edit with files."""
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library", "psyche"],
     )
     lib = agent.get_capability("library")

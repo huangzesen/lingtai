@@ -19,7 +19,6 @@ from lingtai_kernel.intrinsics.mail import handle
 def _make_mock_agent(tmp_path: Path, *, address: str = "127.0.0.1:9999") -> MagicMock:
     """Create a mock agent with all fields needed by the mail intrinsic."""
     agent = MagicMock()
-    agent.agent_id = "abc123def456"
     agent._working_dir = tmp_path / "workdir"
     agent._working_dir.mkdir(parents=True, exist_ok=True)
     agent._admin = {}
@@ -170,14 +169,14 @@ class TestSelfSend:
         assert agent._mail_arrived.is_set()
 
     def test_self_send_no_mail_service_still_works(self, tmp_path):
-        """When no mail service, self-send matches on agent_id."""
+        """When no mail service, self-send matches on working_dir path."""
         agent = _make_mock_agent(tmp_path)
         agent._mail_service = None
         result = handle(agent, {
             "action": "send",
-            "address": agent.agent_id,
+            "address": str(agent._working_dir),
             "subject": "self note",
-            "message": "via agent_id",
+            "message": "via working_dir",
         })
         assert result["status"] == "sent"
         time.sleep(0.2)

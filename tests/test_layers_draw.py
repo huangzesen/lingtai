@@ -119,6 +119,6 @@ class TestAddCapabilityIntegration:
         svc.provider = "gemini"
         svc.model = "gemini-test"
         mcp = make_mock_mcp()
-        agent = Agent(service=svc, agent_name="test", agent_id="test", base_dir=tmp_path,
+        agent = Agent(service=svc, agent_name="test", working_dir=tmp_path / "test",
                            capabilities={"draw": {"mcp_client": mcp}})
         assert "draw" in agent._mcp_handlers

@@ -16,8 +16,8 @@ def _make_agent(tmp_path, **kwargs):
     """Create a minimal BaseAgent for testing."""
     svc = MagicMock()
     svc.create_session.return_value = MagicMock()
-    kwargs.setdefault("agent_id", "test000000ab")
-    agent = BaseAgent(svc, base_dir=str(tmp_path), **kwargs)
+    kwargs.setdefault("working_dir", str(tmp_path / "test000000ab"))
+    agent = BaseAgent(svc, **kwargs)
     return agent
 
 
@@ -172,7 +172,7 @@ class TestReviveLingtai:
         svc._base_url = None
 
         # Create an agent — this should persist LLM config
-        agent = Agent(svc, base_dir=str(tmp_path), agent_id="alice000001",
+        agent = Agent(svc, working_dir=tmp_path / "alice000001",
                       agent_name="alice", admin={"karma": True})
 
         # Verify LLM config was persisted to working dir
@@ -196,14 +196,14 @@ class TestReviveLingtai:
         # Create a "dormant" agent — construct, persist, don't start
         agents_dir = tmp_path / "agents"
         agents_dir.mkdir()
-        target = Agent(svc, base_dir=str(agents_dir), agent_id="bobbob000001",
+        target = Agent(svc, working_dir=agents_dir / "bobbob000001",
                        agent_name="bob")
         target_dir = str(target.working_dir)
 
         # Create the reviving agent
         reviver_dir = tmp_path / "reviver"
         reviver_dir.mkdir()
-        reviver = Agent(svc, base_dir=str(reviver_dir), agent_id="admin000001",
+        reviver = Agent(svc, working_dir=reviver_dir / "admin000001",
                         agent_name="admin", admin={"karma": True})
 
         # Release the lock on the target (simulate a dormant/dead agent)

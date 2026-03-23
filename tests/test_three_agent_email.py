@@ -47,8 +47,7 @@ def _make_agent(name: str, base_dir: Path):
     agent = Agent(
         service=_make_mock_service(),
         agent_name=name,
-        agent_id=name,
-        base_dir=base_dir,
+        working_dir=base_dir / name,
         capabilities=["email"],
     )
     # Wire up mail service after construction (needs working_dir from agent)

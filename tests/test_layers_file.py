@@ -19,7 +19,7 @@ def make_mock_service():
 def test_file_sugar_expands_to_five(tmp_path):
     """capabilities=["file"] should register all 5 file tools."""
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["file"],
     )
     for name in ("read", "write", "edit", "glob", "grep"):
@@ -30,7 +30,7 @@ def test_file_sugar_expands_to_five(tmp_path):
 def test_file_sugar_dict_form(tmp_path):
     """capabilities={"file": {}} (dict form) should also expand."""
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities={"file": {}},
     )
     for name in ("read", "write", "edit", "glob", "grep"):
@@ -41,7 +41,7 @@ def test_file_sugar_dict_form(tmp_path):
 def test_individual_file_capability(tmp_path):
     """Each file capability can be loaded individually."""
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["read", "write"],
     )
     assert "read" in agent._mcp_handlers
@@ -55,7 +55,7 @@ def test_individual_file_capability(tmp_path):
 def test_write_and_read_via_capability(tmp_path):
     """Write and read files through capability handlers."""
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["file"],
     )
     # Write
@@ -75,7 +75,7 @@ def test_write_and_read_via_capability(tmp_path):
 def test_edit_via_capability(tmp_path):
     """Edit files through capability handler."""
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["file"],
     )
     (agent.working_dir / "test.txt").write_text("hello world")
@@ -90,7 +90,7 @@ def test_edit_via_capability(tmp_path):
 def test_glob_via_capability(tmp_path):
     """Glob files through capability handler."""
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["file"],
     )
     (agent.working_dir / "a.py").write_text("pass")
@@ -106,7 +106,7 @@ def test_glob_via_capability(tmp_path):
 def test_grep_via_capability(tmp_path):
     """Grep files through capability handler."""
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["file"],
     )
     (agent.working_dir / "test.py").write_text("def hello():\n    pass\n")
@@ -120,7 +120,7 @@ def test_grep_via_capability(tmp_path):
 def test_base_agent_has_no_file_intrinsics(tmp_path):
     """BaseAgent should NOT have file intrinsics after phase 2."""
     from lingtai_kernel.base_agent import BaseAgent
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     for name in ("read", "write", "edit", "glob", "grep"):
         assert name not in agent._intrinsics, f"{name} should not be in BaseAgent intrinsics"
     agent.stop(timeout=1.0)
@@ -129,7 +129,7 @@ def test_base_agent_has_no_file_intrinsics(tmp_path):
 def test_base_agent_kernel_only(tmp_path):
     """BaseAgent should have exactly 4 intrinsics: mail, system, eigen, soul."""
     from lingtai_kernel.base_agent import BaseAgent
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path)
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     assert set(agent._intrinsics.keys()) == {"mail", "system", "eigen", "soul"}
     agent.stop(timeout=1.0)
 
@@ -139,7 +139,7 @@ def test_file_capability_uses_file_io_service(tmp_path):
     from lingtai.services.file_io import LocalFileIOService
     svc = LocalFileIOService(root=tmp_path)
     agent = Agent(
-        service=make_mock_service(), agent_name="test", agent_id="test", base_dir=tmp_path,
+        service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         file_io=svc,
         capabilities=["file"],
     )
