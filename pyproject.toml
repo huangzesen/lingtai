@@ -9,6 +9,9 @@ description = "Generic research agent with intrinsic tools and MCP-compatible ex
 requires-python = ">=3.11"
 dependencies = ["lingtai-kernel"]
 
+[project.scripts]
+lingtai = "lingtai.cli:main"
+
 [project.optional-dependencies]
 gemini = ["google-genai>=1.0"]
 openai = ["openai>=1.0"]
