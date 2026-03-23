@@ -217,11 +217,12 @@ def setup(agent: "BaseAgent") -> PsycheManager:
 
     # Auto-load character and memory into system prompt at boot
     mgr._character_load({})
+    mgr._memory_load({})
 
     # Register post-molt hook to reload character + memory
     if not hasattr(agent, "_post_molt_hooks"):
         agent._post_molt_hooks = []
-    agent._post_molt_hooks.append(lambda: mgr._character_load({}))
+    agent._post_molt_hooks.append(lambda: (mgr._character_load({}), mgr._memory_load({})))
 
     agent.add_tool(
         "psyche", schema=get_schema(lang), handler=mgr.handle, description=get_description(lang),
