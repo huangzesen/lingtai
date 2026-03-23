@@ -60,17 +60,17 @@ Public API: `from lingtai.services.websearch import SearchService, SearchResult,
 
 ## Provider Implementations
 
-Each file exports a single class. Constructor takes `api_key: str | None = None` plus any provider-specific kwargs. Validates key requirement at `__init__` time — not at `search()` time.
+Each file exports a single class. Constructor takes `api_key: str | None = None` plus any provider-specific kwargs. Validates key requirement at `__init__` time — not at `search()` time. Individual classes are importable from their modules but the primary entry point is `create_search_service()`.
 
-| Provider | Class | Needs `api_key` | How it searches |
-|----------|-------|-----------------|-----------------|
-| `duckduckgo` | `DuckDuckGoSearchService` | No | `ddgs` package scraping |
-| `minimax` | `MiniMaxSearchService` | Yes | MCP subprocess (`minimax-coding-plan-mcp`) |
-| `anthropic` | `AnthropicSearchService` | Yes | Anthropic API `web_search_20250305` tool |
-| `openai` | `OpenAISearchService` | Yes | `gpt-4o-search-preview` model call |
-| `gemini` | `GeminiSearchService` | Yes | `google.genai` with `GoogleSearch()` tool |
+| Provider | Class | Needs `api_key` | Other params | How it searches |
+|----------|-------|-----------------|--------------|-----------------|
+| `duckduckgo` | `DuckDuckGoSearchService` | No | — | `ddgs` package scraping |
+| `minimax` | `MiniMaxSearchService` | Yes | — | MCP subprocess (`minimax-coding-plan-mcp`) |
+| `anthropic` | `AnthropicSearchService` | Yes | — | Anthropic API `web_search_20250305` tool |
+| `openai` | `OpenAISearchService` | Yes | `model` (default: `gpt-4o-search-preview`) | OpenAI search model call |
+| `gemini` | `GeminiSearchService` | Yes | `model` (default from `capability_models.web_search`) | `google.genai` with `GoogleSearch()` tool |
 
-The search logic currently inside each adapter's `web_search()` moves into these classes. Same SDK calls, different home.
+The search logic currently inside each adapter's `web_search()` moves into these classes. Same SDK calls, different home. Providers that use an LLM model for search (OpenAI, Gemini) accept an optional `model` kwarg at construction to override the default.
 
 ### MiniMax specifics
 
@@ -120,14 +120,16 @@ class WebSearchManager:
 
 ## Adapter Cleanup
 
-Remove from all adapters (Anthropic, OpenAI, Gemini, MiniMax):
+Remove from all 4 adapters (Anthropic, OpenAI, Gemini, MiniMax):
 - `supports_web_search` property
 - `web_search()` method
 
-Remove from `lingtai_kernel/llm/base.py`:
-- `supports_web_search` property on `LLMAdapter` ABC
+The Custom adapter (`llm/custom/adapter.py`) is a factory that delegates to OpenAI, Anthropic, or Gemini. It does not define its own `web_search()` — it inherits from the delegate. Once the delegates lose `web_search()`, the Custom adapter is implicitly handled. No changes needed there.
 
-MiniMax adapter: `web_search()` removed. Other MCP tool methods (talk, compose, draw) stay on the adapter for now.
+Remove from `lingtai/llm/base.py` (not the kernel — the kernel's `LLMAdapter` ABC has no `supports_web_search`):
+- `supports_web_search` property on `LLMAdapter`
+
+MiniMax adapter: `web_search()` removed. Other MCP tool methods (talk, compose, draw) stay on the adapter for now. Update docstring/comments in `llm/minimax/mcp_client.py` (lines 7-8) to remove the web_search reference from the key documentation. Verify whether `get_minimax_mcp_client()` is still called by anything after web_search extraction — if only web_search used it, the singleton may become dead code.
 
 ## init.json Schema
 
@@ -160,7 +162,13 @@ Example configs:
 
 `from lingtai.services.search import SearchService, SearchResult` → broken. New path: `from lingtai.services.websearch import SearchService, SearchResult`.
 
-Check all internal imports and update. No re-export shim from old path — clean break per project conventions.
+No re-export shim from old path — clean break per project conventions.
+
+Affected files (exhaustive):
+- `src/lingtai/__init__.py` — re-exports `SearchService`, `LLMSearchService`, `SearchResult` from `services.search`. Update to `services.websearch`. Remove `LLMSearchService` from exports (eliminated). Add `create_search_service` to exports.
+- `src/lingtai/capabilities/web_search.py` — currently uses `Any` for search_service type. Will need to import `SearchService` and `create_search_service` from `services.websearch`.
+- `tests/test_agent.py` — references `services.search` in module path tests. Update path.
+- `tests/test_web_search_capability.py` — update all search-related imports.
 
 ### Programmatic API
 
@@ -179,14 +187,20 @@ Update `tests/test_web_search_capability.py`:
 - Test `setup()` error cases (no provider, missing required key)
 - Mock SDK calls in provider-specific tests
 
+## Out of Scope
+
+- **`web_read` capability** (`capabilities/web_read.py`, `services/web_read.py`) — adjacent but separate concern. Not affected by this refactor.
+- **init.json per-capability schema validation** — currently `init_schema.py` validates `manifest.capabilities` as `dict` only, not individual capability configs. Validation of `provider`/`api_key` happens at `setup()` time. This refactor does not change that pattern.
+
 ## Migration Checklist
 
 1. Create `services/websearch/` package with ABC, factory, and all 5 providers
 2. Update `capabilities/web_search.py` to use `SearchService` exclusively
-3. Remove `web_search()` and `supports_web_search` from all adapters
-4. Remove `supports_web_search` from kernel `LLMAdapter` ABC
+3. Remove `web_search()` and `supports_web_search` from all 4 adapters
+4. Remove `supports_web_search` from `lingtai/llm/base.py` `LLMAdapter`
 5. Delete `services/search.py`
-6. Update all internal imports
-7. Update init.json schema validation
-8. Update tests
-9. Smoke-test: `python -c "import lingtai"`
+6. Update all internal imports (see Backward Compatibility → Import paths for exhaustive list)
+7. Update `__init__.py` public API (remove `LLMSearchService`, add `create_search_service`)
+8. Update `llm/minimax/mcp_client.py` docstring (remove web_search reference)
+9. Update tests
+10. Smoke-test: `python -c "import lingtai"`
