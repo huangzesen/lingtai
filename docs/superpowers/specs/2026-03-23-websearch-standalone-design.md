@@ -129,7 +129,7 @@ The Custom adapter (`llm/custom/adapter.py`) is a factory that delegates to Open
 Remove from `lingtai/llm/base.py` (not the kernel — the kernel's `LLMAdapter` ABC has no `supports_web_search`):
 - `supports_web_search` property on `LLMAdapter`
 
-MiniMax adapter: `web_search()` removed. Other MCP tool methods (talk, compose, draw) stay on the adapter for now. Update docstring/comments in `llm/minimax/mcp_client.py` (lines 7-8) to remove the web_search reference from the key documentation. Verify whether `get_minimax_mcp_client()` is still called by anything after web_search extraction — if only web_search used it, the singleton may become dead code.
+MiniMax adapter: `web_search()` removed. Other MCP tool methods (talk, compose, draw) stay on the adapter for now. Update docstring in `llm/minimax/mcp_client.py` (line 7) from `MINIMAX_API_KEY — web_search, vision (code plan key)` to `MINIMAX_API_KEY — vision (code plan key)`. The `get_minimax_mcp_client()` singleton stays live — talk/compose/draw still use it.
 
 ## init.json Schema
 
@@ -176,7 +176,7 @@ Affected files (exhaustive):
 
 `Agent(capabilities={"web_search": {"provider": "minimax"}})` without `api_key` raises at setup time for providers that need it.
 
-`Agent(capabilities=["web_search"])` without any config → raises `ValueError` (no implicit fallback).
+`Agent(capabilities=["web_search"])` without any config → raises `ValueError` (no implicit fallback). This is a **breaking behavioral change** — agents that currently work with bare `capabilities=["web_search"]` (falling back to the agent's LLM provider at call time) will now fail at setup. This is intentional: explicit is better than implicit.
 
 ## Tests
 
