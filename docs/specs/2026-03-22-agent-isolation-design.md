@@ -289,14 +289,6 @@ agent = BaseAgent(service, working_dir=tmp_path / "test", ...)
 
 ---
 
-## Backward Compatibility
+## No Backward Compatibility
 
-### Existing agent directories on disk
-
-Agents created before this change have `agent_id` in their `.agent.json`. The `revive()` path in `agent.py` reads `agent_meta.get("agent_id")` and passes it to the constructor.
-
-**Strategy:** `revive()` in lingtai's `Agent` ignores `agent_id` from old manifests. The working directory path is derived from the directory itself (it was always `base_dir / agent_id`). On first write after migration, the new manifest omits `agent_id`. No migration utility needed — old manifests are forward-compatible because `address` already exists.
-
-### `LLMAdapter` import path
-
-All adapter implementations import `from lingtai_kernel.llm.base import LLMAdapter`. After moving `LLMAdapter` to `lingtai.llm.base`, these become local imports within lingtai — cleaner. Third-party adapters (if any) would break. Mitigation: kernel's `llm/__init__.py` can re-export `LLMAdapter` from lingtai for a transition period, or we accept the break since no third-party adapters exist today.
+This is a clean break. Old agent directories with `agent_id` in their manifests are not migrated. Recreate agents if needed.
