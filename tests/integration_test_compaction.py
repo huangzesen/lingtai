@@ -24,7 +24,7 @@ if env_path.exists():
             v = v.strip().strip("'\"")  # strip surrounding quotes
             os.environ.setdefault(k.strip(), v)
 
-from lingtai.llm.service import LLMService, get_context_limit
+from lingtai.llm.service import LLMService
 from lingtai_kernel.llm.interface import TextBlock
 
 
@@ -39,11 +39,7 @@ def main():
 
     print(f"Provider: {provider}")
     print(f"Model: {model}")
-    try:
-        ctx = get_context_limit(model)
-        print(f"Resolved context limit: {ctx:,} tokens")
-    except ValueError:
-        print(f"Model {model!r} not in built-in registry (will use adapter default)")
+    print(f"Context window: caller-provided (overridden to 8k for testing)")
     print()
 
     # Create service

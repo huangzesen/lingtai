@@ -18,7 +18,7 @@ from lingtai_kernel.llm.interface import (
     ToolResultBlock,
 )
 from lingtai_kernel.llm.base import ChatSession, FunctionSchema
-from lingtai.llm.service import LLMService, get_context_limit
+from lingtai.llm.service import LLMService
 
 
 # ---------------------------------------------------------------------------
@@ -190,25 +190,8 @@ class TestEstimateContextTokens:
 # Compaction is now handled by SessionManager internally, not via LLMService method.
 
 
-# ---------------------------------------------------------------------------
-# Tests — get_context_limit
-# ---------------------------------------------------------------------------
 
-
-class TestGetContextLimit:
-    """Tests for the context limit resolver."""
-
-    def test_raises_for_unknown_model(self):
-        """Unknown models raise ValueError."""
-        import pytest
-        with pytest.raises(ValueError, match="Unknown model"):
-            get_context_limit("completely-made-up-model-v99")
-
-    def test_raises_for_empty_string(self):
-        """Empty model name raises ValueError."""
-        import pytest
-        with pytest.raises(ValueError, match="model_name is required"):
-            get_context_limit("")
+# get_context_limit tests removed — context window is now caller-provided.
 
 
 # ---------------------------------------------------------------------------

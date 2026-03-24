@@ -1,7 +1,7 @@
 """LLMService — concrete implementation of the kernel ABC.
 
 Adapter-based LLM access: adapter registry, session management,
-one-shot generation, and model context-window lookup.
+and one-shot generation.
 
 Decoupled from any app-specific config system:
 - API key resolution via injected ``key_resolver`` callable (defaults to env vars)
@@ -11,6 +11,7 @@ Decoupled from any app-specific config system:
 from __future__ import annotations
 
 import os
+import threading
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -24,86 +25,6 @@ from lingtai_kernel.llm.interface import ChatInterface, ToolResultBlock
 from lingtai_kernel.llm.service import LLMService as LLMServiceABC
 
 from .base import LLMAdapter
-
-# ---------------------------------------------------------------------------
-# Model context-window registry (built-in, no external fetches)
-# ---------------------------------------------------------------------------
-
-# Known model context windows — prefix-matched, so "claude-sonnet-4" covers
-# all dated variants.  Maintained manually; update when new models ship.
-CONTEXT_WINDOWS: dict[str, int] = {
-    # Anthropic
-    "claude-opus-4":        200_000,
-    "claude-sonnet-4":      200_000,
-    "claude-haiku-4":       200_000,
-    "claude-3-5-sonnet":    200_000,
-    "claude-3-5-haiku":     200_000,
-    "claude-3-opus":        200_000,
-    "claude-3-sonnet":      200_000,
-    "claude-3-haiku":       200_000,
-    # Google Gemini
-    "gemini-3-flash":     1_000_000,
-    "gemini-2.5-pro":     1_000_000,
-    "gemini-2.5-flash":   1_000_000,
-    "gemini-2.0-flash":   1_048_576,
-    "gemini-1.5-pro":     2_097_152,
-    "gemini-1.5-flash":   1_048_576,
-    # OpenAI
-    "gpt-4.1":              1_047_576,
-    "gpt-4.1-mini":         1_047_576,
-    "gpt-4.1-nano":         1_047_576,
-    "gpt-4o":               128_000,
-    "gpt-4o-mini":          128_000,
-    "gpt-4-turbo":          128_000,
-    "o3":                   200_000,
-    "o3-mini":              200_000,
-    "o4-mini":              200_000,
-    # MiniMax
-    "MiniMax-M2":           200_000,
-    # DeepSeek
-    "deepseek-chat":        128_000,
-    "deepseek-reasoner":    128_000,
-    # Qwen
-    "qwen-max":             128_000,
-    "qwen-plus":            128_000,
-    "qwen-turbo":           128_000,
-    "qwen3":                128_000,
-    # GLM
-    "glm-4":                128_000,
-    # Kimi
-    "moonshot-v1":          128_000,
-    # Grok
-    "grok-3":               131_072,
-    "grok-3-mini":          131_072,
-}
-
-
-def get_context_limit(model_name: str) -> int:
-    """Return context window size for a model.
-
-    Raises ValueError if the model is not in the built-in registry.
-
-    Resolution: exact match, then longest prefix match.
-    """
-    if not model_name:
-        raise ValueError("model_name is required for context window lookup")
-
-    # Exact match
-    if model_name in CONTEXT_WINDOWS:
-        return CONTEXT_WINDOWS[model_name]
-
-    # Longest prefix match
-    best, best_len = 0, 0
-    for prefix, limit in CONTEXT_WINDOWS.items():
-        if model_name.startswith(prefix) and len(prefix) > best_len:
-            best, best_len = limit, len(prefix)
-    if best > 0:
-        return best
-
-    raise ValueError(
-        f"Unknown model {model_name!r} — not in CONTEXT_WINDOWS registry. "
-        f"Add it to lingtai.llm.service.CONTEXT_WINDOWS or pass context_window= explicitly."
-    )
 
 
 def _generate_session_id() -> str:
@@ -151,9 +72,11 @@ class LLMService(LLMServiceABC):
         base_url: str | None = None,
         key_resolver: Callable[[str], str | None] | None = None,
         provider_defaults: dict | None = None,
+        context_window: int = 1_000_000,
     ) -> None:
         self._provider = provider.lower()
         self._model = model
+        self._context_window = context_window
         self._base_url = base_url
         self._key_resolver = key_resolver or (lambda p: os.environ.get(f"{p.upper()}_API_KEY"))
         self._provider_defaults = provider_defaults or {}
@@ -263,15 +186,20 @@ class LLMService(LLMServiceABC):
         force_tool_call: bool = False,
         provider: str | None = None,
         interface: ChatInterface | None = None,
+        context_window: int | None = None,
     ) -> ChatSession:
         """Start a new multi-turn conversation.
 
         Returns a ChatSession with a .session_id assigned.
         If *interface* is provided, restores an existing conversation history.
+
+        Args:
+            context_window: Override the service-level context window for this
+                session.  Falls back to the value passed at LLMService construction.
         """
         adapter = self.get_adapter(provider) if provider else self.get_adapter(self._provider, self._base_url)
         session_model = model or self._model
-        ctx_window = get_context_limit(session_model)
+        ctx_window = context_window or self._context_window
         chat = adapter.create_chat(
             model=session_model,
             system_prompt=system_prompt,
@@ -293,7 +221,10 @@ class LLMService(LLMServiceABC):
             chat._tracked = False
         return chat
 
-    def resume_session(self, saved_state: dict, *, thinking: str = "high") -> ChatSession:
+    def resume_session(
+        self, saved_state: dict, *, thinking: str = "high",
+        context_window: int | None = None,
+    ) -> ChatSession:
         """Restore a session from a saved state dict."""
         session_id = saved_state.get("session_id", "")
         messages = saved_state.get("messages", [])
@@ -304,7 +235,7 @@ class LLMService(LLMServiceABC):
         # Restore tools from interface so adapters can build provider-specific format
         tools = FunctionSchema.from_dicts(interface.current_tools)
 
-        ctx_window = get_context_limit(self._model)
+        ctx_window = context_window or self._context_window
         chat = self.get_adapter(self._provider, self._base_url).create_chat(
             model=self._model,
             system_prompt=interface.current_system_prompt or "",
