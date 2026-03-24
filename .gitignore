@@ -30,6 +30,14 @@ scatter_plot.*
 test/
 playground
 
+# App runtime configs (may contain secrets)
+app/email/config.json
+app/web/config.json
+
+# Frontend build artifacts and deps
+app/web/frontend/dist/
+node_modules/
+
 # Superpowers brainstorm sessions
 .superpowers/
 

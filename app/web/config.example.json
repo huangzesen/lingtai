@@ -1,0 +1,71 @@
+{
+  "provider": "minimax",
+  "model": "MiniMax-M2.5-highspeed",
+  "api_key_env": "MINIMAX_API_KEY",
+  "base_url": "https://api.minimaxi.com/anthropic",
+  "max_rpm": 120,
+  "max_turns": 20,
+  "dashboard_port": 8080,
+
+  "providers": {
+    "minimax": {
+      "api_key_env": "MINIMAX_API_KEY",
+      "base_url": "https://api.minimaxi.com/anthropic",
+      "model": "MiniMax-M2.5-highspeed",
+      "max_rpm": 120
+    },
+    "gemini": {
+      "api_key_env": "GEMINI_API_KEY",
+      "model": "gemini-3-flash-preview"
+    },
+    "openrouter": {
+      "api_compat": "openai",
+      "api_key_env": "OPEN_ROUTER_API_KEY",
+      "base_url": "https://openrouter.ai/api/v1",
+      "model": "anthropic/claude-sonnet-4.6"
+    },
+    "deepseek": {
+      "api_compat": "openai",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "base_url": "https://api.deepseek.com",
+      "model": "deepseek-chat"
+    },
+    "ollama": {
+      "api_compat": "openai",
+      "api_key_env": "OLLAMA_API_KEY",
+      "base_url": "http://localhost:11434/v1",
+      "model": "llama3"
+    }
+  },
+
+  "addons": {
+    "web_search": {
+      "provider": "minimax",
+      "api_key_env": "MINIMAX_API_KEY",
+      "base_url": null
+    },
+    "vision": {
+      "provider": "minimax",
+      "api_key_env": "MINIMAX_API_KEY",
+      "base_url": null
+    },
+    "talk": {
+      "provider": "minimax",
+      "api_key_env": "MINIMAX_MCP_API_KEY",
+      "base_url": null
+    },
+    "compose": {
+      "provider": "minimax",
+      "api_key_env": "MINIMAX_MCP_API_KEY",
+      "base_url": null
+    },
+    "draw": {
+      "provider": "minimax",
+      "api_key_env": "MINIMAX_MCP_API_KEY",
+      "base_url": null
+    },
+    "listen": {
+      "provider": null
+    }
+  }
+}
