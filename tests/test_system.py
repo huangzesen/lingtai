@@ -216,7 +216,7 @@ def test_system_nap_negative_seconds(tmp_path):
 
 
 def test_system_self_quell(tmp_path):
-    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
+    agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test", admin={"karma": True})
     result = agent._intrinsics["system"]({"action": "quell", "reason": "need bash"})
     assert result["status"] == "ok"
     assert agent._shutdown.is_set()

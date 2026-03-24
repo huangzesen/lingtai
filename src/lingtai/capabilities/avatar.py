@@ -162,7 +162,7 @@ class AvatarManager:
         memory = args.get("memory", "")
         admin = args.get("admin") or {}
 
-        requested = args.get("capabilities")
+        requested = args.get("capabilities") or None  # empty list → None (inherit all)
         caps: dict[str, dict] = {}
         cap_names: list[str] = []
         for cap_name, cap_kwargs in parent._capabilities:

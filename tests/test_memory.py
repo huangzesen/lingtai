@@ -129,12 +129,22 @@ def test_memory_edit_then_load(tmp_path):
     agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     agent.start()
     try:
-        agent._intrinsics["eigen"]({"object": "memory", "action": "edit", "content": "important fact"})
-        result = agent._intrinsics["eigen"]({"object": "memory", "action": "load"})
+        # edit writes content and auto-loads into prompt manager
+        result = agent._intrinsics["eigen"]({"object": "memory", "action": "edit", "content": "important fact"})
         assert result["status"] == "ok"
-        assert result["diff"]["changed"] is True
+
+        # Verify file was written
+        memory_file = agent.working_dir / "system" / "memory.md"
+        assert memory_file.read_text() == "important fact"
+
+        # Prompt manager should have the content (auto-loaded by edit)
         section = agent._prompt_manager.read_section("memory")
         assert "important fact" in section
+
+        # Second load call should not detect new changes (file unchanged)
+        result = agent._intrinsics["eigen"]({"object": "memory", "action": "load"})
+        assert result["status"] == "ok"
+        # changed=False because file was already committed by edit's internal load
     finally:
         agent.stop()
 
