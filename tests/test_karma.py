@@ -131,7 +131,7 @@ class TestSystemIntrinsicKarma:
         result = handle(agent, {"action": "nirvana", "address": str(agent.working_dir)})
         assert "error" in result
 
-    def test_revive_rejects_alive_target(self, tmp_path):
+    def test_cpr_rejects_alive_target(self, tmp_path):
         target_dir = tmp_path / "target"
         target_dir.mkdir()
         (target_dir / ".agent.json").write_text('{"agent_id": "t1"}')
@@ -141,28 +141,29 @@ class TestSystemIntrinsicKarma:
         sender_base.mkdir()
         agent = _make_agent(sender_base, admin={"karma": True})
         from lingtai_kernel.intrinsics.system import handle
-        result = handle(agent, {"action": "revive", "address": str(target_dir)})
+        result = handle(agent, {"action": "cpr", "address": str(target_dir)})
         assert "error" in result
         assert "already running" in result["message"]
 
-    def test_revive_without_handler_returns_error(self, tmp_path):
+    def test_cpr_without_handler_returns_error(self, tmp_path):
         target_dir = tmp_path / "target"
         target_dir.mkdir()
-        (target_dir / ".agent.json").write_text('{"agent_id": "t1"}')
+        # admin={} so is_human returns False (admin is not None)
+        (target_dir / ".agent.json").write_text('{"agent_id": "t1", "admin": {}}')
 
         sender_base = tmp_path / "sender"
         sender_base.mkdir()
         agent = _make_agent(sender_base, admin={"karma": True})
         from lingtai_kernel.intrinsics.system import handle
-        result = handle(agent, {"action": "revive", "address": str(target_dir)})
+        result = handle(agent, {"action": "cpr", "address": str(target_dir)})
         assert "error" in result
         assert "not supported" in result["message"].lower()
 
 
-class TestReviveLingtai:
-    """Revive via lingtai Agent (full reconstruction)."""
+class TestCPRLingtai:
+    """CPR via lingtai Agent (full reconstruction)."""
 
-    def test_revive_reconstructs_agent(self, tmp_path):
+    def test_cpr_reconstructs_agent(self, tmp_path):
         from lingtai.agent import Agent
 
         svc = MagicMock()
@@ -183,7 +184,7 @@ class TestReviveLingtai:
         assert llm_config["provider"] == "mock"
         assert llm_config["model"] == "test-model"
 
-    def test_revive_agent_hook_returns_agent(self, tmp_path):
+    def test_cpr_agent_hook_returns_agent(self, tmp_path):
         from lingtai.agent import Agent
         from unittest.mock import patch
 
@@ -200,7 +201,7 @@ class TestReviveLingtai:
                        agent_name="bob")
         target_dir = str(target.working_dir)
 
-        # Create the reviving agent
+        # Create the agent that will perform CPR
         reviver_dir = tmp_path / "reviver"
         reviver_dir.mkdir()
         reviver = Agent(svc, working_dir=reviver_dir / "admin000001",
@@ -217,7 +218,7 @@ class TestReviveLingtai:
         mock_svc._base_url = None
 
         with patch("lingtai.agent.LLMService", return_value=mock_svc):
-            revived = reviver._revive_agent(target_dir)
+            resuscitated = reviver._cpr_agent(target_dir)
 
-        assert revived is not None
-        assert revived.agent_name == "bob"
+        assert resuscitated is not None
+        assert resuscitated.agent_name == "bob"

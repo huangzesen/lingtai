@@ -204,8 +204,8 @@ class Agent(BaseAgent):
                 logger.warning("[%s] MCP %s: failed to load: %s",
                                self.agent_name, name, e)
 
-    def _revive_agent(self, address: str) -> "Agent | None":
-        """Reconstruct and start a dormant agent from its working dir."""
+    def _cpr_agent(self, address: str) -> "Agent | None":
+        """Resuscitate a suspended agent from its working dir."""
         import json
         from lingtai_kernel.handshake import is_agent, manifest
         from lingtai_kernel.config import AgentConfig
