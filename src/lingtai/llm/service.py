@@ -221,36 +221,6 @@ class LLMService(LLMServiceABC):
             chat._tracked = False
         return chat
 
-    def resume_session(
-        self, saved_state: dict, *, thinking: str = "high",
-        context_window: int | None = None,
-    ) -> ChatSession:
-        """Restore a session from a saved state dict."""
-        session_id = saved_state.get("session_id", "")
-        messages = saved_state.get("messages", [])
-        metadata = saved_state.get("metadata", {})
-
-        interface = ChatInterface.from_dict(messages)
-
-        # Restore tools from interface so adapters can build provider-specific format
-        tools = FunctionSchema.from_dicts(interface.current_tools)
-
-        ctx_window = context_window or self._context_window
-        chat = self.get_adapter(self._provider, self._base_url).create_chat(
-            model=self._model,
-            system_prompt=interface.current_system_prompt or "",
-            tools=tools,
-            interface=interface,
-            thinking=thinking,
-            context_window=ctx_window,
-        )
-        chat.session_id = session_id or _generate_session_id()
-        chat._agent_type = metadata.get("agent_type", "")
-        chat._tracked = metadata.get("tracked", True)
-        if chat._tracked:
-            self._sessions[chat.session_id] = chat
-        return chat
-
     def get_session(self, session_id: str) -> ChatSession | None:
         """Look up an active session by ID."""
         return self._sessions.get(session_id)
