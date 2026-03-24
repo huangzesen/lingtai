@@ -47,14 +47,9 @@
   "library.limit": "filter 返回的最大条目数。",
   "library.depth": "view 的深度。'content'（默认）：id + 标题 + 摘要 + 正文。'supplementary'：含扩展材料。",
 
-  "avatar.description": "创建一个子智能体——源于你自身、一经创建便独立运行的智能体。每个子智能体在自己的 TCP 端口上运行，拥有独立对话，与灵台中所有其他智能体平等。使用 mail 或 email 与子智能体通信。如果指定名称的子智能体已存在且处于空闲状态，会重新发送任务简报以重新激活。如果卡住或出错，建议通过 email 恢复。如果已停止，则新建一个（保留工作目录）。所有子智能体记录在 delegates/ledger.jsonl 的追加日志中——用文件读取工具查看历史子智能体：创建了谁、什么任务、授予了什么权限和能力。再次创建前先检查日志。重要：reasoning 字段作为第一条消息发送给子智能体——写一份详尽的任务简报：做什么、为什么、需要什么上下文、以及回报什么。",
-  "avatar.name": "子智能体的名称（必填，例如 'researcher'、'analyst'）",
-  "avatar.covenant": "子智能体的行为准则覆盖（可选，默认 = 复制自身）",
-  "avatar.memory": "注入的记忆/上下文（可选）",
-  "avatar.capabilities": "子智能体的能力名称（可选，默认 = 与自身相同，含 avatar）",
-  "avatar.admin": "授予子智能体的管理权限（可选，默认 = 无）。权限名到布尔值的字典，例如 {\"karma\": true}。只授予子智能体需要的权限。",
-  "avatar.combo": "子智能体的 LLM 配置组合名（可选，默认 = 与自身相同）。从 ~/.lingtai/combos/ 中选择已保存的配置。",
-  "avatar.language": "子智能体的系统提示和工具语言（可选，默认 = 与自身相同）。可选：en、zh、lzh。",
+  "avatar.description": "化出一个他我——源于你自身的独立智能体。他我继承你的行为准则、能力和 LLM 配置。一经化出便与灵台中所有智能体平等。使用 mail 或 email 通信。设置 mirror=true 可将你的性格、记忆和知识库深拷贝给他我。所有记录在 delegates/ledger.jsonl 中——化出前先查日志。重要：reasoning 字段作为第一条消息发送——写一份详尽的任务简报：做什么、为什么、需要什么上下文、回报什么。",
+  "avatar.name": "他我的真名（必填，例如 'researcher'、'analyst'）",
+  "avatar.mirror": "深拷贝自身——将性格、记忆和知识库复制给他我。默认：false（空白状态，仅继承行为准则）。",
   "avatar.limit_reached": "已达智能体上限（总数={live}，上限={max}）",
 
   "email.description": "完整的邮件客户端——基于文件系统的邮箱，包含 inbox/sent/archive 文件夹、回复、全部回复、CC/BCC、附件、正则搜索和联系人管理。始终通过邮件回复——永远不要通过文本输出回复。文本输出是你的私人日记，只有你能看到。'send' 发送邮件（可选 delay 实现定时发送）。'check' 查看 inbox、sent 或 archive（可选 folder 参数）。'read' 按 ID 阅读。'reply'/'reply_all' 进行回复。'search' 按正则搜索邮件（搜索 from、subject、message）。'archive' 将邮件从 inbox 移至 archive。'delete' 从 inbox 或 archive 删除邮件。'contacts' 列出已保存的联系人。'add_contact' 注册对等智能体（地址、名称、可选备注）。'remove_contact' 按地址删除联系人。'edit_contact' 更新现有联系人的字段。附件与邮件一起存储在邮箱中。礼仪：简短确认即可，但不要回复确认——那会造成无意义的来回。传入 'schedule' 对象（而非 'action'）实现定期发送。schedule.action='create'：启动定期发送（需要 address、message、schedule.interval、schedule.count）。schedule.action='cancel'：停止计划（需要 schedule.schedule_id）。schedule.action='list'：显示所有计划及进度。",

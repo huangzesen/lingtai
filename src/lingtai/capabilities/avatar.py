@@ -12,12 +12,13 @@ tool's only job is to spawn avatars (分身).
 
 Usage:
     Agent(capabilities=["avatar"])
-    # avatar(name="researcher", ...)   — spawn a new avatar
+    # avatar(name="researcher")           — spawn a blank avatar
+    # avatar(name="clone", mirror=True)   — spawn a deep copy of self
 """
 from __future__ import annotations
 
 import json
-import os
+import shutil
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -39,31 +40,9 @@ def get_schema(lang: str = "en") -> dict:
                 "type": "string",
                 "description": t(lang, "avatar.name"),
             },
-            "covenant": {
-                "type": "string",
-                "description": t(lang, "avatar.covenant"),
-            },
-            "memory": {
-                "type": "string",
-                "description": t(lang, "avatar.memory"),
-            },
-            "capabilities": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": t(lang, "avatar.capabilities"),
-            },
-            "admin": {
-                "type": "object",
-                "description": t(lang, "avatar.admin"),
-            },
-            "combo": {
-                "type": "string",
-                "description": t(lang, "avatar.combo"),
-            },
-            "language": {
-                "type": "string",
-                "enum": ["en", "zh", "lzh"],
-                "description": t(lang, "avatar.language"),
+            "mirror": {
+                "type": "boolean",
+                "description": t(lang, "avatar.mirror"),
             },
         },
         "required": ["name"],
@@ -86,16 +65,6 @@ class AvatarManager:
         self._agent = agent
         self._max_agents = max_agents  # 0 = unlimited
         self._peers: dict[str, "Agent"] = {}  # name -> live Agent reference
-
-        # Load parent's combo for default avatar LLM config
-        try:
-            combo_path = Path(agent._working_dir) / "combo.json"
-            if combo_path.is_file():
-                self._parent_combo = json.loads(combo_path.read_text(encoding="utf-8"))
-            else:
-                self._parent_combo = None
-        except (json.JSONDecodeError, OSError, TypeError):
-            self._parent_combo = None
 
     # ------------------------------------------------------------------
     # Handler
@@ -130,6 +99,7 @@ class AvatarManager:
         parent = self._agent
         reasoning = args.get("_reasoning")
         peer_name = args.get("name", "avatar")
+        mirror = args.get("mirror", False)
 
         # Check if this peer already exists and is live
         existing = self._peers.get(peer_name)
@@ -157,62 +127,31 @@ class AvatarManager:
                 lang = parent._config.language
                 return {"error": t(lang, "avatar.limit_reached", live=live, max=self._max_agents)}
 
-        # Resolve spawn parameters
-        covenant = args.get("covenant") or parent._prompt_manager.read_section("covenant") or ""
-        memory = args.get("memory", "")
-        admin = args.get("admin") or {}
+        # Always inherit parent's covenant
+        covenant = parent._prompt_manager.read_section("covenant") or ""
 
-        requested = args.get("capabilities") or None  # empty list → None (inherit all)
+        # All capabilities inherited from parent
         caps: dict[str, dict] = {}
         cap_names: list[str] = []
         for cap_name, cap_kwargs in parent._capabilities:
-            if requested is not None and cap_name not in requested:
-                continue
             caps[cap_name] = dict(cap_kwargs)
             cap_names.append(cap_name)
 
-        # Spawn peer agent
+        # Working dir: sibling of parent
         import secrets
         avatar_id = secrets.token_hex(3)
         avatar_working_dir = parent._working_dir.parent / avatar_id
         mail_svc = FilesystemMailService(working_dir=avatar_working_dir)
 
-        # Resolve combo for LLM config
-        combo_name = args.get("combo")
-        if combo_name:
-            combo_path = Path.home() / ".lingtai" / "combos" / f"{combo_name}.json"
-            if not combo_path.is_file():
-                return {"error": f"Combo not found: {combo_name}"}
-            combo_data = json.loads(combo_path.read_text(encoding="utf-8"))
-        elif self._parent_combo:
-            combo_data = self._parent_combo
-            combo_name = combo_data.get("name", "")
-        else:
-            combo_data = None
-
-        if combo_data:
-            model_cfg = combo_data.get("model", {})
-            peer_provider = model_cfg.get("provider", parent._config.provider)
-            peer_model = model_cfg.get("model", parent._config.model)
-            # Set API key from combo's env section
-            env_vars = combo_data.get("env", {})
-            for key, val in env_vars.items():
-                if val:
-                    os.environ.setdefault(key, val)
-        else:
-            peer_provider = parent._config.provider
-            peer_model = parent._config.model
-
-        peer_language = args.get("language") or parent._config.language
-
+        # Inherit parent's LLM config
         from lingtai_kernel.config import AgentConfig
         peer_config = AgentConfig(
             max_turns=parent._config.max_turns,
-            provider=peer_provider,
-            model=peer_model,
+            provider=parent._config.provider,
+            model=parent._config.model,
             retry_timeout=parent._config.retry_timeout,
             thinking_budget=parent._config.thinking_budget,
-            language=peer_language,
+            language=parent._config.language,
         )
 
         avatar = Agent(
@@ -223,21 +162,20 @@ class AvatarManager:
             working_dir=avatar_working_dir,
             streaming=parent._streaming,
             covenant=covenant,
-            memory=memory,
             capabilities=caps,
-            admin=admin,
-            combo_name=combo_name or "",
+            admin={},
         )
+
+        # Mirror: copy identity files from parent before start
+        if mirror:
+            self._copy_identity(parent._working_dir, avatar._working_dir)
+
         avatar.start()
 
-        # Copy combo.json to the avatar's working dir
-        if combo_data:
-            combo_json_path = avatar._working_dir / "combo.json"
-            combo_json_path.parent.mkdir(parents=True, exist_ok=True)
-            combo_json_path.write_text(
-                json.dumps(combo_data, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
+        # Copy combo.json if parent has one
+        combo_path = parent._working_dir / "combo.json"
+        if combo_path.is_file():
+            shutil.copy2(combo_path, avatar._working_dir / "combo.json")
 
         if reasoning:
             avatar.send(reasoning, sender=str(parent._working_dir))
@@ -250,12 +188,11 @@ class AvatarManager:
             address=address,
             working_dir=str(avatar._working_dir),
             mission=reasoning or "",
-            privileges=admin,
             capabilities=cap_names,
-            combo=combo_name or "",
-            provider=peer_provider,
-            model=peer_model,
-            language=peer_language,
+            mirror=mirror,
+            provider=parent._config.provider,
+            model=parent._config.model,
+            language=parent._config.language,
         )
 
         return {
@@ -264,38 +201,47 @@ class AvatarManager:
             "agent_name": avatar.agent_name,
         }
 
+    # ------------------------------------------------------------------
+    # Mirror — deep copy identity files
+    # ------------------------------------------------------------------
 
-def _build_schema(agent: "Agent") -> dict:
-    """Build avatar schema with available combos from ~/.lingtai/combos/."""
-    import copy
-    lang = agent._config.language
-    schema = copy.deepcopy(get_schema(lang))
+    @staticmethod
+    def _copy_identity(src: Path, dst: Path) -> None:
+        """Copy identity files from parent to avatar working directory."""
+        # system/character.md
+        src_char = src / "system" / "character.md"
+        if src_char.is_file():
+            dst_char = dst / "system" / "character.md"
+            dst_char.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_char, dst_char)
 
-    # Scan ~/.lingtai/combos/*.json for saved combo names
-    combos_dir = Path.home() / ".lingtai" / "combos"
-    combo_names: list[str] = []
-    if combos_dir.is_dir():
-        for p in sorted(combos_dir.glob("*.json")):
-            try:
-                data = json.loads(p.read_text(encoding="utf-8"))
-                name = data.get("name", p.stem)
-                combo_names.append(name)
-            except (json.JSONDecodeError, OSError):
-                continue
+        # system/memory.md
+        src_mem = src / "system" / "memory.md"
+        if src_mem.is_file():
+            dst_mem = dst / "system" / "memory.md"
+            dst_mem.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_mem, dst_mem)
 
-    if combo_names:
-        schema["properties"]["combo"]["enum"] = combo_names
-    else:
-        # No combos available — remove combo property (parent's combo is the only option)
-        schema["properties"].pop("combo", None)
+        # library/library.json
+        src_lib = src / "library" / "library.json"
+        if src_lib.is_file():
+            dst_lib = dst / "library" / "library.json"
+            dst_lib.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_lib, dst_lib)
 
-    return schema
+        # exports/ directory
+        src_exports = src / "exports"
+        if src_exports.is_dir():
+            dst_exports = dst / "exports"
+            if dst_exports.exists():
+                shutil.rmtree(dst_exports)
+            shutil.copytree(src_exports, dst_exports)
 
 
 def setup(agent: "Agent", max_agents: int = 0) -> AvatarManager:
     """Set up the avatar capability on an agent."""
     lang = agent._config.language
     mgr = AvatarManager(agent, max_agents=max_agents)
-    schema = _build_schema(agent)
+    schema = get_schema(lang)
     agent.add_tool("avatar", schema=schema, handler=mgr.handle, description=get_description(lang))
     return mgr

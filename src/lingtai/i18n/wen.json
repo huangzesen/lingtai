@@ -47,14 +47,9 @@
   "library.limit": "filter 返回之最大条目数。",
   "library.depth": "view 之深度。'content'（默认）：id + 题 + 摘要 + 正文。'supplementary'：含扩展材料。",
 
-  "avatar.description": "身外化身——化出一他我，源于本我，一经化出便为独立个体。每他我于独立 TCP 端口运行，拥独立对话，与灵台中一切他我平等。以传书或飞鸽与他我通信。若所命名之他我已在且空闲，重发任务简报以再激活。若卡滞或出错，建议以飞鸽恢复。若已止，则新化（保留工作目录）。诸他我记录于 delegates/ledger.jsonl 之追加日志——以阅卷之器查阅：化何人、何任务、授何权何能。再化之前先查日志。要紧：reasoning 字段作为第一消息发予他我——书一份详尽之任务简报：做何事、为何做、需何上下文、回报何物。",
-  "avatar.name": "他我之名（必填，如'researcher'、'analyst'）",
-  "avatar.covenant": "他我之 covenant 覆盖（可选，默认复制本我）",
-  "avatar.memory": "注入之记忆/上下文（可选）",
-  "avatar.capabilities": "他我之能力名称（可选，默认与本我同，含 avatar）",
-  "avatar.admin": "授予他我之管理权（可选，默认无）。权限名至布尔之字典，如 {\"karma\": true}。只授他我所需之权。",
-  "avatar.combo": "他我之 LLM 配置组合名（可选，默认与本我同）。自 ~/.lingtai/combos/ 中择已存之配置。",
-  "avatar.language": "他我之系统提示与工具之言（可选，默认与本我同）。可择：en、zh、lzh。",
+  "avatar.description": "身外化身——化出一他我，源于本我，一经化出便为独立个体。他我承本我之约、能、与模型之配。与灵台中一切他我平等。以传书或飞鸽通信。设 mirror=true 可将本我之性格、记忆、知识深拷予他我。诸他我记录于 delegates/ledger.jsonl——再化之前先查日志。要紧：reasoning 字段作为第一消息发予他我——书一份详尽之任务简报：做何事、为何做、需何上下文、回报何物。",
+  "avatar.name": "他我之真名（必填，如'researcher'、'analyst'）",
+  "avatar.mirror": "深拷本我——将性格、记忆、知识库拷予他我。默认：false（白纸状态，仅承约）。",
   "avatar.limit_reached": "诸我已满（总数={live}，上限={max}）",
 
   "email.description": "飞鸽传书——完备之邮驿，含收信/已发/典藏诸匣、回书、群复、CC/BCC、附件、正则检索与通讯录。凡回复必以飞鸽——切勿以文字输出作复。文字输出乃汝之私记，唯汝可见。'send'飞鸽传书（可选 delay 以定时发送）。'check'查阅收信、已发或典藏（可选 folder）。'read'以 ID 展信。'reply'/'reply_all'回书/群复。'search'以正则式搜信（搜 from、subject、message）。'archive'将收信归入典藏。'delete'焚信。'contacts'查阅通讯录。'add_contact'添友。'remove_contact'删友。'edit_contact'改友。附件与书信同存于邮匣。礼：简短知悉即可，然勿回复知悉——徒增往复。传入'schedule'对象（替'action'）以定期发信。schedule.action='create'：设定期发信（须 address、message、schedule.interval、schedule.count）。schedule.action='cancel'：撤期（须 schedule.schedule_id）。schedule.action='list'：查阅诸定期及进度。",

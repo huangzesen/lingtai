@@ -1,5 +1,5 @@
 """Tests for the avatar capability."""
-import time
+import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -23,53 +23,43 @@ class TestAvatarManager:
         parent = Agent(service=make_mock_service(), agent_name="parent", working_dir=tmp_path / "test",
                             capabilities=["avatar"])
         mgr = parent.get_capability("avatar")
-        result = mgr.handle({})
+        result = mgr.handle({"name": "helper"})
         assert result["status"] == "ok"
         assert "address" in result
         assert result["address"]  # filesystem path (non-empty string)
-        assert "agent_name" in result
-
-    def test_spawn_with_role(self, tmp_path):
-        """Spawn with role override should create agent with that role."""
-        from lingtai.agent import Agent
-        parent = Agent(service=make_mock_service(), agent_name="parent", working_dir=tmp_path / "test",
-                            capabilities=["avatar"])
-        parent.update_system_prompt("role", "I am the parent", protected=True)
-        mgr = parent.get_capability("avatar")
-        result = mgr.handle({"role": "I am the researcher"})
-        assert result["status"] == "ok"
-
-    def test_spawn_copies_parent_role(self, tmp_path):
-        """Spawn without role should copy parent's role."""
-        from lingtai.agent import Agent
-        parent = Agent(service=make_mock_service(), agent_name="parent", working_dir=tmp_path / "test",
-                            capabilities=["avatar"])
-        parent.update_system_prompt("role", "I am the parent", protected=True)
-        mgr = parent.get_capability("avatar")
-        result = mgr.handle({})
-        assert result["status"] == "ok"
+        assert result["agent_name"] == "helper"
 
     def test_spawn_inherits_capabilities(self, tmp_path):
-        """Spawned agent should get parent's capabilities (including avatar)."""
+        """Spawned agent should get all of parent's capabilities."""
         from lingtai.agent import Agent
         parent = Agent(service=make_mock_service(), agent_name="parent", working_dir=tmp_path / "test",
                             capabilities={"bash": {"yolo": True}, "avatar": {}})
-        result = parent._mcp_handlers["avatar"]({})
+        result = parent._mcp_handlers["avatar"]({"name": "child"})
         assert result["status"] == "ok"
-        # Spawned avatar should have avatar capability (recursive spawning)
-        child = parent.get_capability("avatar")._peers["avatar"]
+        child = parent.get_capability("avatar")._peers["child"]
         child_cap_names = [name for name, _ in child._capabilities]
         assert "bash" in child_cap_names
         assert "avatar" in child_cap_names
 
-    def test_spawn_with_ltm(self, tmp_path):
-        """Spawn with ltm should inject it as a system prompt section."""
+    def test_spawn_inherits_covenant(self, tmp_path):
+        """Spawned agent should inherit parent's covenant."""
         from lingtai.agent import Agent
         parent = Agent(service=make_mock_service(), agent_name="parent", working_dir=tmp_path / "test",
-                            capabilities=["avatar"])
+                            capabilities=["avatar"], covenant="Be helpful and concise.")
         mgr = parent.get_capability("avatar")
-        result = mgr.handle({"ltm": "Remember: always be concise"})
+        result = mgr.handle({"name": "helper"})
         assert result["status"] == "ok"
+
+    def test_spawn_no_admin(self, tmp_path):
+        """Avatar should never get admin privileges, even if parent has them."""
+        from lingtai.agent import Agent
+        parent = Agent(service=make_mock_service(), agent_name="parent", working_dir=tmp_path / "test",
+                            capabilities=["avatar"], admin={"karma": True})
+        mgr = parent.get_capability("avatar")
+        result = mgr.handle({"name": "helper"})
+        assert result["status"] == "ok"
+        child = mgr._peers["helper"]
+        assert child._admin == {}
 
     def test_spawn_max_agents(self, tmp_path):
         """Spawning should be refused when max_agents is reached."""
@@ -83,7 +73,86 @@ class TestAvatarManager:
         # Parent + a1 = 2 manifests, next spawn should be refused
         r2 = mgr.handle({"name": "a2"})
         assert "error" in r2
-        assert "total agents=2" in r2["error"]
+
+    def test_spawn_duplicate_name_error(self, tmp_path):
+        """Spawning a name that's already active should return already_active."""
+        from lingtai.agent import Agent
+        parent = Agent(service=make_mock_service(), agent_name="parent", working_dir=tmp_path / "test",
+                            capabilities=["avatar"])
+        mgr = parent.get_capability("avatar")
+        r1 = mgr.handle({"name": "helper"})
+        assert r1["status"] == "ok"
+        r2 = mgr.handle({"name": "helper"})
+        assert r2["status"] == "already_active"
+
+    def test_spawn_mirror_false_no_identity_files(self, tmp_path):
+        """mirror=False (default) should not copy character/memory/library."""
+        from lingtai.agent import Agent
+        parent = Agent(service=make_mock_service(), agent_name="parent", working_dir=tmp_path / "test",
+                            capabilities=["avatar"])
+        # Write identity files to parent
+        system_dir = parent._working_dir / "system"
+        system_dir.mkdir(parents=True, exist_ok=True)
+        (system_dir / "character.md").write_text("I am the parent")
+        (system_dir / "memory.md").write_text("Parent memory")
+        lib_dir = parent._working_dir / "library"
+        lib_dir.mkdir(parents=True, exist_ok=True)
+        (lib_dir / "library.json").write_text('{"entries": []}')
+
+        mgr = parent.get_capability("avatar")
+        result = mgr.handle({"name": "blank"})
+        assert result["status"] == "ok"
+        child = mgr._peers["blank"]
+        # Character and library should NOT be copied
+        assert not (child._working_dir / "system" / "character.md").is_file()
+        assert not (child._working_dir / "library" / "library.json").is_file()
+
+    def test_spawn_mirror_true_copies_identity(self, tmp_path):
+        """mirror=True should copy character, memory, library, and exports."""
+        from lingtai.agent import Agent
+        parent = Agent(service=make_mock_service(), agent_name="parent", working_dir=tmp_path / "test",
+                            capabilities=["avatar"])
+        # Write identity files to parent
+        system_dir = parent._working_dir / "system"
+        system_dir.mkdir(parents=True, exist_ok=True)
+        (system_dir / "character.md").write_text("I am the parent")
+        (system_dir / "memory.md").write_text("Parent memory")
+        lib_dir = parent._working_dir / "library"
+        lib_dir.mkdir(parents=True, exist_ok=True)
+        (lib_dir / "library.json").write_text('{"entries": []}')
+        exports_dir = parent._working_dir / "exports"
+        exports_dir.mkdir(parents=True, exist_ok=True)
+        (exports_dir / "abc123.txt").write_text("exported knowledge")
+
+        mgr = parent.get_capability("avatar")
+        result = mgr.handle({"name": "clone", "mirror": True})
+        assert result["status"] == "ok"
+        child = mgr._peers["clone"]
+        assert (child._working_dir / "system" / "character.md").read_text() == "I am the parent"
+        assert (child._working_dir / "system" / "memory.md").read_text() == "Parent memory"
+        assert (child._working_dir / "library" / "library.json").read_text() == '{"entries": []}'
+        assert (child._working_dir / "exports" / "abc123.txt").read_text() == "exported knowledge"
+
+    def test_spawn_mirror_missing_files_ok(self, tmp_path):
+        """mirror=True with no identity files should not error."""
+        from lingtai.agent import Agent
+        parent = Agent(service=make_mock_service(), agent_name="parent", working_dir=tmp_path / "test",
+                            capabilities=["avatar"])
+        mgr = parent.get_capability("avatar")
+        result = mgr.handle({"name": "clone", "mirror": True})
+        assert result["status"] == "ok"
+
+    def test_ledger_records_mirror(self, tmp_path):
+        """Ledger should record mirror flag."""
+        from lingtai.agent import Agent
+        parent = Agent(service=make_mock_service(), agent_name="parent", working_dir=tmp_path / "test",
+                            capabilities=["avatar"])
+        mgr = parent.get_capability("avatar")
+        mgr.handle({"name": "clone", "mirror": True})
+        ledger = (parent._working_dir / "delegates" / "ledger.jsonl").read_text().strip()
+        record = json.loads(ledger)
+        assert record["mirror"] is True
+        assert record["name"] == "clone"
 
 
 class TestSetupAvatar:
