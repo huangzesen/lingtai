@@ -113,7 +113,7 @@ New `.agent.json`:
 `lingtai_kernel.llm.service` contains a **concrete** `LLMService` class that mixes protocol with implementation:
 
 - Protocol: `create_session()`, `resume_session()`, `generate()`, `make_tool_result()`, `.model`, `.provider`
-- Implementation: adapter registry (class-level), adapter cache, key resolution, litellm context window fetching, session ID generation, session tracking
+- Implementation: adapter registry (class-level), adapter cache, key resolution, built-in context window registry, session ID generation, session tracking
 
 `lingtai_kernel.llm.base` contains `LLMAdapter` ABC and `APICallGate` import — adapter concepts in the kernel.
 
@@ -193,7 +193,7 @@ class LLMService(ABC):
 | `APICallGate` | `lingtai_kernel.llm.api_gate` | `lingtai.llm.api_gate` |
 | `_setup_gate()` / `_gated_call()` | On `LLMAdapter` in kernel | On `LLMAdapter` in lingtai |
 | Adapter registry + cache | In `LLMService` | In lingtai's concrete `LLMService` |
-| litellm context window fetching | `lingtai_kernel.llm.service` | `lingtai.llm.service` |
+| built-in context window registry | `lingtai_kernel.llm.service` | `lingtai.llm.service` |
 | `get_context_limit()` | `lingtai_kernel.llm.service` | `lingtai.llm.service` |
 | Session ID generation | `lingtai_kernel.llm.service` | `lingtai.llm.service` |
 
@@ -208,7 +208,7 @@ lingtai_kernel/llm/
 └── streaming.py         # StreamingAccumulator (stays — used by adapter implementations)
 ```
 
-No `api_gate.py`. No adapter concept. No litellm. No key resolution.
+No `api_gate.py`. No adapter concept. No key resolution.
 
 **Note on `streaming.py`:** `StreamingAccumulator` is a utility used by adapter implementations. It stays in the kernel as a shared building block — it has no adapter dependencies, just processes chunks into `LLMResponse` objects.
 

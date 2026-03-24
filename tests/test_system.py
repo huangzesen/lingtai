@@ -199,15 +199,15 @@ def test_system_nap_negative_seconds(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# self-quell (shutdown)
+# self-sleep (go asleep)
 # ---------------------------------------------------------------------------
 
 
-def test_system_self_quell(tmp_path):
+def test_system_self_sleep(tmp_path):
     agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test", admin={"karma": True})
-    result = agent._intrinsics["system"]({"action": "quell", "reason": "need bash"})
+    result = agent._intrinsics["system"]({"action": "sleep", "reason": "need bash"})
     assert result["status"] == "ok"
-    assert agent._shutdown.is_set()
+    assert agent._asleep.is_set()
     agent.stop(timeout=1.0)
 
 

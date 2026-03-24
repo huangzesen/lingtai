@@ -198,14 +198,17 @@ class TestEstimateContextTokens:
 class TestGetContextLimit:
     """Tests for the context limit resolver."""
 
-    def test_default_for_unknown_model(self):
-        """Unknown models get the 256k default."""
-        limit = get_context_limit("completely-made-up-model-v99")
-        assert limit == 256_000
+    def test_raises_for_unknown_model(self):
+        """Unknown models raise ValueError."""
+        import pytest
+        with pytest.raises(ValueError, match="Unknown model"):
+            get_context_limit("completely-made-up-model-v99")
 
-    def test_default_for_empty_string(self):
-        """Empty model name gets default."""
-        assert get_context_limit("") == 256_000
+    def test_raises_for_empty_string(self):
+        """Empty model name raises ValueError."""
+        import pytest
+        with pytest.raises(ValueError, match="model_name is required"):
+            get_context_limit("")
 
 
 # ---------------------------------------------------------------------------

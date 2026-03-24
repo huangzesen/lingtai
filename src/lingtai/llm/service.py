@@ -10,13 +10,9 @@ Decoupled from any app-specific config system:
 
 from __future__ import annotations
 
-import json
 import os
-import threading
-import time
 import uuid
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
 from lingtai_kernel.llm.base import (
@@ -30,128 +26,84 @@ from lingtai_kernel.llm.service import LLMService as LLMServiceABC
 from .base import LLMAdapter
 
 # ---------------------------------------------------------------------------
-# Model context-window registry
+# Model context-window registry (built-in, no external fetches)
 # ---------------------------------------------------------------------------
 
-# Default context window when model is unknown and litellm registry is unavailable
-DEFAULT_CONTEXT_WINDOW = 256_000
-
-LITELLM_REGISTRY_URL = (
-    "https://raw.githubusercontent.com/BerriAI/litellm/main/"
-    "model_prices_and_context_window.json"
-)
-_CACHE_MAX_AGE = 86400  # 24 hours
-
-_litellm_cache: dict[str, int] | None = None
-_litellm_lock = threading.Lock()
-
-
-def _get_cache_path(data_dir: str | None = None) -> Path:
-    if data_dir:
-        return Path(data_dir) / "model_context_windows.json"
-    return Path.home() / ".lingtai" / "model_context_windows.json"
-
-
-def _fetch_litellm_registry(data_dir: str | None = None) -> dict[str, int]:
-    """Fetch max_input_tokens from litellm registry, cache locally.
-
-    Returns a flat dict of {model_name: max_input_tokens}.
-    Entries are stored in two forms:
-    - Bare names (e.g., "gemini-3-flash-preview", "claude-sonnet-4-6")
-    - Provider-stripped names from prefixed entries (e.g., "minimax/MiniMax-M2.5" -> "MiniMax-M2.5")
-    """
-    cache_path = _get_cache_path(data_dir)
-
-    # Try reading from cache
-    if cache_path.exists():
-        try:
-            age = time.time() - cache_path.stat().st_mtime
-            if age < _CACHE_MAX_AGE:
-                cached = json.loads(cache_path.read_text(encoding="utf-8"))
-                if isinstance(cached, dict) and cached:
-                    return cached
-        except Exception:
-            pass
-
-    # Fetch from GitHub
-    try:
-        import urllib.request
-        req = urllib.request.Request(LITELLM_REGISTRY_URL, headers={
-            "User-Agent": "lingtai/1.0",
-        })
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            raw = json.loads(resp.read().decode("utf-8"))
-    except Exception:
-        # Try stale cache
-        if cache_path.exists():
-            try:
-                return json.loads(cache_path.read_text(encoding="utf-8"))
-            except Exception:
-                pass
-        return {}
-
-    # Extract max_input_tokens
-    result: dict[str, int] = {}
-    for model_key, info in raw.items():
-        if not isinstance(info, dict):
-            continue
-        max_input = info.get("max_input_tokens")
-        if not max_input or not isinstance(max_input, (int, float)):
-            continue
-        max_input = int(max_input)
-
-        result[model_key] = max_input
-
-        if "/" in model_key:
-            bare = model_key.split("/", 1)[1]
-            if bare not in result:
-                result[bare] = max_input
-
-    # Cache to disk
-    try:
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        cache_path.write_text(json.dumps(result), encoding="utf-8")
-    except Exception:
-        pass
-
-    return result
-
-
-def _get_litellm_registry() -> dict[str, int]:
-    """Get litellm registry (lazy-loaded, thread-safe)."""
-    global _litellm_cache
-    if _litellm_cache is not None:
-        return _litellm_cache
-    with _litellm_lock:
-        if _litellm_cache is not None:
-            return _litellm_cache
-        _litellm_cache = _fetch_litellm_registry()
-        return _litellm_cache
+# Known model context windows — prefix-matched, so "claude-sonnet-4" covers
+# all dated variants.  Maintained manually; update when new models ship.
+CONTEXT_WINDOWS: dict[str, int] = {
+    # Anthropic
+    "claude-opus-4":        200_000,
+    "claude-sonnet-4":      200_000,
+    "claude-haiku-4":       200_000,
+    "claude-3-5-sonnet":    200_000,
+    "claude-3-5-haiku":     200_000,
+    "claude-3-opus":        200_000,
+    "claude-3-sonnet":      200_000,
+    "claude-3-haiku":       200_000,
+    # Google Gemini
+    "gemini-3-flash":     1_000_000,
+    "gemini-2.5-pro":     1_000_000,
+    "gemini-2.5-flash":   1_000_000,
+    "gemini-2.0-flash":   1_048_576,
+    "gemini-1.5-pro":     2_097_152,
+    "gemini-1.5-flash":   1_048_576,
+    # OpenAI
+    "gpt-4.1":              1_047_576,
+    "gpt-4.1-mini":         1_047_576,
+    "gpt-4.1-nano":         1_047_576,
+    "gpt-4o":               128_000,
+    "gpt-4o-mini":          128_000,
+    "gpt-4-turbo":          128_000,
+    "o3":                   200_000,
+    "o3-mini":              200_000,
+    "o4-mini":              200_000,
+    # MiniMax
+    "MiniMax-M2":           200_000,
+    # DeepSeek
+    "deepseek-chat":        128_000,
+    "deepseek-reasoner":    128_000,
+    # Qwen
+    "qwen-max":             128_000,
+    "qwen-plus":            128_000,
+    "qwen-turbo":           128_000,
+    "qwen3":                128_000,
+    # GLM
+    "glm-4":                128_000,
+    # Kimi
+    "moonshot-v1":          128_000,
+    # Grok
+    "grok-3":               131_072,
+    "grok-3-mini":          131_072,
+}
 
 
 def get_context_limit(model_name: str) -> int:
-    """Return context window size for a model, or DEFAULT_CONTEXT_WINDOW if unknown.
+    """Return context window size for a model.
 
-    Resolution order:
-    1. litellm community registry (cached, refreshed daily) — exact then prefix match
-    2. DEFAULT_CONTEXT_WINDOW (256k)
+    Raises ValueError if the model is not in the built-in registry.
+
+    Resolution: exact match, then longest prefix match.
     """
     if not model_name:
-        return DEFAULT_CONTEXT_WINDOW
+        raise ValueError("model_name is required for context window lookup")
 
-    # Try litellm registry — exact match first, then longest prefix
-    registry = _get_litellm_registry()
-    if registry:
-        if model_name in registry:
-            return registry[model_name]
-        best, best_len = 0, 0
-        for prefix, limit in registry.items():
-            if model_name.startswith(prefix) and len(prefix) > best_len:
-                best, best_len = limit, len(prefix)
-        if best > 0:
-            return best
+    # Exact match
+    if model_name in CONTEXT_WINDOWS:
+        return CONTEXT_WINDOWS[model_name]
 
-    return DEFAULT_CONTEXT_WINDOW
+    # Longest prefix match
+    best, best_len = 0, 0
+    for prefix, limit in CONTEXT_WINDOWS.items():
+        if model_name.startswith(prefix) and len(prefix) > best_len:
+            best, best_len = limit, len(prefix)
+    if best > 0:
+        return best
+
+    raise ValueError(
+        f"Unknown model {model_name!r} — not in CONTEXT_WINDOWS registry. "
+        f"Add it to lingtai.llm.service.CONTEXT_WINDOWS or pass context_window= explicitly."
+    )
 
 
 def _generate_session_id() -> str:

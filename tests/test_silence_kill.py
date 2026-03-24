@@ -2,7 +2,7 @@
 
 Silence and kill no longer go through mail. The old mail-type-based approach
 has been replaced:
-- Silence/quell use signal files (.interrupt) detected by the heartbeat loop
+- Silence/sleep use signal files (.interrupt) detected by the heartbeat loop
 - Kill/annihilate use the system intrinsic karma actions
 - Admin keys are now ``karma`` and ``nirvana`` (not ``silence`` and ``kill``)
 - Mail type is always ``normal`` — sending type=``silence`` or ``kill``

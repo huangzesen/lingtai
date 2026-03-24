@@ -6,7 +6,7 @@ to whom, with what mission, privileges, and capabilities.  The ledger is
 never mutated — only appended to.  It forms a responsibility map that the
 parent can consult before spawning again.
 
-Lifecycle management (interrupt, quell, revive, nirvana) is handled by
+Lifecycle management (interrupt, sleep/lull, cpr, nirvana) is handled by
 the system intrinsic's karma/nirvana actions, not here.  The avatar
 tool's only job is to spawn avatars (分身).
 

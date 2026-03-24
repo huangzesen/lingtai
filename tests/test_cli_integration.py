@@ -1,4 +1,4 @@
-"""Integration test: lingtai run boots an agent, tests .quell (dormant) and .suspend (shutdown)."""
+"""Integration test: lingtai run boots an agent, tests .sleep (asleep) and .suspend (shutdown)."""
 from __future__ import annotations
 
 import json
@@ -50,8 +50,8 @@ def _make_mock_service():
 
 
 @patch("lingtai.cli.LLMService")
-def test_quell_triggers_dormant(mock_llm_cls, tmp_path):
-    """Boot agent, touch .quell, verify DORMANT (sleep, not shutdown)."""
+def test_sleep_signal_triggers_asleep(mock_llm_cls, tmp_path):
+    """Boot agent, touch .sleep, verify ASLEEP (sleep, not shutdown)."""
     _write_init(tmp_path)
     mock_llm_cls.return_value = _make_mock_service()
 
@@ -63,14 +63,14 @@ def test_quell_triggers_dormant(mock_llm_cls, tmp_path):
     assert agent.state == AgentState.IDLE
     assert (tmp_path / ".agent.json").is_file()
 
-    # Touch .quell → DORMANT (sleep, process stays alive)
-    (tmp_path / ".quell").touch()
+    # Touch .sleep → ASLEEP (sleep, process stays alive)
+    (tmp_path / ".sleep").touch()
     time.sleep(3)
 
-    assert agent._dormant.is_set()
-    assert not agent._shutdown.is_set(), ".quell should NOT set _shutdown"
-    assert agent.state == AgentState.DORMANT
-    assert not (tmp_path / ".quell").exists(), "signal file should be deleted"
+    assert agent._asleep.is_set()
+    assert not agent._shutdown.is_set(), ".sleep should NOT set _shutdown"
+    assert agent.state == AgentState.ASLEEP
+    assert not (tmp_path / ".sleep").exists(), "signal file should be deleted"
 
     agent._shutdown.set()  # clean up for test teardown
     agent.stop()

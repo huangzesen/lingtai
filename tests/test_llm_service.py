@@ -1,17 +1,30 @@
 """Tests for lingtai.llm.service — model registry and context limits."""
 
-from lingtai.llm.service import get_context_limit, DEFAULT_CONTEXT_WINDOW
+import pytest
+
+from lingtai.llm.service import get_context_limit, CONTEXT_WINDOWS
 
 
 def test_get_context_limit_unknown():
-    """Unknown models should return default 256k."""
-    limit = get_context_limit("totally-unknown-model-xyz")
-    assert limit == DEFAULT_CONTEXT_WINDOW
+    """Unknown models should raise ValueError."""
+    with pytest.raises(ValueError, match="Unknown model"):
+        get_context_limit("totally-unknown-model-xyz")
 
 
 def test_get_context_limit_empty():
-    """Empty model name returns default 256k."""
-    assert get_context_limit("") == DEFAULT_CONTEXT_WINDOW
+    """Empty model name raises ValueError."""
+    with pytest.raises(ValueError, match="model_name is required"):
+        get_context_limit("")
+
+
+def test_get_context_limit_exact_match():
+    """Known models return their registered context window."""
+    assert get_context_limit("claude-opus-4") == 200_000
+
+
+def test_get_context_limit_prefix_match():
+    """Dated model variants match via prefix."""
+    assert get_context_limit("claude-sonnet-4-20250514") == 200_000
 
 
 def test_adapter_base_class_has_no_multimodal_methods():

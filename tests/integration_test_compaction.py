@@ -39,7 +39,11 @@ def main():
 
     print(f"Provider: {provider}")
     print(f"Model: {model}")
-    print(f"Resolved context limit: {get_context_limit(model):,} tokens")
+    try:
+        ctx = get_context_limit(model)
+        print(f"Resolved context limit: {ctx:,} tokens")
+    except ValueError:
+        print(f"Model {model!r} not in built-in registry (will use adapter default)")
     print()
 
     # Create service

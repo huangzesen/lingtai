@@ -37,16 +37,16 @@ class TestSignalFiles:
         finally:
             agent.stop()
 
-    def test_quell_signal_sets_shutdown(self, tmp_path):
+    def test_sleep_signal_sets_asleep(self, tmp_path):
         agent = _make_agent(tmp_path)
         agent.start()
-        # Write .quell signal file
-        (agent.working_dir / ".quell").write_text("")
-        # Wait for agent to shut down
+        # Write .sleep signal file
+        (agent.working_dir / ".sleep").write_text("")
+        # Wait for agent to detect it
         time.sleep(3.0)
-        assert agent._shutdown.is_set()
-        assert agent.state == AgentState.DORMANT
-        assert not (agent.working_dir / ".quell").exists(), "signal file should be deleted"
+        assert agent._asleep.is_set()
+        assert agent.state == AgentState.ASLEEP
+        assert not (agent.working_dir / ".sleep").exists(), "signal file should be deleted"
 
 
 class TestSystemIntrinsicKarma:
@@ -72,7 +72,7 @@ class TestSystemIntrinsicKarma:
         assert result["status"] == "interrupted"
         assert (target_dir / ".interrupt").is_file()
 
-    def test_quell_writes_signal_file(self, tmp_path):
+    def test_lull_writes_signal_file(self, tmp_path):
         target_dir = tmp_path / "target"
         target_dir.mkdir()
         (target_dir / ".agent.json").write_text('{"agent_id": "t1"}')
@@ -82,11 +82,11 @@ class TestSystemIntrinsicKarma:
         sender_base.mkdir()
         agent = _make_agent(sender_base, admin={"karma": True})
         from lingtai_kernel.intrinsics.system import handle
-        result = handle(agent, {"action": "quell", "address": str(target_dir)})
-        assert result["status"] == "quelled"
-        assert (target_dir / ".quell").is_file()
+        result = handle(agent, {"action": "lull", "address": str(target_dir)})
+        assert result["status"] == "asleep"
+        assert (target_dir / ".sleep").is_file()
 
-    def test_quell_rejects_dormant_target(self, tmp_path):
+    def test_lull_rejects_asleep_target(self, tmp_path):
         target_dir = tmp_path / "target"
         target_dir.mkdir()
         (target_dir / ".agent.json").write_text('{"agent_id": "t1"}')
@@ -95,7 +95,7 @@ class TestSystemIntrinsicKarma:
         sender_base.mkdir()
         agent = _make_agent(sender_base, admin={"karma": True})
         from lingtai_kernel.intrinsics.system import handle
-        result = handle(agent, {"action": "quell", "address": str(target_dir)})
+        result = handle(agent, {"action": "lull", "address": str(target_dir)})
         assert "error" in result
 
     def test_interrupt_self_rejected(self, tmp_path):
@@ -194,7 +194,7 @@ class TestCPRLingtai:
         svc.model = "test-model"
         svc._base_url = None
 
-        # Create a "dormant" agent — construct, persist, don't start
+        # Create an "asleep" agent — construct, persist, don't start
         agents_dir = tmp_path / "agents"
         agents_dir.mkdir()
         target = Agent(svc, working_dir=agents_dir / "bobbob000001",
@@ -207,7 +207,7 @@ class TestCPRLingtai:
         reviver = Agent(svc, working_dir=reviver_dir / "admin000001",
                         agent_name="admin", admin={"karma": True})
 
-        # Release the lock on the target (simulate a dormant/dead agent)
+        # Release the lock on the target (simulate an asleep/dead agent)
         target._workdir.release_lock()
 
         # Patch LLMService so reconstruction doesn't fail (no adapter registered for "mock")
