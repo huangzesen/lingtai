@@ -301,10 +301,22 @@ class IMAPMailManager:
 
     @staticmethod
     def _normalize_email_ids(args: dict) -> list[str]:
-        """Normalize email_id param to list."""
+        """Normalize email_id param to list.
+
+        Handles: single string, list of strings, or a JSON-encoded array
+        string (LLMs sometimes wrap the value in ``[...]``).
+        """
         ids = args.get("email_id", [])
         if isinstance(ids, str):
-            ids = [ids]
+            stripped = ids.strip()
+            if stripped.startswith("["):
+                import json
+                try:
+                    ids = json.loads(stripped)
+                except (json.JSONDecodeError, ValueError):
+                    ids = [ids]
+            else:
+                ids = [ids]
         return ids
 
     @staticmethod

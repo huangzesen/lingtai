@@ -895,67 +895,54 @@ def test_extract_attachments_with_file():
 
 
 # ---------------------------------------------------------------------------
-# IDLE interlock (erratum #4)
+# Dual-connection architecture
 # ---------------------------------------------------------------------------
 
-def test_idle_interlock_flags(account):
-    """Test that _in_idle, _idle_event, _idle_done are initialized."""
-    assert account._in_idle is False
-    assert isinstance(account._idle_event, threading.Event)
-    assert isinstance(account._idle_done, threading.Event)
+def test_idle_imap_initialized_none(account):
+    """The dedicated IDLE connection starts as None."""
+    assert account._idle_imap is None
 
 
-def test_break_idle_if_needed_not_in_idle(account):
-    """When not in IDLE, _break_idle_if_needed should be a no-op."""
-    account._in_idle = False
-    account._break_idle_if_needed()  # Should not block or raise
+def test_connect_idle(account):
+    """_connect_idle creates a separate IMAP connection."""
+    with patch("lingtai.addons.imap.account.imaplib.IMAP4_SSL") as mock_cls:
+        mock_conn = MagicMock()
+        mock_cls.return_value = mock_conn
+        result = account._connect_idle()
+        assert result is mock_conn
+        assert account._idle_imap is mock_conn
+        mock_conn.login.assert_called_once()
 
 
-def test_break_idle_if_needed_in_idle(account):
-    """When in IDLE, _break_idle_if_needed should signal and wait."""
-    account._in_idle = True
-    account._idle_done.clear()
-
-    # Simulate the IDLE thread responding
-    def simulate_idle_exit():
-        import time
-        time.sleep(0.05)
-        account._idle_done.set()
-
-    t = threading.Thread(target=simulate_idle_exit)
-    t.start()
-
-    account._break_idle_if_needed()
-    assert account._idle_done.is_set()
-    t.join()
+def test_disconnect_idle(account):
+    """_disconnect_idle logs out and clears _idle_imap."""
+    mock_conn = MagicMock()
+    account._idle_imap = mock_conn
+    account._disconnect_idle()
+    mock_conn.logout.assert_called_once()
+    assert account._idle_imap is None
 
 
-# ---------------------------------------------------------------------------
-# Tag counter (erratum #3)
-# ---------------------------------------------------------------------------
-
-def test_tag_counter_initialized(account):
-    assert account._tag_counter == 0
-
-
-def test_tag_counter_format(account):
-    """Verify tags format as A{counter:04d}."""
-    account._tag_counter = 1
-    tag = f"A{account._tag_counter:04d}"
-    assert tag == "A0001"
-
-    account._tag_counter = 9999
-    tag = f"A{account._tag_counter:04d}"
-    assert tag == "A9999"
+def test_disconnect_idle_when_none(account):
+    """_disconnect_idle is a no-op when _idle_imap is None."""
+    account._idle_imap = None
+    account._disconnect_idle()  # Should not raise
 
 
 # ---------------------------------------------------------------------------
 # _ensure_connected
 # ---------------------------------------------------------------------------
 
-def test_ensure_connected_raises_when_not_connected(account):
-    with pytest.raises(RuntimeError, match="Not connected"):
-        account._ensure_connected()
+def test_ensure_connected_reconnects_when_none(account):
+    """_ensure_connected auto-connects when _imap is None."""
+    with patch.object(account, "connect") as mock_connect:
+        mock_imap = MagicMock()
+        def _set_imap():
+            account._imap = mock_imap
+        mock_connect.side_effect = _set_imap
+        result = account._ensure_connected()
+        mock_connect.assert_called_once()
+        assert result is mock_imap
 
 
 def test_ensure_connected_returns_imap(account, mock_imap):
@@ -969,8 +956,9 @@ def test_ensure_connected_returns_imap(account, mock_imap):
 
 def test_idle_timeout_capped_at_25_minutes(account, mock_imap):
     """IDLE wait must be capped at 1500s regardless of poll_interval."""
-    account._imap = mock_imap
+    account._idle_imap = mock_imap
     account._has_idle = True
+    mock_imap._new_tag.return_value = b"A001"
 
     # Patch time.monotonic to avoid actually waiting
     call_count = 0
@@ -979,7 +967,6 @@ def test_idle_timeout_capped_at_25_minutes(account, mock_imap):
     def fake_monotonic():
         nonlocal call_count
         call_count += 1
-        # Return past deadline on second call to exit loop immediately
         if call_count <= 1:
             return base_time
         return base_time + 2000
@@ -987,13 +974,11 @@ def test_idle_timeout_capped_at_25_minutes(account, mock_imap):
     stop = threading.Event()
     stop.set()  # Stop immediately
 
-    with patch("lingtai.addons.imap.account.time.monotonic", side_effect=fake_monotonic):
-        # Pass poll_interval=3600 (1 hour) — should be capped to 1500
-        # stop_event is set, so it won't actually block
+    with patch("lingtai.addons.imap.account.time.monotonic", side_effect=fake_monotonic), \
+         patch.object(account, "_check_new_mail"):
         account._idle_cycle("INBOX", lambda x: None, 3600, stop)
 
     # The fact that it didn't hang for an hour proves the cap works.
-    # The cycle returns quickly because stop_event is set.
 
 
 # ---------------------------------------------------------------------------

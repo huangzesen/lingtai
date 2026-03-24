@@ -1,7 +1,13 @@
-"""IMAPAccount — single IMAP connection + SMTP credentials.
+"""IMAPAccount — single IMAP account with dual connections.
 
 Protocol layer for one email account. Handles IMAP/SMTP directly via stdlib.
 Used by IMAPMailService (multi-account coordinator) and IMAPMailManager (tool handler).
+
+Two IMAP connections:
+  _imap      — on-demand, for tool calls (fetch/search/flags/move/delete).
+               Protected by _lock.  Lazy-connected on first use.
+  _idle_imap — dedicated to the background IDLE listener thread.
+               Owned exclusively by that thread, no lock needed.
 
 email_id format: {account}:{folder}:{uid}
 """
@@ -13,6 +19,7 @@ import json
 import logging
 import mimetypes
 import re
+import select as _select_mod
 import smtplib
 import threading
 import time
@@ -162,10 +169,13 @@ def _format_imap_date(dt: datetime) -> str:
 # ---------------------------------------------------------------------------
 
 class IMAPAccount:
-    """Single IMAP connection + SMTP credentials for one email account.
+    """Single IMAP account with dual connections.
 
-    Provides folder discovery, header/full fetch, search, flag operations,
-    folder operations, SMTP send, IDLE with poll fallback, and state persistence.
+    Two IMAP connections avoid the complexity of sharing one socket between
+    a background IDLE listener and on-demand tool calls:
+
+    - ``_imap``: lazy-connected on first tool call, protected by ``_lock``.
+    - ``_idle_imap``: owned exclusively by the background listener thread.
     """
 
     def __init__(
@@ -191,9 +201,12 @@ class IMAPAccount:
         self._allowed_senders = allowed_senders
         self._poll_interval = poll_interval
 
-        # IMAP connection
+        # On-demand IMAP connection (tool calls)
         self._imap: imaplib.IMAP4_SSL | None = None
         self._lock = threading.Lock()
+
+        # Dedicated IDLE connection (background listener) — no lock needed
+        self._idle_imap: imaplib.IMAP4_SSL | None = None
 
         # Capabilities parsed from server
         self._capabilities: set[str] = set()
@@ -204,14 +217,6 @@ class IMAPAccount:
         # Folder discovery
         self._folders: dict[str, str | None] = {}  # name -> role (None = no role)
         self._folder_by_role: dict[str, str] = {}  # role -> name
-
-        # IDLE interlock (erratum #4)
-        self._in_idle = False
-        self._idle_event = threading.Event()  # signal IDLE thread to wake
-        self._idle_done = threading.Event()   # IDLE thread signals it exited
-
-        # IDLE tag counter (erratum #3)
-        self._tag_counter = 0
 
         # State persistence — per-folder set of int UIDs
         self._processed_uids: dict[str, set[int]] = {}
@@ -261,17 +266,16 @@ class IMAPAccount:
     # -- Connection ----------------------------------------------------------
 
     def connect(self) -> None:
-        """Connect to the IMAP server and parse capabilities."""
+        """Connect the on-demand IMAP connection and parse capabilities."""
         self._imap = imaplib.IMAP4_SSL(self._imap_host, self._imap_port)
-        resp = self._imap.login(self._email_address, self._email_password)
-        # Parse capabilities from login response and CAPABILITY command
+        self._imap.login(self._email_address, self._email_password)
         self._fetch_capabilities()
         self._discover_folders()
         self._save_state()
         logger.info("IMAP connected: %s (%s)", self._email_address, self._imap_host)
 
     def disconnect(self) -> None:
-        """Disconnect from the IMAP server."""
+        """Disconnect the on-demand IMAP connection."""
         if self._imap is not None:
             try:
                 self._imap.logout()
@@ -280,20 +284,31 @@ class IMAPAccount:
             self._imap = None
 
     def _ensure_connected(self) -> imaplib.IMAP4_SSL:
-        """Return the IMAP connection, raising if not connected."""
+        """Return the on-demand IMAP connection, connecting if needed."""
         if self._imap is None:
-            raise RuntimeError("Not connected — call connect() first")
-        return self._imap
+            self.connect()
+        return self._imap  # type: ignore[return-value]
 
-    def _break_idle_if_needed(self) -> None:
-        """If IDLE is active, break it and wait for the IDLE thread to finish.
+    def _connect_idle(self) -> imaplib.IMAP4_SSL:
+        """Connect (or reconnect) the dedicated IDLE connection."""
+        if self._idle_imap is not None:
+            try:
+                self._idle_imap.logout()
+            except Exception:
+                pass
+        self._idle_imap = imaplib.IMAP4_SSL(self._imap_host, self._imap_port)
+        self._idle_imap.login(self._email_address, self._email_password)
+        logger.info("IMAP IDLE connected: %s", self._email_address)
+        return self._idle_imap
 
-        Erratum #4: All public IMAP methods must check _in_idle and if True,
-        signal the IDLE thread to wake, then wait for _idle_done.
-        """
-        if self._in_idle:
-            self._idle_event.set()
-            self._idle_done.wait(timeout=10.0)
+    def _disconnect_idle(self) -> None:
+        """Disconnect the dedicated IDLE connection."""
+        if self._idle_imap is not None:
+            try:
+                self._idle_imap.logout()
+            except Exception:
+                pass
+            self._idle_imap = None
 
     # -- Capability parsing --------------------------------------------------
 
@@ -382,7 +397,7 @@ class IMAPAccount:
         """Get folder name for a given role (trash, sent, archive, drafts, junk)."""
         return self._folder_by_role.get(role)
 
-    # -- Header fetch (erratum #1: NO ENVELOPE, use BODY.PEEK[HEADER.FIELDS]) --
+    # -- Header fetch --------------------------------------------------------
 
     def fetch_headers_by_uids(
         self, folder: str, uids: list[str],
@@ -394,7 +409,6 @@ class IMAPAccount:
         if not uids:
             return []
 
-        self._break_idle_if_needed()
         with self._lock:
             imap = self._ensure_connected()
             imap.select(folder, readonly=True)
@@ -415,7 +429,6 @@ class IMAPAccount:
         Internally selects the last N UIDs via SEARCH ALL, then calls
         fetch_headers_by_uids.
         """
-        self._break_idle_if_needed()
         with self._lock:
             imap = self._ensure_connected()
             imap.select(folder, readonly=True)
@@ -510,7 +523,6 @@ class IMAPAccount:
 
         Returns dict with: uid, from, to, subject, date, body, attachments, flags, email_id.
         """
-        self._break_idle_if_needed()
         with self._lock:
             imap = self._ensure_connected()
             imap.select(folder, readonly=True)
@@ -582,7 +594,6 @@ class IMAPAccount:
         Multiple terms are AND-ed together.
         Quoted values: from:"John Doe" subject:"hello world"
         """
-        self._break_idle_if_needed()
         with self._lock:
             imap = self._ensure_connected()
             imap.select(folder, readonly=True)
@@ -676,7 +687,6 @@ class IMAPAccount:
 
         action: "+FLAGS" to add, "-FLAGS" to remove, "FLAGS" to replace.
         """
-        self._break_idle_if_needed()
         with self._lock:
             imap = self._ensure_connected()
             imap.select(folder)
@@ -705,7 +715,6 @@ class IMAPAccount:
 
     def move_message(self, folder: str, uid: str, dest_folder: str) -> bool:
         """Move a message to another folder. Uses MOVE if supported, else COPY+DELETE."""
-        self._break_idle_if_needed()
         with self._lock:
             imap = self._ensure_connected()
             imap.select(folder)
@@ -732,7 +741,6 @@ class IMAPAccount:
             return self.move_message(folder, uid, trash)
         else:
             # Already in trash or no trash folder — flag deleted + expunge
-            self._break_idle_if_needed()
             with self._lock:
                 imap = self._ensure_connected()
                 imap.select(folder)
@@ -800,7 +808,7 @@ class IMAPAccount:
             mime_msg["Date"] = formatdate(localtime=True)
             mime_msg["Message-ID"] = make_msgid()
 
-            # CC in headers (but not BCC — erratum)
+            # CC in headers (but not BCC)
             if cc:
                 mime_msg["CC"] = ", ".join(cc)
 
@@ -857,6 +865,7 @@ class IMAPAccount:
         if self._bg_thread is not None:
             self._bg_thread.join(timeout=10.0)
             self._bg_thread = None
+        self._disconnect_idle()
 
     def _listen_wrapper(
         self,
@@ -864,23 +873,19 @@ class IMAPAccount:
         on_message: Callable[[list[dict]], None],
         poll_interval: int,
     ) -> None:
-        """Wrapper that handles connect + idle loop with reconnection."""
+        """Connect the IDLE connection and run the listen loop with reconnection."""
         while not self._stop_event.is_set():
             try:
-                if not self.connected:
-                    self.connect()
-                    self._backoff_index = 0
-                self.idle(
+                self._connect_idle()
+                self._backoff_index = 0
+                self._idle_loop(
                     folder, on_message,
                     poll_interval=poll_interval,
                     stop_event=self._stop_event,
                 )
             except Exception as e:
                 logger.warning("Listen error on %s: %s", self._email_address, e)
-                try:
-                    self.disconnect()
-                except Exception:
-                    pass
+                self._disconnect_idle()
                 delay = self._backoff_steps[
                     min(self._backoff_index, len(self._backoff_steps) - 1)
                 ]
@@ -888,9 +893,9 @@ class IMAPAccount:
                 if self._stop_event.wait(delay):
                     return
 
-    # -- IDLE with poll fallback (errata #3, #4) -----------------------------
+    # -- IDLE / poll (on dedicated _idle_imap connection) --------------------
 
-    def idle(
+    def _idle_loop(
         self,
         folder: str,
         on_message: Callable[[list[dict]], None],
@@ -900,12 +905,8 @@ class IMAPAccount:
     ) -> None:
         """Listen for new messages via IDLE (with poll fallback).
 
-        Blocks until stop_event is set.
+        Blocks until stop_event is set.  Runs entirely on ``_idle_imap``.
         on_message receives a list of header dicts for new messages.
-
-        Erratum #3: Uses manual _tag_counter, NOT imaplib._new_tag().
-        Erratum #4: Sets _in_idle while waiting; other methods break IDLE via _idle_event.
-        Erratum #5: on_message called OUTSIDE the lock.
         """
         if stop_event is None:
             stop_event = threading.Event()
@@ -918,18 +919,14 @@ class IMAPAccount:
                     self._poll_cycle(folder, on_message, poll_interval, stop_event)
             except (imaplib.IMAP4.error, OSError) as e:
                 logger.warning("IDLE/poll error, reconnecting: %s", e)
-                try:
-                    self.disconnect()
-                except Exception:
-                    pass
-                # Progressive backoff before reconnect
+                self._disconnect_idle()
                 delay = self._backoff_steps[min(self._backoff_index, len(self._backoff_steps) - 1)]
                 self._backoff_index += 1
                 if stop_event.wait(delay):
                     return
                 try:
-                    self.connect()
-                    self._backoff_index = 0  # Reset on successful connect
+                    self._connect_idle()
+                    self._backoff_index = 0
                 except Exception as ce:
                     logger.warning("Reconnect failed: %s", ce)
 
@@ -940,77 +937,55 @@ class IMAPAccount:
         timeout: int,
         stop_event: threading.Event,
     ) -> None:
-        """One IDLE cycle: send IDLE, wait, send DONE, check for new mail."""
-        with self._lock:
-            imap = self._ensure_connected()
-            imap.select(folder)
+        """One IDLE cycle on _idle_imap: send IDLE, wait, send DONE."""
+        imap = self._idle_imap
+        if imap is None:
+            raise RuntimeError("IDLE connection not established")
 
-            # Send IDLE command using raw socket (erratum #3)
-            self._tag_counter += 1
-            tag = f"A{self._tag_counter:04d}"
-            imap.send(f"{tag} IDLE\r\n".encode("ascii"))
+        imap.select(folder)
 
-            # Read continuation response (+)
-            response = imap.readline()
-            if not response.startswith(b"+"):
-                logger.warning("IDLE not accepted: %s", response)
-                return
+        # Send IDLE command via raw socket
+        tag = imap._new_tag().decode("ascii")
+        imap.send(f"{tag} IDLE\r\n".encode("ascii"))
 
-            # Mark that we're in IDLE (erratum #4)
-            self._in_idle = True
-            self._idle_event.clear()
-            self._idle_done.clear()
+        # Read continuation response (+)
+        response = imap.readline()
+        if not response.startswith(b"+"):
+            logger.warning("IDLE not accepted: %s", response)
+            return
 
-        # Wait outside the lock for either:
-        # - timeout (re-IDLE)
-        # - stop_event (shutdown)
-        # - _idle_event (another method needs the connection)
-        # - server notification (EXISTS etc.)
+        # Wait for server data or timeout
         try:
-            # Cap IDLE wait at 25 minutes (1500s) per RFC 2177 recommendation
+            # Cap at 25 minutes per RFC 2177
             effective_timeout = min(timeout, 1500)
-            # Use _idle_event to detect interrupts, check periodically for server data
             deadline = time.monotonic() + effective_timeout
             got_data = False
             while time.monotonic() < deadline:
-                if stop_event.is_set() or self._idle_event.is_set():
+                if stop_event.is_set():
                     break
-                # Check if server sent anything (non-blocking peek)
-                with self._lock:
-                    imap = self._ensure_connected()
-                    # Use socket timeout to peek for data
-                    old_timeout = imap.socket().gettimeout()
-                    imap.socket().settimeout(1.0)
-                    try:
-                        data = imap.readline()
-                        if data:
-                            got_data = True
-                            break
-                    except (TimeoutError, OSError):
-                        pass
-                    finally:
-                        imap.socket().settimeout(old_timeout)
+                sock = imap.socket()
+                ready, _, _ = _select_mod.select([sock], [], [], 1.0)
+                if ready:
+                    data = imap.readline()
+                    if data:
+                        got_data = True
+                        break
         finally:
-            # Send DONE and complete IDLE (always, even on error)
-            with self._lock:
-                try:
-                    imap = self._ensure_connected()
-                    imap.send(b"DONE\r\n")
-                    # Read the tagged response
-                    while True:
-                        line = imap.readline()
-                        if not line:
-                            break
-                        decoded = line.decode("ascii", errors="replace").strip()
-                        if decoded.startswith(tag):
-                            break
-                except Exception as e:
-                    logger.debug("IDLE DONE error: %s", e)
-                finally:
-                    self._in_idle = False
-                    self._idle_done.set()
+            # Send DONE to end IDLE
+            try:
+                imap.send(b"DONE\r\n")
+                # Drain the tagged response
+                while True:
+                    line = imap.readline()
+                    if not line:
+                        break
+                    decoded = line.decode("ascii", errors="replace").strip()
+                    if decoded.startswith(tag):
+                        break
+            except Exception as e:
+                logger.debug("IDLE DONE error: %s", e)
 
-        # Check for new mail OUTSIDE the lock (erratum #5)
+        # Check for new mail using the on-demand connection
         if not stop_event.is_set():
             self._check_new_mail(folder, on_message)
 
@@ -1021,14 +996,15 @@ class IMAPAccount:
         interval: int,
         stop_event: threading.Event,
     ) -> None:
-        """One poll cycle: NOOP, check new mail, sleep."""
-        self._break_idle_if_needed()
-        with self._lock:
-            imap = self._ensure_connected()
-            imap.select(folder)
-            imap.noop()
+        """One poll cycle on _idle_imap: NOOP, check new mail, sleep."""
+        imap = self._idle_imap
+        if imap is None:
+            raise RuntimeError("IDLE connection not established")
 
-        # Check outside lock (erratum #5)
+        imap.select(folder)
+        imap.noop()
+
+        # Check for new mail using the on-demand connection
         self._check_new_mail(folder, on_message)
 
         # Sleep in small increments for responsive shutdown
@@ -1044,11 +1020,10 @@ class IMAPAccount:
     ) -> None:
         """Check for unseen messages and deliver new ones.
 
-        Erratum #5: Collects payloads while holding the lock, delivers OUTSIDE.
+        Uses the on-demand connection (_imap) with locking.
         """
         new_headers: list[dict] = []
 
-        self._break_idle_if_needed()
         with self._lock:
             imap = self._ensure_connected()
             imap.select(folder, readonly=True)
@@ -1085,8 +1060,8 @@ class IMAPAccount:
                 self._processed_uids[folder].add(int(uid))
             self._save_state()
 
-        # Filter by allowed_senders if configured
-        if new_headers and self._allowed_senders is not None:
+        # Filter by allowed_senders if configured (empty list = no filter)
+        if new_headers and self._allowed_senders:
             allowed = {s.lower() for s in self._allowed_senders}
             filtered: list[dict] = []
             for hdr in new_headers:
@@ -1096,7 +1071,7 @@ class IMAPAccount:
                     filtered.append(hdr)
             new_headers = filtered
 
-        # Deliver OUTSIDE the lock (erratum #5)
+        # Deliver outside the lock
         if new_headers:
             on_message(new_headers)
 

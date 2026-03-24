@@ -104,6 +104,9 @@ def build_agent(data: dict, working_dir: Path) -> Agent:
     # Build addons dict — resolve *_env fields
     addons = _resolve_addons(data.get("addons"))
 
+    # Resolve *_env fields in capability kwargs
+    capabilities = _resolve_capabilities(m["capabilities"])
+
     agent = Agent(
         service,
         agent_name=m["agent_name"],
@@ -114,7 +117,7 @@ def build_agent(data: dict, working_dir: Path) -> Agent:
         streaming=m["streaming"],
         covenant=data["covenant"],
         memory=data["memory"],
-        capabilities=m["capabilities"],
+        capabilities=capabilities,
         addons=addons,
     )
 
@@ -135,28 +138,46 @@ def build_agent(data: dict, working_dir: Path) -> Agent:
     return agent
 
 
+def _resolve_env_fields(d: dict) -> dict:
+    """Resolve ``*_env`` keys in a dict using ``resolve_env``.
+
+    For each key ending with ``_env``, resolve the env var and store the value
+    under the base key (without the ``_env`` suffix).  The ``_env`` key is
+    removed from the result.  Non-env keys are kept as-is.
+
+    Example::
+
+        {"api_key": null, "api_key_env": "MY_KEY"}
+        → {"api_key": "<value of $MY_KEY>"}
+    """
+    result = dict(d)
+    env_keys = [k for k in result if k.endswith("_env")]
+    for env_key in env_keys:
+        base_key = env_key[: -len("_env")]
+        result[base_key] = resolve_env(result.get(base_key), result.pop(env_key))
+    return result
+
+
+def _resolve_capabilities(capabilities: dict) -> dict:
+    """Resolve ``*_env`` fields in each capability's kwargs."""
+    resolved = {}
+    for name, kwargs in capabilities.items():
+        if isinstance(kwargs, dict) and kwargs:
+            resolved[name] = _resolve_env_fields(kwargs)
+        else:
+            resolved[name] = kwargs
+    return resolved
+
+
 def _resolve_addons(addons: dict | None) -> dict | None:
     """Resolve *_env fields in addon configs to actual values."""
     if not addons:
         return addons
 
     resolved = {}
-
-    if "imap" in addons:
-        imap = dict(addons["imap"])
-        imap["email_password"] = resolve_env(
-            imap.get("email_password"),
-            imap.pop("email_password_env", None),
-        )
-        resolved["imap"] = imap
-
-    if "telegram" in addons:
-        tg = dict(addons["telegram"])
-        tg["bot_token"] = resolve_env(
-            tg.get("bot_token"),
-            tg.pop("bot_token_env", None),
-        )
-        resolved["telegram"] = tg
+    for name, cfg in addons.items():
+        if isinstance(cfg, dict):
+            resolved[name] = _resolve_env_fields(cfg)
 
     return resolved or None
 
