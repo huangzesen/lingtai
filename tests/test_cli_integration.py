@@ -1,4 +1,4 @@
-"""Integration test: lingtai run boots an agent and shuts down via .quell."""
+"""Integration test: lingtai run boots an agent, tests .quell (dormant) and .suspend (shutdown)."""
 from __future__ import annotations
 
 import json
@@ -24,7 +24,7 @@ def _write_init(tmp_path: Path) -> None:
             },
             "capabilities": {},
             "soul": {"delay": 5},
-            "vigil": 10,
+            "stamina": 10,
             "context_limit": None,
             "molt_pressure": 0.8,
             "molt_prompt": "",
@@ -50,8 +50,8 @@ def _make_mock_service():
 
 
 @patch("lingtai.cli.LLMService")
-def test_full_boot_and_quell_shutdown(mock_llm_cls, tmp_path):
-    """Boot agent, touch .quell, verify clean shutdown."""
+def test_quell_triggers_dormant(mock_llm_cls, tmp_path):
+    """Boot agent, touch .quell, verify DORMANT (sleep, not shutdown)."""
     _write_init(tmp_path)
     mock_llm_cls.return_value = _make_mock_service()
 
@@ -60,19 +60,44 @@ def test_full_boot_and_quell_shutdown(mock_llm_cls, tmp_path):
 
     agent.start()
 
-    # Verify agent is running and manifest is created
     assert agent.state == AgentState.IDLE
     assert (tmp_path / ".agent.json").is_file()
 
-    # Touch .quell to trigger shutdown via heartbeat
+    # Touch .quell → DORMANT (sleep, process stays alive)
     (tmp_path / ".quell").touch()
+    time.sleep(3)
 
-    # Wait for heartbeat to pick it up (beats every ~1s)
+    assert agent._dormant.is_set()
+    assert not agent._shutdown.is_set(), ".quell should NOT set _shutdown"
+    assert agent.state == AgentState.DORMANT
+    assert not (tmp_path / ".quell").exists(), "signal file should be deleted"
+
+    agent._shutdown.set()  # clean up for test teardown
+    agent.stop()
+
+
+@patch("lingtai.cli.LLMService")
+def test_suspend_triggers_shutdown(mock_llm_cls, tmp_path):
+    """Boot agent, touch .suspend, verify SUSPENDED (full shutdown)."""
+    _write_init(tmp_path)
+    mock_llm_cls.return_value = _make_mock_service()
+
+    data = load_init(tmp_path)
+    agent = build_agent(data, tmp_path)
+
+    agent.start()
+
+    assert agent.state == AgentState.IDLE
+
+    # Touch .suspend → SUSPENDED (process death)
+    (tmp_path / ".suspend").touch()
     time.sleep(3)
 
     assert agent._shutdown.is_set()
-    assert agent.state == AgentState.DORMANT
-    assert not (tmp_path / ".quell").exists(), "signal file should be deleted"
+    assert agent.state == AgentState.SUSPENDED
+    assert not (tmp_path / ".suspend").exists(), "signal file should be deleted"
+
+    agent.stop()
 
 
 @patch("lingtai.cli.LLMService")

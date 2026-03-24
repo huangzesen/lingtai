@@ -38,7 +38,7 @@ Core self-management — working notes and context control. memory: edit to writ
 ### system_tool
 
 **English:**
-Runtime, vigil, synchronization, and karma. Self-actions: 'show' (identity/runtime/usage), 'nap' (timed or indefinite pause), 'quell' (go dormant — self or other), 'refresh' (rebirth with reloaded tools). Karma actions on other agents (require admin.karma): 'interrupt' (interrupt), 'quell' (stop), 'revive' (restart dormant). Nirvana action (requires admin.nirvana): 'nirvana' (permanently destroy).
+Runtime, stamina, synchronization, and karma. Self-actions: 'show' (identity/runtime/usage), 'nap' (timed or indefinite pause), 'quell' (go dormant — self or other), 'refresh' (rebirth with reloaded tools). Karma actions on other agents (require admin.karma): 'interrupt' (interrupt), 'quell' (sleep), 'revive' (restart dormant). Nirvana action (requires admin.nirvana): 'nirvana' (permanently destroy).
 
 **中文:**
 运行时、精力、同步与业力。自身操作：'show'（观己/身份/运行时/用量）、'nap'（小憩/定时或无限暂停）、'quell'（沉睡/自我或他人）、'refresh'（沐浴/重载工具重启会话）。业力操作（需要 admin.karma）：'interrupt'（打断）、'quell'（沉睡）、'revive'（唤醒）。涅槃操作（需要 admin.nirvana）：'nirvana'（涅槃/永久销毁）。

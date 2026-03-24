@@ -19,7 +19,7 @@ def _write_init(tmp_path: Path, overrides: dict | None = None) -> Path:
             },
             "capabilities": {},
             "soul": {"delay": 30},
-            "vigil": 60,
+            "stamina": 60,
             "context_limit": None,
             "molt_pressure": 0.8,
             "molt_prompt": "",

@@ -92,7 +92,7 @@ def build_agent(data: dict, working_dir: Path) -> Agent:
     soul = m["soul"]
 
     config = AgentConfig(
-        vigil=m["vigil"],
+        stamina=m["stamina"],
         soul_delay=soul["delay"],
         max_turns=m["max_turns"],
         language=m["language"],
@@ -187,11 +187,11 @@ def run(working_dir: Path) -> None:
     data = load_init(working_dir)
     agent = build_agent(data, working_dir)
 
-    # Signal handlers: SIGTERM/SIGINT → touch .quell and unblock main thread
-    quell_file = working_dir / ".quell"
+    # Signal handlers: SIGTERM/SIGINT → touch .suspend and unblock main thread
+    suspend_file = working_dir / ".suspend"
 
     def _signal_handler(signum, frame):
-        quell_file.touch()
+        suspend_file.touch()
         agent._shutdown.set()
 
     signal.signal(signal.SIGTERM, _signal_handler)
@@ -206,7 +206,7 @@ def run(working_dir: Path) -> None:
             from lingtai_kernel.message import _make_message, MSG_REQUEST
             agent.inbox.put(_make_message(MSG_REQUEST, "system", prompt))
 
-        # Block until the agent shuts down (vigil, .quell, or external stop)
+        # Block until the agent shuts down (SUSPENDED via .suspend or external stop)
         agent._shutdown.wait()
     finally:
         try:

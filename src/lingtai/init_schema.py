@@ -26,7 +26,7 @@ def validate_init(data: dict) -> None:
         "llm": dict,
         "capabilities": dict,
         "soul": dict,
-        "vigil": (int, float),
+        "stamina": (int, float),
         "context_limit": (int, type(None)),
         "molt_pressure": (int, float),
         "molt_prompt": str,

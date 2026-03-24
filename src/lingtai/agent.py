@@ -257,7 +257,7 @@ class Agent(BaseAgent):
         revived_config = AgentConfig(
             provider=llm_config["provider"],
             model=llm_config["model"],
-            vigil=agent_meta.get("vigil", 3600.0),
+            stamina=agent_meta.get("stamina", 3600.0),
             soul_delay=agent_meta.get("soul_delay", 120.0),
             language=agent_meta.get("language", "en"),
         )

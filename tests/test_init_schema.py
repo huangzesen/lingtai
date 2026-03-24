@@ -17,7 +17,7 @@ def _valid_init() -> dict:
             },
             "capabilities": {},
             "soul": {"delay": 120},
-            "vigil": 3600,
+            "stamina": 3600,
             "context_limit": None,
             "molt_pressure": 0.8,
             "molt_prompt": "",
@@ -66,8 +66,8 @@ def test_wrong_type_top_level():
 
 def test_wrong_type_manifest_field():
     data = _valid_init()
-    data["manifest"]["vigil"] = "one hour"
-    with pytest.raises(ValueError, match="manifest.vigil.*(int|float|number)"):
+    data["manifest"]["stamina"] = "one hour"
+    with pytest.raises(ValueError, match="manifest.stamina.*(int|float|number)"):
         validate_init(data)
 
 
@@ -88,8 +88,8 @@ def test_wrong_type_streaming():
 def test_bool_rejected_for_numeric_field():
     """bool is a subclass of int in Python — must be rejected for numeric fields."""
     data = _valid_init()
-    data["manifest"]["vigil"] = True
-    with pytest.raises(ValueError, match="manifest.vigil.*number.*bool"):
+    data["manifest"]["stamina"] = True
+    with pytest.raises(ValueError, match="manifest.stamina.*number.*bool"):
         validate_init(data)
 
 
