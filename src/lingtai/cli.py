@@ -3,11 +3,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import signal
 import sys
 from pathlib import Path
 
+from lingtai.config_resolve import (
+    resolve_env,
+    load_env_file,
+    _resolve_capabilities,
+    _resolve_addons,
+)
 from lingtai.init_schema import validate_init
 from lingtai.llm.service import LLMService
 from lingtai.agent import Agent
@@ -35,37 +40,6 @@ def load_init(working_dir: Path) -> dict:
         sys.exit(1)
 
     return data
-
-
-def load_env_file(path: str | Path) -> None:
-    """Load a .env file into os.environ. Existing vars are not overwritten."""
-    env_path = Path(path).expanduser()
-    if not env_path.is_file():
-        return
-    for line in env_path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, _, val = line.partition("=")
-        if not _:
-            continue
-        key = key.strip()
-        val = val.strip().strip("'\"")
-        if key not in os.environ:
-            os.environ[key] = val
-
-
-def resolve_env(value: str | None, env_name: str | None) -> str | None:
-    """Resolve a value from env var name, falling back to raw value.
-
-    If env_name is provided and the env var is set, use it.
-    Otherwise return the raw value as-is.
-    """
-    if env_name:
-        env_val = os.environ.get(env_name)
-        if env_val:
-            return env_val
-    return value
 
 
 def build_agent(data: dict, working_dir: Path) -> Agent:
@@ -136,50 +110,6 @@ def build_agent(data: dict, working_dir: Path) -> Agent:
             pass
 
     return agent
-
-
-def _resolve_env_fields(d: dict) -> dict:
-    """Resolve ``*_env`` keys in a dict using ``resolve_env``.
-
-    For each key ending with ``_env``, resolve the env var and store the value
-    under the base key (without the ``_env`` suffix).  The ``_env`` key is
-    removed from the result.  Non-env keys are kept as-is.
-
-    Example::
-
-        {"api_key": null, "api_key_env": "MY_KEY"}
-        → {"api_key": "<value of $MY_KEY>"}
-    """
-    result = dict(d)
-    env_keys = [k for k in result if k.endswith("_env")]
-    for env_key in env_keys:
-        base_key = env_key[: -len("_env")]
-        result[base_key] = resolve_env(result.get(base_key), result.pop(env_key))
-    return result
-
-
-def _resolve_capabilities(capabilities: dict) -> dict:
-    """Resolve ``*_env`` fields in each capability's kwargs."""
-    resolved = {}
-    for name, kwargs in capabilities.items():
-        if isinstance(kwargs, dict) and kwargs:
-            resolved[name] = _resolve_env_fields(kwargs)
-        else:
-            resolved[name] = kwargs
-    return resolved
-
-
-def _resolve_addons(addons: dict | None) -> dict | None:
-    """Resolve *_env fields in addon configs to actual values."""
-    if not addons:
-        return addons
-
-    resolved = {}
-    for name, cfg in addons.items():
-        if isinstance(cfg, dict):
-            resolved[name] = _resolve_env_fields(cfg)
-
-    return resolved or None
 
 
 def run(working_dir: Path) -> None:
