@@ -44,3 +44,4 @@ node_modules/
 # Runtime data (agent working dirs, configs)
 .lingtai/
 .chat_history.json
+_telegram_agent/
