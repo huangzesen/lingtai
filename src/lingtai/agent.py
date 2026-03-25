@@ -352,3 +352,212 @@ class Agent(BaseAgent):
     def get_capability(self, name: str) -> Any:
         """Return the manager instance for a registered capability, or None."""
         return self._capability_managers.get(name)
+
+    # ------------------------------------------------------------------
+    # Deep refresh — full reconstruct from init.json
+    # ------------------------------------------------------------------
+
+    def _read_init(self) -> dict | None:
+        """Read and validate init.json from working directory."""
+        import json
+        from .init_schema import validate_init
+
+        init_path = self._working_dir / "init.json"
+        if not init_path.is_file():
+            return None
+
+        try:
+            data = json.loads(init_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            self._log("refresh_init_error", error="failed to read init.json")
+            return None
+
+        try:
+            validate_init(data)
+        except ValueError as e:
+            self._log("refresh_init_error", error=str(e))
+            return None
+
+        return data
+
+    def _perform_refresh(self) -> None:
+        """Full reconstruct from init.json, preserving conversation history."""
+        self._log("refresh_start")
+
+        data = self._read_init()
+        if data is None:
+            self._log("refresh_skipped", reason="no valid init.json")
+            return
+
+        from .config_resolve import (
+            load_env_file,
+            resolve_env,
+            _resolve_capabilities,
+            _resolve_addons,
+        )
+        from lingtai_kernel.config import AgentConfig
+
+        env_file = data.get("env_file")
+        if env_file:
+            load_env_file(env_file)
+
+        m = data["manifest"]
+
+        # Save conversation history
+        saved_interface = None
+        if self._session.chat is not None:
+            saved_interface = self._session.chat.interface
+
+        # Tear down
+        for name, mgr in self._addon_managers.items():
+            if hasattr(mgr, "stop"):
+                try:
+                    mgr.stop()
+                except Exception:
+                    pass
+
+        for client in getattr(self, "_mcp_clients", []):
+            try:
+                client.close()
+            except Exception:
+                pass
+        self._mcp_clients = []
+
+        self._sealed = False
+        self._mcp_handlers.clear()
+        self._mcp_schemas.clear()
+        self._capabilities.clear()
+        self._capability_managers.clear()
+        self._addon_managers.clear()
+
+        self._intrinsics.clear()
+        self._wire_intrinsics()
+
+        # Reset capability-owned flags
+        self._eigen_owns_memory = False
+        self._mailbox_name = "mail box"
+        self._mailbox_tool = "mail"
+        if hasattr(self, "_post_molt_hooks"):
+            self._post_molt_hooks.clear()
+
+        # Reset prompt manager
+        self._prompt_manager._sections.clear()
+
+        # Reconstruct LLM service if changed
+        llm = m["llm"]
+        api_key = resolve_env(llm["api_key"], llm.get("api_key_env"))
+        new_provider = llm["provider"]
+        new_model = llm["model"]
+        new_base_url = llm["base_url"]
+
+        if (
+            new_provider != self.service.provider
+            or new_model != self.service.model
+            or new_base_url != getattr(self.service, "_base_url", None)
+        ):
+            self.service = LLMService(
+                provider=new_provider, model=new_model,
+                api_key=api_key, base_url=new_base_url,
+            )
+            self._session._llm_service = self.service
+
+        # Reload config
+        soul = m["soul"]
+        self._config = AgentConfig(
+            stamina=m["stamina"],
+            soul_delay=soul["delay"],
+            max_turns=m["max_turns"],
+            language=m["language"],
+            context_limit=m["context_limit"],
+            molt_pressure=m["molt_pressure"],
+            molt_prompt=m["molt_prompt"],
+        )
+        self._soul_delay = max(1.0, self._config.soul_delay)
+
+        # Reload covenant and memory
+        covenant = data.get("covenant", "")
+        system_dir = self._working_dir / "system"
+        covenant_file = system_dir / "covenant.md"
+        memory_file = system_dir / "memory.md"
+
+        if not covenant and covenant_file.is_file():
+            covenant = covenant_file.read_text()
+        if covenant:
+            self._prompt_manager.write_section("covenant", covenant, protected=True)
+
+        loaded_memory = ""
+        if memory_file.is_file():
+            loaded_memory = memory_file.read_text()
+        if loaded_memory.strip():
+            self._prompt_manager.write_section("memory", loaded_memory)
+
+        # Reload principle
+        principle = data.get("principle", "")
+        if principle:
+            self._prompt_manager.write_section("principle", principle, protected=True)
+
+        # Re-run capability setup
+        capabilities = _resolve_capabilities(m["capabilities"])
+        if capabilities:
+            from .capabilities import expand_groups, _GROUPS
+            expanded: dict[str, dict] = {}
+            for name, cap_kwargs in capabilities.items():
+                if name in _GROUPS:
+                    for sub in _GROUPS[name]:
+                        expanded[sub] = {}
+                else:
+                    expanded[name] = cap_kwargs
+            capabilities = expanded
+            for name, cap_kwargs in capabilities.items():
+                self._setup_capability(name, **cap_kwargs)
+
+        # Re-run addon setup
+        addons = _resolve_addons(data.get("addons"))
+        if addons:
+            from .addons import setup_addon
+            for addon_name, addon_kwargs in addons.items():
+                mgr = setup_addon(self, addon_name, **(addon_kwargs or {}))
+                self._addon_managers[addon_name] = mgr
+
+        # Reload MCP
+        self._load_mcp_from_workdir()
+
+        # Persist LLM config
+        try:
+            import json as _json
+            llm_config: dict = {
+                "provider": self.service.provider,
+                "model": self.service.model,
+            }
+            _base_url = getattr(self.service, "_base_url", None)
+            if isinstance(_base_url, str) and _base_url:
+                llm_config["base_url"] = _base_url
+            llm_dir = self._working_dir / "system"
+            llm_dir.mkdir(exist_ok=True)
+            (llm_dir / "llm.json").write_text(
+                _json.dumps(llm_config, ensure_ascii=False)
+            )
+        except (TypeError, AttributeError, OSError):
+            pass
+
+        # Re-write manifest and identity
+        self._update_identity()
+
+        # Re-seal
+        self._sealed = True
+
+        # Rebuild session with preserved history
+        if saved_interface is not None:
+            self._session._rebuild_session(saved_interface)
+
+        # Start addon managers
+        for name, mgr in self._addon_managers.items():
+            if hasattr(mgr, "start"):
+                mgr.start()
+
+        self._log(
+            "refresh_complete",
+            capabilities=[name for name, _ in self._capabilities],
+            addons=list(self._addon_managers.keys()),
+            tools=list(self._mcp_handlers.keys()),
+        )
