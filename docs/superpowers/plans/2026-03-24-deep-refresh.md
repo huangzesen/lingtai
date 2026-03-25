@@ -413,6 +413,18 @@ def _perform_refresh(self) -> None:
     self._intrinsics.clear()
     self._wire_intrinsics()
 
+    # Reset capability-owned flags to construction defaults
+    self._eigen_owns_memory = False
+    self._mailbox_name = "mail box"
+    self._mailbox_tool = "mail"
+    if hasattr(self, "_post_molt_hooks"):
+        self._post_molt_hooks.clear()
+
+    # Reset prompt manager — clear all sections to prevent stale content
+    # (e.g. psyche's character section lingering after psyche is removed).
+    # Sections will be rebuilt from disk files and init.json below.
+    self._prompt_manager._sections.clear()
+
     # --- Reconstruct LLM service if changed ---
     llm = m["llm"]
     api_key = resolve_env(llm["api_key"], llm.get("api_key_env"))
@@ -519,8 +531,8 @@ def _perform_refresh(self) -> None:
     except (TypeError, AttributeError, OSError):
         pass
 
-    # --- Re-write manifest ---
-    self._workdir.write_manifest(self._build_manifest())
+    # --- Re-write manifest and identity prompt section ---
+    self._update_identity()
 
     # --- Re-seal ---
     self._sealed = True
