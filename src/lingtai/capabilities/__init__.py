@@ -13,6 +13,7 @@ _BUILTIN: dict[str, str] = {
     "library": ".library",
     "bash": ".bash",
     "avatar": ".avatar",
+    "daemon": ".daemon",
     "email": ".email",
     "draw": ".draw",
     "compose": ".compose",
