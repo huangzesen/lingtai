@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make `refresh` fully reconstruct the agent from `init.json` + `mcp/servers.json`, preserving only conversation history and working directory files.
+**Goal:** Make `refresh` fully reconstruct the agent from `init.json` + `mcp/servers.json`, preserving only conversation history and working directory files. Make `lingtai run` (CLI boot) use the same `_perform_refresh()` code path so construction and refresh share one implementation.
 
-**Architecture:** `Agent._perform_refresh()` overrides the kernel's MCP-only version. It reads `init.json` (the operator's declaration of intent) and `mcp/servers.json` (MCP tool registry), tears down all runtime state (capabilities, addons, MCP clients, tool registrations), then re-runs the full construction sequence with preserved `ChatInterface` history. The env-resolution helpers move from `cli.py` to `agent.py` so both boot and refresh share them.
+**Architecture:** `Agent._perform_refresh()` overrides the kernel's MCP-only version. It reads `init.json` (the operator's declaration of intent) and `mcp/servers.json` (MCP tool registry), tears down all runtime state (capabilities, addons, MCP clients, tool registrations, prompt sections, capability flags), then re-runs the full setup sequence. `cli.py`'s `build_agent()` constructs a minimal Agent (just LLMService + working_dir + mail_service) then calls `_perform_refresh()` — one code path for both boot and live refresh.
 
 **Tech Stack:** Python 3.11+, existing lingtai/lingtai-kernel infrastructure. No new dependencies.
 
@@ -14,10 +14,10 @@
 
 | File | Action | Responsibility |
 |------|--------|----------------|
-| `src/lingtai/agent.py` | Modify | Add `_perform_refresh()` override, add `_read_init()` helper, import env-resolution helpers |
-| `src/lingtai/cli.py` | Modify | Import helpers from `agent.py` instead of defining locally |
-| `src/lingtai/config_resolve.py` | Create | Shared env-resolution helpers (`resolve_env`, `_resolve_env_fields`, `_resolve_capabilities`, `_resolve_addons`, `load_env_file`) |
-| `tests/test_deep_refresh.py` | Create | Tests for the deep refresh behavior |
+| `src/lingtai/config_resolve.py` | Create | Shared env-resolution helpers extracted from `cli.py` |
+| `src/lingtai/agent.py` | Modify | Add `_perform_refresh()` override, `_read_init()` helper |
+| `src/lingtai/cli.py` | Modify | Simplify `build_agent()` to use `_perform_refresh()`, import helpers from `config_resolve` |
+| `tests/test_deep_refresh.py` | Create | Tests for deep refresh and CLI boot via refresh |
 
 ---
 
@@ -191,7 +191,7 @@ git commit -m "refactor: extract env-resolution helpers into config_resolve.py"
 - Modify: `src/lingtai/agent.py`
 - Test: `tests/test_deep_refresh.py`
 
-The core change. `Agent._perform_refresh()` overrides the kernel version to do a full reconstruct from `init.json`.
+The core change. `Agent._perform_refresh()` overrides the kernel version to do a full reconstruct from `init.json`. This method works both at boot (no history to preserve, not sealed yet) and at runtime (preserves history, temporarily unseals).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -208,6 +208,9 @@ def _make_init(
     addons: dict | None = None,
     provider: str = "openai",
     model: str = "gpt-4o",
+    covenant: str = "",
+    principle: str = "",
+    memory: str = "",
 ) -> dict:
     """Build a minimal valid init.json dict."""
     data = {
@@ -230,9 +233,9 @@ def _make_init(
             "admin": {"karma": True},
             "streaming": False,
         },
-        "principle": "",
-        "covenant": "",
-        "memory": "",
+        "principle": principle,
+        "covenant": covenant,
+        "memory": memory,
         "prompt": "",
     }
     if addons:
@@ -241,7 +244,11 @@ def _make_init(
 
 
 def _make_agent(tmp_path: Path, init_data: dict | None = None):
-    """Create an Agent with a mock LLM service in a temp working dir."""
+    """Create a bare Agent with a mock LLM service in a temp working dir.
+
+    Constructs with NO capabilities — the test calls _perform_refresh()
+    to load them from init.json, mirroring the cli.py boot path.
+    """
     from lingtai.agent import Agent
     from lingtai_kernel.config import AgentConfig
 
@@ -259,7 +266,6 @@ def _make_agent(tmp_path: Path, init_data: dict | None = None):
         agent_name="test-agent",
         working_dir=tmp_path,
         config=AgentConfig(),
-        capabilities=init["manifest"]["capabilities"] or None,
     )
     return agent
 
@@ -306,11 +312,27 @@ def test_deep_refresh_no_init_json_is_noop(tmp_path):
     agent._perform_refresh()
     # Nothing changed
     assert agent._capabilities == old_caps
+
+
+def test_deep_refresh_at_boot_no_history(tmp_path):
+    """_perform_refresh works at boot time (no session, not sealed)."""
+    init = _make_init(capabilities={"read": {}})
+    agent = _make_agent(tmp_path, init)
+
+    # At boot: not sealed, no session yet
+    assert agent._sealed is False
+
+    agent._perform_refresh()
+
+    cap_names = [name for name, _ in agent._capabilities]
+    assert "read" in cap_names
+    # Should be sealed after refresh
+    assert agent._sealed is True
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_deep_refresh.py::test_deep_refresh_loads_new_capability tests/test_deep_refresh.py::test_deep_refresh_no_init_json_is_noop -v`
+Run: `python -m pytest tests/test_deep_refresh.py::test_deep_refresh_loads_new_capability tests/test_deep_refresh.py::test_deep_refresh_no_init_json_is_noop tests/test_deep_refresh.py::test_deep_refresh_at_boot_no_history -v`
 Expected: FAIL — `_perform_refresh` is the kernel's MCP-only version, doesn't load capabilities.
 
 - [ ] **Step 3: Implement `_read_init()` helper on Agent**
@@ -351,7 +373,12 @@ Add to `agent.py`, overriding the kernel version:
 
 ```python
 def _perform_refresh(self) -> None:
-    """Full reconstruct from init.json, preserving conversation history."""
+    """Full reconstruct from init.json, preserving conversation history.
+
+    Works at both boot (called by cli.py before start) and runtime
+    (called between message-loop iterations by the system intrinsic).
+    At boot there is no session to preserve and _sealed is already False.
+    """
     self._log("refresh_start")
 
     # --- Read config ---
@@ -397,7 +424,7 @@ def _perform_refresh(self) -> None:
             pass
     self._mcp_clients = []
 
-    # Unseal
+    # Unseal (no-op at boot when already unsealed)
     self._sealed = False
 
     # Clear all non-intrinsic tool registrations
@@ -540,7 +567,7 @@ def _perform_refresh(self) -> None:
     # --- Rebuild session with preserved history ---
     if saved_interface is not None:
         self._session._rebuild_session(saved_interface)
-    # If no session existed, ensure_session() will create one on next message
+    # If no session existed (boot), ensure_session() will create one on next message
 
     # --- Start addon managers ---
     for name, mgr in self._addon_managers.items():
@@ -558,7 +585,7 @@ def _perform_refresh(self) -> None:
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_deep_refresh.py -v`
-Expected: PASS (all 5 tests)
+Expected: PASS (all 6 tests)
 
 - [ ] **Step 6: Smoke-test the module**
 
@@ -574,19 +601,149 @@ git commit -m "feat: deep refresh — full agent reconstruct from init.json"
 
 ---
 
-### Task 3: Additional test coverage
+### Task 3: Simplify `cli.py` to use `_perform_refresh()` for boot
+
+**Files:**
+- Modify: `src/lingtai/cli.py`
+- Test: `tests/test_deep_refresh.py`
+
+`build_agent()` currently duplicates what `_perform_refresh()` does — resolve capabilities, resolve addons, build config, inject principle, restore molt count. Replace with a minimal construction + `_perform_refresh()` call.
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `tests/test_deep_refresh.py`:
+
+```python
+def test_cli_build_agent_uses_refresh(tmp_path):
+    """cli.build_agent() constructs agent via _perform_refresh from init.json."""
+    from lingtai.cli import load_init, build_agent
+
+    init = _make_init(capabilities={"read": {}}, covenant="Be helpful.")
+    (tmp_path / "init.json").write_text(json.dumps(init))
+
+    data = load_init(tmp_path)
+    agent = build_agent(data, tmp_path)
+
+    # Capabilities loaded from init.json via _perform_refresh
+    cap_names = [name for name, _ in agent._capabilities]
+    assert "read" in cap_names
+
+    # Covenant loaded
+    covenant_content = agent._prompt_manager.read_section("covenant")
+    assert covenant_content is not None
+    assert "Be helpful" in covenant_content
+
+    # Cleanup
+    agent._workdir.release_lock()
+```
+
+- [ ] **Step 2: Run test — should pass with current cli.py (baseline)**
+
+Run: `python -m pytest tests/test_deep_refresh.py::test_cli_build_agent_uses_refresh -v`
+Expected: PASS (current `build_agent` still works, this verifies the contract we must preserve).
+
+- [ ] **Step 3: Simplify `build_agent()` in `cli.py`**
+
+Replace the current `build_agent()` with:
+
+```python
+def build_agent(data: dict, working_dir: Path) -> Agent:
+    """Construct Agent from validated init data.
+
+    Creates a minimal Agent (LLMService + working_dir + mail_service),
+    then delegates all setup to _perform_refresh() which reads init.json.
+    This ensures boot and live refresh share one code path.
+    """
+    # Load env file if specified (needed for LLM API key resolution)
+    env_file = data.get("env_file")
+    if env_file:
+        load_env_file(env_file)
+
+    m = data["manifest"]
+    llm = m["llm"]
+
+    api_key = resolve_env(llm["api_key"], llm.get("api_key_env"))
+
+    service = LLMService(
+        provider=llm["provider"],
+        model=llm["model"],
+        api_key=api_key,
+        base_url=llm["base_url"],
+    )
+
+    mail_service = FilesystemMailService(working_dir=working_dir)
+
+    # Minimal construction — _perform_refresh reads init.json for everything else
+    agent = Agent(
+        service,
+        agent_name=m["agent_name"],
+        working_dir=working_dir,
+        mail_service=mail_service,
+        streaming=m["streaming"],
+    )
+
+    # Full setup from init.json (capabilities, addons, config, covenant, etc.)
+    agent._perform_refresh()
+
+    # Restore molt count from previous run (if resuming)
+    prev_manifest = working_dir / ".agent.json"
+    if prev_manifest.is_file():
+        try:
+            prev = json.loads(prev_manifest.read_text())
+            agent._molt_count = prev.get("molt_count", 0)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    return agent
+```
+
+Key changes:
+- No `config=`, no `admin=`, no `covenant=`, no `memory=`, no `capabilities=`, no `addons=` in Agent constructor
+- No principle injection after construction
+- `_perform_refresh()` handles all of these from `init.json`
+- `streaming` stays in constructor (it's wired into `SessionManager` at construction, not refreshable)
+- Molt count restoration stays (it reads from old `.agent.json` which `_perform_refresh` just overwrote)
+
+- [ ] **Step 4: Run the test to verify it still passes**
+
+Run: `python -m pytest tests/test_deep_refresh.py::test_cli_build_agent_uses_refresh -v`
+Expected: PASS
+
+- [ ] **Step 5: Run full test suite**
+
+Run: `python -m pytest tests/ -v`
+Expected: All tests pass.
+
+- [ ] **Step 6: Smoke-test the CLI module**
+
+Run: `python -c "import lingtai.cli; print('ok')"`
+Expected: `ok`
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/lingtai/cli.py tests/test_deep_refresh.py
+git commit -m "refactor: cli.build_agent delegates to _perform_refresh — one code path for boot and refresh"
+```
+
+---
+
+### Task 4: Additional test coverage
 
 **Files:**
 - Test: `tests/test_deep_refresh.py`
 
-Cover edge cases: invalid init.json, LLM provider change, capability removal, addon stop/start cycle.
+Cover edge cases: invalid init.json, LLM provider change, capability removal, prompt manager reset.
 
 - [ ] **Step 1: Write test for invalid init.json (no crash, keeps old config)**
 
 ```python
 def test_deep_refresh_invalid_init_keeps_old_config(tmp_path):
     """If init.json is invalid, refresh logs error and keeps old state."""
-    agent = _make_agent(tmp_path, _make_init(capabilities={"read": {}}))
+    init = _make_init(capabilities={"read": {}})
+    agent = _make_agent(tmp_path, init)
+    agent._perform_refresh()  # initial setup
+
     agent._sealed = True
     mock_session = MagicMock()
     mock_session.chat = MagicMock()
@@ -608,7 +765,10 @@ def test_deep_refresh_invalid_init_keeps_old_config(tmp_path):
 ```python
 def test_deep_refresh_removes_old_capabilities(tmp_path):
     """Capabilities removed from init.json are gone after refresh."""
-    agent = _make_agent(tmp_path, _make_init(capabilities={"read": {}, "write": {}}))
+    init = _make_init(capabilities={"read": {}, "write": {}})
+    agent = _make_agent(tmp_path, init)
+    agent._perform_refresh()  # initial setup
+
     agent._sealed = True
     mock_session = MagicMock()
     mock_session.chat = MagicMock()
@@ -647,7 +807,24 @@ def test_deep_refresh_preserves_chat_history(tmp_path):
     mock_session._rebuild_session.assert_called_once_with(mock_interface)
 ```
 
-- [ ] **Step 4: Write test for re-seal after refresh**
+- [ ] **Step 4: Write test for prompt manager reset (no stale sections)**
+
+```python
+def test_deep_refresh_clears_stale_prompt_sections(tmp_path):
+    """Prompt sections from old capabilities don't survive refresh."""
+    agent = _make_agent(tmp_path, _make_init())
+
+    # Simulate a stale prompt section from a removed capability
+    agent._prompt_manager.write_section("some_old_section", "stale content")
+    assert agent._prompt_manager.read_section("some_old_section") is not None
+
+    agent._perform_refresh()
+
+    # Stale section should be gone
+    assert agent._prompt_manager.read_section("some_old_section") is None
+```
+
+- [ ] **Step 5: Write test for re-seal after refresh**
 
 ```python
 def test_deep_refresh_reseals(tmp_path):
@@ -664,28 +841,28 @@ def test_deep_refresh_reseals(tmp_path):
     assert agent._sealed is True
 ```
 
-- [ ] **Step 5: Run all tests**
+- [ ] **Step 6: Run all tests**
 
 Run: `python -m pytest tests/test_deep_refresh.py -v`
 Expected: PASS (all tests)
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add tests/test_deep_refresh.py
-git commit -m "test: edge cases for deep refresh — invalid json, removal, history, re-seal"
+git commit -m "test: edge cases for deep refresh — invalid json, removal, history, prompt reset, re-seal"
 ```
 
 ---
 
-### Task 4: Final verification
+### Task 5: Final verification
 
 - [ ] **Step 1: Run full test suite**
 
 Run: `python -m pytest tests/ -v`
 Expected: All tests pass, including existing tests (no regressions from cli.py refactor).
 
-- [ ] **Step 2: Smoke-test both entry points**
+- [ ] **Step 2: Smoke-test all entry points**
 
 Run: `python -c "import lingtai; import lingtai.cli; import lingtai.config_resolve; print('ok')"`
 Expected: `ok`
