@@ -38,6 +38,10 @@ app/web/config.json
 app/web/frontend/dist/
 node_modules/
 
+# Superpowers specs and plans (local only)
+docs/specs/
+docs/superpowers/
+
 # Superpowers brainstorm sessions
 .superpowers/
 
