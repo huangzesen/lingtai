@@ -136,13 +136,11 @@ class PsycheManager:
         self._agent._flush_system_prompt()
 
         rel_path = "system/character.md"
-        git_diff, commit_hash = self._agent._workdir.diff_and_commit(
-            rel_path, "character",
-        )
+        git_diff = self._agent._workdir.diff(rel_path)
 
         self._agent._log(
             "psyche_character_load",
-            changed=commit_hash is not None,
+            changed=bool(git_diff),
         )
 
         return {
@@ -150,9 +148,9 @@ class PsycheManager:
             "size_bytes": len(combined.encode("utf-8")),
             "content_preview": combined[:200],
             "diff": {
-                "changed": commit_hash is not None,
+                "changed": bool(git_diff),
                 "git_diff": git_diff or "",
-                "commit": commit_hash,
+                "commit": None,
             },
         }
 
