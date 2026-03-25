@@ -37,8 +37,6 @@ from lingtai_kernel.llm.interface import ChatInterface
 from ..interface_converters import to_anthropic
 from lingtai_kernel.llm.streaming import StreamingAccumulator
 
-from .defaults import DEFAULTS  # noqa: F401 — re-exported for consumers
-
 
 # ---------------------------------------------------------------------------
 # Helpers

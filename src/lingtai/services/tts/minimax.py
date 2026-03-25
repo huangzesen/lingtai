@@ -54,7 +54,6 @@ class MiniMaxTTSService(TTSService):
 
     def _ensure_mcp(self) -> Any:
         if self._mcp is None:
-            from ..mcp import MCPClient  # noqa: F811 — local import to avoid circular
             from ...llm.minimax.mcp_media_client import create_minimax_media_client
 
             self._mcp = create_minimax_media_client(

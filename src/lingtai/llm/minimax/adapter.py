@@ -4,8 +4,6 @@ from lingtai_kernel.llm.base import ChatSession, LLMResponse
 
 logger = get_logger()
 
-from .defaults import DEFAULTS  # noqa: F401 — re-exported for consumers
-
 
 class _GatedSession:
     """Thin proxy that routes send/send_stream through the adapter's gate."""

@@ -32,8 +32,6 @@ from lingtai_kernel.llm.streaming import StreamingAccumulator
 
 logger = get_logger()
 
-from .defaults import DEFAULTS  # noqa: F401 — re-exported for consumers
-
 
 # ---------------------------------------------------------------------------
 # Helpers
