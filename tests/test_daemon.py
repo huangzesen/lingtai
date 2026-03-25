@@ -309,3 +309,67 @@ def test_run_emanation_respects_cancel_mid_loop(tmp_path):
     }
     result = mgr._run_emanation(em_id, "do stuff", ["file"], None, cancel)
     assert result == "[cancelled]"
+
+
+def test_end_to_end_emanate_list_ask_reclaim(tmp_path):
+    """Full lifecycle: emanate → list → ask → results arrive → reclaim."""
+    agent = _make_agent(tmp_path, ["file", "daemon"])
+    agent.inbox = queue.Queue()
+    mgr = agent.get_capability("daemon")
+
+    tc = ToolCall(name="read", args={"file_path": "/tmp/x"}, id="tc-1")
+    resp1 = MagicMock()
+    resp1.text = "Checking files..."
+    resp1.tool_calls = [tc]
+    resp2 = MagicMock()
+    resp2.text = "Task done. Summarized architecture."
+    resp2.tool_calls = []
+
+    mock_session = MagicMock()
+    mock_session.send = MagicMock(side_effect=[resp1, resp2])
+    agent.service.create_session = MagicMock(return_value=mock_session)
+    agent.service.make_tool_result = MagicMock(return_value="mock_result")
+
+    result = mgr.handle({"action": "emanate", "tasks": [
+        {"task": "summarize architecture", "tools": ["file"]},
+    ]})
+    assert result["status"] == "dispatched"
+    assert result["ids"] == ["em-1"]
+
+    time.sleep(0.1)
+    time.sleep(2)
+
+    list_result = mgr._handle_list()
+    statuses = {e["id"]: e["status"] for e in list_result["emanations"]}
+    assert statuses.get("em-1") == "done"
+
+    messages = []
+    while not agent.inbox.empty():
+        messages.append(agent.inbox.get_nowait())
+    assert len(messages) >= 1
+    texts = [m.content for m in messages]
+    assert any("Task done" in t for t in texts)
+
+    reclaim_result = mgr._handle_reclaim()
+    assert reclaim_result["status"] == "reclaimed"
+
+
+def test_sequential_emanate_increments_ids(tmp_path):
+    """Multiple emanate calls produce sequential IDs."""
+    agent = _make_agent(tmp_path, ["file", "daemon"])
+    agent.inbox = queue.Queue()
+    mgr = agent.get_capability("daemon")
+
+    mock_session = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.text = "done"
+    mock_resp.tool_calls = []
+    mock_session.send = MagicMock(return_value=mock_resp)
+    agent.service.create_session = MagicMock(return_value=mock_session)
+
+    r1 = mgr.handle({"action": "emanate", "tasks": [{"task": "a", "tools": ["file"]}]})
+    time.sleep(0.5)
+    r2 = mgr.handle({"action": "emanate", "tasks": [{"task": "b", "tools": ["file"]}]})
+
+    assert r1["ids"] == ["em-1"]
+    assert r2["ids"] == ["em-2"]
