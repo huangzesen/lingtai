@@ -1,0 +1,15 @@
+{
+  "name": "@lingtai/tui",
+  "version": "0.1.0",
+  "description": "TUI + visualization dashboard for lingtai agent framework",
+  "bin": {
+    "lingtai": "bin/lingtai.js"
+  },
+  "optionalDependencies": {
+    "@lingtai/tui-darwin-arm64": "0.1.0",
+    "@lingtai/tui-darwin-x64": "0.1.0",
+    "@lingtai/tui-linux-x64": "0.1.0",
+    "@lingtai/tui-linux-arm64": "0.1.0",
+    "@lingtai/tui-win32-x64": "0.1.0"
+  }
+}

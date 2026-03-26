@@ -1,0 +1,57 @@
+package process
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+
+	"github.com/anthropics/lingtai-tui/internal/fs"
+)
+
+func InitProject(lingtaiDir string) error {
+	if err := os.MkdirAll(lingtaiDir, 0o755); err != nil {
+		return fmt.Errorf("create .lingtai: %w", err)
+	}
+	humanDir := filepath.Join(lingtaiDir, "human")
+	manifestPath := filepath.Join(humanDir, ".agent.json")
+	if _, err := os.Stat(manifestPath); err == nil {
+		return nil
+	}
+	for _, sub := range []string{
+		"mailbox/inbox",
+		"mailbox/sent",
+		"mailbox/archive",
+	} {
+		if err := os.MkdirAll(filepath.Join(humanDir, sub), 0o755); err != nil {
+			return fmt.Errorf("create %s: %w", sub, err)
+		}
+	}
+	absPath, _ := filepath.Abs(humanDir)
+	manifest := map[string]interface{}{
+		"agent_name": "human",
+		"address":    absPath,
+		"admin":      nil,
+	}
+	data, _ := json.MarshalIndent(manifest, "", "  ")
+	if err := os.WriteFile(manifestPath, data, 0o644); err != nil {
+		return fmt.Errorf("write manifest: %w", err)
+	}
+	contactsPath := filepath.Join(humanDir, "mailbox", "contacts.json")
+	if err := os.WriteFile(contactsPath, []byte("[]"), 0o644); err != nil {
+		return fmt.Errorf("write contacts: %w", err)
+	}
+	return nil
+}
+
+func LaunchAgent(lingtaiCmd, agentDir string) (*exec.Cmd, error) {
+	fs.CleanSignals(agentDir)
+	cmd := exec.Command(lingtaiCmd, "run", agentDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("launch agent: %w", err)
+	}
+	return cmd, nil
+}
