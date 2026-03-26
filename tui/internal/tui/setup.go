@@ -106,12 +106,12 @@ func (m SetupModel) View() string {
 	}
 
 	// Input
-	b.WriteString("  MiniMax API Key: " + m.input.View() + "\n\n")
+	b.WriteString("  " + i18n.T("setup.api_key_label") + " " + m.input.View() + "\n\n")
 
 	// Error
 	if m.err != nil {
 		errStyle := lipgloss.NewStyle().Foreground(ColorSuspended)
-		b.WriteString("  " + errStyle.Render("Error: "+m.err.Error()) + "\n\n")
+		b.WriteString("  " + errStyle.Render(i18n.TF("setup.error", m.err.Error())) + "\n\n")
 	}
 
 	// Hints

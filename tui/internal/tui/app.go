@@ -1,10 +1,13 @@
 package tui
 
 import (
-	"fmt"
+	"encoding/json"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"time"
 
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/config"
@@ -40,9 +43,12 @@ type App struct {
 	vizURL     string
 	orchDir    string // full path to orchestrator dir
 	orchName   string
-	lingtaiCmd string
-	width      int
-	height     int
+	lingtaiCmd     string
+	width          int
+	height         int
+	appSettings    Settings
+	pendingRename  bool
+	pendingLang    bool
 }
 
 func humanAddr(projectDir string) string {
@@ -62,10 +68,11 @@ func NewApp(globalDir, projectDir, vizURL string, needsFirstRun bool, orchestrat
 	lingtaiCmd := config.LingtaiCmd(globalDir)
 
 	app := App{
-		globalDir:  globalDir,
-		projectDir: projectDir,
-		vizURL:     vizURL,
-		lingtaiCmd: lingtaiCmd,
+		globalDir:   globalDir,
+		projectDir:  projectDir,
+		vizURL:      vizURL,
+		lingtaiCmd:  lingtaiCmd,
+		appSettings: settings,
 	}
 
 	if needsFirstRun {
@@ -105,7 +112,7 @@ func NewApp(globalDir, projectDir, vizURL string, needsFirstRun bool, orchestrat
 		app.currentView = appViewMail
 		humanDir := filepath.Join(projectDir, "human")
 		addr := humanAddr(projectDir)
-		app.mail = NewMailModel(humanDir, addr, projectDir, app.orchDir, app.orchName)
+		app.mail = NewMailModel(humanDir, addr, projectDir, app.orchDir, app.orchName, settings.PollRate)
 		app.manage = NewManageModel(projectDir, lingtaiCmd)
 	}
 
@@ -127,22 +134,23 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
-		// Forward to all views so they can resize
+		// Forward to current view so it can resize
+		var cmd tea.Cmd
 		switch a.currentView {
 		case appViewMail:
-			a.mail, _ = a.mail.Update(msg)
+			a.mail, cmd = a.mail.Update(msg)
 		case appViewManage:
-			a.manage, _ = a.manage.Update(msg)
+			a.manage, cmd = a.manage.Update(msg)
 		case appViewSetup:
-			a.setup, _ = a.setup.Update(msg)
+			a.setup, cmd = a.setup.Update(msg)
 		case appViewSettings:
-			a.settings, _ = a.settings.Update(msg)
+			a.settings, cmd = a.settings.Update(msg)
 		case appViewPresets:
-			a.presets, _ = a.presets.Update(msg)
+			a.presets, cmd = a.presets.Update(msg)
 		case appViewFirstRun:
-			a.firstRun, _ = a.firstRun.Update(msg)
+			a.firstRun, cmd = a.firstRun.Update(msg)
 		}
-		return a, nil
+		return a, cmd
 
 	// === Cross-view messages ===
 
@@ -160,19 +168,19 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var launchErr string
 		if a.lingtaiCmd != "" {
 			if _, err := process.LaunchAgent(a.lingtaiCmd, a.orchDir); err != nil {
-				launchErr = fmt.Sprintf("Failed to launch agent: %v", err)
+				launchErr = i18n.TF("mail.launch_failed", err)
 			}
 		}
 		// Initialize mail view
 		a.currentView = appViewMail
 		humanDir := filepath.Join(a.projectDir, "human")
 		addr := humanAddr(a.projectDir)
-		a.mail = NewMailModel(humanDir, addr, a.projectDir, a.orchDir, a.orchName)
+		a.mail = NewMailModel(humanDir, addr, a.projectDir, a.orchDir, a.orchName, a.appSettings.PollRate)
 		a.manage = NewManageModel(a.projectDir, a.lingtaiCmd)
 		if launchErr != "" {
-			a.mail.messages = append(a.mail.messages, ChatMessage{From: "system", Body: launchErr, Type: "mail"})
+			a.mail.messages = append(a.mail.messages, ChatMessage{From: i18n.T("mail.system_sender"), Body: launchErr, Type: "mail"})
 		}
-		return a, a.mail.Init()
+		return a, tea.Batch(a.mail.Init(), a.sendSize())
 
 	case SetupDoneMsg:
 		// During first-run, forward to firstrun model (needs to create default preset)
@@ -197,7 +205,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var launchErr string
 		if a.lingtaiCmd != "" {
 			if _, err := process.LaunchAgent(a.lingtaiCmd, orchDir); err != nil {
-				launchErr = fmt.Sprintf("Failed to launch agent: %v", err)
+				launchErr = i18n.TF("mail.launch_failed", err)
 			}
 		}
 		a.orchDir = orchDir
@@ -205,12 +213,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.currentView = appViewMail
 		humanDir := filepath.Join(a.projectDir, "human")
 		addr := humanAddr(a.projectDir)
-		a.mail = NewMailModel(humanDir, addr, a.projectDir, a.orchDir, a.orchName)
+		a.mail = NewMailModel(humanDir, addr, a.projectDir, a.orchDir, a.orchName, a.appSettings.PollRate)
 		a.manage = NewManageModel(a.projectDir, a.lingtaiCmd)
 		if launchErr != "" {
-			a.mail.messages = append(a.mail.messages, ChatMessage{From: "system", Body: launchErr, Type: "mail"})
+			a.mail.messages = append(a.mail.messages, ChatMessage{From: i18n.T("mail.system_sender"), Body: launchErr, Type: "mail"})
 		}
-		return a, a.mail.Init()
+		return a, tea.Batch(a.mail.Init(), a.sendSize())
 
 	// === Global keys ===
 
@@ -233,6 +241,21 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.firstRun = updated
 		return a, cmd
 	case appViewMail:
+		// Intercept SendMsg for pending rename or lang
+		if _, ok := msg.(SendMsg); ok && (a.pendingRename || a.pendingLang) {
+			text := strings.TrimSpace(a.mail.input.Value())
+			a.mail.input.Reset()
+			if a.pendingRename {
+				a.pendingRename = false
+				if text != "" {
+					a.doRename(text)
+				}
+			} else if a.pendingLang {
+				a.pendingLang = false
+				a.doLang(text)
+			}
+			return a, a.mail.refreshMail
+		}
 		updated, cmd := a.mail.Update(msg)
 		a.mail = updated
 		return a, cmd
@@ -259,6 +282,100 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (a App) handlePaletteCommand(command string) (tea.Model, tea.Cmd) {
 	switch command {
+	case "interrupt":
+		if a.orchDir != "" {
+			interruptFile := filepath.Join(a.orchDir, ".interrupt")
+			os.WriteFile(interruptFile, []byte(""), 0o644)
+			a.mail.messages = append(a.mail.messages, ChatMessage{
+				From: i18n.T("mail.system_sender"),
+				Body: i18n.T("mail.interrupted"),
+				Type: "mail",
+			})
+			if a.mail.ready {
+				a.mail.viewport.SetContent(a.mail.renderMessages())
+				a.mail.viewport.GotoBottom()
+			}
+		}
+		return a, nil
+	case "sleep":
+		if a.orchDir != "" {
+			sleepFile := filepath.Join(a.orchDir, ".sleep")
+			os.WriteFile(sleepFile, []byte(""), 0o644)
+			a.mail.messages = append(a.mail.messages, ChatMessage{
+				From: i18n.T("mail.system_sender"),
+				Body: i18n.T("mail.sleep_sent"),
+				Type: "mail",
+			})
+			if a.mail.ready {
+				a.mail.viewport.SetContent(a.mail.renderMessages())
+				a.mail.viewport.GotoBottom()
+			}
+		}
+		return a, nil
+	case "cpr":
+		if a.orchDir != "" && a.lingtaiCmd != "" {
+			if !fs.IsAlive(a.orchDir, 3.0) {
+				process.LaunchAgent(a.lingtaiCmd, a.orchDir)
+				a.mail.messages = append(a.mail.messages, ChatMessage{
+					From: i18n.T("mail.system_sender"),
+					Body: i18n.TF("mail.cpr", a.orchName),
+					Type: "mail",
+				})
+			} else {
+				a.mail.messages = append(a.mail.messages, ChatMessage{
+					From: i18n.T("mail.system_sender"),
+					Body: i18n.T("mail.cpr_alive"),
+					Type: "mail",
+				})
+			}
+			if a.mail.ready {
+				a.mail.viewport.SetContent(a.mail.renderMessages())
+				a.mail.viewport.GotoBottom()
+			}
+		}
+		return a, nil
+	case "rename":
+		if a.orchDir != "" {
+			a.pendingRename = true
+			a.mail.messages = append(a.mail.messages, ChatMessage{
+				From: i18n.T("mail.system_sender"),
+				Body: i18n.T("mail.rename_prompt"),
+				Type: "mail",
+			})
+			if a.mail.ready {
+				a.mail.viewport.SetContent(a.mail.renderMessages())
+				a.mail.viewport.GotoBottom()
+			}
+		}
+		return a, nil
+	case "lang":
+		if a.orchDir != "" {
+			a.pendingLang = true
+			a.mail.messages = append(a.mail.messages, ChatMessage{
+				From: i18n.T("mail.system_sender"),
+				Body: i18n.T("mail.lang_prompt"),
+				Type: "mail",
+			})
+			if a.mail.ready {
+				a.mail.viewport.SetContent(a.mail.renderMessages())
+				a.mail.viewport.GotoBottom()
+			}
+		}
+		return a, nil
+	case "refresh":
+		if a.orchDir != "" && a.lingtaiCmd != "" {
+			a.hardRefresh()
+			a.mail.messages = append(a.mail.messages, ChatMessage{
+				From: i18n.T("mail.system_sender"),
+				Body: i18n.T("mail.refreshed"),
+				Type: "mail",
+			})
+			if a.mail.ready {
+				a.mail.viewport.SetContent(a.mail.renderMessages())
+				a.mail.viewport.GotoBottom()
+			}
+		}
+		return a, nil
 	case "manage":
 		a.currentView = appViewManage
 		a.manage = NewManageModel(a.projectDir, a.lingtaiCmd)
@@ -280,45 +397,24 @@ func (a App) handlePaletteCommand(command string) (tea.Model, tea.Cmd) {
 		a.currentView = appViewPresets
 		a.presets = NewPresetsModel()
 		return a, tea.Batch(a.presets.Init(), a.sendSize())
-	case "lang":
-		// Cycle language: en → zh → wen → en
-		langs := []string{"en", "zh", "wen"}
-		current := i18n.Lang()
-		next := langs[0]
-		for idx, l := range langs {
-			if l == current && idx+1 < len(langs) {
-				next = langs[idx+1]
-				break
-			}
-		}
-		i18n.SetLang(next)
-		settings := LoadSettings(a.projectDir)
-		settings.Language = next
-		SaveSettings(a.projectDir, settings)
-		// Show confirmation inline
-		a.mail.messages = append(a.mail.messages, ChatMessage{
-			From: "system",
-			Body: i18n.TF("settings.language") + ": " + next,
-			Type: "mail",
-		})
-		if a.mail.ready {
-			a.mail.viewport.SetContent(a.mail.renderMessages())
-			a.mail.viewport.GotoBottom()
-		}
-		return a, nil
 	case "help":
 		// Render help inline as a system message in the chat stream
 		helpText := i18n.T("help.title") + "\n" +
+			i18n.T("help.interrupt") + "\n" +
+			i18n.T("help.sleep") + "\n" +
+			i18n.T("help.cpr") + "\n" +
+			i18n.T("help.rename") + "\n" +
+			i18n.T("help.lang") + "\n" +
+			i18n.T("help.refresh") + "\n" +
 			i18n.T("help.manage") + "\n" +
 			i18n.T("help.viz") + "\n" +
 			i18n.T("help.setup") + "\n" +
 			i18n.T("help.settings") + "\n" +
 			i18n.T("help.presets") + "\n" +
-			i18n.T("help.lang") + "\n" +
 			i18n.T("help.help") + "\n" +
 			i18n.T("help.verbose")
 		a.mail.messages = append(a.mail.messages, ChatMessage{
-			From: "system",
+			From: i18n.T("mail.system_sender"),
 			Body: helpText,
 			Type: "mail",
 		})
@@ -333,6 +429,114 @@ func (a App) handlePaletteCommand(command string) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
+func (a *App) doRename(newName string) {
+	// Update init.json
+	initPath := filepath.Join(a.orchDir, "init.json")
+	if data, err := os.ReadFile(initPath); err == nil {
+		var init map[string]interface{}
+		if err := json.Unmarshal(data, &init); err == nil {
+			if m, ok := init["manifest"].(map[string]interface{}); ok {
+				m["agent_name"] = newName
+			}
+			if out, err := json.MarshalIndent(init, "", "  "); err == nil {
+				os.WriteFile(initPath, out, 0o644)
+			}
+		}
+	}
+	// Update .agent.json
+	agentPath := filepath.Join(a.orchDir, ".agent.json")
+	if data, err := os.ReadFile(agentPath); err == nil {
+		var manifest map[string]interface{}
+		if err := json.Unmarshal(data, &manifest); err == nil {
+			manifest["agent_name"] = newName
+			if out, err := json.MarshalIndent(manifest, "", "  "); err == nil {
+				os.WriteFile(agentPath, out, 0o644)
+			}
+		}
+	}
+	a.orchName = newName
+	a.mail.orchName = newName
+
+	// Hard refresh: suspend + cpr so the agent picks up the new name
+	a.hardRefresh()
+
+	a.mail.messages = append(a.mail.messages, ChatMessage{
+		From: i18n.T("mail.system_sender"),
+		Body: i18n.TF("mail.renamed", newName),
+		Type: "mail",
+	})
+	if a.mail.ready {
+		a.mail.viewport.SetContent(a.mail.renderMessages())
+		a.mail.viewport.GotoBottom()
+	}
+}
+
+func (a *App) doLang(lang string) {
+	valid := map[string]bool{"en": true, "zh": true, "wen": true}
+	if !valid[lang] {
+		a.mail.messages = append(a.mail.messages, ChatMessage{
+			From: i18n.T("mail.system_sender"),
+			Body: i18n.TF("mail.lang_invalid", lang),
+			Type: "mail",
+		})
+		if a.mail.ready {
+			a.mail.viewport.SetContent(a.mail.renderMessages())
+			a.mail.viewport.GotoBottom()
+		}
+		return
+	}
+	// Update init.json
+	initPath := filepath.Join(a.orchDir, "init.json")
+	if data, err := os.ReadFile(initPath); err == nil {
+		var initData map[string]interface{}
+		if err := json.Unmarshal(data, &initData); err == nil {
+			if m, ok := initData["manifest"].(map[string]interface{}); ok {
+				m["language"] = lang
+			}
+			if out, err := json.MarshalIndent(initData, "", "  "); err == nil {
+				os.WriteFile(initPath, out, 0o644)
+			}
+		}
+	}
+	// Copy matching covenant
+	if covenantSrc := preset.CovenantForLang(lang); covenantSrc != nil {
+		os.WriteFile(filepath.Join(a.orchDir, "covenant.md"), covenantSrc, 0o644)
+	}
+	// Hard refresh
+	if a.lingtaiCmd != "" {
+		a.hardRefresh()
+	}
+	a.mail.messages = append(a.mail.messages, ChatMessage{
+		From: i18n.T("mail.system_sender"),
+		Body: i18n.TF("mail.lang_changed", lang),
+		Type: "mail",
+	})
+	if a.mail.ready {
+		a.mail.viewport.SetContent(a.mail.renderMessages())
+		a.mail.viewport.GotoBottom()
+	}
+}
+
+// hardRefresh suspends the orchestrator and relaunches it.
+// Used by /rename and /refresh to force a full reload from init.json.
+func (a *App) hardRefresh() {
+	if a.orchDir == "" || a.lingtaiCmd == "" {
+		return
+	}
+	// Suspend
+	suspendFile := filepath.Join(a.orchDir, ".suspend")
+	os.WriteFile(suspendFile, []byte(""), 0o644)
+	// Wait for process to die
+	for i := 0; i < 20; i++ {
+		if !fs.IsAlive(a.orchDir, 3.0) {
+			break
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	// Relaunch
+	process.LaunchAgent(a.lingtaiCmd, a.orchDir)
+}
+
 // sendSize returns a tea.Cmd that sends the current terminal dimensions to the
 // newly created view so it doesn't render with zero width/height.
 func (a App) sendSize() tea.Cmd {
@@ -344,7 +548,8 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 	switch viewName {
 	case "mail":
 		a.currentView = appViewMail
-		return a, nil
+		// Restart mail tick + refresh (tick dies when another view is active)
+		return a, tea.Batch(a.mail.refreshMail, tickEvery(a.mail.pollRate), a.sendSize())
 	case "manage":
 		a.currentView = appViewManage
 		a.manage = NewManageModel(a.projectDir, a.lingtaiCmd)

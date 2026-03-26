@@ -34,7 +34,7 @@ func TestSaveAndLoad_Roundtrip(t *testing.T) {
 		if err := Save(p); err != nil {
 			t.Fatalf("Save() error: %v", err)
 		}
-		loaded, err := Load("minimax-all")
+		loaded, err := Load(p.Name)
 		if err != nil {
 			t.Fatalf("Load() error: %v", err)
 		}
@@ -47,17 +47,23 @@ func TestSaveAndLoad_Roundtrip(t *testing.T) {
 	})
 }
 
-func TestEnsureDefault_CreatesMinimaxAll(t *testing.T) {
+func TestEnsureDefault_CreatesBuiltinPresets(t *testing.T) {
 	withTempPresets(t, func() {
 		if err := EnsureDefault(); err != nil {
 			t.Fatalf("EnsureDefault() error: %v", err)
 		}
 		presets, _ := List()
-		if len(presets) != 1 {
-			t.Fatalf("expected 1 preset, got %d", len(presets))
+		if len(presets) != 3 {
+			t.Fatalf("expected 3 presets, got %d", len(presets))
 		}
-		if presets[0].Name != "minimax-all" {
-			t.Errorf("name = %q, want %q", presets[0].Name, "minimax-all")
+		names := map[string]bool{}
+		for _, p := range presets {
+			names[p.Name] = true
+		}
+		for _, want := range []string{"minimax", "gemini", "custom"} {
+			if !names[want] {
+				t.Errorf("missing preset %q", want)
+			}
 		}
 	})
 }
@@ -110,7 +116,7 @@ func TestDelete_RemovesFile(t *testing.T) {
 	withTempPresets(t, func() {
 		p := DefaultPreset()
 		Save(p)
-		if err := Delete("minimax-all"); err != nil {
+		if err := Delete(p.Name); err != nil {
 			t.Fatalf("Delete() error: %v", err)
 		}
 		presets, _ := List()

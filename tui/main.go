@@ -66,9 +66,7 @@ func main() {
 	}
 	defer srv.Stop(context.Background())
 
-	fmt.Printf("Visualization: %s\n", srv.URL())
-
-	// Ensure Python venv
+	// Ensure Python venv (only print if actually installing)
 	if config.NeedsVenv(globalDir) {
 		fmt.Println("Setting up Python environment (first run)...")
 		if err := config.EnsureVenv(globalDir); err != nil {

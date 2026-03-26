@@ -1,11 +1,15 @@
 package preset
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 )
+
+//go:embed covenant/covenant_en.md covenant/covenant_zh.md covenant/covenant_wen.md
+var covenantFS embed.FS
 
 // Preset is a reusable agent template stored at ~/.lingtai/presets/.
 type Preset struct {
@@ -84,47 +88,105 @@ func Delete(name string) error {
 	return os.Remove(path)
 }
 
-// EnsureDefault creates the minimax-all preset if no presets exist.
+// EnsureDefaults creates all built-in presets if no presets exist.
 func EnsureDefault() error {
 	presets, _ := List()
 	if len(presets) > 0 {
 		return nil
 	}
-	return Save(DefaultPreset())
+	for _, p := range BuiltinPresets() {
+		if err := Save(p); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// DefaultPreset returns the built-in minimax-all preset.
-func DefaultPreset() Preset {
+// BuiltinPresets returns the three built-in presets.
+func BuiltinPresets() []Preset {
+	return []Preset{
+		minimaxPreset(),
+		geminiPreset(),
+		customPreset(),
+	}
+}
+
+func e() map[string]interface{} { return map[string]interface{}{} }
+
+func minimaxPreset() Preset {
+	mm := map[string]interface{}{"provider": "minimax", "api_key_env": "MINIMAX_API_KEY"}
 	return Preset{
-		Name:        "minimax-all",
-		Description: "MiniMax M2.7 with all capabilities",
+		Name:        "minimax",
+		Description: "MiniMax M2.7 — full multimodal capabilities",
 		Manifest: map[string]interface{}{
 			"llm": map[string]interface{}{
-				"provider":    "minimax",
-				"model":       "MiniMax-M2.7-highspeed",
-				"api_key":     nil,
-				"api_key_env": "MINIMAX_API_KEY",
-				"base_url":    nil,
+				"provider": "minimax", "model": "MiniMax-M2.7-highspeed",
+				"api_key": nil, "api_key_env": "MINIMAX_API_KEY", "base_url": nil,
 			},
 			"capabilities": map[string]interface{}{
-				"file":       map[string]interface{}{},
-				"email":      map[string]interface{}{},
-				"bash":       map[string]interface{}{"yolo": true},
-				"web_search": map[string]interface{}{"provider": "minimax", "api_key_env": "MINIMAX_API_KEY"},
-				"psyche":     map[string]interface{}{},
-				"library":    map[string]interface{}{},
-				"vision":     map[string]interface{}{"provider": "minimax", "api_key_env": "MINIMAX_API_KEY"},
-				"talk":       map[string]interface{}{"provider": "minimax", "api_key_env": "MINIMAX_API_KEY"},
-				"draw":       map[string]interface{}{"provider": "minimax", "api_key_env": "MINIMAX_API_KEY"},
-				"compose":    map[string]interface{}{"provider": "minimax", "api_key_env": "MINIMAX_API_KEY"},
-				"listen":     map[string]interface{}{},
-				"web_read":   map[string]interface{}{},
-				"avatar":     map[string]interface{}{},
-				"daemon":     map[string]interface{}{},
+				"file": e(), "email": e(), "bash": map[string]interface{}{"yolo": true},
+				"web_search": mm, "psyche": e(), "library": e(),
+				"vision": mm, "talk": mm, "draw": mm, "compose": mm,
+				"listen": e(), "web_read": e(), "avatar": e(), "daemon": e(),
 			},
 			"admin": map[string]interface{}{"karma": true},
 		},
 	}
+}
+
+func geminiPreset() Preset {
+	gm := map[string]interface{}{"provider": "gemini", "api_key_env": "GEMINI_API_KEY"}
+	return Preset{
+		Name:        "gemini",
+		Description: "Gemini 3.0 Flash — vision + web search via Gemini",
+		Manifest: map[string]interface{}{
+			"llm": map[string]interface{}{
+				"provider": "gemini", "model": "gemini-3.0-flash",
+				"api_key": nil, "api_key_env": "GEMINI_API_KEY", "base_url": nil,
+			},
+			"capabilities": map[string]interface{}{
+				"file": e(), "email": e(), "bash": map[string]interface{}{"yolo": true},
+				"web_search": gm, "psyche": e(), "library": e(),
+				"vision": gm,
+				"listen": e(), "web_read": e(), "avatar": e(), "daemon": e(),
+			},
+			"admin": map[string]interface{}{"karma": true},
+		},
+	}
+}
+
+func customPreset() Preset {
+	return Preset{
+		Name:        "custom",
+		Description: "Custom provider — bring your own API key",
+		Manifest: map[string]interface{}{
+			"llm": map[string]interface{}{
+				"provider": "custom", "model": "",
+				"api_key": nil, "api_key_env": "LLM_API_KEY", "base_url": nil,
+			},
+			"capabilities": map[string]interface{}{
+				"file": e(), "email": e(), "bash": map[string]interface{}{"yolo": true},
+				"web_search": e(), "psyche": e(), "library": e(),
+				"vision": e(), "listen": e(), "web_read": e(), "avatar": e(), "daemon": e(),
+			},
+			"admin": map[string]interface{}{"karma": true},
+		},
+	}
+}
+
+// CovenantForLang returns the embedded covenant for the given language.
+func CovenantForLang(lang string) []byte {
+	name := "covenant/covenant_" + lang + ".md"
+	data, err := covenantFS.ReadFile(name)
+	if err != nil {
+		data, _ = covenantFS.ReadFile("covenant/covenant_en.md")
+	}
+	return data
+}
+
+// DefaultPreset returns the first built-in preset (minimax).
+func DefaultPreset() Preset {
+	return minimaxPreset()
 }
 
 // GenerateInitJSON creates a full init.json from a preset at .lingtai/<agentName>/init.json.
@@ -137,7 +199,12 @@ func GenerateInitJSON(p Preset, agentName, lingtaiDir string) error {
 	// Build manifest with defaults
 	manifest := make(map[string]interface{})
 	manifest["agent_name"] = agentName
-	manifest["language"] = "en"
+	// Use language from preset, default to "en"
+	lang := "en"
+	if l, ok := p.Manifest["language"].(string); ok && l != "" {
+		lang = l
+	}
+	manifest["language"] = lang
 	if llm, ok := p.Manifest["llm"]; ok {
 		manifest["llm"] = llm
 	}
@@ -155,12 +222,25 @@ func GenerateInitJSON(p Preset, agentName, lingtaiDir string) error {
 	manifest["max_turns"] = 100
 	manifest["streaming"] = true
 
+	// Copy language-matched covenant into agent dir
+	covenantName := "covenant_" + lang + ".md"
+	covenantData, err := covenantFS.ReadFile("covenant/" + covenantName)
+	if err != nil {
+		// Fallback to English
+		covenantData, _ = covenantFS.ReadFile("covenant/covenant_en.md")
+		covenantName = "covenant_en.md"
+	}
+	covenantPath := filepath.Join(agentDir, "covenant.md")
+	if err := os.WriteFile(covenantPath, covenantData, 0o644); err != nil {
+		return fmt.Errorf("write covenant: %w", err)
+	}
+
 	initJSON := map[string]interface{}{
-		"manifest":  manifest,
-		"principle": "You are an orchestrator agent. Coordinate work, communicate via email, and manage sub-agents as needed.",
-		"covenant":  "You are a helpful agent. Respond via email to all requests. Be concise and actionable.",
-		"memory":    "",
-		"prompt":    "Hello. I am ready to receive instructions.",
+		"manifest":      manifest,
+		"covenant_file": "covenant.md",
+		"principle":     "",
+		"memory":        "",
+		"prompt":        "",
 	}
 
 	data, err := json.MarshalIndent(initJSON, "", "  ")

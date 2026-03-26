@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -24,6 +23,8 @@ const (
 	stepCheckPresets firstRunStep = iota
 	stepAPIKey
 	stepPickPreset
+	stepEditPreset
+	stepNewPreset
 	stepNameAgent
 	stepLaunching
 )
@@ -40,6 +41,10 @@ type FirstRunModel struct {
 	globalDir string
 	width     int
 	height    int
+	// Embedded preset editor
+	editPreset preset.Preset
+	editFields []presetField
+	editCursor int
 }
 
 func NewFirstRunModel(baseDir, globalDir string, hasPresets bool) FirstRunModel {
@@ -107,15 +112,94 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				}
 			case "enter":
 				if m.cursor < len(m.presets) {
-					// Move to name prompt
 					m.step = stepNameAgent
 					defaultName := m.presets[m.cursor].Name
 					m.nameInput.SetValue(defaultName)
 					m.nameInput.Focus()
 					return m, textinput.Blink
 				}
+			case "e":
+				if m.cursor < len(m.presets) {
+					m.editPreset = m.presets[m.cursor]
+					m.editFields = buildEditFields(m.editPreset)
+					m.editCursor = 0
+					m.step = stepEditPreset
+				}
+			case "n":
+				m.nameInput.SetValue("")
+				m.nameInput.Focus()
+				m.step = stepNewPreset
+				return m, textinput.Blink
 			case "ctrl+c":
 				return m, tea.Quit
+			}
+			return m, nil
+
+		case stepEditPreset:
+			switch msg.String() {
+			case "esc":
+				preset.Save(m.editPreset)
+				m.presets, _ = preset.List()
+				m.step = stepPickPreset
+			case "up":
+				if m.editCursor > 0 {
+					m.editCursor--
+				}
+			case "down":
+				if m.editCursor < len(m.editFields)-1 {
+					m.editCursor++
+				}
+			case "left":
+				f := &m.editFields[m.editCursor]
+				if f.Current > 0 {
+					f.Current--
+					applyEditField(&m.editPreset, f)
+				}
+			case "right", " ":
+				f := &m.editFields[m.editCursor]
+				if f.Current < len(f.Options)-1 {
+					f.Current++
+					applyEditField(&m.editPreset, f)
+				}
+			case "ctrl+c":
+				return m, tea.Quit
+			}
+			return m, nil
+
+		case stepNewPreset:
+			switch msg.String() {
+			case "esc":
+				m.step = stepPickPreset
+			case "enter":
+				name := m.nameInput.Value()
+				if name == "" {
+					return m, nil
+				}
+				p := preset.Preset{
+					Name: name,
+					Manifest: map[string]interface{}{
+						"llm": map[string]interface{}{
+							"provider":    "minimax",
+							"model":       "MiniMax-M2.7-highspeed",
+							"api_key":     nil,
+							"api_key_env": "MINIMAX_API_KEY",
+						},
+						"capabilities": map[string]interface{}{"file": map[string]interface{}{}},
+						"admin":        map[string]interface{}{"karma": true},
+					},
+				}
+				preset.Save(p)
+				m.presets, _ = preset.List()
+				m.editPreset = p
+				m.editFields = buildEditFields(p)
+				m.editCursor = 0
+				m.step = stepEditPreset
+			case "ctrl+c":
+				return m, tea.Quit
+			default:
+				var cmd tea.Cmd
+				m.nameInput, cmd = m.nameInput.Update(msg)
+				return m, cmd
 			}
 			return m, nil
 
@@ -129,7 +213,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				// Generate init.json and launch
 				p := m.presets[m.cursor]
 				if err := preset.GenerateInitJSON(p, name, m.baseDir); err != nil {
-					m.message = fmt.Sprintf("Error: %v", err)
+					m.message = i18n.TF("firstrun.error", err)
 					return m, nil
 				}
 				m.step = stepLaunching
@@ -179,13 +263,64 @@ func (m FirstRunModel) View() string {
 			desc := StyleSubtle.Render("  " + p.Description)
 			b.WriteString(cursor + name + desc + "\n")
 		}
-		b.WriteString("\n" + StyleSubtle.Render("  ↑↓ select  [enter] choose") + "\n")
+		b.WriteString("\n" + StyleSubtle.Render("  "+i18n.T("firstrun.select_hint")+
+			"  [e] "+i18n.T("presets.edit")+
+			"  [n] "+i18n.T("presets.new")) + "\n")
+
+	case stepEditPreset:
+		b.WriteString("  " + i18n.TF("presets.editor_title", m.editPreset.Name) + "\n\n")
+		capStarted := false
+		for idx, f := range m.editFields {
+			if strings.HasPrefix(f.Key, "cap:") && !capStarted {
+				capStarted = true
+				b.WriteString("\n  " + i18n.T("presets.capabilities") + ":\n")
+			}
+			cursor := "  "
+			if idx == m.editCursor {
+				cursor = "> "
+			}
+			var label string
+			if strings.HasPrefix(f.Key, "cap:") {
+				label = f.Label
+			} else {
+				label = i18n.T(f.Label)
+			}
+			displayVal := f.Options[f.Current]
+			if f.IsBool {
+				if displayVal == "true" {
+					displayVal = "[x]"
+				} else {
+					displayVal = "[ ]"
+				}
+			}
+			if idx == m.editCursor {
+				if f.IsBool {
+					displayVal = lipgloss.NewStyle().Bold(true).Foreground(ColorActive).Render(displayVal)
+				} else {
+					displayVal = lipgloss.NewStyle().Bold(true).Foreground(ColorActive).Render("< " + displayVal + " >")
+				}
+			}
+			if strings.HasPrefix(f.Key, "cap:") {
+				b.WriteString(cursor + displayVal + " " + label + "\n")
+			} else {
+				b.WriteString(cursor + label + ": " + displayVal + "\n")
+			}
+		}
+		b.WriteString("\n" + StyleSubtle.Render("  ↑↓ "+i18n.T("settings.select")+
+			"  ←→/space "+i18n.T("settings.change")+
+			"  [esc] "+i18n.T("presets.back")) + "\n")
+
+	case stepNewPreset:
+		b.WriteString("  " + i18n.T("presets.enter_name") + "\n\n")
+		b.WriteString("  " + m.nameInput.View() + "\n\n")
+		b.WriteString(StyleSubtle.Render("  [Enter] "+i18n.T("presets.create")+
+			"    [Esc] "+i18n.T("presets.cancel")) + "\n")
 
 	case stepNameAgent:
 		selectedPreset := m.presets[m.cursor].Name
 		b.WriteString("  " + i18n.TF("firstrun.enter_name", selectedPreset) + "\n\n")
 		b.WriteString("  " + m.nameInput.View() + "\n\n")
-		b.WriteString(StyleSubtle.Render("  [Enter] Create    [Esc] Back") + "\n")
+		b.WriteString(StyleSubtle.Render("  "+i18n.T("firstrun.create_hint")) + "\n")
 
 	case stepLaunching:
 		b.WriteString("  " + i18n.T("firstrun.launching") + "\n\n")

@@ -48,6 +48,8 @@ type presetField struct {
 	Options []string
 	Current int
 	IsBool  bool
+	IsText  bool   // free-text input (e.g. model name)
+	Text    string // current text value
 }
 
 // AllCapabilities is the list of all available capability names.
@@ -212,7 +214,7 @@ func buildEditFields(p preset.Preset) []presetField {
 	var fields []presetField
 
 	// Provider
-	providers := []string{"minimax", "openai", "anthropic", "gemini", "custom"}
+	providers := []string{"minimax", "gemini", "openai", "anthropic", "custom"}
 	provCurrent := 0
 	if llm, ok := p.Manifest["llm"].(map[string]interface{}); ok {
 		if prov, ok := llm["provider"].(string); ok {
@@ -225,6 +227,34 @@ func buildEditFields(p preset.Preset) []presetField {
 		}
 	}
 	fields = append(fields, presetField{Key: "provider", Label: "presets.provider", Options: providers, Current: provCurrent})
+
+	// Model — provider-dependent options
+	currentProvider := providers[provCurrent]
+	models := modelsForProvider(currentProvider)
+	modelCurrent := 0
+	if llm, ok := p.Manifest["llm"].(map[string]interface{}); ok {
+		if model, ok := llm["model"].(string); ok {
+			for i, m := range models {
+				if m == model {
+					modelCurrent = i
+					break
+				}
+			}
+		}
+	}
+	fields = append(fields, presetField{Key: "model", Label: "presets.model", Options: models, Current: modelCurrent})
+
+	// Endpoint — MiniMax only: international vs china
+	if currentProvider == "minimax" {
+		endpoints := []string{"international", "china"}
+		epCurrent := 0
+		if llm, ok := p.Manifest["llm"].(map[string]interface{}); ok {
+			if bu, ok := llm["base_url"].(string); ok && bu == "https://api.minimax.chat/anthropic" {
+				epCurrent = 1
+			}
+		}
+		fields = append(fields, presetField{Key: "endpoint", Label: "presets.endpoint", Options: endpoints, Current: epCurrent})
+	}
 
 	// Language
 	langs := []string{"en", "zh", "wen"}
@@ -282,6 +312,24 @@ func buildEditFields(p preset.Preset) []presetField {
 	return fields
 }
 
+// modelsForProvider returns the model options for a given provider.
+func modelsForProvider(provider string) []string {
+	switch provider {
+	case "minimax":
+		return []string{"MiniMax-M2.7-highspeed", "MiniMax-M2.7"}
+	case "gemini":
+		return []string{"gemini-3.0-flash", "gemini-2.5-flash", "gemini-2.5-pro"}
+	case "openai":
+		return []string{"gpt-4o", "gpt-4o-mini", "o3-mini"}
+	case "anthropic":
+		return []string{"claude-sonnet-4-6", "claude-haiku-4-5-20251001"}
+	case "custom":
+		return []string{"(edit init.json)"}
+	default:
+		return []string{"(edit init.json)"}
+	}
+}
+
 func applyEditField(p *preset.Preset, f *presetField) {
 	val := f.Options[f.Current]
 
@@ -289,6 +337,19 @@ func applyEditField(p *preset.Preset, f *presetField) {
 	case "provider":
 		if llm, ok := p.Manifest["llm"].(map[string]interface{}); ok {
 			llm["provider"] = val
+		}
+	case "model":
+		if llm, ok := p.Manifest["llm"].(map[string]interface{}); ok {
+			llm["model"] = val
+		}
+	case "endpoint":
+		if llm, ok := p.Manifest["llm"].(map[string]interface{}); ok {
+			switch val {
+			case "international":
+				llm["base_url"] = nil
+			case "china":
+				llm["base_url"] = "https://api.minimax.chat/anthropic"
+			}
 		}
 	case "language":
 		p.Manifest["language"] = val
@@ -452,7 +513,7 @@ func (m PresetsModel) viewNew() string {
 
 	b.WriteString("  " + i18n.T("presets.enter_name") + "\n\n")
 	b.WriteString("  " + m.nameInput.View() + "\n\n")
-	b.WriteString(StyleSubtle.Render("  [Enter] Create    [Esc] Cancel") + "\n")
+	b.WriteString(StyleSubtle.Render("  [Enter] "+i18n.T("presets.create")+"    [Esc] "+i18n.T("presets.cancel")) + "\n")
 
 	return b.String()
 }

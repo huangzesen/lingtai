@@ -39,12 +39,17 @@ func NewPaletteModel() PaletteModel {
 // DefaultCommands returns all slash commands.
 func DefaultCommands() []Command {
 	return []Command{
+		{Name: "interrupt", Description: "palette.interrupt"},
+		{Name: "sleep", Description: "palette.sleep"},
+		{Name: "cpr", Description: "palette.cpr"},
+		{Name: "rename", Description: "palette.rename"},
+		{Name: "lang", Description: "palette.lang"},
+		{Name: "refresh", Description: "palette.refresh"},
 		{Name: "manage", Description: "palette.manage"},
 		{Name: "viz", Description: "palette.viz"},
 		{Name: "setup", Description: "palette.setup"},
 		{Name: "settings", Description: "palette.settings"},
 		{Name: "presets", Description: "palette.presets"},
-		{Name: "lang", Description: "palette.lang"},
 		{Name: "help", Description: "palette.help"},
 		{Name: "quit", Description: "palette.quit"},
 	}
@@ -79,19 +84,41 @@ func (m PaletteModel) Update(msg tea.Msg) (PaletteModel, tea.Cmd) {
 	return m, nil
 }
 
-// SetFilter updates the filter string and refilters commands.
+// SetFilter updates the filter string and refilters commands using fuzzy matching.
 // filter should be the text after "/" (e.g., "man" from "/man").
 func (m *PaletteModel) SetFilter(filter string) {
 	m.filter = filter
 	m.filtered = nil
+	if filter == "" {
+		m.filtered = m.commands
+		m.cursor = 0
+		return
+	}
+
+	filterLower := strings.ToLower(filter)
 	for _, cmd := range m.commands {
-		if filter == "" || strings.HasPrefix(cmd.Name, filter) {
+		if fuzzyMatch(cmd.Name, filterLower) {
 			m.filtered = append(m.filtered, cmd)
 		}
 	}
 	if m.cursor >= len(m.filtered) {
 		m.cursor = max(0, len(m.filtered)-1)
 	}
+}
+
+// fuzzyMatch checks for substring containment first, then character-sequence matching.
+func fuzzyMatch(cmd, filter string) bool {
+	cmdLower := strings.ToLower(cmd)
+	if strings.Contains(cmdLower, filter) {
+		return true
+	}
+	si := 0
+	for _, c := range cmdLower {
+		if si < len(filter) && c == rune(filter[si]) {
+			si++
+		}
+	}
+	return si == len(filter)
 }
 
 func (m PaletteModel) View() string {

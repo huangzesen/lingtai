@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/anthropics/lingtai-tui/internal/config"
 	"github.com/anthropics/lingtai-tui/internal/fs"
 )
 
@@ -48,8 +49,25 @@ func InitProject(lingtaiDir string) error {
 func LaunchAgent(lingtaiCmd, agentDir string) (*exec.Cmd, error) {
 	fs.CleanSignals(agentDir)
 	cmd := exec.Command(lingtaiCmd, "run", agentDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// Redirect agent output to a log file instead of the TUI terminal
+	logPath := filepath.Join(agentDir, "logs")
+	os.MkdirAll(logPath, 0o755)
+	logFile, err := os.OpenFile(filepath.Join(logPath, "agent.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err == nil {
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+	}
+
+	// Inject API keys from ~/.lingtai/config.json into subprocess env
+	cmd.Env = os.Environ()
+	if globalDir, err := config.GlobalDir(); err == nil {
+		if cfg, err := config.LoadConfig(globalDir); err == nil {
+			if cfg.MiniMaxAPIKey != "" {
+				cmd.Env = append(cmd.Env, "MINIMAX_API_KEY="+cfg.MiniMaxAPIKey)
+			}
+		}
+	}
+
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("launch agent: %w", err)
 	}

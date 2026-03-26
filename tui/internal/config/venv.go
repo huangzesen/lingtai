@@ -13,11 +13,22 @@ func VenvDir(globalDir string) string {
 }
 
 func LingtaiCmd(globalDir string) string {
+	// Prefer managed venv
 	venv := VenvDir(globalDir)
+	var venvCmd string
 	if runtime.GOOS == "windows" {
-		return filepath.Join(venv, "Scripts", "lingtai.exe")
+		venvCmd = filepath.Join(venv, "Scripts", "lingtai.exe")
+	} else {
+		venvCmd = filepath.Join(venv, "bin", "lingtai")
 	}
-	return filepath.Join(venv, "bin", "lingtai")
+	if _, err := os.Stat(venvCmd); err == nil {
+		return venvCmd
+	}
+	// Fallback: lingtai on PATH (dev mode)
+	if path, err := exec.LookPath("lingtai"); err == nil {
+		return path
+	}
+	return venvCmd // return venv path anyway — caller handles missing
 }
 
 func NeedsVenv(globalDir string) bool {
