@@ -126,12 +126,21 @@ class Agent(BaseAgent):
         self._capability_managers[name] = mgr
         return mgr
 
+    _SENSITIVE_KEYS = {"api_key", "api_key_env", "api_secret", "token", "password"}
+
     def _build_manifest(self) -> dict:
-        """Extend kernel manifest with capabilities and combo."""
+        """Extend kernel manifest with capabilities and combo.
+
+        Strips sensitive fields (api_key, etc.) from capability kwargs
+        so they don't leak into the system prompt or outgoing mail identity.
+        """
         data = super()._build_manifest()
         caps = getattr(self, "_capabilities", None)
         if caps:
-            data["capabilities"] = caps
+            data["capabilities"] = [
+                (name, {k: v for k, v in kw.items() if k not in self._SENSITIVE_KEYS})
+                for name, kw in caps
+            ]
         if self._combo_name:
             data["combo"] = self._combo_name
         return data
@@ -145,7 +154,7 @@ class Agent(BaseAgent):
             info = ALL_INTRINSICS.get(name)
             if info:
                 lines.append(f"### {name}\n{info['module'].get_description(lang)}")
-        for s in self._mcp_schemas:
+        for s in self._tool_schemas:
             if s.description:
                 lines.append(f"### {s.name}\n{s.description}")
         if lines:
@@ -427,8 +436,8 @@ class Agent(BaseAgent):
         self._mcp_clients = []
 
         self._sealed = False
-        self._mcp_handlers.clear()
-        self._mcp_schemas.clear()
+        self._tool_handlers.clear()
+        self._tool_schemas.clear()
         self._capabilities.clear()
         self._capability_managers.clear()
         self._addon_managers.clear()
@@ -563,5 +572,5 @@ class Agent(BaseAgent):
             "refresh_complete",
             capabilities=[name for name, _ in self._capabilities],
             addons=list(self._addon_managers.keys()),
-            tools=list(self._mcp_handlers.keys()),
+            tools=list(self._tool_handlers.keys()),
         )
