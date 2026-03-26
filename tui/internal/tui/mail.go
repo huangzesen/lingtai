@@ -35,6 +35,7 @@ type mailRefreshMsg struct {
 	messages []ChatMessage
 	alive    bool
 	state    string // active, idle, stuck, asleep, suspended, or ""
+	orchName string // agent name from .agent.json (may change at runtime)
 }
 type tickMsg time.Time
 
@@ -70,13 +71,14 @@ type MailModel struct {
 	pollRate     time.Duration // refresh interval
 	orchAlive        bool
 	orchState        string // agent state from .agent.json
-	sysMessages      []ChatMessage // persistent system messages (survive refresh)
+	statusFlash      string    // transient status message shown in status bar
+	statusExpiry     time.Time // when to clear the flash
 	lastInputLines   int
 	lastPaletteLines int
 }
 
 func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pollRate int) MailModel {
-	input := NewInputModel()
+	input := NewInputModel(humanDir)
 	input.textarea.Focus()
 	palette := NewPaletteModel()
 	// Resolve orchestrator address from .agent.json
@@ -176,15 +178,19 @@ func (m MailModel) refreshMail() tea.Msg {
 
 	alive := m.orchestrator != "" && fs.IsAlive(m.orchestrator, 3.0)
 	state := ""
+	orchName := m.orchName
 	if m.orchestrator != "" {
 		if node, err := fs.ReadAgent(m.orchestrator); err == nil {
 			state = node.State
+			if node.AgentName != "" {
+				orchName = node.AgentName
+			}
 		}
 	}
 	if !alive {
 		state = "suspended"
 	}
-	return mailRefreshMsg{messages: chatMsgs, alive: alive, state: state}
+	return mailRefreshMsg{messages: chatMsgs, alive: alive, state: state, orchName: orchName}
 }
 
 func (m MailModel) Init() tea.Cmd {
@@ -232,9 +238,12 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 
 	case mailRefreshMsg:
 		prevCount := len(m.messages)
-		m.messages = append(msg.messages, m.sysMessages...)
+		m.messages = msg.messages
 		m.orchAlive = msg.alive
 		m.orchState = msg.state
+		if msg.orchName != "" {
+			m.orchName = msg.orchName
+		}
 		if m.ready {
 			atBottom := m.viewport.AtBottom()
 			m.viewport.SetContent(m.renderMessages())
@@ -346,13 +355,7 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 			}
 			return m, m.refreshMail
 
-		case "pgup", "pgdown", "up", "down":
-			// Scroll viewport — arrow keys scroll when input is empty
-			if msg.String() == "up" || msg.String() == "down" {
-				if m.input.Value() != "" {
-					break // let it fall through to input handler
-				}
-			}
+		case "pgup", "pgdown":
 			var cmd tea.Cmd
 			m.viewport, cmd = m.viewport.Update(msg)
 			return m, cmd
@@ -458,21 +461,11 @@ func (m MailModel) renderMessages() string {
 	return b.String()
 }
 
-// AddSystemMessage appends a persistent system message that survives refresh.
+// AddSystemMessage shows a transient status message in the status bar.
+// It auto-expires after 5 seconds.
 func (m *MailModel) AddSystemMessage(body string) {
-	now := time.Now().UTC().Format(time.RFC3339Nano)
-	msg := ChatMessage{
-		From:      i18n.T("mail.system_sender"),
-		Body:      body,
-		Timestamp: now,
-		Type:      "mail",
-	}
-	m.messages = append(m.messages, msg)
-	m.sysMessages = append(m.sysMessages, msg)
-	if m.ready {
-		m.viewport.SetContent(m.renderMessages())
-		m.viewport.GotoBottom()
-	}
+	m.statusFlash = body
+	m.statusExpiry = time.Now().Add(5 * time.Second)
 }
 
 func (m MailModel) View() string {
@@ -524,8 +517,14 @@ func (m MailModel) View() string {
 		inputSection = m.input.View()
 	}
 
-	// Status bar: .lingtai path on left, hints on right
-	dirLabel := StyleSubtle.Render("  " + m.baseDir)
+	// Status bar: left = flash or dir path, right = hints
+	var leftLabel string
+	if m.statusFlash != "" && time.Now().Before(m.statusExpiry) {
+		leftLabel = lipgloss.NewStyle().Foreground(lipgloss.Color("#48bb78")).Render("  " + m.statusFlash)
+	} else {
+		m.statusFlash = ""
+		leftLabel = StyleSubtle.Render("  " + m.baseDir)
+	}
 	var hints string
 	switch m.verbose {
 	case verboseOff:
@@ -542,8 +541,8 @@ func (m MailModel) View() string {
 		newlineHint := lipgloss.NewStyle().Foreground(lipgloss.Color("#718096")).Render("  " + i18n.T("hints.newline"))
 		hints += newlineHint
 	}
-	statusPad := m.width - lipgloss.Width(dirLabel) - lipgloss.Width(hints) - 1
-	statusBar := dirLabel
+	statusPad := m.width - lipgloss.Width(leftLabel) - lipgloss.Width(hints) - 1
+	statusBar := leftLabel
 	if statusPad > 0 {
 		statusBar += strings.Repeat(" ", statusPad) + hints
 	}

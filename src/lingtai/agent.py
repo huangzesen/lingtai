@@ -501,10 +501,14 @@ class Agent(BaseAgent):
         # Reload covenant and memory
         covenant = data.get("covenant", "")
         system_dir = self._working_dir / "system"
+        system_dir.mkdir(exist_ok=True)
         covenant_file = system_dir / "covenant.md"
         memory_file = system_dir / "memory.md"
 
-        if not covenant and covenant_file.is_file():
+        # Copy covenant from init.json to system/covenant.md (canonical location)
+        if covenant:
+            covenant_file.write_text(covenant)
+        elif covenant_file.is_file():
             covenant = covenant_file.read_text()
         if covenant:
             self._prompt_manager.write_section("covenant", covenant, protected=True)

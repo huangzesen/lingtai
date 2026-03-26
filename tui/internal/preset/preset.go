@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 )
 
-//go:embed covenant/covenant_en.md covenant/covenant_zh.md covenant/covenant_wen.md
+//go:embed all:covenant
 var covenantFS embed.FS
 
 // Preset is a reusable agent template stored at ~/.lingtai/presets/.
@@ -176,10 +176,9 @@ func customPreset() Preset {
 
 // CovenantForLang returns the embedded covenant for the given language.
 func CovenantForLang(lang string) []byte {
-	name := "covenant/covenant_" + lang + ".md"
-	data, err := covenantFS.ReadFile(name)
+	data, err := covenantFS.ReadFile("covenant/" + lang + "/covenant.md")
 	if err != nil {
-		data, _ = covenantFS.ReadFile("covenant/covenant_en.md")
+		data, _ = covenantFS.ReadFile("covenant/en/covenant.md")
 	}
 	return data
 }
@@ -223,13 +222,7 @@ func GenerateInitJSON(p Preset, agentName, lingtaiDir string) error {
 	manifest["streaming"] = true
 
 	// Copy language-matched covenant into agent dir
-	covenantName := "covenant_" + lang + ".md"
-	covenantData, err := covenantFS.ReadFile("covenant/" + covenantName)
-	if err != nil {
-		// Fallback to English
-		covenantData, _ = covenantFS.ReadFile("covenant/covenant_en.md")
-		covenantName = "covenant_en.md"
-	}
+	covenantData := CovenantForLang(lang)
 	covenantPath := filepath.Join(agentDir, "covenant.md")
 	if err := os.WriteFile(covenantPath, covenantData, 0o644); err != nil {
 		return fmt.Errorf("write covenant: %w", err)

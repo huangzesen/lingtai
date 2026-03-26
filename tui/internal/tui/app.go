@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/anthropics/lingtai-tui/i18n"
@@ -324,6 +325,10 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		if a.orchDir != "" {
 			if args != "" {
 				a.doLang(args)
+				return a, func() tea.Msg {
+					a.hardRefresh()
+					return refreshDoneMsg{}
+				}
 			} else {
 				a.mail.AddSystemMessage(i18n.T("mail.lang_prompt"))
 			}
@@ -455,15 +460,34 @@ func (a *App) hardRefresh() {
 	// Suspend
 	suspendFile := filepath.Join(a.orchDir, ".suspend")
 	os.WriteFile(suspendFile, []byte(""), 0o644)
-	// Wait for process to die
-	for i := 0; i < 20; i++ {
-		if !fs.IsAlive(a.orchDir, 3.0) {
+	// Wait for lock file to be released (process fully exited)
+	lockFile := filepath.Join(a.orchDir, ".agent.lock")
+	for i := 0; i < 40; i++ { // 40 × 250ms = 10s max
+		if tryLock(lockFile) {
 			break
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
+	// Clean signal files before relaunch
+	os.Remove(suspendFile)
 	// Relaunch
 	process.LaunchAgent(a.lingtaiCmd, a.orchDir)
+}
+
+// tryLock attempts a non-blocking flock on the lock file. Returns true if lock
+// was acquired (meaning no other process holds it), and releases immediately.
+func tryLock(path string) bool {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return true // can't open → assume not locked
+	}
+	defer f.Close()
+	err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	if err != nil {
+		return false // locked by another process
+	}
+	syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	return true
 }
 
 // sendSize returns a tea.Cmd that sends the current terminal dimensions to the

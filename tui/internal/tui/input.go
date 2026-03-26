@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/anthropics/lingtai-tui/i18n"
@@ -18,13 +21,14 @@ type InputModel struct {
 	textarea    textarea.Model
 	showPalette bool
 	width       int
+	humanDir    string // .lingtai/human/ for persisting history
 
 	// Simple input history (up/down arrows)
 	history    []string
 	historyIdx int
 }
 
-func NewInputModel() InputModel {
+func NewInputModel(humanDir string) InputModel {
 	ti := textarea.New()
 	ti.Prompt = ""
 	ti.Placeholder = i18n.T("mail.placeholder")
@@ -35,10 +39,13 @@ func NewInputModel() InputModel {
 	ti.SetHeight(1)
 	ti.ShowLineNumbers = false
 
-	return InputModel{
+	m := InputModel{
 		textarea:   ti,
 		historyIdx: -1,
+		humanDir:   humanDir,
 	}
+	m.loadHistory()
+	return m
 }
 
 func (m InputModel) Init() tea.Cmd {
@@ -58,29 +65,35 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
 		case "enter":
 			return m, func() tea.Msg { return SendMsg{} }
 		case "up":
-			// History only when input is empty or single-line with no content
-			if m.textarea.Value() == "" && len(m.history) > 0 && m.historyIdx < len(m.history)-1 {
+			// Multiline: let textarea handle cursor movement between lines
+			if m.HasNewlines() {
+				break // fall through to textarea
+			}
+			// Single-line or empty: navigate history
+			if len(m.history) > 0 && m.historyIdx < len(m.history)-1 {
 				m.historyIdx++
 				m.textarea.SetValue(m.history[len(m.history)-1-m.historyIdx])
 				m.textarea.CursorEnd()
 				m.textarea.SetHeight(m.calcHeight())
-				return m, nil
 			}
-			// Otherwise let textarea handle cursor movement
+			return m, nil
 		case "down":
-			if m.textarea.Value() == "" && m.historyIdx >= 0 {
-				if m.historyIdx > 0 {
-					m.historyIdx--
-					m.textarea.SetValue(m.history[len(m.history)-1-m.historyIdx])
-					m.textarea.CursorEnd()
-				} else {
-					m.historyIdx = -1
-					m.textarea.SetValue("")
-				}
-				m.textarea.SetHeight(m.calcHeight())
-				return m, nil
+			// Multiline: let textarea handle cursor movement between lines
+			if m.HasNewlines() {
+				break // fall through to textarea
 			}
-			// Otherwise let textarea handle cursor movement
+			// Single-line or empty: navigate history
+			if m.historyIdx > 0 {
+				m.historyIdx--
+				m.textarea.SetValue(m.history[len(m.history)-1-m.historyIdx])
+				m.textarea.CursorEnd()
+				m.textarea.SetHeight(m.calcHeight())
+			} else if m.historyIdx == 0 {
+				m.historyIdx = -1
+				m.textarea.SetValue("")
+				m.textarea.SetHeight(1)
+			}
+			return m, nil
 		}
 		// Forward to textarea for all other keys (including ctrl+j for newline)
 		var cmd tea.Cmd
@@ -189,6 +202,7 @@ func (m *InputModel) Reset() {
 		if len(m.history) > 100 {
 			m.history = m.history[len(m.history)-100:]
 		}
+		m.saveHistory()
 	}
 	m.historyIdx = -1
 	m.textarea.Reset()
@@ -218,4 +232,27 @@ func (m *InputModel) SetWidth(w int) {
 	if w > 10 {
 		m.textarea.SetWidth(w - 10)
 	}
+}
+
+func (m *InputModel) historyPath() string {
+	return filepath.Join(m.humanDir, "history.json")
+}
+
+func (m *InputModel) loadHistory() {
+	if m.humanDir == "" {
+		return
+	}
+	data, err := os.ReadFile(m.historyPath())
+	if err != nil {
+		return
+	}
+	json.Unmarshal(data, &m.history)
+}
+
+func (m *InputModel) saveHistory() {
+	if m.humanDir == "" {
+		return
+	}
+	data, _ := json.Marshal(m.history)
+	os.WriteFile(m.historyPath(), data, 0o644)
 }
