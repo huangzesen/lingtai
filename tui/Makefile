@@ -1,6 +1,9 @@
-.PHONY: web-build go-build build clean
+.PHONY: web-deps web-build go-build build clean
 
-web-build:
+web-deps:
+	cd web && npm install
+
+web-build: web-deps
 	cd web && npm run build
 
 go-build: web-build
