@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: arm64
+            pkg: tui-darwin-arm64
+          - goos: darwin
+            goarch: amd64
+            pkg: tui-darwin-x64
+          - goos: linux
+            goarch: amd64
+            pkg: tui-linux-x64
+          - goos: linux
+            goarch: arm64
+            pkg: tui-linux-arm64
+          - goos: windows
+            goarch: amd64
+            pkg: tui-win32-x64
+            ext: .exe
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Build React
+        run: cd web && npm ci && npm run build
+
+      - name: Set version from git tag
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          for f in packages/*/package.json; do
+            sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" "$f"
+          done
+
+      - name: Build Go binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go build -o packages/${{ matrix.pkg }}/bin/lingtai${{ matrix.ext }} .
+
+      - name: Publish platform package
+        working-directory: packages/${{ matrix.pkg }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+  publish-main:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Set version from git tag
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          for f in packages/*/package.json; do
+            sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" "$f"
+          done
+          sed -i "s/\"0.1.0\"/\"$VERSION\"/g" packages/tui/package.json
+
+      - name: Publish main package
+        working-directory: packages/tui
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
