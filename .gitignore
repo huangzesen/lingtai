@@ -45,6 +45,9 @@ docs/superpowers/
 # Superpowers brainstorm sessions
 .superpowers/
 
+# lingtai-tui (separate repo)
+lingtai-tui
+
 # Runtime data (agent working dirs, configs)
 .lingtai/
 .chat_history.json
