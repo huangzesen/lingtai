@@ -376,8 +376,9 @@ class Agent(BaseAgent):
             return None
 
         try:
-            data = json.loads(init_path.read_text())
-        except (json.JSONDecodeError, OSError):
+            from .config_resolve import load_jsonc
+            data = load_jsonc(init_path)
+        except (json.JSONDecodeError, OSError, ValueError):
             self._log("refresh_init_error", error="failed to read init.json")
             return None
 
@@ -401,6 +402,7 @@ class Agent(BaseAgent):
         from .config_resolve import (
             load_env_file,
             resolve_env,
+            resolve_file,
             _resolve_capabilities,
             _resolve_addons,
         )
@@ -409,6 +411,12 @@ class Agent(BaseAgent):
         env_file = data.get("env_file")
         if env_file:
             load_env_file(env_file)
+
+        # Resolve *_file fields for top-level text content
+        for key in ("covenant", "principle", "memory", "prompt"):
+            file_key = f"{key}_file"
+            if file_key in data:
+                data[key] = resolve_file(data.get(key), data.pop(file_key))
 
         m = data["manifest"]
 
@@ -527,8 +535,13 @@ class Agent(BaseAgent):
             for name, cap_kwargs in capabilities.items():
                 self._setup_capability(name, **cap_kwargs)
 
-        # Re-run addon setup
-        addons = _resolve_addons(data.get("addons"))
+        # Re-run addon setup — merge explicit config with auto-discovered files
+        addons = _resolve_addons(data.get("addons")) or {}
+        for addon_name in ("telegram", "imap"):
+            if addon_name not in addons:
+                addon_file = self._working_dir / f"{addon_name}.json"
+                if addon_file.is_file():
+                    addons[addon_name] = {"config": str(addon_file)}
         if addons:
             from .addons import setup_addon
             for addon_name, addon_kwargs in addons.items():

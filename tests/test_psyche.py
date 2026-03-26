@@ -28,7 +28,7 @@ def test_psyche_setup_removes_eigen_intrinsic(tmp_path):
         capabilities=["psyche"],
     )
     assert "eigen" not in agent._intrinsics
-    assert "psyche" in agent._mcp_handlers
+    assert "psyche" in agent._tool_handlers
     agent.stop(timeout=1.0)
 
 

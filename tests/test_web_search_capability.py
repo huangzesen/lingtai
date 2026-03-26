@@ -22,7 +22,7 @@ def test_web_search_added_by_capability(tmp_path):
     """capabilities with provider should register the web_search tool."""
     agent = Agent(service=make_mock_service(), agent_name="test", working_dir=tmp_path,
                        capabilities={"web_search": {"provider": "duckduckgo"}})
-    assert "web_search" in agent._mcp_handlers
+    assert "web_search" in agent._tool_handlers
 
 
 def test_web_search_requires_provider_or_service(tmp_path):
@@ -52,7 +52,7 @@ def test_web_search_missing_query(tmp_path):
     """web_search should return error for missing query."""
     agent = Agent(service=make_mock_service(), agent_name="test", working_dir=tmp_path,
                        capabilities={"web_search": {"provider": "duckduckgo"}})
-    result = agent._mcp_handlers["web_search"]({"query": ""})
+    result = agent._tool_handlers["web_search"]({"query": ""})
     assert result.get("status") == "error"
 
 
@@ -108,4 +108,4 @@ def test_web_search_with_provider_kwarg(tmp_path):
         working_dir=tmp_path,
         capabilities={"web_search": {"provider": "duckduckgo"}},
     )
-    assert "web_search" in agent._mcp_handlers
+    assert "web_search" in agent._tool_handlers

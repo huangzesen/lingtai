@@ -62,6 +62,11 @@ func (m SetupModel) Update(msg tea.Msg) (SetupModel, tea.Cmd) {
 		switch msg.String() {
 		case "enter":
 			key := m.input.Value()
+			if key == "" && m.currentKey != "" {
+				// Existing key is fine, proceed without changes
+				m.done = true
+				return m, func() tea.Msg { return SetupDoneMsg{} }
+			}
 			if key == "" {
 				return m, nil
 			}
@@ -110,7 +115,11 @@ func (m SetupModel) View() string {
 	}
 
 	// Hints
-	b.WriteString(StyleSubtle.Render("  [Enter] " + i18n.T("setup.save") + "    [Esc] " + i18n.T("setup.back")) + "\n")
+	if m.currentKey != "" {
+		b.WriteString(StyleSubtle.Render("  [Enter] " + i18n.T("setup.keep_or_save") + "    [Esc] " + i18n.T("setup.back")) + "\n")
+	} else {
+		b.WriteString(StyleSubtle.Render("  [Enter] " + i18n.T("setup.save") + "    [Esc] " + i18n.T("setup.back")) + "\n")
+	}
 
 	return b.String()
 }

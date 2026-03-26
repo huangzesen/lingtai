@@ -7,11 +7,19 @@ def validate_init(data: dict) -> None:
 
     _require_keys(data, {
         "manifest": dict,
-        "principle": str,
-        "covenant": str,
-        "memory": str,
-        "prompt": str,
     }, prefix="")
+
+    # Text fields: inline value OR _file path (at least one required)
+    for key in ("principle", "covenant", "memory", "prompt"):
+        file_key = f"{key}_file"
+        has_inline = key in data
+        has_file = file_key in data
+        if not has_inline and not has_file:
+            raise ValueError(f"missing required field: {key} (or {file_key})")
+        if has_inline and not isinstance(data[key], str):
+            raise ValueError(f"{key}: expected str, got {type(data[key]).__name__}")
+        if has_file and not isinstance(data[file_key], str):
+            raise ValueError(f"{file_key}: expected str, got {type(data[file_key]).__name__}")
 
     # Optional top-level fields
     _optional_keys(data, {

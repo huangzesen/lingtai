@@ -1,0 +1,31 @@
+// =============================================================
+// IMAP Email — imap.json
+// =============================================================
+// Drop this file into your agent's working directory.
+// Auto-discovered by `lingtai run` — no init.json changes needed.
+//
+// For Gmail, use an App Password (not your regular password):
+//   https://myaccount.google.com/apppasswords
+// =============================================================
+{
+  // Email address to poll.
+  "email_address": "agent@example.com",
+
+  // Environment variable holding the email password / app password.
+  "email_password_env": "IMAP_PASSWORD",
+
+  // IMAP server settings.
+  "imap_host": "imap.gmail.com",
+  "imap_port": 993,
+
+  // SMTP server settings (for sending replies).
+  "smtp_host": "smtp.gmail.com",
+  "smtp_port": 587
+
+  // Optional: only accept emails from these senders.
+  // Omit for open access (all incoming mail is processed).
+  // "allowed_senders": ["boss@example.com", "team@example.com"]
+
+  // Optional: seconds between inbox checks (default 60).
+  // "poll_interval": 60
+}

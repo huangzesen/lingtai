@@ -68,22 +68,22 @@ def test_intrinsics_enabled_by_default(tmp_path):
 def test_add_remove_tool(tmp_path):
     agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     agent.add_tool("custom", schema={"type": "object"}, handler=lambda args: {"ok": True})
-    assert "custom" in agent._mcp_handlers
+    assert "custom" in agent._tool_handlers
     agent.remove_tool("custom")
-    assert "custom" not in agent._mcp_handlers
+    assert "custom" not in agent._tool_handlers
 
 
 def test_mcp_tools_registered(tmp_path):
     agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     agent.add_tool("domain_tool", schema={}, description="test", handler=lambda a: {"r": 1})
-    assert "domain_tool" in agent._mcp_handlers
+    assert "domain_tool" in agent._tool_handlers
 
 
 def test_add_tool_replaces_existing(tmp_path):
     agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     agent.add_tool("custom", schema={}, handler=lambda args: {"v": 1})
     agent.add_tool("custom", schema={}, handler=lambda args: {"v": 2})
-    assert agent._mcp_handlers["custom"]({})=={"v": 2}
+    assert agent._tool_handlers["custom"]({})=={"v": 2}
 
 
 def test_remove_nonexistent_tool_is_noop(tmp_path):
@@ -496,7 +496,7 @@ def test_add_tool_works_before_start(tmp_path):
     """add_tool() works fine before start()."""
     agent = BaseAgent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test")
     agent.add_tool("foo", schema={"type": "object", "properties": {}}, handler=lambda args: {"ok": True}, description="test")
-    assert "foo" in agent._mcp_handlers
+    assert "foo" in agent._tool_handlers
     agent.stop(timeout=1.0)
 
 

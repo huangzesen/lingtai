@@ -207,8 +207,8 @@ agent.update_system_prompt(section, content, protected=False)  # Python API, NOT
 def _resolve_handler(self, tool_name: str):
     if tool_name in self._intrinsics:
         return self._intrinsics[tool_name]
-    if tool_name in self._mcp_handlers:
-        return self._mcp_handlers[tool_name]
+    if tool_name in self._tool_handlers:
+        return self._tool_handlers[tool_name]
     raise UnknownToolError(tool_name)
 ```
 

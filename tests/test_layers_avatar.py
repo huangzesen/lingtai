@@ -34,7 +34,7 @@ class TestAvatarManager:
         from lingtai.agent import Agent
         parent = Agent(service=make_mock_service(), agent_name="parent", working_dir=tmp_path / "test",
                             capabilities={"bash": {"yolo": True}, "avatar": {}})
-        result = parent._mcp_handlers["avatar"]({"name": "child"})
+        result = parent._tool_handlers["avatar"]({"name": "child"})
         assert result["status"] == "ok"
         child = parent.get_capability("avatar")._peers["child"]
         child_cap_names = [name for name, _ in child._capabilities]
@@ -170,7 +170,7 @@ class TestAddCapability:
                            capabilities=["avatar"])
         mgr = agent.get_capability("avatar")
         assert isinstance(mgr, AvatarManager)
-        assert "avatar" in agent._mcp_handlers
+        assert "avatar" in agent._tool_handlers
 
     def test_add_capability_unknown(self, tmp_path):
         from lingtai.agent import Agent

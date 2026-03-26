@@ -18,6 +18,21 @@ import (
 )
 
 func main() {
+	// Handle flags
+	if len(os.Args) > 1 {
+		arg := os.Args[1]
+		if arg == "--help" || arg == "-h" {
+			fmt.Println("Usage: lingtai-tui [project-dir]")
+			fmt.Println()
+			fmt.Println("  project-dir  Path to the project (default: current directory)")
+			os.Exit(0)
+		}
+		if arg == "--version" || arg == "-v" {
+			fmt.Println("lingtai-tui 0.1.1")
+			os.Exit(0)
+		}
+	}
+
 	// Resolve project directory
 	var projectDir string
 	if len(os.Args) > 1 {

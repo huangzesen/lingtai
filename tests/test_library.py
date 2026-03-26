@@ -27,7 +27,7 @@ def test_library_setup_registers_tool(tmp_path):
         service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["library"],
     )
-    assert "library" in agent._mcp_handlers
+    assert "library" in agent._tool_handlers
     agent.stop(timeout=1.0)
 
 
@@ -48,7 +48,7 @@ def test_library_independent_of_psyche(tmp_path):
         capabilities=["library"],
     )
     assert "eigen" in agent._intrinsics
-    assert "library" in agent._mcp_handlers
+    assert "library" in agent._tool_handlers
     agent.stop(timeout=1.0)
 
 

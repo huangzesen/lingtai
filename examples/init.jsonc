@@ -1,0 +1,216 @@
+// =============================================================
+// LingTai Agent — init.json example
+// =============================================================
+// Copy this file to your agent's working directory as "init.json"
+// and REMOVE all comments (JSON does not allow comments).
+//
+// Secrets go in a .env file (see env_file below).
+// Example .env:
+//   MINIMAX_API_KEY=your-minimax-api-key
+//   TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
+//   IMAP_PASSWORD=your-email-password
+// =============================================================
+
+{
+  // Path to .env file for loading secrets as environment variables.
+  // Relative to the working directory.
+  "env_file": ".env",
+
+  "manifest": {
+    // Agent's true name (真名). Set once, never changes.
+    // Used for identification in multi-agent networks.
+    "agent_name": "my-agent",
+
+    // Language for tool descriptions and system prompt.
+    // "en" = English, "zh" = Chinese, "wen" = Classical Chinese (文言文)
+    "language": "en",
+
+    // -------------------------------------------------------
+    // LLM configuration
+    // -------------------------------------------------------
+    "llm": {
+      // Provider: "minimax", "anthropic", "openai", "gemini",
+      //           "deepseek", "grok", "qwen", "glm", "kimi" (OpenAI-compatible via custom adapter),
+      //           or "custom" (generic — set api_compat + base_url for any OpenAI/Anthropic/Gemini-compatible API).
+      "provider": "minimax",
+
+      // Model name as recognized by the provider's API.
+      "model": "MiniMax-M2.7-highspeed",
+
+      // API key — set to null and use api_key_env to read from environment (recommended).
+      // Never hardcode secrets here.
+      "api_key": null,
+
+      // Environment variable name that holds the API key.
+      // Resolved at startup from .env or system environment.
+      "api_key_env": "MINIMAX_API_KEY",
+
+      // Base URL for the provider's API.
+      // MiniMax China endpoint with Anthropic-compatible protocol.
+      // Set to null to use the provider's default.
+      "base_url": "https://api.minimaxi.com/anthropic"
+    },
+
+    // -------------------------------------------------------
+    // Capabilities — the agent's tool surface
+    // -------------------------------------------------------
+    // Each key is a capability name. Value is {} for defaults
+    // or a dict of kwargs passed to the capability's setup().
+    //
+    // "file" is a group shorthand that expands to:
+    //   read, write, edit, glob, grep
+    // -------------------------------------------------------
+    "capabilities": {
+      // --- File I/O (read, write, edit, glob, grep) ---
+      // Lets the agent read/write/edit files and search by pattern.
+      "file": {},
+
+      // --- Shell access ---
+      // policy_file: path to JSON deny-list (see bash_policy.json).
+      // Alternative: { "yolo": true } to allow ALL commands (dangerous!).
+      "bash": { "policy_file": "bash_policy.json" },
+
+      // --- Identity & memory (upgrades eigen intrinsic) ---
+      // Evolving character, knowledge library integration,
+      // memory.edit with file imports. Includes molt (context compaction).
+      "psyche": {},
+
+      // --- Knowledge library ---
+      // Persistent knowledge store. Works with psyche for
+      // importing library entries into working memory.
+      "library": {},
+
+      // --- Email (upgrades mail intrinsic) ---
+      // Filesystem-based mailbox with reply, CC/BCC, contacts,
+      // archive, delayed send, scheduled recurring sends.
+      // Used for inter-agent communication.
+      "email": {},
+
+      // --- Avatar (分身) ---
+      // Spawn independent child agents as separate processes.
+      // Each avatar gets its own working directory and LLM session.
+      // Survives parent death.
+      "avatar": {},
+
+      // --- Daemon (神識) ---
+      // Ephemeral sub-agent sessions running in parallel threads.
+      // max_emanations: max concurrent workers (default 4).
+      // max_turns: max LLM turns per worker (default 30).
+      // timeout: seconds before worker is killed (default 300).
+      "daemon": { "max_emanations": 4, "max_turns": 30, "timeout": 300 },
+
+      // --- Vision (image understanding) ---
+      // Providers: "minimax", "anthropic", "openai", "gemini", "local" (no API key).
+      "vision": { "provider": "minimax", "api_key_env": "MINIMAX_API_KEY" },
+
+      // --- Web search ---
+      // Providers: "minimax", "anthropic", "openai", "gemini", "duckduckgo" (no API key).
+      "web_search": { "provider": "minimax", "api_key_env": "MINIMAX_API_KEY" },
+
+      // --- Web page reader ---
+      // Fetches and extracts readable content from URLs using trafilatura (local, no API key).
+      "web_read": {},
+
+      // --- Text-to-speech ---
+      // Providers: "minimax", "gemini".
+      "talk": { "provider": "minimax", "api_key_env": "MINIMAX_API_KEY" },
+
+      // --- Music generation ---
+      // Providers: "minimax".
+      "compose": { "provider": "minimax", "api_key_env": "MINIMAX_API_KEY" },
+
+      // --- Image generation ---
+      // Providers: "minimax", "gemini".
+      "draw": { "provider": "minimax", "api_key_env": "MINIMAX_API_KEY" },
+
+      // --- Audio transcription ---
+      // Providers: "whisper" (local, no API key), "gemini".
+      "listen": { "provider": "whisper" }
+    },
+
+    // -------------------------------------------------------
+    // Soul — the agent's subconscious
+    // -------------------------------------------------------
+    // delay: seconds between soul ticks (subconscious reflection).
+    // Higher = less frequent self-reflection, lower resource usage.
+    "soul": { "delay": 120 },
+
+    // -------------------------------------------------------
+    // Lifecycle limits
+    // -------------------------------------------------------
+
+    // Max uptime in seconds before the agent falls asleep (眠).
+    // 3600 = 1 hour. Set higher for long-running agents.
+    "stamina": 3600,
+
+    // Max context window tokens. null = use generic cap (1M tokens).
+    // Set this to cap memory usage or force earlier molt.
+    "context_limit": null,
+
+    // Fraction (0.0–1.0) of context_limit that triggers molt warnings.
+    // 0.8 = warn at 80% context usage, molt soon after.
+    "molt_pressure": 0.8,
+
+    // Custom instructions appended to the molt briefing prompt.
+    // Empty = use default molt behavior.
+    "molt_prompt": "",
+
+    // Max LLM request turns per wake cycle.
+    // Safety limit — agent sleeps after this many turns.
+    "max_turns": 50,
+
+    // -------------------------------------------------------
+    // Admin privileges
+    // -------------------------------------------------------
+    // karma: allows lull (sleep other), interrupt, suspend actions.
+    // nirvana: allows permanent destruction of other agents.
+    // Avatars always get {} (no privileges) regardless of parent.
+    "admin": { "karma": true, "nirvana": false },
+
+    // Whether to use streaming for LLM responses.
+    "streaming": false
+  },
+
+  // =============================================================
+  // Addons — external service integrations
+  // =============================================================
+  // Addons are auto-discovered: if telegram.json or imap.json exists
+  // in the working directory, it is loaded automatically.
+  // No need to declare them here — just drop the file in.
+  // See examples/telegram.json and examples/imap.json.
+  //
+  // You CAN still declare addons inline here if you prefer:
+  //   "addons": {
+  //     "telegram": { "bot_token_env": "TELEGRAM_BOT_TOKEN" },
+  //     "imap": { "email_address": "...", "email_password_env": "..." }
+  //   }
+  // Inline config takes precedence over auto-discovered files.
+
+  // =============================================================
+  // Agent personality & initial state
+  // =============================================================
+  // Each field accepts inline text OR a file path via the _file variant.
+  // Examples:
+  //   "covenant": "You are a helpful assistant."     ← inline
+  //   "covenant_file": "covenant.md"                 ← reads from file
+  // If both are present, the file takes precedence.
+
+  // Guiding principle — shapes the agent's decision-making.
+  // Injected as a system prompt section.
+  "principle": "",
+
+  // Covenant — protected prompt section the agent cannot modify.
+  // Core behavioral rules that persist across molts.
+  "covenant": "You are a helpful assistant.",
+  // Or use a file: "covenant_file": "covenant.md"
+
+  // Initial memory — pre-loaded into system/memory.md.
+  // The agent can edit this via the eigen intrinsic.
+  "memory": "",
+  // Or use a file: "memory_file": "memory.md"
+
+  // First message — what the agent sees when it wakes up.
+  // This is the initial user prompt that starts the conversation.
+  "prompt": "Hello! How can I help you today?"
+  // Or use a file: "prompt_file": "prompt.md"
+}

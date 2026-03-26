@@ -106,7 +106,7 @@ def test_sequential_execution_stops_on_cancel(tmp_path):
             name, result, provider=agent._config.provider, **kw
         ),
         guard=guard,
-        known_tools=set(agent._intrinsics) | set(agent._mcp_handlers),
+        known_tools=set(agent._intrinsics) | set(agent._tool_handlers),
         logger_fn=agent._log,
     )
     results, intercepted, text = executor.execute(

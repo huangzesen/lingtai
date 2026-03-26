@@ -23,7 +23,7 @@ def test_file_sugar_expands_to_five(tmp_path):
         capabilities=["file"],
     )
     for name in ("read", "write", "edit", "glob", "grep"):
-        assert name in agent._mcp_handlers, f"{name} not registered"
+        assert name in agent._tool_handlers, f"{name} not registered"
     agent.stop(timeout=1.0)
 
 
@@ -34,7 +34,7 @@ def test_file_sugar_dict_form(tmp_path):
         capabilities={"file": {}},
     )
     for name in ("read", "write", "edit", "glob", "grep"):
-        assert name in agent._mcp_handlers, f"{name} not registered (dict form)"
+        assert name in agent._tool_handlers, f"{name} not registered (dict form)"
     agent.stop(timeout=1.0)
 
 
@@ -44,11 +44,11 @@ def test_individual_file_capability(tmp_path):
         service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
         capabilities=["read", "write"],
     )
-    assert "read" in agent._mcp_handlers
-    assert "write" in agent._mcp_handlers
-    assert "edit" not in agent._mcp_handlers
-    assert "glob" not in agent._mcp_handlers
-    assert "grep" not in agent._mcp_handlers
+    assert "read" in agent._tool_handlers
+    assert "write" in agent._tool_handlers
+    assert "edit" not in agent._tool_handlers
+    assert "glob" not in agent._tool_handlers
+    assert "grep" not in agent._tool_handlers
     agent.stop(timeout=1.0)
 
 
@@ -59,13 +59,13 @@ def test_write_and_read_via_capability(tmp_path):
         capabilities=["file"],
     )
     # Write
-    write_result = agent._mcp_handlers["write"](
+    write_result = agent._tool_handlers["write"](
         {"file_path": str(agent.working_dir / "test.txt"), "content": "hello world"}
     )
     assert write_result["status"] == "ok"
 
     # Read
-    read_result = agent._mcp_handlers["read"](
+    read_result = agent._tool_handlers["read"](
         {"file_path": str(agent.working_dir / "test.txt")}
     )
     assert "hello world" in read_result["content"]
@@ -79,7 +79,7 @@ def test_edit_via_capability(tmp_path):
         capabilities=["file"],
     )
     (agent.working_dir / "test.txt").write_text("hello world")
-    result = agent._mcp_handlers["edit"](
+    result = agent._tool_handlers["edit"](
         {"file_path": str(agent.working_dir / "test.txt"), "old_string": "hello", "new_string": "goodbye"}
     )
     assert result["status"] == "ok"
@@ -96,7 +96,7 @@ def test_glob_via_capability(tmp_path):
     (agent.working_dir / "a.py").write_text("pass")
     (agent.working_dir / "b.py").write_text("pass")
     (agent.working_dir / "c.txt").write_text("text")
-    result = agent._mcp_handlers["glob"](
+    result = agent._tool_handlers["glob"](
         {"pattern": "*.py", "path": str(agent.working_dir)}
     )
     assert result["count"] == 2
@@ -110,7 +110,7 @@ def test_grep_via_capability(tmp_path):
         capabilities=["file"],
     )
     (agent.working_dir / "test.py").write_text("def hello():\n    pass\n")
-    result = agent._mcp_handlers["grep"](
+    result = agent._tool_handlers["grep"](
         {"pattern": "def hello", "path": str(agent.working_dir)}
     )
     assert result["count"] >= 1
@@ -143,7 +143,7 @@ def test_file_capability_uses_file_io_service(tmp_path):
         file_io=svc,
         capabilities=["file"],
     )
-    result = agent._mcp_handlers["write"](
+    result = agent._tool_handlers["write"](
         {"file_path": str(tmp_path / "test.txt"), "content": "via service"}
     )
     assert result["status"] == "ok"

@@ -187,7 +187,7 @@ class TestAddCapability:
                            capabilities={"bash": {"yolo": True}})
         mgr = agent.get_capability("bash")
         assert isinstance(mgr, BashManager)
-        assert "bash" in agent._mcp_handlers
+        assert "bash" in agent._tool_handlers
 
     def test_add_capability_bash_with_policy(self, tmp_path):
         from lingtai.agent import Agent

@@ -49,8 +49,8 @@ def test_email_capability_registers_tool(tmp_path):
     agent = Agent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
                        capabilities=["email"])
     mgr = agent.get_capability("email")
-    assert "email" in agent._mcp_handlers
-    assert "email" in [s.name for s in agent._mcp_schemas]
+    assert "email" in agent._tool_handlers
+    assert "email" in [s.name for s in agent._tool_schemas]
     assert mgr is not None
 
 
@@ -676,7 +676,7 @@ def test_email_removes_mail_intrinsic(tmp_path):
     )
     assert "mail" not in agent._intrinsics
     # But email tool should exist
-    assert "email" in agent._mcp_handlers
+    assert "email" in agent._tool_handlers
     agent.stop(timeout=1.0)
 
 
@@ -875,7 +875,7 @@ def test_email_schedule_in_schema(tmp_path):
     """Email schema should include schedule property."""
     agent = Agent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
                        capabilities=["email"])
-    schemas = {s.name: s for s in agent._mcp_schemas}
+    schemas = {s.name: s for s in agent._tool_schemas}
     props = schemas["email"].parameters["properties"]
     assert "schedule" in props
     assert "create" in props["schedule"]["properties"]["action"]["enum"]

@@ -25,8 +25,9 @@ def load_init(working_dir: Path) -> dict:
         sys.exit(1)
 
     try:
-        data = json.loads(init_path.read_text())
-    except (json.JSONDecodeError, OSError) as e:
+        from lingtai.config_resolve import load_jsonc
+        data = load_jsonc(init_path)
+    except (json.JSONDecodeError, OSError, ValueError) as e:
         print(f"error: failed to read {init_path}: {e}", file=sys.stderr)
         sys.exit(1)
 

@@ -6,6 +6,7 @@
   "setup.key_saved": "API key saved.",
   "setup.title": "Setup",
   "setup.save": "Save",
+  "setup.keep_or_save": "Keep existing / Save new",
   "setup.back": "Back",
   "setup.quit": "Quit",
   "setup.current_key": "Current key: %s",

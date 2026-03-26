@@ -56,8 +56,8 @@ def test_agent_capabilities_dict(tmp_path):
         },
     )
     assert len(agent._capabilities) == 2
-    assert "vision" in agent._mcp_handlers
-    assert "web_search" in agent._mcp_handlers
+    assert "vision" in agent._tool_handlers
+    assert "web_search" in agent._tool_handlers
     agent.stop(timeout=1.0)
 
 

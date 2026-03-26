@@ -1,0 +1,27 @@
+// =============================================================
+// Telegram Bot — telegram.json
+// =============================================================
+// Drop this file into your agent's working directory.
+// Auto-discovered by `lingtai run` — no init.json changes needed.
+//
+// Setup:
+//   1. Message @BotFather on Telegram → /newbot → copy the token.
+//   2. Add TELEGRAM_BOT_TOKEN=<your-token> to your .env file.
+//   3. Start the agent — it will long-poll for messages automatically.
+//
+// By default, the bot accepts messages from EVERYONE (open access).
+// To restrict access, add "allowed_users" with Telegram user IDs.
+// Don't know your user ID? Message the bot first, then ask the agent
+// to check telegram messages — the user ID is in the "from" field.
+// =============================================================
+{
+  // Environment variable holding the bot token from @BotFather.
+  "bot_token_env": "TELEGRAM_BOT_TOKEN"
+
+  // Optional: restrict to specific Telegram user IDs.
+  // Omit for open access (anyone can message the bot).
+  // "allowed_users": [123456789, 987654321]
+
+  // Optional: seconds between poll cycles (default 1.0).
+  // "poll_interval": 1.0
+}

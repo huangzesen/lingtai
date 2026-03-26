@@ -195,7 +195,7 @@ class TestAddCapabilityIntegration:
         # of non-JSON-serializable service objects.
         agent = Agent(service=svc, agent_name="test", working_dir=tmp_path)
         agent._setup_capability("draw", image_gen_service=image_svc)
-        assert "draw" in agent._mcp_handlers
+        assert "draw" in agent._tool_handlers
 
     def test_add_capability_draw_requires_provider(self, tmp_path):
         """Agent construction with draw capability without provider raises ValueError."""
