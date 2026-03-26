@@ -473,6 +473,9 @@ class Agent(BaseAgent):
             )
             self._session._llm_service = self.service
 
+        # Reload admin from init.json (avatars have admin: {}, not inherited from parent)
+        self._admin = m.get("admin", {})
+
         # Reload config
         soul = m["soul"]
         self._config = AgentConfig(
