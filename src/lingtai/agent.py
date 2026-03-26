@@ -465,10 +465,10 @@ class Agent(BaseAgent):
 
         # Reconstruct LLM service if changed
         llm = m["llm"]
-        api_key = resolve_env(llm["api_key"], llm.get("api_key_env"))
+        api_key = resolve_env(llm.get("api_key"), llm.get("api_key_env"))
         new_provider = llm["provider"]
         new_model = llm["model"]
-        new_base_url = llm["base_url"]
+        new_base_url = llm.get("base_url")
 
         if (
             new_provider != self.service.provider
@@ -484,16 +484,16 @@ class Agent(BaseAgent):
         # Reload admin from init.json (avatars have admin: {}, not inherited from parent)
         self._admin = m.get("admin", {})
 
-        # Reload config
-        soul = m["soul"]
+        # Reload config (all fields optional — fall back to AgentConfig defaults)
+        soul = m.get("soul", {})
         self._config = AgentConfig(
-            stamina=m["stamina"],
-            soul_delay=soul["delay"],
-            max_turns=m["max_turns"],
-            language=m["language"],
-            context_limit=m["context_limit"],
-            molt_pressure=m["molt_pressure"],
-            molt_prompt=m["molt_prompt"],
+            stamina=m.get("stamina", 86400.0),
+            soul_delay=soul.get("delay", 120.0),
+            max_turns=m.get("max_turns", 50),
+            language=m.get("language", "en"),
+            context_limit=m.get("context_limit"),
+            molt_pressure=m.get("molt_pressure", 0.8),
+            molt_prompt=m.get("molt_prompt", ""),
         )
         self._soul_delay = max(1.0, self._config.soul_delay)
         self._session._config = self._config
@@ -521,7 +521,7 @@ class Agent(BaseAgent):
             self._prompt_manager.write_section("principle", principle, protected=True)
 
         # Re-run capability setup
-        capabilities = _resolve_capabilities(m["capabilities"])
+        capabilities = _resolve_capabilities(m.get("capabilities", {}))
         if capabilities:
             from .capabilities import expand_groups, _GROUPS
             expanded: dict[str, dict] = {}

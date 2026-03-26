@@ -1,4 +1,4 @@
-"""lingtai run <working_dir> — boot an agent from init.json."""
+"""lingtai run <working_dir> — boot agent into ASLEEP, wake on external messages."""
 from __future__ import annotations
 
 import argparse
@@ -55,13 +55,13 @@ def build_agent(data: dict, working_dir: Path) -> Agent:
     m = data["manifest"]
     llm = m["llm"]
 
-    api_key = resolve_env(llm["api_key"], llm.get("api_key_env"))
+    api_key = resolve_env(llm.get("api_key"), llm.get("api_key_env"))
 
     service = LLMService(
         provider=llm["provider"],
         model=llm["model"],
         api_key=api_key,
-        base_url=llm["base_url"],
+        base_url=llm.get("base_url"),
     )
 
     mail_service = FilesystemMailService(working_dir=working_dir)
@@ -69,10 +69,10 @@ def build_agent(data: dict, working_dir: Path) -> Agent:
     # Minimal construction — _perform_refresh reads init.json for everything else
     agent = Agent(
         service,
-        agent_name=m["agent_name"],
+        agent_name=m.get("agent_name"),
         working_dir=working_dir,
         mail_service=mail_service,
-        streaming=m["streaming"],
+        streaming=m.get("streaming", True),
     )
 
     # Full setup from init.json (capabilities, addons, config, covenant, etc.)
@@ -90,31 +90,42 @@ def build_agent(data: dict, working_dir: Path) -> Agent:
     return agent
 
 
-def run(working_dir: Path) -> None:
-    """Full boot sequence: load, build, start, block, stop."""
-    data = load_init(working_dir)
-    agent = build_agent(data, working_dir)
+def _clean_signal_files(working_dir: Path) -> None:
+    """Remove stale .suspend / .sleep files left over from a previous run."""
+    for name in (".suspend", ".sleep"):
+        f = working_dir / name
+        if f.is_file():
+            try:
+                f.unlink()
+            except OSError:
+                pass
 
-    # Signal handlers: SIGTERM/SIGINT → touch .suspend and unblock main thread
+
+def _install_signal_handlers(working_dir: Path, agent: Agent) -> None:
+    """SIGTERM/SIGINT → touch .suspend and unblock main thread."""
     suspend_file = working_dir / ".suspend"
 
-    def _signal_handler(signum, frame):
+    def _handler(signum, frame):
         suspend_file.touch()
         agent._shutdown.set()
 
-    signal.signal(signal.SIGTERM, _signal_handler)
-    signal.signal(signal.SIGINT, _signal_handler)
+    signal.signal(signal.SIGTERM, _handler)
+    signal.signal(signal.SIGINT, _handler)
+
+
+def run(working_dir: Path) -> None:
+    """Boot agent into ASLEEP — wakes on external messages (mail/imap/telegram)."""
+    _clean_signal_files(working_dir)
+    data = load_init(working_dir)
+    agent = build_agent(data, working_dir)
+    _install_signal_handlers(working_dir, agent)
+
+    from lingtai_kernel.state import AgentState
+    agent._asleep.set()
+    agent._state = AgentState.ASLEEP
 
     try:
         agent.start()
-
-        # Inject starting prompt if provided
-        prompt = data.get("prompt", "")
-        if prompt:
-            from lingtai_kernel.message import _make_message, MSG_REQUEST
-            agent.inbox.put(_make_message(MSG_REQUEST, "system", prompt))
-
-        # Block until the agent shuts down (SUSPENDED via .suspend or external stop)
         agent._shutdown.wait()
     finally:
         try:
@@ -130,7 +141,7 @@ def main() -> None:
     )
     sub = parser.add_subparsers(dest="command")
 
-    run_parser = sub.add_parser("run", help="Boot an agent from init.json in working_dir")
+    run_parser = sub.add_parser("run", help="Boot agent into sleep — wakes on external messages")
     run_parser.add_argument("working_dir", type=Path, help="Agent working directory containing init.json")
 
     args = parser.parse_args()

@@ -44,10 +44,28 @@ def test_missing_top_level_key():
 
 
 def test_missing_manifest_field():
+    """Only manifest.llm is truly required — other fields are optional."""
     data = _valid_init()
-    del data["manifest"]["agent_name"]
-    with pytest.raises(ValueError, match="manifest.agent_name"):
+    del data["manifest"]["llm"]
+    with pytest.raises(ValueError, match="manifest.llm"):
         validate_init(data)
+
+
+def test_minimal_init_passes():
+    """Bare-minimum init.json: only manifest.llm with provider+model."""
+    data = {
+        "manifest": {
+            "llm": {
+                "provider": "anthropic",
+                "model": "claude-sonnet-4-20250514",
+            },
+        },
+        "principle": "",
+        "covenant": "",
+        "memory": "",
+        "prompt": "",
+    }
+    validate_init(data)  # should not raise
 
 
 def test_missing_llm_field():

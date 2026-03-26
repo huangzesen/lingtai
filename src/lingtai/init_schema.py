@@ -29,9 +29,11 @@ def validate_init(data: dict) -> None:
 
     manifest = data["manifest"]
     _require_keys(manifest, {
-        "agent_name": str,
-        "language": str,
         "llm": dict,
+    }, prefix="manifest")
+    _optional_keys(manifest, {
+        "agent_name": (str, type(None)),
+        "language": str,
         "capabilities": dict,
         "soul": dict,
         "stamina": (int, float),
@@ -43,20 +45,21 @@ def validate_init(data: dict) -> None:
         "streaming": bool,
     }, prefix="manifest")
 
-    soul = manifest["soul"]
-    _require_keys(soul, {
-        "delay": (int, float),
-    }, prefix="manifest.soul")
+    soul = manifest.get("soul")
+    if soul is not None:
+        _optional_keys(soul, {
+            "delay": (int, float),
+        }, prefix="manifest.soul")
 
     llm = manifest["llm"]
     _require_keys(llm, {
         "provider": str,
         "model": str,
-        "api_key": (str, type(None)),
-        "base_url": (str, type(None)),
     }, prefix="manifest.llm")
     _optional_keys(llm, {
+        "api_key": (str, type(None)),
         "api_key_env": str,
+        "base_url": (str, type(None)),
     }, prefix="manifest.llm")
 
     # Validate addons if present
