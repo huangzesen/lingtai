@@ -26,6 +26,13 @@ export const inkEdgeColors = {
 // 背景
 export const inkBg = '#0d0d0f';  // 墨黑
 
+// 文字色（Go 端 ColorText / ColorTextDim）
+export const ColorText = '#e8e4df';    // 宣纸白
+export const ColorTextDim = '#8a8680'; // 旧墨灰
+
+// 边框色
+export const inkBorder = '#2a2a30';  // 墨线
+
 // 向后兼容别名
 export const stateColors = inkStateColors;
 export const edgeColors = inkEdgeColors;

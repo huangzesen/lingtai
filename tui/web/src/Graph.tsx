@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import type { Network } from './types';
-import { inkStateColors, inkEdgeColors, inkBg } from './theme';
+import { inkStateColors, inkEdgeColors, inkBg, inkNodeTypeColors } from './theme';
 
 interface GraphNode {
   id: string;
@@ -106,7 +106,7 @@ export function Graph({ network }: { network: Network }) {
         // 所有节点都标 name，orchestrator 标琥珀色加粗，其余竹青色，9px
         ctx.font = `${n.isOrchestrator ? 'bold 11px' : '9px'} sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillStyle = n.isOrchestrator ? '#c4946c' : '#7dab8f';
+        ctx.fillStyle = n.isOrchestrator ? inkNodeTypeColors.orchestrator : inkNodeTypeColors.avatar;
         ctx.fillText(n.name, node.x!, node.y! + r + 12);
       }}
       linkColor={(link: any) => {

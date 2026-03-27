@@ -3,7 +3,7 @@ import type { Network } from './types';
 import { fetchNetwork } from './api';
 import { Graph } from './Graph';
 import { BottomBar } from './BottomBar';
-import { bg } from './theme';
+import { inkBg, ColorTextDim } from './theme';
 
 export default function App() {
   const [network, setNetwork] = useState<Network | null>(null);
@@ -17,14 +17,14 @@ export default function App() {
 
   if (!network) {
     return (
-      <div style={{ background: bg, color: '#a0aec0', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: inkBg, color: ColorTextDim, height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         Connecting...
       </div>
     );
   }
 
   return (
-    <div style={{ background: bg, height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ background: inkBg, height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div style={{ flex: 1 }}>
         <Graph network={network} />
       </div>
