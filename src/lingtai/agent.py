@@ -372,8 +372,8 @@ class Agent(BaseAgent):
 
         return data
 
-    def _perform_refresh(self) -> None:
-        """Full reconstruct from init.json, preserving conversation history."""
+    def _setup_from_init(self) -> None:
+        """Full construct/reconstruct from init.json."""
         self._log("refresh_start")
 
         data = self._read_init()
@@ -568,3 +568,11 @@ class Agent(BaseAgent):
             addons=list(self._addon_managers.keys()),
             tools=list(self._tool_handlers.keys()),
         )
+
+    def _build_launch_cmd(self) -> list[str] | None:
+        """Return the command to relaunch this agent via lingtai run."""
+        from .venv_resolve import resolve_venv, venv_python
+        data = self._read_init()
+        venv_dir = resolve_venv(data)
+        python = venv_python(venv_dir)
+        return [python, "-m", "lingtai", "run", str(self._working_dir)]

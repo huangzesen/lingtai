@@ -76,7 +76,7 @@ def build_agent(data: dict, working_dir: Path) -> Agent:
     )
 
     # Full setup from init.json (capabilities, addons, config, covenant, etc.)
-    agent._perform_refresh()
+    agent._setup_from_init()
 
     # Restore molt count from previous run (if resuming)
     prev_manifest = working_dir / ".agent.json"

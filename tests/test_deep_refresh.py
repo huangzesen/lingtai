@@ -111,7 +111,7 @@ def test_deep_refresh_loads_new_capability(tmp_path):
     new_init = _make_init(capabilities={"read": {}})
     (tmp_path / "init.json").write_text(json.dumps(new_init))
 
-    agent._perform_refresh()
+    agent._setup_from_init()
 
     cap_names = [name for name, _ in agent._capabilities]
     assert "read" in cap_names
@@ -130,17 +130,17 @@ def test_deep_refresh_no_init_json_is_noop(tmp_path):
     agent._session = mock_session
 
     old_caps = list(agent._capabilities)
-    agent._perform_refresh()
+    agent._setup_from_init()
     assert agent._capabilities == old_caps
 
 
 def test_deep_refresh_at_boot_no_history(tmp_path):
-    """_perform_refresh works at boot time (no session, not sealed)."""
+    """_setup_from_init works at boot time (no session, not sealed)."""
     init = _make_init(capabilities={"read": {}})
     agent = _make_agent(tmp_path, init)
     assert agent._sealed is False
 
-    agent._perform_refresh()
+    agent._setup_from_init()
 
     cap_names = [name for name, _ in agent._capabilities]
     assert "read" in cap_names
@@ -148,7 +148,7 @@ def test_deep_refresh_at_boot_no_history(tmp_path):
 
 
 def test_cli_build_agent_uses_refresh(tmp_path):
-    """cli.build_agent() constructs agent via _perform_refresh from init.json."""
+    """cli.build_agent() constructs agent via _setup_from_init from init.json."""
     from lingtai.cli import load_init, build_agent
 
     init = _make_init(capabilities={"read": {}}, covenant="Be helpful.")
@@ -157,7 +157,7 @@ def test_cli_build_agent_uses_refresh(tmp_path):
     data = load_init(tmp_path)
     agent = build_agent(data, tmp_path)
 
-    # Capabilities loaded from init.json via _perform_refresh
+    # Capabilities loaded from init.json via _setup_from_init
     cap_names = [name for name, _ in agent._capabilities]
     assert "read" in cap_names
 
@@ -174,7 +174,7 @@ def test_deep_refresh_invalid_init_keeps_old_config(tmp_path):
     """If init.json is invalid, refresh logs error and keeps old state."""
     init = _make_init(capabilities={"read": {}})
     agent = _make_agent(tmp_path, init)
-    agent._perform_refresh()  # initial setup
+    agent._setup_from_init()  # initial setup
 
     agent._sealed = True
     mock_session = MagicMock()
@@ -186,7 +186,7 @@ def test_deep_refresh_invalid_init_keeps_old_config(tmp_path):
     (tmp_path / "init.json").write_text("not json")
 
     old_caps = list(agent._capabilities)
-    agent._perform_refresh()
+    agent._setup_from_init()
 
     # Old capabilities preserved (refresh was a no-op)
     assert agent._capabilities == old_caps
@@ -196,7 +196,7 @@ def test_deep_refresh_removes_old_capabilities(tmp_path):
     """Capabilities removed from init.json are gone after refresh."""
     init = _make_init(capabilities={"read": {}, "write": {}})
     agent = _make_agent(tmp_path, init)
-    agent._perform_refresh()  # initial setup
+    agent._setup_from_init()  # initial setup
 
     agent._sealed = True
     mock_session = MagicMock()
@@ -210,7 +210,7 @@ def test_deep_refresh_removes_old_capabilities(tmp_path):
     new_init = _make_init(capabilities={"read": {}})
     (tmp_path / "init.json").write_text(json.dumps(new_init))
 
-    agent._perform_refresh()
+    agent._setup_from_init()
 
     cap_names = [name for name, _ in agent._capabilities]
     assert "read" in cap_names
@@ -228,7 +228,7 @@ def test_deep_refresh_preserves_chat_history(tmp_path):
     mock_session.chat.interface = mock_interface
     agent._session = mock_session
 
-    agent._perform_refresh()
+    agent._setup_from_init()
 
     mock_session._rebuild_session.assert_called_once_with(mock_interface)
 
@@ -241,7 +241,7 @@ def test_deep_refresh_clears_stale_prompt_sections(tmp_path):
     agent._prompt_manager.write_section("some_old_section", "stale content")
     assert agent._prompt_manager.read_section("some_old_section") is not None
 
-    agent._perform_refresh()
+    agent._setup_from_init()
 
     # Stale section should be gone
     assert agent._prompt_manager.read_section("some_old_section") is None
@@ -256,6 +256,6 @@ def test_deep_refresh_reseals(tmp_path):
     mock_session.chat.interface = MagicMock()
     agent._session = mock_session
 
-    agent._perform_refresh()
+    agent._setup_from_init()
 
     assert agent._sealed is True
