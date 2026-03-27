@@ -237,7 +237,6 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 		return m, nil
 
 	case mailRefreshMsg:
-		prevCount := len(m.messages)
 		m.messages = msg.messages
 		m.orchAlive = msg.alive
 		m.orchState = msg.state
@@ -247,9 +246,7 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 		if m.ready {
 			atBottom := m.viewport.AtBottom()
 			m.viewport.SetContent(m.renderMessages())
-			// Scroll to bottom if: was already at bottom, or message count changed significantly
-			// (verbose toggle causes big jumps in message count)
-			if atBottom || len(m.messages) != prevCount {
+			if atBottom {
 				m.viewport.GotoBottom()
 			}
 		}
