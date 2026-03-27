@@ -148,8 +148,27 @@ class EmailManager:
         # Maps address → (message_text, count).
         self._last_sent: dict[str, tuple[str, int]] = {}
         self._dup_free_passes = 2  # allow this many identical sends
-        self._schedule_events: dict[str, threading.Event] = {}
-        self._schedule_lock = threading.Lock()  # protect _schedule_events
+        self._stop_event = threading.Event()
+        self._scheduler_thread: threading.Thread | None = None
+
+    def start_scheduler(self) -> None:
+        """Start the background scheduler thread."""
+        if self._scheduler_thread is not None:
+            return
+        self._stop_event.clear()
+        self._scheduler_thread = threading.Thread(
+            target=self._scheduler_loop,
+            name=f"scheduler-{self._agent._working_dir.name}",
+            daemon=True,
+        )
+        self._scheduler_thread.start()
+
+    def stop_scheduler(self) -> None:
+        """Stop the scheduler thread cleanly."""
+        self._stop_event.set()
+        if self._scheduler_thread is not None:
+            self._scheduler_thread.join(timeout=5.0)
+            self._scheduler_thread = None
 
     @property
     def _mailbox_path(self) -> Path:
@@ -344,7 +363,6 @@ class EmailManager:
             "interval": interval,
             "count": count,
             "sent": 0,
-            "cancelled": False,
             "created_at": now,
             "last_sent_at": None,
         }
@@ -352,34 +370,30 @@ class EmailManager:
         sched_dir = self._schedules_dir / schedule_id
         sched_dir.mkdir(parents=True, exist_ok=True)
         self._write_schedule(sched_dir / "schedule.json", record)
-        self._spawn_schedule_thread(schedule_id, record)
 
         return {"status": "scheduled", "schedule_id": schedule_id, "interval": interval, "count": count}
 
     def _schedule_cancel(self, schedule: dict) -> dict:
         schedule_id = schedule.get("schedule_id")
-        if not schedule_id:
-            return {"error": "schedule.schedule_id is required"}
 
-        record = self._read_schedule(schedule_id)
-        if record is None:
+        if not schedule_id:
+            # Agent-level cancel — cancel ALL schedules
+            self._schedules_dir.mkdir(parents=True, exist_ok=True)
+            (self._schedules_dir / ".cancel").touch()
+            return {"status": "cancelled", "message": "All schedules cancelled"}
+
+        # Per-schedule cancel
+        sched_dir = self._schedules_dir / schedule_id
+        if not sched_dir.is_dir():
             return {"error": f"Schedule not found: {schedule_id}"}
 
-        # Already done?
-        if record.get("cancelled") or record.get("sent", 0) >= record.get("count", 0):
+        record = self._read_schedule(schedule_id)
+        if record and (record.get("sent", 0) >= record.get("count", 0)):
+            return {"status": "already_stopped", "schedule_id": schedule_id}
+        if (sched_dir / ".cancel").is_file():
             return {"status": "already_stopped", "schedule_id": schedule_id}
 
-        # Set cancelled on disk
-        record["cancelled"] = True
-        sched_path = self._schedules_dir / schedule_id / "schedule.json"
-        self._write_schedule(sched_path, record)
-
-        # Signal in-memory event
-        with self._schedule_lock:
-            event = self._schedule_events.get(schedule_id)
-        if event is not None:
-            event.set()
-
+        (sched_dir / ".cancel").touch()
         return {"status": "cancelled", "schedule_id": schedule_id}
 
     def _schedule_list(self) -> dict:
@@ -406,7 +420,7 @@ class EmailManager:
 
             sent = record.get("sent", 0)
             count = record.get("count", 0)
-            cancelled = record.get("cancelled", False)
+            cancelled = (sched_dir / ".cancel").is_file() or (schedules_dir / ".cancel").is_file()
             active = sent < count and not cancelled
 
             entries.append({
@@ -454,44 +468,77 @@ class EmailManager:
         except (json.JSONDecodeError, OSError):
             return None
 
-    def _spawn_schedule_thread(self, schedule_id: str, record: dict) -> None:
-        event = threading.Event()
-        with self._schedule_lock:
-            self._schedule_events[schedule_id] = event
-        t = threading.Thread(
-            target=self._schedule_loop,
-            args=(schedule_id, record, event),
-            name=f"schedule-{schedule_id}",
-            daemon=True,
-        )
-        t.start()
+    def _scheduler_loop(self) -> None:
+        """Single polling loop that drives all schedules from disk state."""
+        while not self._stop_event.is_set():
+            try:
+                self._scheduler_tick()
+            except Exception:
+                pass  # individual tick failures should not kill the service
+            self._stop_event.wait(timeout=1.0)
 
-    def _schedule_loop(self, schedule_id: str, record: dict, cancel_event: threading.Event) -> None:
-        interval = record["interval"]
-        count = record["count"]
-        send_payload = record["send_payload"]
-        sent = record["sent"]
+    def _scheduler_tick(self) -> None:
+        """One scan of all schedule folders."""
+        schedules_dir = self._schedules_dir
+        if not schedules_dir.is_dir():
+            return
 
-        for seq_0 in range(sent, count):
-            seq = seq_0 + 1  # 1-indexed
+        # Agent-level cancel
+        if (schedules_dir / ".cancel").is_file():
+            return
 
-            if cancel_event.is_set():
-                break
+        now = datetime.now(timezone.utc)
 
-            # Increment sent BEFORE sending (at-most-once)
-            sched_path = self._schedules_dir / schedule_id / "schedule.json"
-            current = self._read_schedule(schedule_id)
-            if current is None or current.get("cancelled"):
-                break
-            current["sent"] = seq
-            self._write_schedule(sched_path, current)
+        for sched_dir in schedules_dir.iterdir():
+            if not sched_dir.is_dir():
+                continue
+
+            # Per-schedule cancel
+            if (sched_dir / ".cancel").is_file():
+                continue
+
+            sched_file = sched_dir / "schedule.json"
+            if not sched_file.is_file():
+                continue
+
+            try:
+                record = json.loads(sched_file.read_text())
+            except (json.JSONDecodeError, OSError):
+                continue
+
+            sent = record.get("sent", 0)
+            count = record.get("count", 0)
+            if sent >= count:
+                continue
+
+            # Check if due
+            last_sent_at = record.get("last_sent_at")
+            if last_sent_at is not None:
+                try:
+                    last_dt = datetime.strptime(last_sent_at, "%Y-%m-%dT%H:%M:%SZ").replace(
+                        tzinfo=timezone.utc
+                    )
+                except ValueError:
+                    continue
+                interval = record.get("interval", 0)
+                due_at = last_dt + timedelta(seconds=interval)
+                if now < due_at:
+                    continue
+
+            # Due — at-most-once: increment before send
+            seq = sent + 1
+            record["sent"] = seq
+            self._write_schedule(sched_file, record)
 
             # Build send args with _schedule metadata
-            now = datetime.now(timezone.utc)
+            send_payload = record.get("send_payload", {})
             remaining = count - seq
-            estimated_finish = (now + timedelta(seconds=remaining * interval)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            interval = record.get("interval", 0)
+            estimated_finish = (now + timedelta(seconds=remaining * interval)).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
             schedule_meta = {
-                "schedule_id": schedule_id,
+                "schedule_id": record.get("schedule_id", sched_dir.name),
                 "seq": seq,
                 "total": count,
                 "interval": interval,
@@ -501,48 +548,9 @@ class EmailManager:
             send_args = {**send_payload, "_schedule": schedule_meta}
             self._send(send_args)
 
-            # Update last_sent_at (re-read to preserve any concurrent cancel)
-            current = self._read_schedule(schedule_id)
-            if current is not None:
-                current["sent"] = seq
-                current["last_sent_at"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-                self._write_schedule(sched_path, current)
-                if current.get("cancelled"):
-                    break
-
-            # Wait for interval (or cancel)
-            if seq < count:
-                if cancel_event.wait(interval):
-                    break
-
-        with self._schedule_lock:
-            self._schedule_events.pop(schedule_id, None)
-
-    # ------------------------------------------------------------------
-    # Schedule recovery
-    # ------------------------------------------------------------------
-
-    def resume_schedules(self) -> None:
-        """Resume any incomplete, non-cancelled schedules from disk."""
-        schedules_dir = self._schedules_dir
-        if not schedules_dir.is_dir():
-            return
-        for sched_dir in schedules_dir.iterdir():
-            if not sched_dir.is_dir():
-                continue
-            sched_file = sched_dir / "schedule.json"
-            if not sched_file.is_file():
-                continue
-            try:
-                record = json.loads(sched_file.read_text())
-            except (json.JSONDecodeError, OSError):
-                continue
-            if record.get("cancelled"):
-                continue
-            if record.get("sent", 0) >= record.get("count", 0):
-                continue
-            # Resume
-            self._spawn_schedule_thread(record["schedule_id"], record)
+            # Update last_sent_at
+            record["last_sent_at"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+            self._write_schedule(sched_file, record)
 
     # ------------------------------------------------------------------
     # Send — deliver + save to sent/
@@ -1024,5 +1032,5 @@ def setup(agent: "BaseAgent", *, private_mode: bool = False) -> EmailManager:
     agent.add_tool(
         "email", schema=get_schema(lang), handler=mgr.handle, description=get_description(lang),
     )
-    mgr.resume_schedules()
+    mgr.start_scheduler()
     return mgr
