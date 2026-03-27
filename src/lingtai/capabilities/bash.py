@@ -120,19 +120,22 @@ class BashPolicy:
     def _extract_commands(command: str) -> list[str]:
         """Extract all command names from a potentially chained command string.
 
-        Handles: |, &&, ||, ;, $(), backticks.
-        Returns the first word of each sub-command.
+        Handles: |, &&, ||, ;, newlines, $(), backticks, env-var prefixes.
+        Returns the first actual command word of each sub-command.
         """
         flat = command
         # Expand $(...) subshells into the command chain
         flat = re.sub(r'\$\([^)]*\)', lambda m: '; ' + m.group()[2:-1] + ' ;', flat)
         # Expand backtick subshells
         flat = re.sub(r'`[^`]*`', lambda m: '; ' + m.group()[1:-1] + ' ;', flat)
-        # Split on pipe/chain operators
-        parts = re.split(r'\|{1,2}|&&|;', flat)
+        # Split on pipe/chain operators AND newlines
+        parts = re.split(r'\|{1,2}|&&|;|\n', flat)
         commands = []
         for part in parts:
             tokens = part.strip().split()
+            # Skip env-var assignments (FOO=bar cmd ...) to find the real command
+            while tokens and re.fullmatch(r'[A-Za-z_]\w*=\S*', tokens[0]):
+                tokens = tokens[1:]
             if tokens:
                 commands.append(tokens[0])
         return commands
@@ -167,6 +170,19 @@ class BashManager:
 
         timeout = args.get("timeout", 30)
         cwd = args.get("working_dir", self._working_dir)
+
+        # Validate working_dir is under the agent's working directory
+        try:
+            resolved = str(Path(cwd).resolve())
+            sandbox = str(Path(self._working_dir).resolve())
+            if not (resolved == sandbox or resolved.startswith(sandbox + "/")):
+                return {
+                    "status": "error",
+                    "message": f"working_dir must be under agent working directory: "
+                    f"{self._working_dir}",
+                }
+        except (ValueError, OSError):
+            return {"status": "error", "message": "Invalid working_dir path"}
 
         try:
             result = subprocess.run(
