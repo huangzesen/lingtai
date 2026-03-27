@@ -151,7 +151,7 @@ func (m PaletteModel) View() string {
 		}
 		name := "/" + cmd.Name
 		desc := i18n.T(cmd.Description)
-		line := cursor + lipgloss.NewStyle().Bold(true).Render(padRight(name, 12)) + StyleSubtle.Render(desc)
+		line := cursor + lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(padRight(name, 12)) + StyleSubtle.Render(desc)
 		b.WriteString(line)
 		if idx < len(m.filtered)-1 {
 			b.WriteString("\n")

@@ -122,7 +122,7 @@ func (m InputModel) View() string {
 	taView := m.textarea.View()
 	// Prefix first line with "> ", indent continuations
 	lines := strings.Split(taView, "\n")
-	prefix := "  > "
+	prefix := lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render("  > ")
 	indent := "    "
 	var b strings.Builder
 	for i, line := range lines {
