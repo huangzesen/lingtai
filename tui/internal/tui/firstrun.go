@@ -294,11 +294,11 @@ func (m FirstRunModel) View() string {
 			if i == m.cursor {
 				cursor = "> "
 			}
-			name := lipgloss.NewStyle().Bold(true).Render(p.Name)
+			name := lipgloss.NewStyle().Bold(true).Foreground(ColorAgent).Render(p.Name)
 			desc := StyleSubtle.Render("  " + p.Description)
 			b.WriteString(cursor + name + desc + "\n")
 		}
-		b.WriteString("\n" + StyleSubtle.Render("  "+i18n.T("firstrun.select_hint")+
+		b.WriteString("\n" + StyleFaint.Render("  "+i18n.T("firstrun.select_hint")+
 			"  [e] "+i18n.T("presets.edit")+
 			"  [n] "+i18n.T("presets.new")) + "\n")
 
@@ -348,14 +348,13 @@ func (m FirstRunModel) View() string {
 	case stepNewPreset:
 		b.WriteString("  " + i18n.T("presets.enter_name") + "\n\n")
 		b.WriteString("  " + m.nameInput.View() + "\n\n")
-		b.WriteString(StyleSubtle.Render("  [Enter] "+i18n.T("presets.create")+
-			"    [Esc] "+i18n.T("presets.cancel")) + "\n")
+		b.WriteString(StyleFaint.Render("  [Enter] "+i18n.T("presets.create")+"  [Esc] "+i18n.T("presets.cancel")) + "\n")
 
 	case stepNameAgent:
 		selectedPreset := m.presets[m.cursor].Name
 		b.WriteString("  " + i18n.TF("firstrun.enter_name", selectedPreset) + "\n\n")
 		b.WriteString("  " + m.nameInput.View() + "\n\n")
-		b.WriteString(StyleSubtle.Render("  "+i18n.T("firstrun.create_hint")) + "\n")
+		b.WriteString(StyleFaint.Render("  "+i18n.T("firstrun.create_hint")) + "\n")
 
 	case stepDirAgent:
 		b.WriteString("  " + i18n.TF("firstrun.enter_dir", m.agentName) + "\n\n")
@@ -364,7 +363,7 @@ func (m FirstRunModel) View() string {
 			errStyle := lipgloss.NewStyle().Foreground(ColorSuspended)
 			b.WriteString("  " + errStyle.Render(m.message) + "\n\n")
 		}
-		b.WriteString(StyleSubtle.Render("  "+i18n.T("firstrun.create_hint")) + "\n")
+		b.WriteString(StyleFaint.Render("  "+i18n.T("firstrun.create_hint")) + "\n")
 
 	case stepLaunching:
 		b.WriteString("  " + i18n.T("firstrun.launching") + "\n\n")
