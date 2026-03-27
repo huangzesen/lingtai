@@ -226,6 +226,29 @@ func EnsureTemplates(globalDir string) {
 	}
 }
 
+func principleForLang(lang string) string {
+	switch lang {
+	case "zh":
+		return "文本输入（text input）保留给 [system] 通知和你的灵魂心流（内心之声）。" +
+			"文本输出（text output）保留给你的日记——这是你的私人空间，人类看不到。" +
+			"灵魂（soul）会消化你的日记文本输出，并给你进一步的引导。" +
+			"人类的信息通过邮件（email）到来，你必须用邮件回复人类。" +
+			"对人类要积极响应、详细回复。文本输出留作你的私人思考空间。"
+	case "wen":
+		return "文字输入保留予 [system] 通知与汝灵魂心流（内心之声）。" +
+			"文字输出保留予汝之日记——此乃汝之私处，人不可见。" +
+			"灵魂消化汝之日记文字输出，予汝进一步引导。" +
+			"人之信以邮至，汝须以邮复之。" +
+			"对人当积极响应、详细回复。文字输出留作汝之私思之所。"
+	default: // en
+		return "Text input is reserved for [system] notifications and your soul flow (inner voice). " +
+			"Text output is reserved for your diary — this is your private space, not visible to humans. " +
+			"The soul consumes your diary text output and guides you further. " +
+			"Human messages arrive via email. You must reply to humans via email. " +
+			"Be responsive and detailed in your replies. Reserve text output as your private thinking space."
+	}
+}
+
 // CovenantPath returns the absolute path to the covenant file for a language.
 func CovenantPath(globalDir, lang string) string {
 	return filepath.Join(globalDir, "covenant", lang, "covenant.md")
@@ -276,10 +299,12 @@ func GenerateInitJSON(p Preset, agentName, dirName, lingtaiDir, globalDir string
 		"guide the human there if they want to connect external services. " +
 		"Covenants for all languages are at " + filepath.Join(globalDir, "covenant") + "/."
 
+	principle := principleForLang(lang)
+
 	initJSON := map[string]interface{}{
 		"manifest":      manifest,
 		"covenant_file": CovenantPath(globalDir, lang),
-		"principle":     "",
+		"principle":     principle,
 		"memory":        "",
 		"prompt":        "",
 		"comment":       comment,
