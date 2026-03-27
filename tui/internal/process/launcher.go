@@ -48,7 +48,7 @@ func InitProject(lingtaiDir string) error {
 
 func LaunchAgent(lingtaiCmd, agentDir string) (*exec.Cmd, error) {
 	fs.CleanSignals(agentDir)
-	cmd := exec.Command(lingtaiCmd, "run", agentDir)
+	cmd := exec.Command(lingtaiCmd, "-m", "lingtai", "run", agentDir)
 	// Redirect agent output to a log file instead of the TUI terminal
 	logPath := filepath.Join(agentDir, "logs")
 	os.MkdirAll(logPath, 0o755)

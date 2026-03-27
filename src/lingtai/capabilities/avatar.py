@@ -256,14 +256,8 @@ class AvatarManager:
     @staticmethod
     def _launch(working_dir: Path) -> int:
         """Launch `lingtai run <dir>` as a fully detached process."""
-        # Prefer the console script installed alongside the current interpreter
-        # (same prefix → same venv / same installation).  Fall back to -m.
-        prefix = Path(sys.executable).parent
-        console_script = prefix / "lingtai"
-        if console_script.is_file() and os.access(console_script, os.X_OK):
-            cmd = [str(console_script), "run", str(working_dir)]
-        else:
-            cmd = [sys.executable, "-m", "lingtai", "run", str(working_dir)]
+        # Always use sys.executable to avoid stale shebang in console scripts
+        cmd = [sys.executable, "-m", "lingtai", "run", str(working_dir)]
 
         proc = subprocess.Popen(
             cmd,

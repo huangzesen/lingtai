@@ -246,13 +246,9 @@ class Agent(BaseAgent):
             if sig_file.is_file():
                 sig_file.unlink(missing_ok=True)
 
-        # Launch as detached process (same as avatar._launch)
-        prefix = Path(sys.executable).parent
-        console_script = prefix / "lingtai"
-        if console_script.is_file() and os.access(console_script, os.X_OK):
-            cmd = [str(console_script), "run", str(target)]
-        else:
-            cmd = [sys.executable, "-m", "lingtai", "run", str(target)]
+        # Launch as detached process — always use sys.executable to avoid
+        # stale shebang in console scripts (e.g. after venv rename)
+        cmd = [sys.executable, "-m", "lingtai", "run", str(target)]
 
         proc = subprocess.Popen(
             cmd,

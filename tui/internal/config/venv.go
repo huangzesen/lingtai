@@ -12,27 +12,38 @@ func VenvDir(globalDir string) string {
 	return filepath.Join(globalDir, "env")
 }
 
+// LingtaiCmd returns the Python interpreter path for running lingtai.
+// Callers should invoke as: LingtaiCmd(dir), "-m", "lingtai", "run", agentDir
+// This avoids stale shebangs in console scripts after venv moves.
 func LingtaiCmd(globalDir string) string {
-	// Prefer managed venv
 	venv := VenvDir(globalDir)
-	var venvCmd string
+	var pythonCmd string
 	if runtime.GOOS == "windows" {
-		venvCmd = filepath.Join(venv, "Scripts", "lingtai.exe")
+		pythonCmd = filepath.Join(venv, "Scripts", "python.exe")
 	} else {
-		venvCmd = filepath.Join(venv, "bin", "lingtai")
+		pythonCmd = filepath.Join(venv, "bin", "python")
 	}
-	if _, err := os.Stat(venvCmd); err == nil {
-		return venvCmd
+	if _, err := os.Stat(pythonCmd); err == nil {
+		return pythonCmd
 	}
-	// Fallback: lingtai on PATH (dev mode)
-	if path, err := exec.LookPath("lingtai"); err == nil {
-		return path
+	// Fallback: python on PATH (dev mode)
+	for _, name := range []string{"python3", "python"} {
+		if path, err := exec.LookPath(name); err == nil {
+			return path
+		}
 	}
-	return venvCmd // return venv path anyway — caller handles missing
+	return pythonCmd // return venv path anyway — caller handles missing
 }
 
 func NeedsVenv(globalDir string) bool {
-	_, err := os.Stat(LingtaiCmd(globalDir))
+	venv := VenvDir(globalDir)
+	var pythonCmd string
+	if runtime.GOOS == "windows" {
+		pythonCmd = filepath.Join(venv, "Scripts", "python.exe")
+	} else {
+		pythonCmd = filepath.Join(venv, "bin", "python")
+	}
+	_, err := os.Stat(pythonCmd)
 	return os.IsNotExist(err)
 }
 
