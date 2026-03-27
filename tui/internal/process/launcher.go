@@ -62,8 +62,12 @@ func LaunchAgent(lingtaiCmd, agentDir string) (*exec.Cmd, error) {
 	cmd.Env = os.Environ()
 	if globalDir, err := config.GlobalDir(); err == nil {
 		if cfg, err := config.LoadConfig(globalDir); err == nil {
-			if cfg.MiniMaxAPIKey != "" {
-				cmd.Env = append(cmd.Env, "MINIMAX_API_KEY="+cfg.MiniMaxAPIKey)
+			for provider, key := range cfg.Keys {
+				if key == "" {
+					continue
+				}
+				envKey := providerToEnvKey(provider)
+				cmd.Env = append(cmd.Env, envKey+"="+key)
 			}
 		}
 	}
@@ -72,4 +76,16 @@ func LaunchAgent(lingtaiCmd, agentDir string) (*exec.Cmd, error) {
 		return nil, fmt.Errorf("launch agent: %w", err)
 	}
 	return cmd, nil
+}
+
+// providerToEnvKey maps provider name to environment variable name
+func providerToEnvKey(provider string) string {
+	switch provider {
+	case "minimax":
+		return "MINIMAX_API_KEY"
+	case "gemini":
+		return "GEMINI_API_KEY"
+	default:
+		return "LLM_API_KEY"
+	}
 }

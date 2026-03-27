@@ -35,3 +35,25 @@ func TestInitProject(t *testing.T) {
 		t.Errorf("contacts = %q, want %q", string(data), "[]")
 	}
 }
+
+func TestProviderToEnvKey(t *testing.T) {
+	tests := []struct {
+		provider string
+		want     string
+	}{
+		{"minimax", "MINIMAX_API_KEY"},
+		{"gemini", "GEMINI_API_KEY"},
+		{"custom", "LLM_API_KEY"},
+		{"unknown", "LLM_API_KEY"},
+		{"openai", "LLM_API_KEY"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.provider, func(t *testing.T) {
+			got := providerToEnvKey(tt.provider)
+			if got != tt.want {
+				t.Errorf("providerToEnvKey(%q) = %q, want %q", tt.provider, got, tt.want)
+			}
+		})
+	}
+}

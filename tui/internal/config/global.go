@@ -7,7 +7,7 @@ import (
 )
 
 type Config struct {
-	MiniMaxAPIKey string `json:"minimax_api_key,omitempty"`
+	Keys map[string]string `json:"keys,omitempty"` // provider → key, e.g. {"minimax": "xxx", "gemini": "xxx"}
 }
 
 func GlobalDir() (string, error) {
@@ -30,10 +30,19 @@ func LoadConfig(dir string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	// Try new format first
 	var cfg Config
-	if err := json.Unmarshal(data, &cfg); err != nil {
+	if err := json.Unmarshal(data, &cfg); err == nil && cfg.Keys != nil {
+		return cfg, nil
+	}
+	// Fallback: try legacy format (minimax_api_key)
+	var legacy struct {
+		MiniMaxAPIKey string `json:"minimax_api_key,omitempty"`
+	}
+	if err := json.Unmarshal(data, &legacy); err != nil {
 		return Config{}, err
 	}
+	MigrateConfig(&cfg, legacy.MiniMaxAPIKey)
 	return cfg, nil
 }
 
@@ -51,5 +60,15 @@ func NeedsSetup(dir string) bool {
 	if err != nil {
 		return true
 	}
-	return cfg.MiniMaxAPIKey == ""
+	return len(cfg.Keys) == 0
+}
+
+// MigrateConfig migrates legacy config (minimax_api_key) to new format (keys).
+func MigrateConfig(cfg *Config, legacyKey string) {
+	if legacyKey != "" && cfg.Keys == nil {
+		cfg.Keys = make(map[string]string)
+	}
+	if legacyKey != "" && cfg.Keys != nil && cfg.Keys["minimax"] == "" {
+		cfg.Keys["minimax"] = legacyKey
+	}
 }
