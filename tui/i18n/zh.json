@@ -2,7 +2,6 @@
   "app.title": "灵台",
   "app.brand": "灵台 Agent",
   "app.loading": "加载中...",
-
   "setup.prompt_api_key": "请输入 MiniMax API 密钥：",
   "setup.api_key_label": "API 密钥：",
   "setup.no_presets": "未找到预设，请先配置。",
@@ -15,14 +14,13 @@
   "setup.quit": "退出",
   "setup.current_key": "当前密钥：%s",
   "setup.error": "错误：%s",
-
   "mail.no_messages": "暂无消息，等待邮件...",
   "mail.verbose_on": "详细",
   "mail.extended_on": "扩展",
   "mail.you": "你",
   "mail.title": "邮件",
   "mail.sending": "发送中...",
-  "mail.placeholder": "输入消息或 / 查看命令...",
+  "mail.placeholder": "输入消息...",
   "mail.subject_label": "主题：",
   "mail.system_sender": "系统",
   "mail.launch_failed": "启动 Agent失败：%s",
@@ -43,7 +41,6 @@
   "mail.lang_prompt": "输入 Agent 语言（en 英文, zh 现代汉语, wen 文言）：",
   "mail.lang_changed": "Agent 语言已切换为 %s。",
   "mail.lang_invalid": "无效语言：%s。请输入 en、zh 或 wen。",
-
   "manage.title": "Agent 管理",
   "manage.sleep": "休眠",
   "manage.kill": "终止",
@@ -58,7 +55,6 @@
   "manage.header_name": "名称",
   "manage.header_state": "状态",
   "manage.header_alive": "存活",
-
   "settings.title": "设置",
   "settings.language": "语言",
   "settings.poll_rate": "轮询间隔",
@@ -68,7 +64,6 @@
   "settings.back": "返回",
   "settings.select": "选择",
   "settings.change": "切换",
-
   "presets.title": "预设",
   "presets.use": "使用",
   "presets.new": "新建",
@@ -86,15 +81,6 @@
   "presets.nirvana": "涅槃",
   "presets.create": "创建",
   "presets.cancel": "取消",
-  "presets.quick_config": "快速配置",
-  "presets.apply": "应用",
-  "presets.toggle": "切换",
-
-  "common.quit": "退出",
-
-  "firstrun.next": "下一步",
-  "firstrun.create": "创建",
-
   "firstrun.welcome": "欢迎使用灵台",
   "firstrun.no_presets": "未找到预设，请先配置。",
   "firstrun.pick_preset": "为本我选择预设：",
@@ -106,7 +92,6 @@
   "firstrun.enter_dir": "输入 %s 的文件夹名（ASCII，无空格）：",
   "firstrun.dir_exists": "文件夹 '%s' 已存在，请换一个名字。",
   "firstrun.create_hint": "[Enter] 创建    [Esc] 返回",
-
   "palette.sleep": "令 Agent 休眠",
   "palette.sleep_all": "令所有 Agent 休眠",
   "palette.suspend": "假死 Agent（杀进程）",
@@ -123,28 +108,23 @@
   "palette.lang": "切换 Agent 语言（en/zh/wen）",
   "palette.help": "显示所有命令",
   "palette.quit": "退出",
-
   "state.active": "活跃",
   "state.idle": "待命",
   "state.asleep": "休眠",
   "state.stuck": "卡顿",
   "state.suspended": "假死",
   "state.unknown": "未知",
-
   "hints.newline": "ctrl+j 换行",
   "hints.verbose": "ctrl+o 详细",
   "hints.extended": "ctrl+e 扩展",
   "hints.verbose_off": "ctrl+o 关闭",
   "hints.extended_off": "ctrl+e 关闭",
   "hints.commands": "/ 命令",
-  "hints.empty_input": "输入 / 查看命令",
-
   "error.python_missing": "需要 Python 3.11+，请从 python.org 安装。",
   "error.pip_failed": "安装 lingtai 失败，请检查网络。",
   "error.venv_broken": "lingtai 损坏，请删除 ~/.lingtai/env/ 后重启。",
   "error.agent_timeout": "Agent启动失败，请检查日志：%s",
   "error.agent_crashed": "Agent 崩溃，请检查 %s",
-
   "help.title": "可用命令",
   "help.sleep_all": "/sleep-all   — 休眠所有 Agent",
   "help.suspend": "/suspend     — 假死 Agent",
@@ -163,5 +143,8 @@
   "help.help": "/help      — 显示命令",
   "help.quit": "/quit      — 退出",
   "help.verbose": "ctrl+o    — 切换详细模式",
-  "help.extended": "ctrl+e    — 切换扩展模式"
+  "help.extended": "ctrl+e    — 切换扩展模式",
+  "help.clear": "/clear       — 清除上下文重启",
+  "mail.clearing": "清除上下文并重启中...",
+  "palette.clear": "清除对话历史并重启"
 }

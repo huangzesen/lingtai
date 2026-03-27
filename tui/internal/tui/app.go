@@ -384,6 +384,30 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 			}
 		}
 		return a, nil
+	case "clear":
+		if a.orchDir != "" && a.lingtaiCmd != "" {
+			a.mail.AddSystemMessage(i18n.T("mail.clearing"))
+			return a, func() tea.Msg {
+				// Suspend and wait for process to die
+				suspendFile := filepath.Join(a.orchDir, ".suspend")
+				os.WriteFile(suspendFile, []byte(""), 0o644)
+				lockFile := filepath.Join(a.orchDir, ".agent.lock")
+				for i := 0; i < 40; i++ {
+					if tryLock(lockFile) {
+						break
+					}
+					time.Sleep(250 * time.Millisecond)
+				}
+				os.Remove(suspendFile)
+				// Wipe conversation history
+				os.Remove(filepath.Join(a.orchDir, "history", "chat_history.jsonl"))
+				os.Remove(filepath.Join(a.orchDir, "history", "status.json"))
+				// Relaunch with clean context
+				process.LaunchAgent(a.lingtaiCmd, a.orchDir)
+				return refreshDoneMsg{}
+			}
+		}
+		return a, nil
 	case "refresh":
 		if a.orchDir != "" && a.lingtaiCmd != "" {
 			a.mail.AddSystemMessage(i18n.T("mail.refreshing"))

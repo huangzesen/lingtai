@@ -2,7 +2,6 @@
   "app.title": "灵台",
   "app.brand": "灵台 器灵",
   "app.loading": "载入中...",
-
   "setup.prompt_api_key": "请入 MiniMax 密钥：",
   "setup.api_key_label": "密钥：",
   "setup.no_presets": "无预设，请先配置。",
@@ -15,14 +14,13 @@
   "setup.quit": "退",
   "setup.current_key": "现密钥：%s",
   "setup.error": "误：%s",
-
   "mail.no_messages": "暂无书信，候邮中...",
   "mail.verbose_on": "详",
   "mail.extended_on": "扩",
   "mail.you": "汝",
   "mail.title": "书信",
   "mail.sending": "遣中...",
-  "mail.placeholder": "书或 / 问令...",
+  "mail.placeholder": "书...",
   "mail.subject_label": "题：",
   "mail.system_sender": "天机",
   "mail.launch_failed": "启灵失败：%s",
@@ -43,7 +41,6 @@
   "mail.lang_prompt": "入器灵言（en 英文, zh 现代汉语, wen 文言）：",
   "mail.lang_changed": "器灵言已换为 %s。",
   "mail.lang_invalid": "言无效：%s。须为 en、zh 或 wen。",
-
   "manage.title": "器灵管辖",
   "manage.sleep": "眠",
   "manage.kill": "灭",
@@ -58,7 +55,6 @@
   "manage.header_name": "名",
   "manage.header_state": "态",
   "manage.header_alive": "活",
-
   "settings.title": "设置",
   "settings.language": "言",
   "settings.poll_rate": "轮询",
@@ -68,7 +64,6 @@
   "settings.back": "返",
   "settings.select": "择",
   "settings.change": "换",
-
   "presets.title": "预设",
   "presets.use": "用",
   "presets.new": "新",
@@ -86,15 +81,6 @@
   "presets.nirvana": "涅槃",
   "presets.create": "建",
   "presets.cancel": "消",
-  "presets.quick_config": "速配",
-  "presets.apply": "用",
-  "presets.toggle": "切",
-
-  "common.quit": "退",
-
-  "firstrun.next": "次",
-  "firstrun.create": "建",
-
   "firstrun.welcome": "迎入灵台",
   "firstrun.no_presets": "无预设，请先配置。",
   "firstrun.pick_preset": "为本我择预设：",
@@ -106,7 +92,6 @@
   "firstrun.enter_dir": "入 %s 之文件夹名（ASCII，无空格）：",
   "firstrun.dir_exists": "文件夹 '%s' 已存，请另取。",
   "firstrun.create_hint": "[Enter] 建    [Esc] 返",
-
   "palette.sleep": "令灵眠",
   "palette.sleep_all": "令诸灵眠",
   "palette.suspend": "假死器灵",
@@ -123,28 +108,23 @@
   "palette.lang": "换器灵言（en/zh/wen）",
   "palette.help": "示命令",
   "palette.quit": "退",
-
   "state.active": "醒",
   "state.idle": "定",
   "state.asleep": "眠",
   "state.stuck": "滞",
   "state.suspended": "假死",
   "state.unknown": "未知",
-
   "hints.newline": "ctrl+j 换行",
   "hints.verbose": "ctrl+o 详",
   "hints.extended": "ctrl+e 扩",
   "hints.verbose_off": "ctrl+o 关",
   "hints.extended_off": "ctrl+e 关",
   "hints.commands": "/ 令",
-  "hints.empty_input": "书 / 问令",
-
   "error.python_missing": "需 Python 3.11+。",
   "error.pip_failed": "安装失败，检网络。",
   "error.venv_broken": "lingtai 损，删 ~/.lingtai/env/ 后重启。",
   "error.agent_timeout": "启灵失败，检日志：%s",
   "error.agent_crashed": "器灵崩，检 %s",
-
   "help.title": "可用令",
   "help.sleep_all": "/sleep-all   — 诸灵眠",
   "help.suspend": "/suspend     — 假死",
@@ -163,5 +143,8 @@
   "help.help": "/help      — 示令",
   "help.quit": "/quit      — 退",
   "help.verbose": "ctrl+o    — 详",
-  "help.extended": "ctrl+e    — 扩"
+  "help.extended": "ctrl+e    — 扩",
+  "help.clear": "/clear       — 清上下文重启",
+  "mail.clearing": "清上下文重启中...",
+  "palette.clear": "清对话历史重启"
 }
