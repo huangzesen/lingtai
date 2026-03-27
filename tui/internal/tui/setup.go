@@ -34,8 +34,8 @@ func NewSetupModel(globalDir string) SetupModel {
 	// Load existing key for masked display
 	var masked string
 	cfg, err := config.LoadConfig(globalDir)
-	if err == nil && cfg.MiniMaxAPIKey != "" {
-		key := cfg.MiniMaxAPIKey
+	if err == nil && cfg.Keys["minimax"] != "" {
+		key := cfg.Keys["minimax"]
 		if len(key) > 8 {
 			masked = key[:4] + strings.Repeat("*", len(key)-8) + key[len(key)-4:]
 		} else {
@@ -70,7 +70,7 @@ func (m SetupModel) Update(msg tea.Msg) (SetupModel, tea.Cmd) {
 			if key == "" {
 				return m, nil
 			}
-			cfg := config.Config{MiniMaxAPIKey: key}
+			cfg := config.Config{Keys: map[string]string{"minimax": key}}
 			if err := config.SaveConfig(m.globalDir, cfg); err != nil {
 				m.err = err
 				return m, nil
