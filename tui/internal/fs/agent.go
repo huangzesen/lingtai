@@ -11,6 +11,7 @@ import (
 // agentManifest is the raw JSON shape of .agent.json.
 type agentManifest struct {
 	AgentName string           `json:"agent_name"`
+	Nickname  string           `json:"nickname"`
 	Address   string           `json:"address"`
 	State     string           `json:"state"`
 	Admin     *json.RawMessage `json:"admin,omitempty"`
@@ -40,6 +41,7 @@ func ReadAgent(dir string) (AgentNode, error) {
 	return AgentNode{
 		Address:      m.Address,
 		AgentName:    m.AgentName,
+		Nickname:     m.Nickname,
 		State:        m.State,
 		IsHuman:      isHuman,
 		Capabilities: caps,

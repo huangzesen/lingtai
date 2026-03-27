@@ -311,11 +311,31 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 			}
 		}
 		return a, nil
+	case "nickname":
+		if args != "" {
+			humanPath := filepath.Join(a.projectDir, "human", ".agent.json")
+			if data, err := os.ReadFile(humanPath); err == nil {
+				var manifest map[string]interface{}
+				if err := json.Unmarshal(data, &manifest); err == nil {
+					manifest["nickname"] = args
+					if out, err := json.MarshalIndent(manifest, "", "  "); err == nil {
+						os.WriteFile(humanPath, out, 0o644)
+					}
+				}
+			}
+			a.mail.AddSystemMessage(i18n.TF("mail.nick_set", args))
+		} else {
+			a.mail.AddSystemMessage(i18n.T("mail.nick_prompt"))
+		}
+		return a, nil
 	case "rename":
 		if a.orchDir != "" {
 			if args != "" {
 				a.doRename(args)
-				return a, a.mail.refreshMail
+				return a, func() tea.Msg {
+					a.hardRefresh()
+					return refreshDoneMsg{}
+				}
 			}
 			a.pendingRename = true
 			a.mail.AddSystemMessage(i18n.T("mail.rename_prompt"))
@@ -370,6 +390,7 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 			i18n.T("help.interrupt") + "\n" +
 			i18n.T("help.sleep") + "\n" +
 			i18n.T("help.cpr") + "\n" +
+			i18n.T("help.nickname") + "\n" +
 			i18n.T("help.rename") + "\n" +
 			i18n.T("help.lang") + "\n" +
 			i18n.T("help.refresh") + "\n" +
@@ -397,7 +418,7 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 }
 
 func (a *App) doRename(newName string) {
-	// Update init.json
+	// Update init.json agent_name
 	initPath := filepath.Join(a.orchDir, "init.json")
 	if data, err := os.ReadFile(initPath); err == nil {
 		var init map[string]interface{}
@@ -410,20 +431,8 @@ func (a *App) doRename(newName string) {
 			}
 		}
 	}
-	// Update .agent.json
-	agentPath := filepath.Join(a.orchDir, ".agent.json")
-	if data, err := os.ReadFile(agentPath); err == nil {
-		var manifest map[string]interface{}
-		if err := json.Unmarshal(data, &manifest); err == nil {
-			manifest["agent_name"] = newName
-			if out, err := json.MarshalIndent(manifest, "", "  "); err == nil {
-				os.WriteFile(agentPath, out, 0o644)
-			}
-		}
-	}
 	a.orchName = newName
 	a.mail.orchName = newName
-	a.hardRefresh()
 	a.mail.AddSystemMessage(i18n.TF("mail.renamed", newName))
 }
 

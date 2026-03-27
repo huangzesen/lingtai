@@ -5,6 +5,7 @@ package fs
 type AgentNode struct {
 	Address      string   `json:"address"`
 	AgentName    string   `json:"agent_name"`
+	Nickname     string   `json:"nickname"`
 	State        string   `json:"state"`
 	Alive        bool     `json:"alive"`
 	IsHuman      bool     `json:"is_human"`

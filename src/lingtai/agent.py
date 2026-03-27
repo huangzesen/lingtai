@@ -413,7 +413,7 @@ class Agent(BaseAgent):
             load_env_file(env_file)
 
         # Resolve *_file fields for top-level text content
-        for key in ("covenant", "principle", "memory", "prompt"):
+        for key in ("covenant", "principle", "memory", "prompt", "comment"):
             file_key = f"{key}_file"
             if file_key in data:
                 data[key] = resolve_file(data.get(key), data.pop(file_key))
@@ -523,6 +523,13 @@ class Agent(BaseAgent):
         principle = data.get("principle", "")
         if principle:
             self._prompt_manager.write_section("principle", principle, protected=True)
+
+        # Reload comment (app-level, always last, not inherited by avatars)
+        comment = data.get("comment", "")
+        if comment:
+            self._prompt_manager.write_section("comment", comment)
+        else:
+            self._prompt_manager.delete_section("comment")
 
         # Re-run capability setup
         capabilities = _resolve_capabilities(m.get("capabilities", {}))

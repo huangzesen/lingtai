@@ -43,6 +43,7 @@ func DefaultCommands() []Command {
 		{Name: "interrupt", Description: "palette.interrupt"},
 		{Name: "sleep", Description: "palette.sleep"},
 		{Name: "cpr", Description: "palette.cpr"},
+		{Name: "nickname", Description: "palette.nickname"},
 		{Name: "rename", Description: "palette.rename"},
 		{Name: "lang", Description: "palette.lang"},
 		{Name: "refresh", Description: "palette.refresh"},

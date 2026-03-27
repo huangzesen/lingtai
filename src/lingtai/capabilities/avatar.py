@@ -53,6 +53,10 @@ def get_schema(lang: str = "en") -> dict:
                 "enum": ["shallow", "deep"],
                 "description": t(lang, "avatar.type"),
             },
+            "comment": {
+                "type": "string",
+                "description": t(lang, "avatar.comment"),
+            },
         },
         "required": ["name"],
     }
@@ -67,9 +71,8 @@ class AvatarManager:
     is checked via the filesystem (handshake.is_alive).
     """
 
-    def __init__(self, agent: "Agent", max_agents: int = 0):
+    def __init__(self, agent: "Agent"):
         self._agent = agent
-        self._max_agents = max_agents  # 0 = unlimited
 
     # ------------------------------------------------------------------
     # Handler
@@ -121,14 +124,6 @@ class AvatarManager:
                         ),
                     }
 
-        # Agent count guard
-        if self._max_agents > 0:
-            base_dir = parent._working_dir.parent
-            live = len(list(base_dir.glob("*/.agent.json")))
-            if live >= self._max_agents:
-                lang = parent._config.language
-                return {"error": t(lang, "avatar.limit_reached", live=live, max=self._max_agents)}
-
         # Parent must have init.json
         parent_init_path = parent._working_dir / "init.json"
         if not parent_init_path.is_file():
@@ -151,10 +146,17 @@ class AvatarManager:
             avatar_working_dir.mkdir(parents=True, exist_ok=True)
 
         # Write avatar's init.json (modified copy of parent's)
-        avatar_init = self._make_avatar_init(parent_init, peer_name, reasoning or "")
+        avatar_comment = args.get("comment", "")
+        avatar_init = self._make_avatar_init(parent_init, peer_name, reasoning or "", comment=avatar_comment)
         (avatar_working_dir / "init.json").write_text(
             json.dumps(avatar_init, indent=2, ensure_ascii=False)
         )
+
+        # Clean stale signal files before launch
+        for sig in (".suspend", ".sleep", ".interrupt"):
+            sig_file = avatar_working_dir / sig
+            if sig_file.is_file():
+                sig_file.unlink(missing_ok=True)
 
         # Launch as detached process
         pid = self._launch(avatar_working_dir)
@@ -181,13 +183,16 @@ class AvatarManager:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _make_avatar_init(parent_init: dict, name: str, reasoning: str) -> dict:
+    def _make_avatar_init(parent_init: dict, name: str, reasoning: str, comment: str = "") -> dict:
         """Build avatar's init.json from parent's, setting name and prompt."""
         init = json.loads(json.dumps(parent_init))  # deep copy
         init["manifest"]["agent_name"] = name
         init["prompt"] = reasoning
         # Avatar has no admin privileges
         init["manifest"]["admin"] = {}
+        # Comment is not inherited — parent can set one explicitly for the avatar
+        init["comment"] = comment
+        init.pop("comment_file", None)
         return init
 
     # ------------------------------------------------------------------
@@ -238,8 +243,17 @@ class AvatarManager:
     @staticmethod
     def _launch(working_dir: Path) -> int:
         """Launch `lingtai run <dir>` as a fully detached process."""
+        # Prefer the console script installed alongside the current interpreter
+        # (same prefix → same venv / same installation).  Fall back to -m.
+        prefix = Path(sys.executable).parent
+        console_script = prefix / "lingtai"
+        if console_script.is_file() and os.access(console_script, os.X_OK):
+            cmd = [str(console_script), "run", str(working_dir)]
+        else:
+            cmd = [sys.executable, "-m", "lingtai", "run", str(working_dir)]
+
         proc = subprocess.Popen(
-            [sys.executable, "-m", "lingtai", "run", str(working_dir)],
+            cmd,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -265,10 +279,10 @@ class AvatarManager:
         return records
 
 
-def setup(agent: "Agent", max_agents: int = 0) -> AvatarManager:
+def setup(agent: "Agent", **kwargs) -> AvatarManager:
     """Set up the avatar capability on an agent."""
     lang = agent._config.language
-    mgr = AvatarManager(agent, max_agents=max_agents)
+    mgr = AvatarManager(agent)
     schema = get_schema(lang)
     agent.add_tool("avatar", schema=schema, handler=mgr.handle, description=get_description(lang))
     return mgr

@@ -140,7 +140,7 @@ func (m MailModel) refreshMail() tea.Msg {
 		fromName := parts[len(parts)-1]
 		chatMsgs = append(chatMsgs, ChatMessage{
 			From:      fromName,
-			To:        i18n.T("mail.you"),
+			To:        m.humanName(),
 			Subject:   msg.Subject,
 			Body:      msg.Message,
 			Timestamp: msg.ReceivedAt,
@@ -153,7 +153,7 @@ func (m MailModel) refreshMail() tea.Msg {
 	sent, _ := fs.ReadSent(m.humanDir)
 	for _, msg := range sent {
 		chatMsgs = append(chatMsgs, ChatMessage{
-			From:      i18n.T("mail.you"),
+			From:      m.humanName(),
 			To:        m.orchName,
 			Subject:   msg.Subject,
 			Body:      msg.Message,
@@ -459,6 +459,17 @@ func (m MailModel) renderMessages() string {
 		}
 	}
 	return b.String()
+}
+
+// humanName returns the human's display name. Prefers nickname from .agent.json,
+// falls back to i18n "mail.you".
+func (m MailModel) humanName() string {
+	if node, err := fs.ReadAgent(m.humanDir); err == nil {
+		if node.Nickname != "" {
+			return node.Nickname
+		}
+	}
+	return i18n.T("mail.you")
 }
 
 // AddSystemMessage shows a transient status message in the status bar.

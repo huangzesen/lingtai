@@ -21,6 +21,14 @@ def validate_init(data: dict) -> None:
         if has_file and not isinstance(data[file_key], str):
             raise ValueError(f"{file_key}: expected str, got {type(data[file_key]).__name__}")
 
+    # Comment: optional app-level system prompt section (inline or _file)
+    for key in ("comment",):
+        file_key = f"{key}_file"
+        if key in data and not isinstance(data[key], str):
+            raise ValueError(f"{key}: expected str, got {type(data[key]).__name__}")
+        if file_key in data and not isinstance(data[file_key], str):
+            raise ValueError(f"{file_key}: expected str, got {type(data[file_key]).__name__}")
+
     # Optional top-level fields
     _optional_keys(data, {
         "env_file": str,
