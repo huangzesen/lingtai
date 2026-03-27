@@ -222,81 +222,47 @@ class Agent(BaseAgent):
                                self.agent_name, name, e)
 
     def _cpr_agent(self, address: str) -> "Agent | None":
-        """Resuscitate a suspended agent from its working dir."""
-        import json
-        from lingtai_kernel.handshake import is_agent, manifest
-        from lingtai_kernel.config import AgentConfig
+        """Resuscitate a suspended agent by launching it as a detached process.
+
+        Uses `lingtai run <dir>` — same mechanism as avatar spawn.
+        The target must have init.json to boot from.
+        """
+        import subprocess
+        import sys
+        from lingtai_kernel.handshake import is_agent
 
         target = Path(address)
         if not is_agent(target):
             return None
 
-        agent_meta = manifest(target)
-
-        # Resolve LLM config from combo or llm.json
-        combo_name = agent_meta.get("combo")
-        llm_config = None
-
-        if combo_name:
-            combo_path = Path.home() / ".lingtai" / "combos" / f"{combo_name}.json"
-            if not combo_path.is_file():
-                combo_path = target / "combo.json"
-            if combo_path.is_file():
-                combo_data = json.loads(combo_path.read_text())
-                model_cfg = combo_data.get("model", {})
-                llm_config = {
-                    "provider": model_cfg.get("provider"),
-                    "model": model_cfg.get("model"),
-                    "base_url": model_cfg.get("base_url"),
-                }
-                import os
-                for key, val in combo_data.get("env", {}).items():
-                    if val:
-                        os.environ.setdefault(key, val)
-
-        if llm_config is None:
-            llm_path = target / "system" / "llm.json"
-            if not llm_path.is_file():
-                return None
-            llm_config = json.loads(llm_path.read_text())
-
-        # Validate required keys before accessing
-        if not llm_config.get("provider") or not llm_config.get("model"):
-            self._log("cpr_invalid_llm_config", path=str(target),
-                      llm_keys=list(llm_config.keys()))
+        init_path = target / "init.json"
+        if not init_path.is_file():
+            self._log("cpr_no_init", path=str(target))
             return None
 
-        svc = LLMService(
-            provider=llm_config["provider"],
-            model=llm_config["model"],
-            base_url=llm_config.get("base_url"),
-        )
+        # Clean stale signal files
+        for sig in (".suspend", ".sleep", ".interrupt"):
+            sig_file = target / sig
+            if sig_file.is_file():
+                sig_file.unlink(missing_ok=True)
 
-        caps_raw = agent_meta.get("capabilities")
-        capabilities = None
-        if caps_raw:
-            capabilities = {name: kw for name, kw in caps_raw}
+        # Launch as detached process (same as avatar._launch)
+        prefix = Path(sys.executable).parent
+        console_script = prefix / "lingtai"
+        if console_script.is_file() and os.access(console_script, os.X_OK):
+            cmd = [str(console_script), "run", str(target)]
+        else:
+            cmd = [sys.executable, "-m", "lingtai", "run", str(target)]
 
-        revived_config = AgentConfig(
-            provider=llm_config["provider"],
-            model=llm_config["model"],
-            stamina=agent_meta.get("stamina", 3600.0),
-            soul_delay=agent_meta.get("soul_delay", 120.0),
-            language=agent_meta.get("language", "en"),
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
-
-        revived = Agent(
-            svc,
-            agent_name=agent_meta.get("agent_name"),
-            working_dir=target,
-            capabilities=capabilities,
-            admin=agent_meta.get("admin", {}),
-            config=revived_config,
-            combo_name=combo_name,
-        )
-        revived._molt_count = agent_meta.get("molt_count", 0)
-        revived.start()
-        return revived
+        self._log("cpr_launched", target=str(target), pid=proc.pid)
+        return True  # non-None signals success to the kernel
 
     def start(self) -> None:
         super().start()
