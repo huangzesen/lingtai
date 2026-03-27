@@ -32,6 +32,7 @@ def validate_init(data: dict) -> None:
     # Optional top-level fields
     _optional_keys(data, {
         "env_file": str,
+        "venv_path": str,
         "addons": dict,
     }, prefix="")
 

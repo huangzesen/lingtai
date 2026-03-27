@@ -46,9 +46,31 @@ func InitProject(lingtaiDir string) error {
 	return nil
 }
 
+// resolvePython returns the Python executable for an agent.
+// Priority: agent init.json venv_path → fallbackCmd.
+func resolvePython(agentDir, fallbackCmd string) string {
+	initPath := filepath.Join(agentDir, "init.json")
+	data, err := os.ReadFile(initPath)
+	if err == nil {
+		var init map[string]interface{}
+		if json.Unmarshal(data, &init) == nil {
+			if vp, ok := init["venv_path"].(string); ok && vp != "" {
+				python := config.VenvPython(vp)
+				if _, err := os.Stat(python); err == nil {
+					return python
+				}
+			}
+		}
+	}
+	return fallbackCmd
+}
+
+// LaunchAgent starts an agent process. lingtaiCmd is the global fallback Python;
+// the agent's init.json venv_path is tried first.
 func LaunchAgent(lingtaiCmd, agentDir string) (*exec.Cmd, error) {
 	fs.CleanSignals(agentDir)
-	cmd := exec.Command(lingtaiCmd, "-m", "lingtai", "run", agentDir)
+	python := resolvePython(agentDir, lingtaiCmd)
+	cmd := exec.Command(python, "-m", "lingtai", "run", agentDir)
 	// Redirect agent output to a log file instead of the TUI terminal
 	logPath := filepath.Join(agentDir, "logs")
 	os.MkdirAll(logPath, 0o755)

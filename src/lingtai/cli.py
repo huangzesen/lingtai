@@ -117,7 +117,18 @@ def run(working_dir: Path) -> None:
     """Boot agent into ASLEEP — wakes on external messages (mail/imap/telegram)."""
     _clean_signal_files(working_dir)
     data = load_init(working_dir)
+
+    # Resolve venv and store on agent for CPR/avatar to use
+    from lingtai.venv_resolve import resolve_venv
+    venv_dir = resolve_venv(data)
+    # Write back to init.json if not already set (self-sufficient)
+    if not data.get("venv_path") or data["venv_path"] != str(venv_dir):
+        data["venv_path"] = str(venv_dir)
+        init_path = working_dir / "init.json"
+        init_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+
     agent = build_agent(data, working_dir)
+    agent._venv_path = str(venv_dir)
     _install_signal_handlers(working_dir, agent)
 
     from lingtai_kernel.state import AgentState

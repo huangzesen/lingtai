@@ -311,10 +311,20 @@ func GenerateInitJSON(p Preset, agentName, dirName, lingtaiDir, globalDir string
 		"guide the human there if they want to connect external services. " +
 		"Covenants for all languages are at " + filepath.Join(globalDir, "covenant") + "/."
 
+	// Resolve venv path: prefer runtime/venv/, fallback to legacy env/
+	venvPath := filepath.Join(globalDir, "runtime", "venv")
+	if _, err := os.Stat(filepath.Join(venvPath, "bin", "python")); err != nil {
+		legacyVenv := filepath.Join(globalDir, "env")
+		if _, err := os.Stat(filepath.Join(legacyVenv, "bin", "python")); err == nil {
+			venvPath = legacyVenv
+		}
+	}
+
 	initJSON := map[string]interface{}{
 		"manifest":       manifest,
 		"covenant_file":  CovenantPath(globalDir, lang),
 		"principle_file": PrinciplePath(globalDir, lang),
+		"venv_path":     venvPath,
 		"memory":        "",
 		"prompt":        "",
 		"comment":       comment,

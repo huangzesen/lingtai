@@ -158,6 +158,10 @@ class AvatarManager:
                 if resolved.is_file():
                     parent_init[key] = str(resolved)
 
+        # Inherit parent's venv_path so avatar can find the runtime
+        if hasattr(parent, "_venv_path") and parent._venv_path:
+            parent_init["venv_path"] = parent._venv_path
+
         # Write avatar's init.json (modified copy of parent's)
         avatar_comment = args.get("comment", "")
         avatar_init = self._make_avatar_init(parent_init, peer_name, reasoning or "", comment=avatar_comment)
@@ -256,8 +260,19 @@ class AvatarManager:
     @staticmethod
     def _launch(working_dir: Path) -> int:
         """Launch `lingtai run <dir>` as a fully detached process."""
-        # Always use sys.executable to avoid stale shebang in console scripts
-        cmd = [sys.executable, "-m", "lingtai", "run", str(working_dir)]
+        from lingtai.venv_resolve import resolve_venv, venv_python
+
+        # Resolve Python from avatar's init.json → global runtime
+        init_path = working_dir / "init.json"
+        init_data = None
+        if init_path.is_file():
+            try:
+                init_data = json.loads(init_path.read_text())
+            except (ValueError, OSError):
+                pass
+        venv_dir = resolve_venv(init_data)
+        python = venv_python(venv_dir)
+        cmd = [python, "-m", "lingtai", "run", str(working_dir)]
 
         proc = subprocess.Popen(
             cmd,

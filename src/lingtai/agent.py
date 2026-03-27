@@ -224,12 +224,12 @@ class Agent(BaseAgent):
     def _cpr_agent(self, address: str) -> "Agent | None":
         """Resuscitate a suspended agent by launching it as a detached process.
 
-        Uses `lingtai run <dir>` — same mechanism as avatar spawn.
+        Uses the resolved venv Python to run `lingtai run <dir>`.
         The target must have init.json to boot from.
         """
         import subprocess
-        import sys
         from lingtai_kernel.handshake import is_agent
+        from lingtai.venv_resolve import resolve_venv, venv_python
 
         target = Path(address)
         if not is_agent(target):
@@ -246,9 +246,15 @@ class Agent(BaseAgent):
             if sig_file.is_file():
                 sig_file.unlink(missing_ok=True)
 
-        # Launch as detached process — always use sys.executable to avoid
-        # stale shebang in console scripts (e.g. after venv rename)
-        cmd = [sys.executable, "-m", "lingtai", "run", str(target)]
+        # Resolve Python: target's init.json venv_path → global runtime
+        try:
+            import json as _json
+            target_data = _json.loads(init_path.read_text())
+        except (ValueError, OSError):
+            target_data = None
+        venv_dir = resolve_venv(target_data)
+        python = venv_python(venv_dir)
+        cmd = [python, "-m", "lingtai", "run", str(target)]
 
         proc = subprocess.Popen(
             cmd,
