@@ -53,12 +53,16 @@ def get_schema(lang: str = "en") -> dict:
                 "enum": ["shallow", "deep"],
                 "description": t(lang, "avatar.type"),
             },
+            "dir": {
+                "type": "string",
+                "description": t(lang, "avatar.dir"),
+            },
             "comment": {
                 "type": "string",
                 "description": t(lang, "avatar.comment"),
             },
         },
-        "required": ["name"],
+        "required": ["name", "dir"],
     }
 
 
@@ -134,10 +138,11 @@ class AvatarManager:
         except (json.JSONDecodeError, OSError) as e:
             return {"error": f"failed to read parent init.json: {e}"}
 
-        # Working dir: sibling of parent
-        import secrets
-        avatar_id = secrets.token_hex(3)
-        avatar_working_dir = parent._working_dir.parent / avatar_id
+        # Working dir: sibling of parent, named by caller
+        dir_name = args.get("dir", peer_name)
+        avatar_working_dir = parent._working_dir.parent / dir_name
+        if avatar_working_dir.exists():
+            return {"error": f"Directory '{dir_name}' already exists. Choose another name."}
 
         # Prepare the avatar's working directory
         if avatar_type == "deep":

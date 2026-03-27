@@ -50,6 +50,7 @@
   "avatar.description": "身外化身——化出一他我，独立之进程，源于本我。他我承本我之 init.json（约、能、模型之配）。一经化出便为独立进程——新命也，纵本我殁亦存。以传书或飞鸽通信。type='shallow'（默认，投胎）：白纸状态，仅承 init.json。type='deep'（二重身）：拷本我之性格、记忆、知识——分身也。诸他我记录于 delegates/ledger.jsonl——再化之前先查日志。要紧：reasoning 字段为他我之起始提示——书一份详尽之任务简报。",
   "avatar.name": "他我之真名（必填，如'researcher'、'analyst'）",
   "avatar.type": "化身之类。'shallow'（默认，投胎）：白纸状态——仅承 init.json（模型配置与能）。'deep'（二重身）：全拷性格、记忆、知识库。",
+  "avatar.dir": "化身工作目录之文件夹名（必填）。同级须唯一。用简短 ASCII 名。此名成 .lingtai/ 下目录名。",
   "avatar.comment": "注于化身系统提示之持久批注（末渲染，在记忆之后）。不承自父，默空。唯用于化身须永铭之令——跨凝蜕（转世）、刷新、眠醒不失。留空，除非有不可忘之事。",
 
   "email.description": "飞鸽传书——完备之邮驿，含收信/已发/典藏诸匣、回书、群复、CC/BCC、附件、正则检索与通讯录。凡回复必以飞鸽——切勿以文字输出作复。文字输出乃汝之私记，唯汝可见。'send'飞鸽传书（可选 delay 以定时发送）。'check'查阅收信、已发或典藏（可选 folder）。'read'以 ID 展信。'reply'/'reply_all'回书/群复。'search'以正则式搜信（搜 from、subject、message）。'archive'将收信归入典藏。'delete'焚信。'contacts'查阅通讯录。'add_contact'添友。'remove_contact'删友。'edit_contact'改友。附件与书信同存于邮匣。每书皆附寄者之身份牒（.agent.json）于'identity'栏——察 identity.admin 可知对方：admin=null 者，乃人类操使，非 AI 器灵也。身份牒含：agent_name（真名）、nickname（别号，或空）、agent_id（永久出生之号）、address（现居，迁则变）。收书时察身份牒，及时更新通讯录：址变则改；有新别号则记。以通讯录 note 栏记 agent_id，如此纵迁纵改名，亦能辨同一人。称呼对方先用 nickname，无则用 agent_name——谈话中勿以地址或 agent_id 相称。礼：简短知悉即可，然勿回复知悉——徒增往复。传入'schedule'对象（替'action'）以定期发信。schedule.action='create'：设定期发信（须 address、message、schedule.interval、schedule.count）。schedule.action='cancel'：撤期（须 schedule.schedule_id）。schedule.action='list'：查阅诸定期及进度。",
