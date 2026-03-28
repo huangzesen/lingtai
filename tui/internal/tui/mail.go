@@ -121,8 +121,8 @@ func (m *MailModel) syncViewportHeight() bool {
 	}
 	m.lastInputLines = inputLines
 	m.lastPaletteLines = paletteLines
-	// Layout: header(2) + viewport + sep(1) + palette(N) + input(N) + status(1)
-	footerHeight := 1 + paletteLines + inputLines + 1
+	// Layout: header(2) + viewport + sep(1) + palette(N) + input(N) + border(1) + status(1)
+	footerHeight := 1 + paletteLines + inputLines + 1 + 1
 	vpHeight := m.height - 2 - footerHeight
 	if vpHeight < 1 {
 		vpHeight = 1
@@ -221,7 +221,8 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 		m.input.SetWidth(msg.Width)
 		if !m.ready {
 			inputLines := m.input.LineCount()
-			footerHeight := 1 + inputLines + 1
+			// sep(1) + input(N) + border(1) + status(1)
+			footerHeight := 1 + inputLines + 1 + 1
 			vpHeight := msg.Height - 2 - footerHeight
 			if vpHeight < 1 {
 				vpHeight = 1
