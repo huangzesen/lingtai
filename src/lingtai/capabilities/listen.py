@@ -22,6 +22,11 @@ if TYPE_CHECKING:
 
 logger = get_logger()
 
+PROVIDERS = {
+    "providers": ["whisper", "gemini"],
+    "default": "whisper",
+}
+
 def get_description(lang: str = "en") -> str:
     return t(lang, "listen.description")
 

@@ -17,6 +17,11 @@ from ..services.websearch import SearchService, create_search_service
 if TYPE_CHECKING:
     from lingtai_kernel.base_agent import BaseAgent
 
+PROVIDERS = {
+    "providers": ["duckduckgo", "minimax", "gemini", "anthropic", "openai"],
+    "default": "duckduckgo",
+}
+
 def get_description(lang: str = "en") -> str:
     return t(lang, "web_search.description")
 
@@ -92,10 +97,7 @@ def setup(
             api_host=resolve_media_host(agent),
         )
     elif search_service is None and provider is None:
-        raise ValueError(
-            "web_search capability requires 'search_service' or 'provider'. "
-            "Example: capabilities={'web_search': {'provider': 'duckduckgo'}}"
-        )
+        search_service = create_search_service("duckduckgo")
 
     lang = agent._config.language
     mgr = WebSearchManager(agent, search_service=search_service)

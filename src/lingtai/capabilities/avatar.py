@@ -36,6 +36,8 @@ from ..i18n import t
 if TYPE_CHECKING:
     from ..agent import Agent
 
+PROVIDERS = {"providers": [], "default": "builtin"}
+
 def get_description(lang: str = "en") -> str:
     return t(lang, "avatar.description")
 

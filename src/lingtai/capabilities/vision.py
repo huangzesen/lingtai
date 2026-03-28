@@ -20,6 +20,11 @@ from ..services.vision import VisionService, create_vision_service
 if TYPE_CHECKING:
     from lingtai_kernel.base_agent import BaseAgent
 
+PROVIDERS = {
+    "providers": ["minimax", "gemini", "anthropic", "openai", "local"],
+    "default": None,
+}
+
 def get_description(lang: str = "en") -> str:
     return t(lang, "vision.description")
 

@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 from lingtai_kernel.llm.base import FunctionSchema
 from lingtai_kernel.message import MSG_REQUEST, _make_message
 
+PROVIDERS = {"providers": [], "default": "builtin"}
 
 # Tools emanations can never use (no recursion, no spawning, no identity mutation)
 EMANATION_BLACKLIST = {"daemon", "avatar", "psyche", "library"}

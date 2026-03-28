@@ -14,6 +14,11 @@ if TYPE_CHECKING:
 
 logger = get_logger()
 
+PROVIDERS = {
+    "providers": ["minimax"],
+    "default": None,
+}
+
 
 def get_description(lang: str = "en") -> str:
     return t(lang, "video.description")

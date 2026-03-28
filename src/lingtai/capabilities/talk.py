@@ -15,6 +15,11 @@ if TYPE_CHECKING:
 
 logger = get_logger()
 
+PROVIDERS = {
+    "providers": ["minimax", "gemini"],
+    "default": None,
+}
+
 def get_description(lang: str = "en") -> str:
     return t(lang, "talk.description")
 

@@ -22,6 +22,8 @@ from ..i18n import t
 if TYPE_CHECKING:
     from lingtai_kernel.base_agent import BaseAgent
 
+PROVIDERS = {"providers": [], "default": "builtin"}
+
 def get_description(lang: str = "en") -> str:
     return t(lang, "psyche.description")
 
