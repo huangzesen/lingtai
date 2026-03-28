@@ -135,8 +135,21 @@ def run(working_dir: Path) -> None:
     agent._asleep.set()
     agent._state = AgentState.ASLEEP
 
+    # Detect refresh boot — old process wrote .refresh before spawning us
+    refresh_file = working_dir / ".refresh"
+    is_refresh = refresh_file.is_file()
+    if is_refresh:
+        refresh_file.unlink()
+
     try:
         agent.start()
+
+        # Kick-start after refresh — wake agent with a system message
+        if is_refresh:
+            from lingtai_kernel.i18n import t
+            lang = agent._config.language
+            agent.send(t(lang, "system.refresh_successful"), sender="system")
+
         agent._shutdown.wait()
     finally:
         try:
