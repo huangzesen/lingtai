@@ -124,7 +124,7 @@ func NewFirstRunModel(baseDir, globalDir string, hasPresets bool) FirstRunModel 
 	pei := textinput.New() // endpoint input for custom provider
 	pei.CharLimit = 256
 	pei.Width = 50
-	pei.Placeholder = "https://api.example.com/v1"
+	pei.Placeholder = "https://openrouter.ai/api/v1"
 
 	pmi := textinput.New() // model input for custom provider
 	pmi.CharLimit = 64
@@ -134,7 +134,7 @@ func NewFirstRunModel(baseDir, globalDir string, hasPresets bool) FirstRunModel 
 	pni := textinput.New() // preset name input for custom provider
 	pni.CharLimit = 64
 	pni.Width = 50
-	pni.Placeholder = "my-preset"
+	pni.Placeholder = "openrouter"
 
 	si := textinput.New()
 	si.CharLimit = 10
