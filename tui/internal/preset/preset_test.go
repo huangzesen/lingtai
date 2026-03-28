@@ -139,3 +139,32 @@ func TestHasAny(t *testing.T) {
 		}
 	})
 }
+
+func TestMigrateAddonTemplates(t *testing.T) {
+	tmp := t.TempDir()
+	orig := os.Getenv("HOME")
+	os.Setenv("HOME", tmp)
+	defer os.Setenv("HOME", orig)
+
+	Bootstrap(tmp)
+
+	for _, addon := range []string{"imap", "telegram"} {
+		path := filepath.Join(tmp, "addons", addon, "example", "config.json")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("%s example not created: %v", addon, err)
+		}
+		var parsed map[string]interface{}
+		if err := json.Unmarshal(data, &parsed); err != nil {
+			t.Fatalf("%s example is invalid JSON: %v\nContent: %s", addon, err, string(data))
+		}
+		if len(parsed) == 0 {
+			t.Errorf("%s example is empty", addon)
+		}
+		preview := string(data)
+		if len(preview) > 80 {
+			preview = preview[:80]
+		}
+		t.Logf("%s: %d keys — %s", addon, len(parsed), preview)
+	}
+}
