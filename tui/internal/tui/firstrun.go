@@ -317,7 +317,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				continue
 			}
 			compat := m.isCapCompatible(info, provider)
-			if compat && presetCaps[name] {
+			if (compat || m.isCapLocal(info)) && presetCaps[name] {
 				m.capSelected[name] = true
 			}
 		}
@@ -326,12 +326,17 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 	case capCheckErrMsg:
 		m.capLoading = false
 		m.capErr = msg.err
+		m.capInfos = make(map[string]capInfo)
 		// Fallback: select all capabilities from the preset
 		p := m.presets[m.cursor]
 		if capsMap, ok := p.Manifest["capabilities"].(map[string]interface{}); ok {
 			for k := range capsMap {
 				m.capSelected[k] = true
 			}
+		}
+		// Synthesize "file" group
+		if m.capSelected["read"] || m.capSelected["write"] || m.capSelected["edit"] || m.capSelected["glob"] || m.capSelected["grep"] {
+			m.capSelected["file"] = true
 		}
 		return m, nil
 
@@ -612,12 +617,28 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 			colSize := (len(m.capOrder) + 1) / 2
 			switch msg.String() {
 			case "up":
-				if m.capCursor > 0 {
-					m.capCursor--
+				if m.capCursor >= colSize {
+					// Right column
+					if m.capCursor > colSize {
+						m.capCursor--
+					}
+				} else {
+					// Left column
+					if m.capCursor > 0 {
+						m.capCursor--
+					}
 				}
 			case "down":
-				if m.capCursor < len(m.capOrder)-1 {
-					m.capCursor++
+				if m.capCursor >= colSize {
+					// Right column
+					if m.capCursor < len(m.capOrder)-1 {
+						m.capCursor++
+					}
+				} else {
+					// Left column
+					if m.capCursor < colSize-1 {
+						m.capCursor++
+					}
 				}
 			case "left":
 				if m.capCursor >= colSize {
@@ -722,7 +743,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					return FirstRunDoneMsg{OrchDir: orchDir, OrchName: m.agentName}
 				}
 			case "esc":
-				m.step = stepPickPreset
+				m.step = stepCapabilities
 				return m, nil
 			case "ctrl+c":
 				return m, tea.Quit
