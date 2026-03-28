@@ -140,7 +140,9 @@ func (m InputModel) View() string {
 	if m.width > firstLineWidth+lipgloss.Width(hint) {
 		pad = strings.Repeat(" ", m.width-firstLineWidth-lipgloss.Width(hint))
 	}
-	return rendered + pad + hint
+	// Bottom border — matches the top separator style in mail.go
+	border := strings.Repeat("\u2500", m.width)
+	return rendered + pad + hint + "\n" + border
 }
 
 // calcHeight returns the display height by reading the textarea's own rendered

@@ -61,3 +61,16 @@ func TestCalcHeight_CJK(t *testing.T) {
 		t.Errorf("CJK wrapping on 30-col textarea: expected height >= 2, got %d", h)
 	}
 }
+
+func TestView_HasBottomBorder(t *testing.T) {
+	m := NewInputModel("")
+	m.SetWidth(40)
+	view := m.View()
+	lines := strings.Split(view, "\n")
+	lastLine := lines[len(lines)-1]
+	// Bottom border should be a line of "─" characters
+	trimmed := strings.TrimRight(lastLine, "─")
+	if trimmed != "" || len(lastLine) == 0 {
+		t.Errorf("expected bottom border of ─ chars, got last line: %q", lastLine)
+	}
+}
