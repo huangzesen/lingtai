@@ -276,7 +276,7 @@ class TelegramManager:
             )
 
         # Notify agent
-        self._agent._mail_arrived.set()
+        self._agent._wake_nap("message_received")
         from lingtai_kernel.message import _make_message, MSG_REQUEST
         notification = (
             f"[system] New telegram message from {username} via {account_alias}.\n"

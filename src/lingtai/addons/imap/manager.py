@@ -275,7 +275,7 @@ class IMAPMailManager:
         subject = payload.get("subject", "(no subject)")
         message = payload.get("message", "")
 
-        self._agent._mail_arrived.set()
+        self._agent._wake_nap("mail_arrived")
 
         preview = message[:100].replace("\n", " ")
         notification = (
