@@ -155,7 +155,7 @@ func minimaxPreset() Preset {
 func customPreset() Preset {
 	return Preset{
 		Name:        "custom",
-		Description: "OpenAI-compatible API — web search + web browse",
+		Description: "OpenAI-compatible API — full capabilities",
 		Manifest: map[string]interface{}{
 			"llm": map[string]interface{}{
 				"provider": "custom", "model": "",
@@ -164,7 +164,8 @@ func customPreset() Preset {
 			"capabilities": map[string]interface{}{
 				"file": e(), "email": e(), "bash": map[string]interface{}{"yolo": true},
 				"web_search": e(), "psyche": e(), "library": e(),
-				"web_read": e(), "avatar": e(), "daemon": e(),
+				"vision": e(), "web_read": e(), "avatar": e(), "daemon": e(),
+				"listen": e(),
 			},
 			"admin": map[string]interface{}{"karma": true},
 		},

@@ -37,8 +37,6 @@ const (
 	stepAPIKey
 	stepPickPreset
 	stepPresetKey
-	stepEditPreset
-	stepNewPreset
 	stepAgentNameDir
 	stepLaunching
 )
@@ -56,8 +54,6 @@ func stepProgress(step firstRunStep, hasPresets bool) (current int, total int) {
 		return 2, total
 	case step == stepPickPreset || step == stepPresetKey:
 		return 1, total
-	case step == stepEditPreset || step == stepNewPreset:
-		return 2, total
 	case step == stepAgentNameDir:
 		return 3, total
 	case step == stepLaunching:
@@ -82,10 +78,6 @@ type FirstRunModel struct {
 	width      int
 	height     int
 	hasPresets bool
-	// Embedded preset editor
-	editPreset  preset.Preset
-	editFields  []presetField
-	editCursor  int
 	// Focus state for combined name+dir step
 	focusOnDir bool // legacy — replaced by fieldIdx
 	fieldIdx   int  // 0=name, 1=dir, 2=lang, 3=stamina, 4=context_limit, 5=soul_delay, 6=molt_pressure
@@ -103,10 +95,6 @@ type FirstRunModel struct {
 	setupErr     string         // non-empty if bootstrap failed
 	setupStatus  string         // current progress i18n key
 	progressCh   chan string     // channel for progress updates
-	// Quick config (provider/model) in preset selection
-	quickProvider textinput.Model
-	quickModel    textinput.Model
-	quickEditMode bool
 	// Embedded key input for preset's provider
 	presetKeyInput    textinput.Model
 	presetEndpointIn  textinput.Model // base_url for custom provider
@@ -127,15 +115,6 @@ func NewFirstRunModel(baseDir, globalDir string, hasPresets bool) FirstRunModel 
 	di.CharLimit = 64
 	di.Width = 40
 
-	qp := textinput.New()
-	qp.CharLimit = 32
-	qp.Width = 25
-	qp.Prompt = ""
-
-	qm := textinput.New()
-	qm.CharLimit = 64
-	qm.Width = 25
-	qm.Prompt = ""
 
 	pki := textinput.New()
 	pki.CharLimit = 128
@@ -198,8 +177,6 @@ func NewFirstRunModel(baseDir, globalDir string, hasPresets bool) FirstRunModel 
 		dirInput:        di,
 		hasPresets:      hasPresets,
 		langCursor:      langCursor,
-		quickProvider:   qp,
-		quickModel:      qm,
 		presetKeyInput:   pki,
 		presetEndpointIn: pei,
 		presetModelIn:    pmi,
@@ -359,40 +336,6 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 			return m, cmd
 
 		case stepPickPreset:
-			// Handle quick config mode (provider/model editing)
-			if m.quickEditMode {
-				switch msg.String() {
-				case "esc":
-					m.quickEditMode = false
-					m.quickProvider.Blur()
-					m.quickModel.Blur()
-					return m, nil
-				case "enter":
-					// Apply quick config to selected preset
-					if m.cursor < len(m.presets) {
-						m.editPreset = m.presets[m.cursor]
-						if llm, ok := m.editPreset.Manifest["llm"].(map[string]interface{}); ok {
-							if m.quickProvider.Value() != "" {
-								llm["provider"] = m.quickProvider.Value()
-							}
-							if m.quickModel.Value() != "" {
-								llm["model"] = m.quickModel.Value()
-							}
-						}
-						preset.Save(m.editPreset)
-						m.presets, _ = preset.List()
-					}
-					m.quickEditMode = false
-					m.quickProvider.Blur()
-					m.quickModel.Blur()
-					return m, nil
-				default:
-					var cmd tea.Cmd
-					m.quickProvider, _ = m.quickProvider.Update(msg)
-					m.quickModel, cmd = m.quickModel.Update(msg)
-					return m, cmd
-				}
-			}
 			switch msg.String() {
 			case "up":
 				if m.cursor > 0 {
@@ -429,36 +372,6 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					m.enterAgentNameDir(p)
 					return m, textinput.Blink
 				}
-			case "e":
-				if m.cursor < len(m.presets) {
-					m.editPreset = m.presets[m.cursor]
-					m.editFields = buildEditFields(m.editPreset)
-					m.editCursor = 0
-					m.step = stepEditPreset
-				}
-			case "p":
-				// Quick config: edit provider/model without entering full editor
-				if m.cursor < len(m.presets) {
-					m.quickEditMode = true
-					p := m.presets[m.cursor]
-					var provider, modelVal string
-					if llm, ok := p.Manifest["llm"].(map[string]interface{}); ok {
-						if v, ok := llm["provider"].(string); ok {
-							provider = v
-						}
-						if v, ok := llm["model"].(string); ok {
-							modelVal = v
-						}
-					}
-					m.quickProvider.SetValue(provider)
-					m.quickModel.SetValue(modelVal)
-					m.quickProvider.Focus()
-				}
-			case "n":
-				m.nameInput.SetValue("")
-				m.nameInput.Focus()
-				m.step = stepNewPreset
-				return m, textinput.Blink
 			case "esc":
 				m.step = stepWelcome
 				return m, nil
@@ -472,7 +385,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 			isMinimax := m.selectedProvider == "minimax"
 			fieldCount := 1 // default: key only
 			if isCustom {
-				fieldCount = 4 // compat + endpoint + model + key
+				fieldCount = 5 // compat + endpoint + model + key + name
 			}
 			if isMinimax {
 				fieldCount = 2 // region + key
@@ -517,7 +430,8 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				if isCustom {
 					endpoint := m.presetEndpointIn.Value()
 					model := m.presetModelIn.Value()
-					if endpoint == "" || model == "" || key == "" {
+					name := m.nameInput.Value()
+					if endpoint == "" || model == "" || key == "" || name == "" {
 						return m, nil // require all fields
 					}
 					compat := "openai"
@@ -525,6 +439,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 						compat = "anthropic"
 					}
 					p := m.presets[m.cursor]
+					p.Name = name
 					if llm, ok := p.Manifest["llm"].(map[string]interface{}); ok {
 						llm["base_url"] = endpoint
 						llm["model"] = model
@@ -534,13 +449,15 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					m.presets, _ = preset.List()
 				}
 				if isMinimax {
-					// Write base_url based on region
+					// Write base_url and auto-name based on region
 					p := m.presets[m.cursor]
 					if llm, ok := p.Manifest["llm"].(map[string]interface{}); ok {
 						if m.minimaxRegion == 0 {
 							llm["base_url"] = "https://api.minimaxi.com/anthropic"
+							p.Name = "minimax_cn"
 						} else {
 							llm["base_url"] = "https://api.minimax.io/anthropic"
+							p.Name = "minimax_intl"
 						}
 					}
 					preset.Save(p)
@@ -571,6 +488,8 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 						m.presetModelIn, cmd = m.presetModelIn.Update(msg)
 					case 3:
 						m.presetKeyInput, cmd = m.presetKeyInput.Update(msg)
+					case 4:
+						m.nameInput, cmd = m.nameInput.Update(msg)
 					}
 				} else if isMinimax && m.presetKeyFieldIdx == 1 {
 					m.presetKeyInput, cmd = m.presetKeyInput.Update(msg)
@@ -579,85 +498,6 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				}
 				return m, cmd
 			}
-
-		case stepEditPreset:
-			switch msg.String() {
-			case "esc":
-				preset.Save(m.editPreset)
-				m.presets, _ = preset.List()
-				m.step = stepPickPreset
-			case "up":
-				if m.editCursor > 0 {
-					m.editCursor--
-				}
-			case "down":
-				if m.editCursor < len(m.editFields)-1 {
-					m.editCursor++
-				}
-			case "left":
-				f := &m.editFields[m.editCursor]
-				if !f.IsBool && f.Current > 0 {
-					f.Current--
-					applyEditField(&m.editPreset, f)
-				}
-			case "right":
-				f := &m.editFields[m.editCursor]
-				if !f.IsBool && f.Current < len(f.Options)-1 {
-					f.Current++
-					applyEditField(&m.editPreset, f)
-				}
-			case " ":
-				// Space toggles capability on/off for boolean fields
-				f := &m.editFields[m.editCursor]
-				if f.IsBool {
-					if f.Current == 0 {
-						f.Current = 1
-					} else {
-						f.Current = 0
-					}
-					applyEditField(&m.editPreset, f)
-				}
-			case "ctrl+c":
-				return m, tea.Quit
-			}
-			return m, nil
-
-		case stepNewPreset:
-			switch msg.String() {
-			case "esc":
-				m.step = stepPickPreset
-			case "enter":
-				name := m.nameInput.Value()
-				if name == "" {
-					return m, nil
-				}
-				p := preset.Preset{
-					Name: name,
-					Manifest: map[string]interface{}{
-						"llm": map[string]interface{}{
-							"provider":    "minimax",
-							"model":       "MiniMax-M2.7-highspeed",
-							"api_key":     nil,
-							"api_key_env": "MINIMAX_API_KEY",
-						},
-						"capabilities": map[string]interface{}{"file": map[string]interface{}{}},
-						"admin":        map[string]interface{}{"karma": true},
-					},
-				}
-				preset.Save(p)
-				m.presets, _ = preset.List()
-				m.editPreset = p
-				m.editFields = buildEditFields(p)
-				m.editCursor = 0
-				m.step = stepEditPreset
-			case "ctrl+c":
-				return m, tea.Quit
-			default:
-				var cmd tea.Cmd
-				m.nameInput, cmd = m.nameInput.Update(msg)
-				return m, cmd
-			}
-			return m, nil
 
 		case stepAgentNameDir:
 			langs := []string{"en", "zh", "wen"}
@@ -801,20 +641,8 @@ func (m FirstRunModel) View() string {
 			desc := StyleSubtle.Render("  " + displayDesc)
 			b.WriteString(cursor + name + desc + "\n")
 		}
-		// Quick config panel
-		if m.quickEditMode {
-			b.WriteString("\n  " + StyleTitle.Render(i18n.T("presets.quick_config")) + "\n\n")
-			b.WriteString("  Provider: " + m.quickProvider.View() + "\n")
-			b.WriteString("  Model:    " + m.quickModel.View() + "\n")
-			b.WriteString("\n" + StyleFaint.Render("  [Enter] "+i18n.T("presets.apply")+
-				"  [Esc] "+i18n.T("presets.cancel")) + "\n")
-		} else {
-			b.WriteString("\n" + StyleFaint.Render("  "+i18n.T("firstrun.select_hint")+
-				"  [e] "+i18n.T("presets.edit")+
-				"  [p] "+i18n.T("presets.quick_config")+
-				"  [n] "+i18n.T("presets.new")) + "\n")
-			b.WriteString(StyleFaint.Render("  [Ctrl+C] "+i18n.T("common.quit")) + "\n")
-		}
+		b.WriteString("\n" + StyleFaint.Render("  "+i18n.T("firstrun.select_hint")) + "\n")
+		b.WriteString(StyleFaint.Render("  [Ctrl+C] "+i18n.T("common.quit")) + "\n")
 
 	case stepPresetKey:
 		providerName := i18n.T("setup.provider_" + m.selectedProvider)
@@ -842,7 +670,8 @@ func (m FirstRunModel) View() string {
 			b.WriteString("  " + i18n.T("firstrun.api_compat") + ":  " + compatStyle.Render(openaiLabel+"  "+anthropicLabel) + "\n")
 			b.WriteString("  " + i18n.T("presets.endpoint") + ":    " + m.presetEndpointIn.View() + "\n")
 			b.WriteString("  " + i18n.T("presets.model") + ":       " + m.presetModelIn.View() + "\n")
-			b.WriteString("  " + i18n.T("setup.api_key_label") + "     " + m.presetKeyInput.View() + "\n\n")
+			b.WriteString("  " + i18n.T("setup.api_key_label") + "     " + m.presetKeyInput.View() + "\n")
+			b.WriteString("  " + i18n.T("presets.enter_name") + " " + m.nameInput.View() + "\n\n")
 			b.WriteString(StyleFaint.Render("  [↑↓] "+i18n.T("firstrun.toggle_field")+
 				"  [←→] "+i18n.T("firstrun.toggle_region")+
 				"  [Enter] "+i18n.T("setup.save")+
@@ -878,57 +707,6 @@ func (m FirstRunModel) View() string {
 			b.WriteString(StyleFaint.Render("  [Enter] "+i18n.T("setup.save")+
 				"  [Esc] "+i18n.T("setup.back")) + "\n")
 		}
-
-	case stepEditPreset:
-		stepNum, total := stepProgress(m.step, m.hasPresets)
-		b.WriteString("\n  " + StyleSubtle.Render(fmt.Sprintf("Step %d/%d: "+i18n.TF("presets.editor_title", m.editPreset.Name), stepNum, total)) + "\n\n")
-		capStarted := false
-		for idx, f := range m.editFields {
-			if strings.HasPrefix(f.Key, "cap:") && !capStarted {
-				capStarted = true
-				b.WriteString("\n  " + i18n.T("presets.capabilities") + ":\n")
-			}
-			cursor := "  "
-			if idx == m.editCursor {
-				cursor = "> "
-			}
-			var label string
-			if strings.HasPrefix(f.Key, "cap:") {
-				label = f.Label
-			} else {
-				label = i18n.T(f.Label)
-			}
-			displayVal := f.Options[f.Current]
-			if f.IsBool {
-				if displayVal == "true" {
-					displayVal = "[x]"
-				} else {
-					displayVal = "[ ]"
-				}
-			}
-			if idx == m.editCursor {
-				if f.IsBool {
-					displayVal = lipgloss.NewStyle().Bold(true).Foreground(ColorActive).Render(displayVal)
-				} else {
-					displayVal = lipgloss.NewStyle().Bold(true).Foreground(ColorActive).Render("< "+displayVal+" >")
-				}
-			}
-			if strings.HasPrefix(f.Key, "cap:") {
-				b.WriteString(cursor + displayVal + " " + label + "\n")
-			} else {
-				b.WriteString(cursor + label + ": " + displayVal + "\n")
-			}
-		}
-		b.WriteString("\n" + StyleFaint.Render("  ↑↓ "+i18n.T("settings.select")+
-			"  ←→/space "+i18n.T("settings.change")+
-			"  [esc] "+i18n.T("presets.back")) + "\n")
-
-	case stepNewPreset:
-		stepNum, total := stepProgress(m.step, m.hasPresets)
-		b.WriteString("\n  " + StyleSubtle.Render(fmt.Sprintf("Step %d/%d: "+i18n.T("presets.enter_name"), stepNum, total)) + "\n\n")
-		b.WriteString("  " + m.nameInput.View() + "\n\n")
-		b.WriteString(StyleFaint.Render("  [Enter] "+i18n.T("presets.create")+
-			"  [Esc] "+i18n.T("presets.cancel")) + "\n")
 
 	case stepAgentNameDir:
 		stepNum, total := stepProgress(m.step, m.hasPresets)
@@ -1134,6 +912,7 @@ func (m *FirstRunModel) focusPresetKeyField() tea.Cmd {
 	m.presetEndpointIn.Blur()
 	m.presetModelIn.Blur()
 	m.presetKeyInput.Blur()
+	m.nameInput.Blur()
 	if m.selectedProvider == "minimax" {
 		switch m.presetKeyFieldIdx {
 		case 0:
@@ -1152,6 +931,8 @@ func (m *FirstRunModel) focusPresetKeyField() tea.Cmd {
 		return m.presetModelIn.Focus()
 	case 3:
 		return m.presetKeyInput.Focus()
+	case 4:
+		return m.nameInput.Focus()
 	}
 	return nil
 }
