@@ -3,9 +3,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -19,7 +21,13 @@ func purgeMain() {
 		os.Exit(1)
 	}
 
-	var pids []int
+	type proc struct {
+		pid   int
+		agent string
+		dir   string
+	}
+
+	var procs []proc
 	for _, line := range strings.Split(string(out), "\n") {
 		if !strings.Contains(line, "lingtai run") || strings.Contains(line, "grep") {
 			continue
@@ -32,29 +40,57 @@ func purgeMain() {
 		if err != nil || pid == os.Getpid() {
 			continue
 		}
-		pids = append(pids, pid)
+
+		var agentDir string
+		for i, f := range fields {
+			if f == "run" && i+1 < len(fields) {
+				agentDir = fields[i+1]
+				break
+			}
+		}
+
+		procs = append(procs, proc{
+			pid:   pid,
+			agent: filepath.Base(agentDir),
+			dir:   agentDir,
+		})
 	}
 
-	if len(pids) == 0 {
+	if len(procs) == 0 {
 		fmt.Println("No lingtai processes found.")
 		return
 	}
 
-	fmt.Printf("Found %d lingtai process(es). Killing...\n", len(pids))
+	// List all processes
+	fmt.Printf("%-8s %-30s %s\n", "PID", "AGENT", "DIRECTORY")
+	for _, p := range procs {
+		fmt.Printf("%-8d %-30s %s\n", p.pid, p.agent, p.dir)
+	}
+	fmt.Printf("\n%d process(es) found. Kill all? [y/N] ", len(procs))
 
-	for _, pid := range pids {
-		if p, err := os.FindProcess(pid); err == nil {
-			p.Signal(syscall.SIGTERM)
+	// Wait for confirmation
+	reader := bufio.NewReader(os.Stdin)
+	answer, _ := reader.ReadString('\n')
+	answer = strings.TrimSpace(strings.ToLower(answer))
+	if answer != "y" && answer != "yes" {
+		fmt.Println("Aborted.")
+		return
+	}
+
+	// SIGTERM first
+	for _, p := range procs {
+		if proc, err := os.FindProcess(p.pid); err == nil {
+			proc.Signal(syscall.SIGTERM)
 		}
 	}
 	time.Sleep(2 * time.Second)
 
 	// SIGKILL survivors
 	killed := 0
-	for _, pid := range pids {
-		if p, err := os.FindProcess(pid); err == nil {
-			if p.Signal(syscall.Signal(0)) == nil {
-				p.Signal(syscall.SIGKILL)
+	for _, p := range procs {
+		if proc, err := os.FindProcess(p.pid); err == nil {
+			if proc.Signal(syscall.Signal(0)) == nil {
+				proc.Signal(syscall.SIGKILL)
 			}
 		}
 		killed++
