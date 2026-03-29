@@ -45,7 +45,7 @@
   "firstrun.tutorial_title": "初入山门",
   "firstrun.tutorial_desc": "以引路灵引导，习灵台之道。",
   "firstrun.tutorial_patience": "祖师将先行问候，启约三十息，请稍候。",
-  "firstrun.tutorial_status_hint": "观右上隅：状从假死转活，即祖师已醒。",
+  "firstrun.tutorial_status_hint": "观右上隅：假死 → 待命 → 运作，即祖师正备问候。",
   "firstrun.tutorial_start": "入门",
   "firstrun.tutorial_skip": "略过",
   "firstrun.welcome": "迎入山门",
