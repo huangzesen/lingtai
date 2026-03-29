@@ -551,7 +551,13 @@ class EmailManager:
             send_args = {**send_payload, "_schedule": schedule_meta}
             result = self._send(send_args)
 
-            # Notify agent about schedule progress
+            # Skip notification if send failed
+            if result.get("error") or result.get("status") == "blocked":
+                record["last_sent_at"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+                self._write_schedule(sched_file, record)
+                continue
+
+            # Notify agent about schedule progress (no _wake_nap — routine update)
             to_label = send_payload.get("address", "")
             subj_label = send_payload.get("subject", "(no subject)")
             ts = now.strftime("%Y-%m-%dT%H:%M:%SZ")

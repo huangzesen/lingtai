@@ -1468,3 +1468,38 @@ def test_schedule_cancel_all_creates_agent_sentinel(tmp_path):
     result = mgr.handle({"schedule": {"action": "cancel"}})
     assert result["status"] == "cancelled"
     assert (agent.working_dir / "mailbox" / "schedules" / ".cancel").is_file()
+
+
+def test_schedule_sends_inbox_notification(tmp_path):
+    """After a scheduled send fires, agent should get an inbox notification."""
+    agent = Agent(service=make_mock_service(), agent_name="test", working_dir=tmp_path / "test",
+                       capabilities=["email"])
+    mail_svc = MagicMock()
+    mail_svc.address = "me"
+    mail_svc.send.return_value = None
+    agent._mail_service = mail_svc
+    mgr = agent.get_capability("email")
+
+    result = mgr.handle({
+        "address": "someone",
+        "subject": "alarm",
+        "message": "wake up",
+        "schedule": {"action": "create", "interval": 1, "count": 2},
+    })
+    assert result["status"] == "scheduled"
+
+    # Wait for both sends to fire
+    time.sleep(3.5)
+
+    # Drain inbox for schedule notifications
+    notifications = []
+    while not agent.inbox.empty():
+        msg = agent.inbox.get_nowait()
+        if hasattr(msg, "content") and "[schedule" in str(msg.content):
+            notifications.append(str(msg.content))
+
+    assert len(notifications) >= 1, f"Expected schedule notifications, got {notifications}"
+    assert "[schedule 1/2]" in notifications[0]
+    assert "alarm" in notifications[0]
+    # Last notification should say "schedule complete"
+    assert "schedule complete" in notifications[-1]
