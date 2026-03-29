@@ -45,6 +45,7 @@
   "firstrun.tutorial_title": "Tutorial",
   "firstrun.tutorial_desc": "Learn how Lingtai works with a guided tutorial agent.",
   "firstrun.tutorial_patience": "The guide will greet you — please allow ~30 seconds for startup.",
+  "firstrun.tutorial_status_hint": "Watch the top-right corner: the status will change from SUSPENDED → ACTIVE when ready.",
   "firstrun.tutorial_start": "Start Tutorial",
   "firstrun.tutorial_skip": "Skip Tutorial",
   "firstrun.welcome": "Welcome to LingTai",

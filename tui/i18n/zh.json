@@ -45,6 +45,7 @@
   "firstrun.tutorial_title": "教程",
   "firstrun.tutorial_desc": "通过教程Agent学习灵台的使用方法。",
   "firstrun.tutorial_patience": "教程Agent会主动问好，启动约需30秒，请稍候。",
+  "firstrun.tutorial_status_hint": "注意右上角：状态会从 SUSPENDED → ACTIVE，表示Agent已就绪。",
   "firstrun.tutorial_start": "开始教程",
   "firstrun.tutorial_skip": "跳过教程",
   "firstrun.welcome": "迎入山门",
