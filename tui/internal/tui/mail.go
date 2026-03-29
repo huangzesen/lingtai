@@ -18,13 +18,14 @@ import (
 
 // ChatMessage represents a single message in the chat stream.
 type ChatMessage struct {
-	From      string
-	To        string
-	Subject   string
-	Body      string
-	Timestamp string
-	IsFromMe  bool   // human sent this
-	Type      string // "mail", "thinking", "diary"
+	From        string
+	To          string
+	Subject     string
+	Body        string
+	Timestamp   string
+	IsFromMe    bool     // human sent this
+	Type        string   // "mail", "thinking", "diary"
+	Attachments []string // file paths attached to the message
 }
 
 // ViewChangeMsg requests the app to switch views.
@@ -55,23 +56,23 @@ const (
 )
 
 type MailModel struct {
-	humanDir     string
-	humanAddr    string
-	orchestrator string // 本我 directory path (full path under .lingtai/)
-	orchAddr     string // 本我 address (from .agent.json)
-	orchName     string // 本我 agent name
-	baseDir      string // .lingtai/ directory
-	verbose      verboseLevel
-	messages     []ChatMessage
-	viewport     viewport.Model
-	input        InputModel
-	palette      PaletteModel
-	width        int
-	height       int
-	ready        bool
-	pollRate     time.Duration // refresh interval
+	humanDir         string
+	humanAddr        string
+	orchestrator     string // 本我 directory path (full path under .lingtai/)
+	orchAddr         string // 本我 address (from .agent.json)
+	orchName         string // 本我 agent name
+	baseDir          string // .lingtai/ directory
+	verbose          verboseLevel
+	messages         []ChatMessage
+	viewport         viewport.Model
+	input            InputModel
+	palette          PaletteModel
+	width            int
+	height           int
+	ready            bool
+	pollRate         time.Duration // refresh interval
 	orchAlive        bool
-	orchState        string // agent state from .agent.json
+	orchState        string    // agent state from .agent.json
 	statusFlash      string    // transient status message shown in status bar
 	statusExpiry     time.Time // when to clear the flash
 	lastInputLines   int
@@ -140,13 +141,14 @@ func (m MailModel) refreshMail() tea.Msg {
 		parts := strings.Split(msg.From, "/")
 		fromName := parts[len(parts)-1]
 		chatMsgs = append(chatMsgs, ChatMessage{
-			From:      fromName,
-			To:        m.humanName(),
-			Subject:   msg.Subject,
-			Body:      msg.Message,
-			Timestamp: msg.ReceivedAt,
-			IsFromMe:  false,
-			Type:      "mail",
+			From:        fromName,
+			To:          m.humanName(),
+			Subject:     msg.Subject,
+			Body:        msg.Message,
+			Timestamp:   msg.ReceivedAt,
+			IsFromMe:    false,
+			Type:        "mail",
+			Attachments: msg.Attachments,
 		})
 	}
 
@@ -154,13 +156,14 @@ func (m MailModel) refreshMail() tea.Msg {
 	sent, _ := fs.ReadSent(m.humanDir)
 	for _, msg := range sent {
 		chatMsgs = append(chatMsgs, ChatMessage{
-			From:      m.humanName(),
-			To:        m.orchName,
-			Subject:   msg.Subject,
-			Body:      msg.Message,
-			Timestamp: msg.ReceivedAt,
-			IsFromMe:  true,
-			Type:      "mail",
+			From:        m.humanName(),
+			To:          m.orchName,
+			Subject:     msg.Subject,
+			Body:        msg.Message,
+			Timestamp:   msg.ReceivedAt,
+			IsFromMe:    true,
+			Type:        "mail",
+			Attachments: msg.Attachments,
 		})
 	}
 
@@ -336,6 +339,9 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 		}
 
 		switch msg.String() {
+		case "ctrl+p":
+			return m, func() tea.Msg { return ViewChangeMsg{View: "props"} }
+
 		case "ctrl+o":
 			// Toggle: off → thinking → off
 			if m.verbose == verboseThinking {
@@ -478,6 +484,13 @@ func (m MailModel) renderMessages() string {
 			for _, line := range lines[1:] {
 				b.WriteString(indent + line + "\n")
 			}
+			// Show attachment paths if present
+			if len(msg.Attachments) > 0 {
+				b.WriteString(indent + StyleFaint.Render("Attachments:") + "\n")
+				for i, att := range msg.Attachments {
+					b.WriteString(indent + StyleFaint.Render(fmt.Sprintf("  [%d] %s", i+1, att)) + "\n")
+				}
+			}
 		}
 	}
 	return b.String()
@@ -551,12 +564,13 @@ func (m MailModel) View() string {
 		hints = StyleFaint.Render(i18n.T("hints.verbose") + " " + RuneBullet + " " + i18n.T("hints.extended") + " " + RuneBullet + " " + i18n.T("hints.commands"))
 	case verboseThinking:
 		hints = lipgloss.NewStyle().Foreground(ColorAgent).Render(i18n.T("hints.verbose_off")) +
-			StyleFaint.Render(" " + RuneBullet + " " + i18n.T("hints.extended") + " " + RuneBullet + " " + i18n.T("hints.commands"))
+			StyleFaint.Render(" "+RuneBullet+" "+i18n.T("hints.extended")+" "+RuneBullet+" "+i18n.T("hints.commands"))
 	case verboseExtended:
-		hints = StyleFaint.Render(i18n.T("hints.verbose") + " " + RuneBullet + " ") +
+		hints = StyleFaint.Render(i18n.T("hints.verbose")+" "+RuneBullet+" ") +
 			lipgloss.NewStyle().Foreground(ColorThinking).Render(i18n.T("hints.extended_off")) +
-			StyleFaint.Render(" " + RuneBullet + " " + i18n.T("hints.commands"))
+			StyleFaint.Render(" "+RuneBullet+" "+i18n.T("hints.commands"))
 	}
+	hints += StyleFaint.Render(" " + RuneBullet + " " + i18n.T("hints.props"))
 	if m.input.HasNewlines() {
 		newlineHint := StyleFaint.Render(" " + RuneBullet + " " + i18n.T("hints.newline"))
 		hints += newlineHint

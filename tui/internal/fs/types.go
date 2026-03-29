@@ -55,14 +55,15 @@ type Network struct {
 
 // MailMessage is the schema for messages written to mailbox/inbox/{uuid}/message.json.
 type MailMessage struct {
-	ID         string            `json:"id"`
-	MailboxID  string            `json:"_mailbox_id"`
-	From       string            `json:"from"`
-	To         interface{}       `json:"to"` // string or []string
-	CC         []string          `json:"cc"`
-	Subject    string            `json:"subject"`
-	Message    string            `json:"message"`
-	Type       string            `json:"type"`
-	ReceivedAt string            `json:"received_at"`
-	Identity   map[string]interface{} `json:"identity,omitempty"`
+	ID         string                 `json:"id"`
+	MailboxID  string                 `json:"_mailbox_id"`
+	From       string                 `json:"from"`
+	To         interface{}            `json:"to"` // string or []string
+	CC         []string               `json:"cc"`
+	Subject    string                 `json:"subject"`
+	Message    string                 `json:"message"`
+	Type        string                 `json:"type"`
+	ReceivedAt  string                 `json:"received_at"`
+	Attachments []string               `json:"attachments,omitempty"`
+	Identity    map[string]interface{} `json:"identity,omitempty"`
 }
