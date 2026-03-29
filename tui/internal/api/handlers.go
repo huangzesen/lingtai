@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/fs"
 )
 
@@ -26,6 +27,7 @@ func NewNetworkHandler(baseDir string) http.HandlerFunc {
 		if network.MailEdges == nil {
 			network.MailEdges = []fs.MailEdge{}
 		}
+		network.Lang = i18n.Lang()
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		json.NewEncoder(w).Encode(network)

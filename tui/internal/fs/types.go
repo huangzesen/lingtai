@@ -51,6 +51,7 @@ type Network struct {
 	ContactEdges []ContactEdge `json:"contact_edges"`
 	MailEdges    []MailEdge    `json:"mail_edges"`
 	Stats        NetworkStats  `json:"stats"`
+	Lang         string        `json:"lang"`
 }
 
 // MailMessage is the schema for messages written to mailbox/inbox/{uuid}/message.json.
