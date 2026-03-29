@@ -121,6 +121,8 @@ The point of this exercise is for the human to experience the full lifecycle: ac
 
 **Critical warning — agents survive ctrl-c**: After the lifecycle exercise, explicitly warn the human: closing the TUI (ctrl-c, /quit, or closing the terminal) does NOT stop agent processes. Agents are independent Python processes that keep running in the background. If the human wants to stop all agents, they must use `/suspend-all` in the TUI, or run `lingtai-tui suspend` from the command line, or manually `touch .lingtai/<agent>/.suspend` for each agent. **Never delete an agent's directory without suspending it first** — this creates a phantom process that can only be killed via `ps aux | grep "lingtai run"` and `kill <pid>`.
 
+Explain the design philosophy behind this: Lingtai intentionally does not use PID files or OS-level process management. All agent lifecycle is managed through the filesystem — signal files (.suspend, .sleep, .interrupt) that the agent's heartbeat thread polls. This makes agents self-sufficient and platform-neutral: they work identically on macOS, Linux, and Windows without any OS-specific code. The agent's working directory IS the agent — everything about its state, identity, and control lives in files. The tradeoff is that you must use the proper shutdown flow instead of just killing processes.
+
 ### Lesson 9: Addons — External Connections
 - Two built-in addons: **IMAP** (real email — Gmail, Outlook, etc.) and **Telegram** (bot).
 - Show the template files at ~/.lingtai/templates/ (imap.jsonc, telegram.jsonc). Read them and explain each field.
