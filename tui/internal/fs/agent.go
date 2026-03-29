@@ -151,3 +151,45 @@ func DiscoverAgents(baseDir string) ([]AgentNode, error) {
 	}
 	return nodes, nil
 }
+
+// TokenTotals holds summed token usage across multiple agents.
+type TokenTotals struct {
+	Input    int64
+	Output   int64
+	Thinking int64
+	Cached   int64
+	APICalls int64
+}
+
+// AggregateTokens sums token usage from .agent.json across all given agent directories.
+// Skips agents whose .agent.json is missing or has no tokens field.
+func AggregateTokens(dirs []string) TokenTotals {
+	var t TokenTotals
+	for _, dir := range dirs {
+		raw, err := ReadAgentRaw(dir)
+		if err != nil {
+			continue
+		}
+		tokens, ok := raw["tokens"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		t.Input += toInt64(tokens["input_tokens"])
+		t.Output += toInt64(tokens["output_tokens"])
+		t.Thinking += toInt64(tokens["thinking_tokens"])
+		t.Cached += toInt64(tokens["cached_tokens"])
+		t.APICalls += toInt64(tokens["api_calls"])
+	}
+	return t
+}
+
+// toInt64 converts a JSON number (float64) to int64.
+func toInt64(v interface{}) int64 {
+	switch n := v.(type) {
+	case float64:
+		return int64(n)
+	case int:
+		return int64(n)
+	}
+	return 0
+}
