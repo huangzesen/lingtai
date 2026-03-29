@@ -1039,8 +1039,8 @@ func (m FirstRunModel) View() string {
 		b.WriteString("\n  " + titleStyle.Render(i18n.T("firstrun.tutorial_title")) + "\n\n")
 
 		b.WriteString("  " + i18n.T("firstrun.tutorial_desc") + "\n")
-		b.WriteString("  " + StyleFaint.Render(i18n.T("firstrun.tutorial_patience")) + "\n")
-		b.WriteString("  " + StyleSubtle.Render(i18n.T("firstrun.tutorial_status_hint")) + "\n")
+		b.WriteString("  " + i18n.T("firstrun.tutorial_patience") + "\n")
+		b.WriteString("  " + i18n.T("firstrun.tutorial_status_hint") + "\n")
 		b.WriteString("\n")
 
 		type tutorialOpt struct {
