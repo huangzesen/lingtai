@@ -1,6 +1,7 @@
 export interface AgentNode {
   address: string;
   agent_name: string;
+  nickname: string;
   state: 'ACTIVE' | 'IDLE' | 'STUCK' | 'ASLEEP' | 'SUSPENDED' | '';
   alive: boolean;
   is_human: boolean;

@@ -38,11 +38,13 @@ function loadPositions(): Record<string, { x: number; y: number }> {
 }
 
 function savePositions(dots: Map<string, Dot>) {
-  const pos: Record<string, { x: number; y: number }> = {};
-  for (const [id, d] of dots) {
-    pos[id] = { x: d.x, y: d.y };
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(pos));
+  try {
+    const pos: Record<string, { x: number; y: number }> = {};
+    for (const [id, d] of dots) {
+      pos[id] = { x: d.x, y: d.y };
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(pos));
+  } catch { /* storage full or unavailable */ }
 }
 
 function findNearest(dots: Map<string, Dot>, mx: number, my: number): Dot | null {
@@ -85,7 +87,7 @@ export function Graph({ network, edgeMode }: { network: Network; edgeMode: EdgeM
     for (const n of network.nodes) {
       const prev = old.get(n.address);
       if (prev) {
-        prev.name = n.agent_name || n.address.split('/').pop() || '?';
+        prev.name = n.nickname || n.agent_name || n.address.split('/').pop() || '?';
         prev.state = n.state;
         prev.alive = n.alive;
         prev.isHuman = n.is_human;
@@ -94,7 +96,7 @@ export function Graph({ network, edgeMode }: { network: Network; edgeMode: EdgeM
         const sp = stored[n.address];
         next.set(n.address, {
           id: n.address,
-          name: n.agent_name || n.address.split('/').pop() || '?',
+          name: n.nickname || n.agent_name || n.address.split('/').pop() || '?',
           state: n.state,
           alive: n.alive,
           isHuman: n.is_human,

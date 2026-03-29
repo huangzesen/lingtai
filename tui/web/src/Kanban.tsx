@@ -24,7 +24,7 @@ export function Kanban({ nodes, lang }: { nodes: AgentNode[]; lang: string }) {
                   padding: '1px 6px',
                   color,
                 }}>
-                  {a.agent_name || a.address.split('/').pop()}
+                  {a.nickname || a.agent_name || a.address.split('/').pop()}
                 </span>
               ))}
             </div>
