@@ -78,7 +78,10 @@ class Agent(BaseAgent):
         # Register capabilities — provider kwarg flows through to setup() naturally
         if capabilities:
             for name, cap_kwargs in capabilities.items():
-                self._setup_capability(name, **cap_kwargs)
+                try:
+                    self._setup_capability(name, **cap_kwargs)
+                except (ValueError, ImportError) as e:
+                    self._log("capability_skipped", capability=name, reason=str(e))
 
         # Register addons (after capabilities, may depend on them)
         self._addon_managers: dict[str, Any] = {}
@@ -340,6 +343,10 @@ class Agent(BaseAgent):
                     pass
         super().stop(timeout=timeout)
 
+    def has_capability(self, name: str) -> bool:
+        """Check if a capability is registered."""
+        return name in self._capability_managers
+
     def get_capability(self, name: str) -> Any:
         """Return the manager instance for a registered capability, or None."""
         return self._capability_managers.get(name)
@@ -525,7 +532,10 @@ class Agent(BaseAgent):
                     expanded[name] = cap_kwargs
             capabilities = expanded
             for name, cap_kwargs in capabilities.items():
-                self._setup_capability(name, **cap_kwargs)
+                try:
+                    self._setup_capability(name, **cap_kwargs)
+                except (ValueError, ImportError) as e:
+                    self._log("capability_skipped", capability=name, reason=str(e))
 
         # Re-run addon setup — merge explicit config with auto-discovered files
         addons = _resolve_addons(data.get("addons")) or {}
