@@ -416,9 +416,8 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 					time.Sleep(250 * time.Millisecond)
 				}
 				os.Remove(suspendFile)
-				// Wipe conversation history
+				// Wipe conversation history (token ledger is preserved)
 				os.Remove(filepath.Join(a.orchDir, "history", "chat_history.jsonl"))
-				os.Remove(filepath.Join(a.orchDir, "history", "status.json"))
 				// Relaunch with clean context
 				process.LaunchAgent(a.lingtaiCmd, a.orchDir)
 				return refreshDoneMsg{}
