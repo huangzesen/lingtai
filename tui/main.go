@@ -25,9 +25,11 @@ func main() {
 		if arg == "--help" || arg == "-h" {
 			fmt.Println("Usage: lingtai-tui [project-dir]")
 			fmt.Println("       lingtai-tui tutorial [project-dir]")
+			fmt.Println("       lingtai-tui suspend [project-dir]")
 			fmt.Println()
 			fmt.Println("  project-dir  Path to the project (default: current directory)")
 			fmt.Println("  tutorial     Start or resume the guided tutorial")
+			fmt.Println("  suspend      Suspend all agents in the project and exit")
 			os.Exit(0)
 		}
 		if arg == "--version" || arg == "-v" {
@@ -36,6 +38,10 @@ func main() {
 		}
 		if arg == "tutorial" {
 			tutorialMain()
+			return
+		}
+		if arg == "suspend" {
+			suspendMain()
 			return
 		}
 	}
@@ -216,5 +222,47 @@ func tutorialMain() {
 	if _, err := prog.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
+	}
+}
+
+func suspendMain() {
+	// Resolve project directory (optional second arg)
+	var projectDir string
+	if len(os.Args) > 2 {
+		projectDir = os.Args[2]
+	} else {
+		projectDir, _ = os.Getwd()
+	}
+	projectDir, _ = filepath.Abs(projectDir)
+
+	lingtaiDir := filepath.Join(projectDir, ".lingtai")
+	if _, err := os.Stat(lingtaiDir); os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "No .lingtai/ found in %s\n", projectDir)
+		os.Exit(1)
+	}
+
+	agents, err := fs.DiscoverAgents(lingtaiDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error discovering agents: %v\n", err)
+		os.Exit(1)
+	}
+
+	count := 0
+	for _, agent := range agents {
+		if agent.IsHuman {
+			continue
+		}
+		if !fs.IsAlive(agent.WorkingDir, 3.0) {
+			continue
+		}
+		fmt.Printf("Suspending %s...\n", agent.AgentName)
+		fs.SuspendAndWait(agent.WorkingDir, 5*time.Second)
+		count++
+	}
+
+	if count == 0 {
+		fmt.Println("No active agents found.")
+	} else {
+		fmt.Printf("Suspended %d agent(s).\n", count)
 	}
 }
