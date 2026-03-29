@@ -24,14 +24,8 @@ class GeminiSearchService(SearchService):
         self._model = model
 
     def search(self, query: str, max_results: int = 5) -> list[SearchResult]:
-        try:
-            from google import genai
-            from google.genai import types
-        except ImportError:
-            raise ImportError(
-                "google-genai is required for GeminiSearchService. "
-                "Install it with: pip install lingtai[gemini]"
-            )
+        from google import genai
+        from google.genai import types
 
         client = genai.Client(api_key=self._api_key)
         try:

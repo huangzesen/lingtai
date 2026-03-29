@@ -23,13 +23,7 @@ class OpenAISearchService(SearchService):
         self._model = model
 
     def search(self, query: str, max_results: int = 5) -> list[SearchResult]:
-        try:
-            import openai as openai_sdk
-        except ImportError:
-            raise ImportError(
-                "openai is required for OpenAISearchService. "
-                "Install it with: pip install lingtai[openai]"
-            )
+        import openai as openai_sdk
 
         client = openai_sdk.OpenAI(api_key=self._api_key)
         try:

@@ -32,14 +32,8 @@ class GeminiImageGenService(ImageGenService):
         api_key: str | None = None,
         model: str = "gemini-2.5-flash-image",
     ) -> None:
-        try:
-            from google import genai
-            from google.genai import types
-        except ImportError:
-            raise ImportError(
-                "google-genai is required for GeminiImageGenService. "
-                "Install it with: pip install lingtai[gemini]"
-            )
+        from google import genai
+        from google.genai import types
 
         resolved_key = api_key or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
         if not resolved_key:

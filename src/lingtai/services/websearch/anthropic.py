@@ -24,13 +24,7 @@ class AnthropicSearchService(SearchService):
         self._model = model
 
     def search(self, query: str, max_results: int = 5) -> list[SearchResult]:
-        try:
-            import anthropic
-        except ImportError:
-            raise ImportError(
-                "anthropic is required for AnthropicSearchService. "
-                "Install it with: pip install lingtai[anthropic]"
-            )
+        import anthropic
 
         client = anthropic.Anthropic(api_key=self._api_key)
         try:

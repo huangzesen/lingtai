@@ -117,10 +117,11 @@ type FirstRunModel struct {
 	langCursor  int
 	welcomeOnly bool // true when opened from /settings (return to mail after language pick)
 	// Bootstrap state (venv + assets install)
-	setupDone   bool        // true when bootstrap goroutine finishes
-	setupErr    string      // non-empty if bootstrap failed
-	setupStatus string      // current progress i18n key
-	progressCh  chan string // channel for progress updates
+	setupDone    bool        // true when bootstrap goroutine finishes
+	setupErr     string      // non-empty if bootstrap failed
+	setupStatus  string      // current progress i18n key (active step)
+	setupSteps   []string    // completed step i18n keys (shown with checkmarks)
+	progressCh   chan string // channel for progress updates
 	// Embedded key input for preset's provider
 	presetKeyInput    textinput.Model
 	presetEndpointIn  textinput.Model   // base_url for custom provider
@@ -284,10 +285,18 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 		return m, nil
 
 	case bootstrapProgressMsg:
+		// Move current step to completed list, set new step as active
+		if m.setupStatus != "" {
+			m.setupSteps = append(m.setupSteps, m.setupStatus)
+		}
 		m.setupStatus = msg.key
 		return m, waitForProgress(m.progressCh)
 
 	case bootstrapDoneMsg:
+		// Move final step to completed list
+		if m.setupStatus != "" {
+			m.setupSteps = append(m.setupSteps, m.setupStatus)
+		}
 		m.setupDone = true
 		m.setupStatus = ""
 		return m, nil
@@ -1205,17 +1214,18 @@ func (m FirstRunModel) viewWelcome() string {
 
 	// Language selector
 	for i, label := range langLabels {
-		cursor := "  "
 		style := lipgloss.NewStyle().Foreground(ColorText)
+		var line string
 		if i == m.langCursor {
-			cursor = "> "
 			style = lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
+			line = style.Render("[" + label + "]")
+		} else {
+			line = " " + style.Render(label) + " "
 		}
-		line := cursor + style.Render(label)
 		content.WriteString(centerText(line, m.width) + "\n")
 	}
 
-	// Bootstrap status
+	// Bootstrap status — single line, updates in place
 	if !m.welcomeOnly {
 		content.WriteString("\n")
 		if m.setupErr != "" {

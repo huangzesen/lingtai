@@ -94,15 +94,21 @@ func ensureVenv(globalDir string, quiet bool, progress ProgressFunc) error {
 		return nil
 	}
 	venvPath := RuntimeVenvDir(globalDir)
-	pythonCmd := findPython()
-	if pythonCmd == "" {
-		return fmt.Errorf("Python 3.11+ is required. Install it from python.org and try again")
-	}
+	uvCmd := findUV()
 
 	// Step 1: create venv
 	progress("welcome.step_venv")
 	os.MkdirAll(filepath.Dir(venvPath), 0o755)
-	cmd := exec.Command(pythonCmd, "-m", "venv", venvPath)
+	var cmd *exec.Cmd
+	if uvCmd != "" {
+		cmd = exec.Command(uvCmd, "venv", venvPath)
+	} else {
+		pythonCmd := findPython()
+		if pythonCmd == "" {
+			return fmt.Errorf("Python 3.11+ is required. Install it from python.org and try again")
+		}
+		cmd = exec.Command(pythonCmd, "-m", "venv", venvPath)
+	}
 	if !quiet {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -111,27 +117,40 @@ func ensureVenv(globalDir string, quiet bool, progress ProgressFunc) error {
 		return fmt.Errorf("failed to create venv: %w", err)
 	}
 
-	// Step 2: pip install
+	// Step 2: install lingtai
 	progress("welcome.step_install")
-	var pipCmd string
-	if runtime.GOOS == "windows" {
-		pipCmd = filepath.Join(venvPath, "Scripts", "pip.exe")
-	} else {
-		pipCmd = filepath.Join(venvPath, "bin", "pip")
-	}
-	// Dev mode: editable install from local source if available
 	home, _ := os.UserHomeDir()
 	kernelSrc := filepath.Join(home, "Documents", "GitHub", "lingtai-kernel")
 	lingtaiSrc := filepath.Join(home, "Documents", "GitHub", "lingtai")
 	var install *exec.Cmd
-	if _, err := os.Stat(filepath.Join(lingtaiSrc, "pyproject.toml")); err == nil {
-		args := []string{"install", "-e", lingtaiSrc}
-		if _, err := os.Stat(filepath.Join(kernelSrc, "pyproject.toml")); err == nil {
-			args = []string{"install", "-e", kernelSrc, "-e", lingtaiSrc}
+	if uvCmd != "" {
+		// uv pip install — use -p to target the venv
+		if _, err := os.Stat(filepath.Join(lingtaiSrc, "pyproject.toml")); err == nil {
+			args := []string{"pip", "install", "-e", lingtaiSrc, "-p", venvPath}
+			if _, err := os.Stat(filepath.Join(kernelSrc, "pyproject.toml")); err == nil {
+				args = []string{"pip", "install", "-e", kernelSrc, "-e", lingtaiSrc, "-p", venvPath}
+			}
+			install = exec.Command(uvCmd, args...)
+		} else {
+			install = exec.Command(uvCmd, "pip", "install", "lingtai", "-p", venvPath)
 		}
-		install = exec.Command(pipCmd, args...)
 	} else {
-		install = exec.Command(pipCmd, "install", "lingtai")
+		// Fallback: pip from the venv
+		var pipCmd string
+		if runtime.GOOS == "windows" {
+			pipCmd = filepath.Join(venvPath, "Scripts", "pip.exe")
+		} else {
+			pipCmd = filepath.Join(venvPath, "bin", "pip")
+		}
+		if _, err := os.Stat(filepath.Join(lingtaiSrc, "pyproject.toml")); err == nil {
+			args := []string{"install", "-e", lingtaiSrc}
+			if _, err := os.Stat(filepath.Join(kernelSrc, "pyproject.toml")); err == nil {
+				args = []string{"install", "-e", kernelSrc, "-e", lingtaiSrc}
+			}
+			install = exec.Command(pipCmd, args...)
+		} else {
+			install = exec.Command(pipCmd, "install", "lingtai")
+		}
 	}
 	if !quiet {
 		install.Stdout = os.Stdout
@@ -140,7 +159,26 @@ func ensureVenv(globalDir string, quiet bool, progress ProgressFunc) error {
 	if err := install.Run(); err != nil {
 		return fmt.Errorf("failed to install lingtai. Check your internet connection and try again: %w", err)
 	}
+
+	// Step 3: verify installation
+	progress("welcome.step_verify")
+	python := VenvPython(venvPath)
+	verify := exec.Command(python, "-c", "import lingtai; print(lingtai.__version__)")
+	if !quiet {
+		verify.Stdout = os.Stdout
+		verify.Stderr = os.Stderr
+	}
+	if err := verify.Run(); err != nil {
+		return fmt.Errorf("lingtai installed but import failed — check for missing dependencies: %w", err)
+	}
 	return nil
+}
+
+func findUV() string {
+	if path, err := exec.LookPath("uv"); err == nil {
+		return path
+	}
+	return ""
 }
 
 func findPython() string {

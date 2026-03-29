@@ -13,13 +13,7 @@ class DuckDuckGoSearchService(SearchService):
     """
 
     def search(self, query: str, max_results: int = 5) -> list[SearchResult]:
-        try:
-            from ddgs import DDGS  # type: ignore[import-untyped]
-        except ImportError:
-            raise ImportError(
-                "ddgs is required for DuckDuckGoSearchService. "
-                "Install it with: pip install lingtai[duckduckgo]"
-            )
+        from ddgs import DDGS  # type: ignore[import-untyped]
         raw = DDGS().text(query, max_results=max_results)
         return [
             SearchResult(

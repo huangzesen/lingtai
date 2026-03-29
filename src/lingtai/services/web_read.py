@@ -47,13 +47,7 @@ class TrafilaturaWebReadService(WebReadService):
     """
 
     def read(self, url: str, output_format: str = "text") -> WebReadResult:
-        try:
-            import trafilatura  # type: ignore[import-untyped]
-        except ImportError:
-            raise ImportError(
-                "trafilatura is required for TrafilaturaWebReadService. "
-                "Install it with: pip install lingtai[trafilatura]"
-            )
+        import trafilatura  # type: ignore[import-untyped]
 
         downloaded = trafilatura.fetch_url(url)
         if downloaded is None:

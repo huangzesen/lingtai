@@ -70,6 +70,8 @@ class WhisperTranscriptionService(TranscriptionService):
     def _ensure_model(self):
         """Lazy-load the Whisper model."""
         if self._model is None:
+            from lingtai.venv_resolve import ensure_package
+            ensure_package("faster-whisper", "faster_whisper")
             from faster_whisper import WhisperModel
 
             self._model = WhisperModel(

@@ -17,8 +17,6 @@ dependencies = [
     "mcp>=1.0",
     "ddgs>=7.0",
     "trafilatura>=2.0",
-    "faster-whisper>=1.0",
-    "librosa>=0.10",
 ]
 
 [project.scripts]

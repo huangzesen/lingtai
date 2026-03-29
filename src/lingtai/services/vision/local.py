@@ -41,14 +41,8 @@ class LocalVisionService(VisionService):
         if self._model is not None:
             return
 
-        try:
-            from mlx_vlm import load
-            from mlx_vlm.utils import load_config
-        except ImportError:
-            raise ImportError(
-                "mlx-vlm is required for local vision. "
-                "Install it with: pip install mlx-vlm"
-            )
+        from mlx_vlm import load
+        from mlx_vlm.utils import load_config
 
         self._model, self._processor = load(self._model_name)
         self._config = load_config(self._model_name)

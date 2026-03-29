@@ -91,6 +91,42 @@ def _create_venv(venv_dir: Path) -> None:
     print("Runtime ready.", file=sys.stderr)
 
 
+def ensure_package(pip_name: str, import_name: str | None = None) -> None:
+    """Install a package into the current Python environment if missing.
+
+    Tries uv first (fast), falls back to pip.
+    """
+    import_name = import_name or pip_name
+    try:
+        __import__(import_name)
+        return
+    except ImportError:
+        pass
+
+    python = sys.executable
+    import shutil
+    uv = shutil.which("uv")
+    if uv:
+        subprocess.run(
+            [uv, "pip", "install", pip_name, "-p", python],
+            check=True, capture_output=True,
+        )
+    else:
+        subprocess.run(
+            [python, "-m", "pip", "install", pip_name],
+            check=True, capture_output=True,
+        )
+
+    # Verify
+    try:
+        __import__(import_name)
+    except ImportError:
+        raise ImportError(
+            f"Failed to auto-install {pip_name}. "
+            f"Try manually: pip install {pip_name}"
+        )
+
+
 def _find_python() -> str | None:
     """Find a Python ≥ 3.11 on the system."""
     import shutil

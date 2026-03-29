@@ -35,16 +35,11 @@ class GeminiTTSService(TTSService):
         model: str = "gemini-2.5-flash-preview-tts",
         voice: str = "Charon",
     ) -> None:
-        try:
-            from google import genai
-            from google.genai import types  # noqa: F401
-        except ImportError:
-            raise ImportError(
-                "google-genai is required for GeminiTTSService. "
-                "Install with: pip install lingtai[gemini]"
-            )
+        from google import genai
+        from google.genai import types
 
         self._client = genai.Client(api_key=api_key)
+        self._types = types
         self._model = model
         self._default_voice = voice
 
@@ -81,6 +76,7 @@ class GeminiTTSService(TTSService):
         effective_voice = voice or self._default_voice
         effective_model = str(kwargs.get("model", self._model))
 
+        types = self._types
         speech_config = types.SpeechConfig(
             voice_config=types.VoiceConfig(
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(

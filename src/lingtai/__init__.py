@@ -1,5 +1,9 @@
 """lingtai — generic AI agent framework with intrinsic tools, composable capabilities, and pluggable services."""
 
+from importlib.metadata import version as _pkg_version
+
+__version__ = _pkg_version("lingtai")
+
 from lingtai_kernel.types import UnknownToolError
 from lingtai_kernel.config import AgentConfig
 from lingtai_kernel.base_agent import BaseAgent
@@ -25,6 +29,7 @@ from .services.transcription import TranscriptionService, TranscriptionResult, c
 from .services.music_gen import MusicGenService, create_music_gen_service
 
 __all__ = [
+    "__version__",
     # Core
     "BaseAgent",
     "Agent",

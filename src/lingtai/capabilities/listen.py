@@ -234,6 +234,8 @@ class ListenManager:
 
     def _get_librosa(self):
         if self._librosa is None:
+            from lingtai.venv_resolve import ensure_package
+            ensure_package("librosa")
             import librosa
             self._librosa = librosa
         return self._librosa
