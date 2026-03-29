@@ -15,6 +15,12 @@ import (
 )
 
 func purgeMain() {
+	// Optional dir filter from os.Args[2]
+	var filterDir string
+	if len(os.Args) > 2 {
+		filterDir, _ = filepath.Abs(os.Args[2])
+	}
+
 	out, err := exec.Command("ps", "aux").Output()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error running ps: %v\n", err)
@@ -49,6 +55,14 @@ func purgeMain() {
 			}
 		}
 
+		// Filter by dir if specified
+		if filterDir != "" {
+			lingtaiPrefix := filepath.Join(filterDir, ".lingtai") + string(filepath.Separator)
+			if !strings.HasPrefix(agentDir, lingtaiPrefix) {
+				continue
+			}
+		}
+
 		procs = append(procs, proc{
 			pid:   pid,
 			agent: filepath.Base(agentDir),
@@ -57,16 +71,24 @@ func purgeMain() {
 	}
 
 	if len(procs) == 0 {
-		fmt.Println("No lingtai processes found.")
+		if filterDir != "" {
+			fmt.Printf("No lingtai processes found in %s.\n", filterDir)
+		} else {
+			fmt.Println("No lingtai processes found.")
+		}
 		return
 	}
 
-	// List all processes
+	// List matching processes
+	scope := "ALL"
+	if filterDir != "" {
+		scope = filterDir
+	}
 	fmt.Printf("%-8s %-30s %s\n", "PID", "AGENT", "DIRECTORY")
 	for _, p := range procs {
 		fmt.Printf("%-8d %-30s %s\n", p.pid, p.agent, p.dir)
 	}
-	fmt.Printf("\n%d process(es) found. Kill all? [y/N] ", len(procs))
+	fmt.Printf("\n%d process(es) in %s. Kill all? [y/N] ", len(procs), scope)
 
 	// Wait for confirmation
 	reader := bufio.NewReader(os.Stdin)

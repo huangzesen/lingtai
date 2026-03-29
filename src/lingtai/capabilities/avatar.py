@@ -212,6 +212,9 @@ class AvatarManager:
         # Comment is not inherited — parent can set one explicitly for the avatar
         init["comment"] = comment
         init.pop("comment_file", None)
+        # Addons (IMAP, Telegram) are not inherited — each agent must be
+        # explicitly configured to avoid multiple agents polling the same account
+        init.pop("addons", None)
         return init
 
     # ------------------------------------------------------------------

@@ -13,6 +13,12 @@ import (
 )
 
 func listMain() {
+	// Optional dir filter from os.Args[2]
+	var filterDir string
+	if len(os.Args) > 2 {
+		filterDir, _ = filepath.Abs(os.Args[2])
+	}
+
 	out, err := exec.Command("ps", "aux").Output()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error running ps: %v\n", err)
@@ -23,6 +29,7 @@ func listMain() {
 		pid     int
 		agent   string
 		project string
+		dir     string
 		elapsed string
 	}
 
@@ -49,6 +56,14 @@ func listMain() {
 			}
 		}
 
+		// If filtering by dir, only include processes under <dir>/.lingtai/
+		if filterDir != "" {
+			lingtaiPrefix := filepath.Join(filterDir, ".lingtai") + string(filepath.Separator)
+			if !strings.HasPrefix(agentDir, lingtaiPrefix) {
+				continue
+			}
+		}
+
 		agent := filepath.Base(agentDir)
 		project := ""
 		// Walk up to find .lingtai parent
@@ -59,11 +74,15 @@ func listMain() {
 		// Get process start time from /proc or ps
 		elapsed := fields[9] // ps aux column 10 is START
 
-		procs = append(procs, proc{pid: pid, agent: agent, project: project, elapsed: elapsed})
+		procs = append(procs, proc{pid: pid, agent: agent, project: project, dir: agentDir, elapsed: elapsed})
 	}
 
 	if len(procs) == 0 {
-		fmt.Println("No lingtai processes running.")
+		if filterDir != "" {
+			fmt.Printf("No lingtai processes running in %s.\n", filterDir)
+		} else {
+			fmt.Println("No lingtai processes running.")
+		}
 		return
 	}
 
@@ -93,13 +112,50 @@ func listMain() {
 		}
 	}
 
+	// Detect phantoms: processes running under a dir that has no .lingtai/
+	phantomDirs := map[string]bool{}
+	if filterDir != "" {
+		lingtaiDir := filepath.Join(filterDir, ".lingtai")
+		if _, err := os.Stat(lingtaiDir); os.IsNotExist(err) {
+			phantomDirs[filterDir] = true
+		}
+	} else {
+		// Check each unique project dir
+		seen := map[string]bool{}
+		for _, p := range procs {
+			if p.project != "" && !seen[p.project] {
+				seen[p.project] = true
+				lingtaiDir := filepath.Join(p.project, ".lingtai")
+				if _, err := os.Stat(lingtaiDir); os.IsNotExist(err) {
+					phantomDirs[p.project] = true
+				}
+			}
+		}
+	}
+
 	fmt.Printf("%-8s %-12s %-30s %s\n", "PID", "UPTIME", "AGENT", "PROJECT")
 	for _, p := range procs {
 		up := p.elapsed
 		if e, ok := etimes[p.pid]; ok {
 			up = e
 		}
-		fmt.Printf("%-8d %-12s %-30s %s\n", p.pid, up, p.agent, p.project)
+		label := ""
+		if phantomDirs[p.project] {
+			label = " [PHANTOM]"
+		}
+		fmt.Printf("%-8d %-12s %-30s %s%s\n", p.pid, up, p.agent, p.project, label)
 	}
 	fmt.Printf("\n%d process(es) running.\n", len(procs))
+
+	if len(phantomDirs) > 0 {
+		fmt.Println()
+		for dir := range phantomDirs {
+			fmt.Printf("WARNING: %s/.lingtai/ no longer exists — processes are phantoms.\n", dir)
+		}
+		if filterDir != "" {
+			fmt.Printf("Run 'lingtai-tui purge %s' to kill them.\n", filterDir)
+		} else {
+			fmt.Println("Run 'lingtai-tui purge <dir>' to kill phantoms in a specific directory.")
+		}
+	}
 }

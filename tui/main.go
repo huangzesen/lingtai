@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,17 +25,17 @@ func main() {
 	if len(os.Args) > 1 {
 		arg := os.Args[1]
 		if arg == "--help" || arg == "-h" {
-			fmt.Println("Usage: lingtai-tui [project-dir]")
-			fmt.Println("       lingtai-tui tutorial [project-dir]")
-			fmt.Println("       lingtai-tui suspend [project-dir]")
-			fmt.Println("       lingtai-tui purge")
-			fmt.Println("       lingtai-tui list")
+			fmt.Println("Usage: lingtai-tui")
+			fmt.Println("       lingtai-tui tutorial")
+			fmt.Println("       lingtai-tui suspend")
+			fmt.Println("       lingtai-tui purge [dir]")
+			fmt.Println("       lingtai-tui list [dir]")
 			fmt.Println()
-			fmt.Println("  project-dir  Path to the project (default: current directory)")
+			fmt.Println("  (no args)    Launch TUI in current directory")
 			fmt.Println("  tutorial     Start or resume the guided tutorial")
-			fmt.Println("  suspend      Suspend all agents in the project and exit")
-			fmt.Println("  purge        Kill ALL lingtai processes on this machine")
-			fmt.Println("  list         Show all running lingtai processes")
+			fmt.Println("  suspend      Suspend all agents in current directory")
+			fmt.Println("  purge        Kill lingtai processes (all, or only those in <dir>)")
+			fmt.Println("  list         Show running lingtai processes (all, or only those in <dir>)")
 			os.Exit(0)
 		}
 		if arg == "--version" || arg == "-v" {
@@ -56,15 +58,12 @@ func main() {
 			listMain()
 			return
 		}
+		fmt.Fprintf(os.Stderr, "Unknown command: %s\nRun 'lingtai-tui --help' for usage.\n", arg)
+		os.Exit(1)
 	}
 
-	// Resolve project directory
-	var projectDir string
-	if len(os.Args) > 1 {
-		projectDir = os.Args[1]
-	} else {
-		projectDir, _ = os.Getwd()
-	}
+	// Always start in current directory
+	projectDir, _ := os.Getwd()
 	projectDir, _ = filepath.Abs(projectDir)
 
 	// Global config directory (~/.lingtai-tui)
@@ -75,6 +74,16 @@ func main() {
 	}
 
 	lingtaiDir := filepath.Join(projectDir, ".lingtai")
+
+	// If .lingtai/ doesn't exist, check for phantom processes before creating it
+	if _, err := os.Stat(lingtaiDir); os.IsNotExist(err) {
+		self, _ := os.Executable()
+		out, _ := exec.Command(self, "list", projectDir).Output()
+		if len(out) > 0 && strings.Contains(string(out), "[PHANTOM]") {
+			fmt.Print(string(out))
+			os.Exit(1)
+		}
+	}
 
 	// Init project (create human dir)
 	if err := process.InitProject(lingtaiDir); err != nil {
@@ -147,13 +156,7 @@ func main() {
 }
 
 func tutorialMain() {
-	// Resolve project directory (optional second arg)
-	var projectDir string
-	if len(os.Args) > 2 {
-		projectDir = os.Args[2]
-	} else {
-		projectDir, _ = os.Getwd()
-	}
+	projectDir, _ := os.Getwd()
 	projectDir, _ = filepath.Abs(projectDir)
 
 	globalDir, err := config.GlobalDir()
@@ -238,13 +241,7 @@ func tutorialMain() {
 }
 
 func suspendMain() {
-	// Resolve project directory (optional second arg)
-	var projectDir string
-	if len(os.Args) > 2 {
-		projectDir = os.Args[2]
-	} else {
-		projectDir, _ = os.Getwd()
-	}
+	projectDir, _ := os.Getwd()
 	projectDir, _ = filepath.Abs(projectDir)
 
 	lingtaiDir := filepath.Join(projectDir, ".lingtai")
