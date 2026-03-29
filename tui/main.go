@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -167,7 +168,8 @@ func tutorialMain() {
 
 	tutorialDir := filepath.Join(lingtaiDir, "tutorial")
 
-	// Always start fresh — wipe any previous tutorial
+	// Kill old tutorial if running, then wipe
+	fs.SuspendAndWait(tutorialDir, 3*time.Second)
 	os.RemoveAll(tutorialDir)
 	p := preset.First()
 	globalCfg, _ := config.LoadConfig(globalDir)
