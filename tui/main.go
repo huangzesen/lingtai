@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"syscall"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -26,10 +30,12 @@ func main() {
 			fmt.Println("Usage: lingtai-tui [project-dir]")
 			fmt.Println("       lingtai-tui tutorial [project-dir]")
 			fmt.Println("       lingtai-tui suspend [project-dir]")
+			fmt.Println("       lingtai-tui purge")
 			fmt.Println()
 			fmt.Println("  project-dir  Path to the project (default: current directory)")
 			fmt.Println("  tutorial     Start or resume the guided tutorial")
 			fmt.Println("  suspend      Suspend all agents in the project and exit")
+			fmt.Println("  purge        Kill ALL lingtai processes on this machine")
 			os.Exit(0)
 		}
 		if arg == "--version" || arg == "-v" {
@@ -42,6 +48,10 @@ func main() {
 		}
 		if arg == "suspend" {
 			suspendMain()
+			return
+		}
+		if arg == "purge" {
+			purgeMain()
 			return
 		}
 	}
@@ -265,4 +275,58 @@ func suspendMain() {
 	} else {
 		fmt.Printf("Suspended %d agent(s).\n", count)
 	}
+}
+
+func purgeMain() {
+	// Find all "lingtai run" processes via ps
+	out, err := exec.Command("ps", "aux").Output()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error running ps: %v\n", err)
+		os.Exit(1)
+	}
+
+	var pids []int
+	for _, line := range strings.Split(string(out), "\n") {
+		if !strings.Contains(line, "lingtai run") || strings.Contains(line, "grep") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		pid, err := strconv.Atoi(fields[1])
+		if err != nil || pid == os.Getpid() {
+			continue
+		}
+		pids = append(pids, pid)
+	}
+
+	if len(pids) == 0 {
+		fmt.Println("No lingtai processes found.")
+		return
+	}
+
+	fmt.Printf("Found %d lingtai process(es). Killing...\n", len(pids))
+
+	// SIGTERM first
+	for _, pid := range pids {
+		if p, err := os.FindProcess(pid); err == nil {
+			p.Signal(syscall.SIGTERM)
+		}
+	}
+	time.Sleep(2 * time.Second)
+
+	// SIGKILL survivors
+	killed := 0
+	for _, pid := range pids {
+		if p, err := os.FindProcess(pid); err == nil {
+			// Check if still alive
+			if p.Signal(syscall.Signal(0)) == nil {
+				p.Signal(syscall.SIGKILL)
+			}
+		}
+		killed++
+	}
+
+	fmt.Printf("Purged %d process(es).\n", killed)
 }
