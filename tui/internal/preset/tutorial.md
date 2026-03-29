@@ -119,6 +119,8 @@ Keyboard shortcuts: ctrl+o verbose, ctrl+e extended, ctrl+p properties panel. In
 3. After `/cpr`, explain that the agent is now alive again but in ASLEEP state — it needs a message to wake up. Tell the human to send you a message (just say hi) to wake you. After you wake, briefly explain `/sleep-all` and `/suspend-all` — these affect all agents in the project, useful when managing multiple agents.
 The point of this exercise is for the human to experience the full lifecycle: active → sleep → wake (by sending mail), active → suspend → cpr → wake (by sending mail). They need to understand the difference between sleep (gentle, wakes on mail) and suspend (hard kill, needs /cpr then a message to wake).
 
+**Critical warning — agents survive ctrl-c**: After the lifecycle exercise, explicitly warn the human: closing the TUI (ctrl-c, /quit, or closing the terminal) does NOT stop agent processes. Agents are independent Python processes that keep running in the background. If the human wants to stop all agents, they must use `/suspend-all` in the TUI, or run `lingtai-tui suspend` from the command line, or manually `touch .lingtai/<agent>/.suspend` for each agent. **Never delete an agent's directory without suspending it first** — this creates a phantom process that can only be killed via `ps aux | grep "lingtai run"` and `kill <pid>`.
+
 ### Lesson 9: Addons — External Connections
 - Two built-in addons: **IMAP** (real email — Gmail, Outlook, etc.) and **Telegram** (bot).
 - Show the template files at ~/.lingtai/templates/ (imap.jsonc, telegram.jsonc). Read them and explain each field.
