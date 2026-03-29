@@ -27,6 +27,7 @@ from lingtai_kernel.intrinsics.mail import (
     _message_summary, _mailbox_dir,
     _persist_to_outbox, _mailman,
 )
+from lingtai_kernel.message import _make_message, MSG_REQUEST
 
 from ..i18n import t
 
@@ -548,7 +549,36 @@ class EmailManager:
                 "estimated_finish": estimated_finish,
             }
             send_args = {**send_payload, "_schedule": schedule_meta}
-            self._send(send_args)
+            result = self._send(send_args)
+
+            # Notify agent about schedule progress
+            to_label = send_payload.get("address", "")
+            subj_label = send_payload.get("subject", "(no subject)")
+            ts = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+            if seq < count:
+                next_at = (now + timedelta(seconds=interval)).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                )
+                note = (
+                    f"[schedule {seq}/{count}] sent to {to_label} "
+                    f"| subject: {subj_label} "
+                    f"| sent at {ts} "
+                    f"| next at {next_at} "
+                    f"| ends ~{estimated_finish}"
+                )
+            else:
+                note = (
+                    f"[schedule {seq}/{count}] sent to {to_label} "
+                    f"| subject: {subj_label} "
+                    f"| sent at {ts} "
+                    f"| schedule complete"
+                )
+            self._agent._log(
+                "schedule_send", schedule_id=schedule_meta["schedule_id"],
+                seq=seq, total=count, to=to_label, subject=subj_label,
+            )
+            msg = _make_message(MSG_REQUEST, "system", note)
+            self._agent.inbox.put(msg)
 
             # Update last_sent_at
             record["last_sent_at"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
