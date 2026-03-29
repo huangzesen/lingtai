@@ -27,6 +27,7 @@ const (
 	appViewSetup
 	appViewSettings
 	appViewPresets
+	appViewProps
 )
 
 // App is the root Bubble Tea model. Routes between views via slash commands.
@@ -37,19 +38,20 @@ type App struct {
 	setup       SetupModel
 	settings    SettingsModel
 	presets     PresetsModel
+	props       PropsModel
 	firstRun    FirstRunModel
 
-	globalDir  string
-	projectDir string // .lingtai/ directory
-	vizURL     string
-	orchDir    string // full path to orchestrator dir
-	orchName   string
-	lingtaiCmd     string
-	width          int
-	height         int
-	appSettings    Settings
-	pendingRename  bool
-	pendingLang    bool
+	globalDir     string
+	projectDir    string // .lingtai/ directory
+	vizURL        string
+	orchDir       string // full path to orchestrator dir
+	orchName      string
+	lingtaiCmd    string
+	width         int
+	height        int
+	appSettings   Settings
+	pendingRename bool
+	pendingLang   bool
 }
 
 func humanAddr(projectDir string) string {
@@ -148,6 +150,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.settings, cmd = a.settings.Update(msg)
 		case appViewPresets:
 			a.presets, cmd = a.presets.Update(msg)
+		case appViewProps:
+			a.props, cmd = a.props.Update(msg)
 		case appViewFirstRun:
 			a.firstRun, cmd = a.firstRun.Update(msg)
 		}
@@ -233,7 +237,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		case "q":
 			// Only quit if not in a text input context
-			if a.currentView != appViewSetup && a.currentView != appViewFirstRun && a.currentView != appViewMail {
+			if a.currentView != appViewSetup && a.currentView != appViewFirstRun && a.currentView != appViewMail && a.currentView != appViewProps {
 				return a, tea.Quit
 			}
 		}
@@ -283,6 +287,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case appViewPresets:
 		updated, cmd := a.presets.Update(msg)
 		a.presets = updated
+		return a, cmd
+	case appViewProps:
+		updated, cmd := a.props.Update(msg)
+		a.props = updated
 		return a, cmd
 	}
 
@@ -517,8 +525,8 @@ func (a *App) doLang(lang string) {
 			}
 			initData["covenant_file"] = preset.CovenantPath(a.globalDir, lang)
 			initData["principle_file"] = preset.PrinciplePath(a.globalDir, lang)
-			delete(initData, "covenant")   // use file, not inline
-			delete(initData, "principle")  // use file, not inline
+			delete(initData, "covenant")  // use file, not inline
+			delete(initData, "principle") // use file, not inline
 			if out, err := json.MarshalIndent(initData, "", "  "); err == nil {
 				os.WriteFile(initPath, out, 0o644)
 			}
@@ -598,6 +606,10 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 		a.currentView = appViewPresets
 		a.presets = NewPresetsModel()
 		return a, tea.Batch(a.presets.Init(), a.sendSize())
+	case "props":
+		a.currentView = appViewProps
+		a.props = NewPropsModel(a.projectDir, a.orchDir)
+		return a, tea.Batch(a.props.Init(), a.sendSize())
 	case "welcome":
 		a.currentView = appViewFirstRun
 		a.firstRun = NewFirstRunModel(a.projectDir, a.globalDir, true)
@@ -621,6 +633,8 @@ func (a App) View() string {
 		return a.settings.View()
 	case appViewPresets:
 		return a.presets.View()
+	case appViewProps:
+		return a.props.View()
 	}
 	return ""
 }

@@ -16,7 +16,8 @@ import (
 
 // PropsModel is a full-screen view showing agent properties (left) and network dashboard (right).
 type PropsModel struct {
-	orchDir string // base .lingtai/ directory (= admin agent's working dir)
+	baseDir string // .lingtai/ directory (for agent discovery)
+	orchDir string // admin agent's working dir (default selected)
 	width   int
 	height  int
 
@@ -35,8 +36,9 @@ type PropsModel struct {
 	pickerIdx  int
 }
 
-func NewPropsModel(orchDir string) PropsModel {
+func NewPropsModel(baseDir, orchDir string) PropsModel {
 	return PropsModel{
+		baseDir:     baseDir,
 		orchDir:     orchDir,
 		selectedDir: orchDir,
 	}
@@ -51,7 +53,7 @@ type propsLoadMsg struct {
 }
 
 func (m PropsModel) loadData() tea.Msg {
-	net, _ := fs.BuildNetwork(m.orchDir)
+	net, _ := fs.BuildNetwork(m.baseDir)
 
 	var dirs []string
 	for _, n := range net.Nodes {
