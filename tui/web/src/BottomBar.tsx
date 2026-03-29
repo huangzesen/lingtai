@@ -21,23 +21,30 @@ export function BottomBar({ network, edgeMode, lang, onToggle }: {
       gap: 24,
     }}>
       <Stats stats={network.stats} lang={lang} />
-      <button
-        onClick={onToggle}
-        style={{
-          background: 'transparent',
-          border: `1px solid ${inkEdgeColors.mail}`,
-          borderRadius: 4,
-          padding: '3px 10px',
-          cursor: 'pointer',
-          color: inkEdgeColors.mail,
-          fontSize: 10,
-          letterSpacing: 0.5,
-          flexShrink: 0,
-          alignSelf: 'center',
-        }}
-      >
-        {edgeMode === 'avatar' ? t(lang, 'edge.avatar') : t(lang, 'edge.email')}
-      </button>
+      <div style={{ display: 'flex', flexShrink: 0, alignSelf: 'center', borderRadius: 4, overflow: 'hidden', border: `1px solid ${inkBorder}` }}>
+        {(['avatar', 'email'] as EdgeMode[]).map(mode => {
+          const active = edgeMode === mode;
+          const color = mode === 'avatar' ? inkEdgeColors.avatar : inkEdgeColors.mail;
+          return (
+            <button
+              key={mode}
+              onClick={active ? undefined : onToggle}
+              style={{
+                background: active ? color + '30' : 'transparent',
+                border: 'none',
+                borderRight: mode === 'avatar' ? `1px solid ${inkBorder}` : 'none',
+                padding: '3px 10px',
+                cursor: active ? 'default' : 'pointer',
+                color: active ? color : color + '66',
+                fontSize: 10,
+                letterSpacing: 0.5,
+              }}
+            >
+              {t(lang, `edge.${mode}`)}
+            </button>
+          );
+        })}
+      </div>
       <Kanban nodes={network.nodes} lang={lang} />
     </div>
   );

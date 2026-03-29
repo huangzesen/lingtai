@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import type { Network } from './types';
-import { inkStateColors, inkBg, goldRgb, amberRgb } from './theme';
+import { inkStateColors, inkBg, amberRgb } from './theme';
 
 export type EdgeMode = 'avatar' | 'email';
 
@@ -47,6 +47,88 @@ function savePositions(dots: Map<string, Dot>) {
   } catch { /* storage full or unavailable */ }
 }
 
+/** Compute deterministic positions based on avatar tree structure. */
+function computeLayout(network: Network, W: number, H: number): Record<string, { x: number; y: number }> {
+  const pos: Record<string, { x: number; y: number }> = {};
+  const nodes = network.nodes;
+  if (nodes.length === 0) return pos;
+
+  // Identify human and avatar children
+  const human = nodes.find(n => n.is_human);
+  const childSet = new Set(network.avatar_edges.map(e => e.child));
+
+  // Admin = non-human nodes not in avatar children set
+  const admins = nodes.filter(n => !n.is_human && !childSet.has(n.address));
+
+  // Build parent → children map
+  const childrenOf = new Map<string, string[]>();
+  for (const e of network.avatar_edges) {
+    const list = childrenOf.get(e.parent) || [];
+    list.push(e.child);
+    childrenOf.set(e.parent, list);
+  }
+
+  const cy = H * 0.5;
+  const LEVEL_DX = W * 0.12; // uniform horizontal spacing per depth level
+
+  // Place human on the far left
+  if (human) {
+    pos[human.address] = { x: W * 0.20, y: cy };
+  }
+
+  // Admin at ~1/3 from left — if multiple, spread vertically
+  const adminX = W / 3;
+  const adminSpacing = Math.min(80, H * 0.3);
+  const adminStartY = cy - ((admins.length - 1) * adminSpacing) / 2;
+  for (let i = 0; i < admins.length; i++) {
+    pos[admins[i].address] = { x: adminX, y: adminStartY + i * adminSpacing };
+  }
+
+  // Walk avatar tree left-to-right: children placed one LEVEL_DX to the right, spread vertically
+  const placed = new Set(Object.keys(pos));
+
+  function placeChildren(parentAddr: string, depth: number) {
+    const kids = childrenOf.get(parentAddr);
+    if (!kids || kids.length === 0) return;
+    const parent = pos[parentAddr];
+    if (!parent) return;
+
+    const childX = parent.x + LEVEL_DX;
+    const spread = Math.min(H * 0.6, kids.length * 50);
+    const startY = parent.y - spread / 2;
+
+    for (let i = 0; i < kids.length; i++) {
+      pos[kids[i]] = {
+        x: childX,
+        y: kids.length === 1 ? parent.y : startY + (i / (kids.length - 1)) * spread,
+      };
+      placed.add(kids[i]);
+      placeChildren(kids[i], depth + 1);
+    }
+  }
+
+  // Start tree walk from each admin
+  for (const admin of admins) {
+    placeChildren(admin.address, 1);
+  }
+
+  // Orphans — place to the right of admins, spread vertically
+  const orphans = nodes.filter(n => !placed.has(n.address));
+  if (orphans.length > 0) {
+    const orphanX = adminX + LEVEL_DX;
+    const spread = Math.min(H * 0.6, orphans.length * 50);
+    const startY = cy - spread / 2;
+    for (let i = 0; i < orphans.length; i++) {
+      pos[orphans[i].address] = {
+        x: orphanX,
+        y: orphans.length === 1 ? cy : startY + (i / (orphans.length - 1)) * spread,
+      };
+    }
+  }
+
+  return pos;
+}
+
 function findNearest(dots: Map<string, Dot>, mx: number, my: number): Dot | null {
   let best: Dot | null = null;
   let bestDist = HIT_R * HIT_R;
@@ -82,6 +164,7 @@ export function Graph({ network, edgeMode }: { network: Network; edgeMode: EdgeM
     const old = dotsRef.current;
     const next = new Map<string, Dot>();
     const stored = loadPositions();
+    const layout = computeLayout(network, W, H);
 
     for (const n of network.nodes) {
       const prev = old.get(n.address);
@@ -92,15 +175,17 @@ export function Graph({ network, edgeMode }: { network: Network; edgeMode: EdgeM
         prev.isHuman = n.is_human;
         next.set(n.address, prev);
       } else {
+        // localStorage overrides computed layout
         const sp = stored[n.address];
+        const lp = layout[n.address];
         next.set(n.address, {
           id: n.address,
           name: n.nickname || n.agent_name || n.address.split('/').pop() || '?',
           state: n.state,
           alive: n.alive,
           isHuman: n.is_human,
-          x: sp ? sp.x : W * 0.25 + Math.random() * W * 0.5,
-          y: sp ? sp.y : H * 0.25 + Math.random() * H * 0.5,
+          x: sp ? sp.x : lp ? lp.x : W * 0.5,
+          y: sp ? sp.y : lp ? lp.y : H * 0.5,
         });
       }
     }
@@ -216,19 +301,18 @@ export function Graph({ network, edgeMode }: { network: Network; edgeMode: EdgeM
     }
 
     // Dots + labels
-    const [gr, gg, gb] = goldRgb;
     const HUMAN_RGB: [number, number, number] = [232, 228, 223]; // 宣纸白
     for (const d of dots.values()) {
       const isAgent = !d.isHuman;
-      const [dr, dg, db] = d.isHuman ? HUMAN_RGB : [gr, gg, gb];
+      // Agent dot color = state color; human = 宣纸白
+      const stateHex = isAgent ? (inkStateColors[d.state] || inkStateColors['']) : '';
+      const [dr, dg, db] = d.isHuman ? HUMAN_RGB : hexRgb(stateHex);
 
-      // ACTIVE halo in state color (agents only)
+      // ACTIVE halo (agents only)
       if (isAgent && d.state === 'ACTIVE') {
-        const col = inkStateColors['ACTIVE'];
-        const [sr, sg, sb] = hexRgb(col);
         ctx.beginPath();
         ctx.arc(d.x, d.y, NODE_R + 5, 0, Math.PI * 2);
-        ctx.fillStyle = rgba(sr, sg, sb, 0.15);
+        ctx.fillStyle = rgba(dr, dg, db, 0.15);
         ctx.fill();
       }
 
