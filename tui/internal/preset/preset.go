@@ -20,6 +20,9 @@ var principleFS embed.FS
 //go:embed all:templates
 var templatesFS embed.FS
 
+//go:embed tutorial.md
+var tutorialMD []byte
+
 // Preset is a reusable agent template stored at ~/.lingtai/presets/.
 type Preset struct {
 	Name        string                 `json:"name"`
@@ -54,13 +57,19 @@ func List() ([]Preset, error) {
 		}
 		presets = append(presets, p)
 	}
-	// Put minimax first (recommended)
+	// Saved presets first (alphabetically), then builtins (minimax first)
 	sort.Slice(presets, func(i, j int) bool {
-		if presets[i].Name == "minimax" {
-			return true
+		bi, bj := IsBuiltin(presets[i].Name), IsBuiltin(presets[j].Name)
+		if bi != bj {
+			return !bi // saved (non-builtin) before builtin
 		}
-		if presets[j].Name == "minimax" {
-			return false
+		if bi { // both builtin: minimax first
+			if presets[i].Name == "minimax" {
+				return true
+			}
+			if presets[j].Name == "minimax" {
+				return false
+			}
 		}
 		return presets[i].Name < presets[j].Name
 	})
@@ -142,6 +151,28 @@ func BuiltinPresets() []Preset {
 		minimaxPreset(),
 		customPreset(),
 	}
+}
+
+// builtinNames is the set of built-in preset names.
+var builtinNames = map[string]bool{
+	"minimax": true,
+	"custom":  true,
+}
+
+// IsBuiltin returns true if name matches a built-in preset template.
+func IsBuiltin(name string) bool {
+	return builtinNames[name]
+}
+
+// SavedCount returns the number of non-builtin (saved) presets in the list.
+func SavedCount(presets []Preset) int {
+	n := 0
+	for _, p := range presets {
+		if !IsBuiltin(p.Name) {
+			n++
+		}
+	}
+	return n
 }
 
 func e() map[string]interface{} { return map[string]interface{}{} }
@@ -296,14 +327,23 @@ func Bootstrap(globalDir string) error {
 	populate(globalDir, covenantFS, "covenant")
 	populate(globalDir, principleFS, "principle")
 	populate(globalDir, templatesFS, "templates")
+	// Tutorial comment file
+	tutorialPath := filepath.Join(globalDir, "tutorial.md")
+	if _, err := os.Stat(tutorialPath); err != nil {
+		os.WriteFile(tutorialPath, tutorialMD, 0o644)
+	}
 	migrateAddonTemplates(globalDir)
 	return EnsureDefault()
 }
 
-
 // CovenantPath returns the absolute path to the covenant file for a language.
 func CovenantPath(globalDir, lang string) string {
 	return filepath.Join(globalDir, "covenant", lang, "covenant.md")
+}
+
+// TutorialCommentPath returns the absolute path to the tutorial comment file.
+func TutorialCommentPath(globalDir string) string {
+	return filepath.Join(globalDir, "tutorial.md")
 }
 
 // DefaultPreset returns the first built-in preset (minimax).
@@ -393,10 +433,10 @@ func GenerateInitJSONWithOpts(p Preset, agentName, dirName, lingtaiDir, globalDi
 		"manifest":       manifest,
 		"covenant_file":  CovenantPath(globalDir, lang),
 		"principle_file": PrinciplePath(globalDir, lang),
-		"venv_path":     venvPath,
-		"memory":        "",
-		"prompt":        "",
-		"comment":       comment,
+		"venv_path":      venvPath,
+		"memory":         "",
+		"prompt":         "",
+		"comment":        comment,
 	}
 
 	data, err := json.MarshalIndent(initJSON, "", "  ")
@@ -432,6 +472,83 @@ func GenerateInitJSONWithOpts(p Preset, agentName, dirName, lingtaiDir, globalDi
 
 	return nil
 }
+
+// GenerateTutorialInit creates a tutorial agent's init.json at {lingtaiDir}/tutorial/.
+// The tutorial agent has a pre-defined name ("guide"), hardcoded lifecycle params,
+// and a detailed comment (system prompt) that instructs it to teach the human step by step.
+func GenerateTutorialInit(p Preset, lingtaiDir, globalDir, lang string) error {
+	agentDir := filepath.Join(lingtaiDir, "tutorial")
+	if err := os.MkdirAll(agentDir, 0o755); err != nil {
+		return fmt.Errorf("create tutorial dir: %w", err)
+	}
+
+	// Build manifest — inherit capabilities from the preset
+	manifest := make(map[string]interface{})
+	manifest["agent_name"] = "guide"
+	if lang == "" {
+		lang = "en"
+	}
+	manifest["language"] = lang
+	if llm, ok := p.Manifest["llm"]; ok {
+		manifest["llm"] = llm
+	}
+	if caps, ok := p.Manifest["capabilities"]; ok {
+		manifest["capabilities"] = caps
+	}
+	manifest["admin"] = map[string]interface{}{"karma": true}
+	manifest["soul"] = map[string]interface{}{"delay": 999999}
+	manifest["stamina"] = 36000
+	manifest["context_limit"] = 200000
+	manifest["molt_pressure"] = 0.8
+	manifest["molt_prompt"] = ""
+	manifest["max_turns"] = 100
+	manifest["streaming"] = true
+
+	// Resolve venv path (same logic as GenerateInitJSONWithOpts)
+	venvPath := filepath.Join(globalDir, "runtime", "venv")
+	if _, err := os.Stat(filepath.Join(venvPath, "bin", "python")); err != nil {
+		legacyVenv := filepath.Join(globalDir, "env")
+		if _, err := os.Stat(filepath.Join(legacyVenv, "bin", "python")); err == nil {
+			venvPath = legacyVenv
+		}
+	}
+
+	initJSON := map[string]interface{}{
+		"manifest":       manifest,
+		"covenant_file":  CovenantPath(globalDir, lang),
+		"principle_file": PrinciplePath(globalDir, lang),
+		"comment_file":   TutorialCommentPath(globalDir),
+		"venv_path":      venvPath,
+		"memory":         "",
+		"prompt":         "",
+	}
+
+	data, err := json.MarshalIndent(initJSON, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal tutorial init.json: %w", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(agentDir, "init.json"), data, 0o644); err != nil {
+		return fmt.Errorf("write tutorial init.json: %w", err)
+	}
+
+	// Create .agent.json and mailbox dirs (same as GenerateInitJSONWithOpts)
+	absDir, _ := filepath.Abs(agentDir)
+	agentManifest := map[string]interface{}{
+		"agent_name": "guide",
+		"address":    absDir,
+		"state":      "",
+		"admin":      map[string]interface{}{"karma": true},
+	}
+	for _, sub := range []string{"mailbox/inbox", "mailbox/sent", "mailbox/archive"} {
+		os.MkdirAll(filepath.Join(agentDir, sub), 0o755)
+	}
+	mdata, _ := json.MarshalIndent(agentManifest, "", "  ")
+	os.WriteFile(filepath.Join(agentDir, ".agent.json"), mdata, 0o644)
+
+	return nil
+}
+
 
 // CapabilityIcons returns emoji icons for enabled capabilities in a preset.
 func (p Preset) CapabilityIcons() string {

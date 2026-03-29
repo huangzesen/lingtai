@@ -11,6 +11,7 @@ import (
 
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/config"
+	"github.com/anthropics/lingtai-tui/internal/fs"
 	"github.com/anthropics/lingtai-tui/internal/preset"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -48,6 +49,7 @@ const (
 	stepPickPreset
 	stepPresetKey
 	stepCapabilities
+	stepTutorial
 	stepAgentNameDir
 	stepLaunching
 )
@@ -104,40 +106,40 @@ type FirstRunModel struct {
 	width      int
 	height     int
 	hasPresets bool
-	// Focus state for combined name+dir step
-	focusOnDir bool // legacy — replaced by fieldIdx
-	fieldIdx   int  // 0=name, 1=dir, 2=lang, 3=stamina, 4=context_limit, 5=soul_delay, 6=molt_pressure
+	fieldIdx   int // 0=name, 1=dir, 2=lang, 3=stamina, 4=context_limit, 5=soul_delay, 6=molt_pressure
 	// Agent config text inputs
-	agentLangIdx     int // cycle: 0=en, 1=zh, 2=wen
-	staminaInput     textinput.Model
-	ctxLimitInput    textinput.Model
-	soulDelayInput   textinput.Model
-	moltPressInput   textinput.Model
+	agentLangIdx   int // cycle: 0=en, 1=zh, 2=wen
+	staminaInput   textinput.Model
+	ctxLimitInput  textinput.Model
+	soulDelayInput textinput.Model
+	moltPressInput textinput.Model
 	// Welcome page language selector
-	langCursor   int
-	welcomeOnly  bool // true when opened from /settings (return to mail after language pick)
+	langCursor  int
+	welcomeOnly bool // true when opened from /settings (return to mail after language pick)
 	// Bootstrap state (venv + assets install)
-	setupDone    bool           // true when bootstrap goroutine finishes
-	setupErr     string         // non-empty if bootstrap failed
-	setupStatus  string         // current progress i18n key
-	progressCh   chan string     // channel for progress updates
+	setupDone   bool        // true when bootstrap goroutine finishes
+	setupErr    string      // non-empty if bootstrap failed
+	setupStatus string      // current progress i18n key
+	progressCh  chan string // channel for progress updates
 	// Embedded key input for preset's provider
 	presetKeyInput    textinput.Model
-	presetEndpointIn  textinput.Model // base_url for custom provider
-	presetModelIn     textinput.Model // model name for custom provider
-	presetNameIn      textinput.Model // preset name for custom provider (separate from nameInput)
-	presetKeyFieldIdx int             // 0=compat, 1=endpoint, 2=model, 3=key, 4=name (custom); 0=region,1=key (minimax)
-	minimaxRegion     int             // 0=international, 1=china
-	customCompat      int             // 0=openai, 1=anthropic
-	selectedProvider  string          // provider of currently selected preset
+	presetEndpointIn  textinput.Model   // base_url for custom provider
+	presetModelIn     textinput.Model   // model name for custom provider
+	presetNameIn      textinput.Model   // preset name for custom provider (separate from nameInput)
+	presetKeyFieldIdx int               // 0=compat, 1=endpoint, 2=model, 3=key, 4=name (custom); 0=region,1=key (minimax)
+	minimaxRegion     int               // 0=international, 1=china
+	customCompat      int               // 0=openai, 1=anthropic
+	selectedProvider  string            // provider of currently selected preset
 	existingKeys      map[string]string // loaded from Config.Keys
 	// Capability selection state (stepCapabilities)
-	capInfos     map[string]capInfo // from check-caps CLI output
-	capSelected  map[string]bool    // user toggle state
-	capOrder     []string           // ordered list matching AllCapabilities
-	capCursor    int                // current cursor position (0..len-1)
-	capLoading   bool               // true while check-caps is running
-	capErr       string             // error message if check-caps fails
+	capInfos    map[string]capInfo // from check-caps CLI output
+	capSelected map[string]bool    // user toggle state
+	capOrder    []string           // ordered list matching AllCapabilities
+	capCursor   int                // current cursor position (0..len-1)
+	capLoading  bool               // true while check-caps is running
+	capErr      string             // error message if check-caps fails
+	// Tutorial step state
+	tutorialCursor int // 0=start/resume, 1=fresh (if exists), last=skip
 }
 
 func NewFirstRunModel(baseDir, globalDir string, hasPresets bool) FirstRunModel {
@@ -148,7 +150,6 @@ func NewFirstRunModel(baseDir, globalDir string, hasPresets bool) FirstRunModel 
 	di := textinput.New()
 	di.CharLimit = 64
 	di.Width = 40
-
 
 	pki := textinput.New()
 	pki.CharLimit = 128
@@ -209,23 +210,23 @@ func NewFirstRunModel(baseDir, globalDir string, hasPresets bool) FirstRunModel 
 	}
 
 	m := FirstRunModel{
-		step:            stepWelcome,
-		baseDir:         baseDir,
-		globalDir:       globalDir,
-		nameInput:       ti,
-		dirInput:        di,
-		hasPresets:      hasPresets,
-		langCursor:      langCursor,
+		step:             stepWelcome,
+		baseDir:          baseDir,
+		globalDir:        globalDir,
+		nameInput:        ti,
+		dirInput:         di,
+		hasPresets:       hasPresets,
+		langCursor:       langCursor,
 		presetKeyInput:   pki,
 		presetEndpointIn: pei,
 		presetModelIn:    pmi,
 		presetNameIn:     pni,
 		existingKeys:     existingKeys,
-		staminaInput:    si,
-		ctxLimitInput:   ci,
-		soulDelayInput:  sdi,
-		moltPressInput:  mpi,
-		progressCh:      make(chan string, 4),
+		staminaInput:     si,
+		ctxLimitInput:    ci,
+		soulDelayInput:   sdi,
+		moltPressInput:   mpi,
+		progressCh:       make(chan string, 4),
 	}
 
 	return m
@@ -664,11 +665,86 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				}
 			case "enter":
 				m.applyCapSelections()
-				p := m.presets[m.cursor]
-				m.enterAgentNameDir(p)
-				return m, textinput.Blink
+				m.step = stepTutorial
+				m.tutorialCursor = 0
+				return m, nil
 			case "esc":
 				m.step = stepPickPreset
+				return m, nil
+			case "ctrl+c":
+				return m, tea.Quit
+			}
+			return m, nil
+
+		case stepTutorial:
+			tutorialDir := filepath.Join(m.baseDir, "tutorial")
+			tutorialExists := false
+			if _, err := os.Stat(tutorialDir); err == nil {
+				tutorialExists = true
+			}
+			// Option count: exists → resume/fresh/skip (3), new → start/skip (2)
+			optCount := 2
+			if tutorialExists {
+				optCount = 3
+			}
+			switch msg.String() {
+			case "up":
+				if m.tutorialCursor > 0 {
+					m.tutorialCursor--
+				}
+			case "down":
+				if m.tutorialCursor < optCount-1 {
+					m.tutorialCursor++
+				}
+			case "enter":
+				if tutorialExists {
+					switch m.tutorialCursor {
+					case 0: // Resume Tutorial
+						return m, func() tea.Msg {
+							return FirstRunDoneMsg{OrchDir: tutorialDir, OrchName: "guide"}
+						}
+					case 1: // Start Fresh
+						os.RemoveAll(tutorialDir)
+						p := m.presets[m.cursor]
+						langs := []string{"en", "zh", "wen"}
+						lang := langs[m.langCursor]
+						if err := preset.GenerateTutorialInit(p, m.baseDir, m.globalDir, lang); err != nil {
+							m.message = i18n.TF("firstrun.error", err)
+							return m, nil
+						}
+						return m, func() tea.Msg {
+							fs.WritePrompt(tutorialDir, "You have just been created as the tutorial guide. A new user is waiting. Send them a welcome email — introduce yourself, explain what Lingtai is, and begin Lesson 1.")
+							return FirstRunDoneMsg{OrchDir: tutorialDir, OrchName: "guide"}
+						}
+					case 2: // Skip Tutorial
+						p := m.presets[m.cursor]
+						m.enterAgentNameDir(p)
+						m.step = stepAgentNameDir
+						return m, textinput.Blink
+					}
+				} else {
+					switch m.tutorialCursor {
+					case 0: // Start Tutorial
+						p := m.presets[m.cursor]
+						langs := []string{"en", "zh", "wen"}
+						lang := langs[m.langCursor]
+						if err := preset.GenerateTutorialInit(p, m.baseDir, m.globalDir, lang); err != nil {
+							m.message = i18n.TF("firstrun.error", err)
+							return m, nil
+						}
+						return m, func() tea.Msg {
+							fs.WritePrompt(tutorialDir, "You have just been created as the tutorial guide. A new user is waiting. Send them a welcome email — introduce yourself, explain what Lingtai is, and begin Lesson 1.")
+							return FirstRunDoneMsg{OrchDir: tutorialDir, OrchName: "guide"}
+						}
+					case 1: // Skip Tutorial
+						p := m.presets[m.cursor]
+						m.enterAgentNameDir(p)
+						m.step = stepAgentNameDir
+						return m, textinput.Blink
+					}
+				}
+			case "esc":
+				m.step = stepCapabilities
 				return m, nil
 			case "ctrl+c":
 				return m, tea.Quit
@@ -747,7 +823,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					return FirstRunDoneMsg{OrchDir: orchDir, OrchName: m.agentName}
 				}
 			case "esc":
-				m.step = stepCapabilities
+				m.step = stepTutorial
 				return m, nil
 			case "ctrl+c":
 				return m, tea.Quit
@@ -799,7 +875,18 @@ func (m FirstRunModel) View() string {
 	case stepPickPreset:
 		stepNum, total := stepProgress(m.step, m.hasPresets)
 		b.WriteString("\n  " + StyleSubtle.Render(fmt.Sprintf("Step %d/%d: "+i18n.T("firstrun.pick_preset"), stepNum, total)) + "\n\n")
+		savedCount := preset.SavedCount(m.presets)
 		for i, p := range m.presets {
+			// Section headers between saved and template presets
+			if savedCount > 0 && i == 0 {
+				b.WriteString("  " + StyleFaint.Render(i18n.T("preset.saved")) + "\n")
+			}
+			if i == savedCount {
+				if savedCount > 0 {
+					b.WriteString("\n")
+				}
+				b.WriteString("  " + StyleFaint.Render(i18n.T("preset.templates")) + "\n")
+			}
 			cursor := "  "
 			if i == m.cursor {
 				cursor = "> "
@@ -960,6 +1047,57 @@ func (m FirstRunModel) View() string {
 		b.WriteString("\n" + StyleFaint.Render("  ↑↓←→ "+i18n.T("settings.select")+
 			"  space "+i18n.T("settings.change")+
 			"  [Enter] "+i18n.T("firstrun.confirm_caps")+
+			"  [Esc] "+i18n.T("firstrun.back")) + "\n")
+
+	case stepTutorial:
+		titleStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorAgent)
+		b.WriteString("\n  " + titleStyle.Render(i18n.T("firstrun.tutorial_title")) + "\n\n")
+
+		tutorialDir := filepath.Join(m.baseDir, "tutorial")
+		tutorialExists := false
+		if _, err := os.Stat(tutorialDir); err == nil {
+			tutorialExists = true
+		}
+
+		b.WriteString("  " + i18n.T("firstrun.tutorial_desc") + "\n")
+		if tutorialExists {
+			b.WriteString("  " + StyleSubtle.Render(i18n.T("firstrun.tutorial_resuming")) + "\n")
+		}
+		b.WriteString("\n")
+
+		type tutorialOpt struct {
+			label string
+		}
+		var opts []tutorialOpt
+		if tutorialExists {
+			opts = []tutorialOpt{
+				{i18n.T("firstrun.tutorial_resume")},
+				{i18n.T("firstrun.tutorial_fresh")},
+				{i18n.T("firstrun.tutorial_skip")},
+			}
+		} else {
+			opts = []tutorialOpt{
+				{i18n.T("firstrun.tutorial_start")},
+				{i18n.T("firstrun.tutorial_skip")},
+			}
+		}
+
+		for i, opt := range opts {
+			cursor := "  "
+			style := lipgloss.NewStyle().Foreground(ColorText)
+			if i == m.tutorialCursor {
+				cursor = "> "
+				style = lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
+			}
+			b.WriteString(cursor + style.Render(opt.label) + "\n")
+		}
+
+		if m.message != "" {
+			errStyle := lipgloss.NewStyle().Foreground(ColorSuspended)
+			b.WriteString("\n  " + errStyle.Render(m.message) + "\n")
+		}
+		b.WriteString("\n" + StyleFaint.Render("  ↑↓ "+i18n.T("welcome.select_lang")+
+			"  [Enter] "+i18n.T("welcome.confirm")+
 			"  [Esc] "+i18n.T("firstrun.back")) + "\n")
 
 	case stepAgentNameDir:
@@ -1231,7 +1369,6 @@ func (m *FirstRunModel) enterAgentNameDir(p preset.Preset) {
 	m.nameInput.SetValue(defaultName)
 	m.dirInput.SetValue(defaultName)
 	m.fieldIdx = 0
-	m.focusOnDir = false
 	m.nameInput.Focus()
 	m.dirInput.Blur()
 
@@ -1297,13 +1434,11 @@ func (m *FirstRunModel) focusAgentField() tea.Cmd {
 	m.ctxLimitInput.Blur()
 	m.soulDelayInput.Blur()
 	m.moltPressInput.Blur()
-	m.focusOnDir = false
 
 	switch m.fieldIdx {
 	case 0:
 		return m.nameInput.Focus()
 	case 1:
-		m.focusOnDir = true
 		return m.dirInput.Focus()
 	case 2:
 		return nil // language — cycle selector, no text input
