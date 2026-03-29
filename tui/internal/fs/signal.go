@@ -3,9 +3,6 @@ package fs
 import (
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
-	"syscall"
 	"time"
 )
 
@@ -32,28 +29,13 @@ func CleanSignals(dir string) {
 	}
 }
 
-// KillAgent terminates an agent by PID (SIGTERM), falling back to .suspend signal.
-// Waits up to timeout for the process to die.
-func KillAgent(dir string, timeout time.Duration) {
+// SuspendAndWait sends a suspend signal and waits for the agent to die.
+// Returns after the agent stops heartbeating or after timeout.
+func SuspendAndWait(dir string, timeout time.Duration) {
 	if !IsAlive(dir, 2.0) {
 		return
 	}
-
-	// Try PID file first (direct kill)
-	pidFile := filepath.Join(dir, ".pid")
-	if data, err := os.ReadFile(pidFile); err == nil {
-		pidStr := strings.TrimSpace(string(data))
-		if pid, err := strconv.Atoi(pidStr); err == nil && pid > 0 {
-			if proc, err := os.FindProcess(pid); err == nil {
-				proc.Signal(syscall.SIGTERM)
-			}
-		}
-	}
-
-	// Also write .suspend as fallback (in case PID file was stale)
 	TouchSignal(dir, SignalSuspend)
-
-	// Wait for death
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		time.Sleep(200 * time.Millisecond)

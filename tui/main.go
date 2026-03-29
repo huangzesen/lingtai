@@ -169,7 +169,7 @@ func tutorialMain() {
 	tutorialDir := filepath.Join(lingtaiDir, "tutorial")
 
 	// Kill old tutorial if running, then wipe
-	fs.KillAgent(tutorialDir, 3*time.Second)
+	fs.SuspendAndWait(tutorialDir, 3*time.Second)
 	os.RemoveAll(tutorialDir)
 	p := preset.First()
 	globalCfg, _ := config.LoadConfig(globalDir)

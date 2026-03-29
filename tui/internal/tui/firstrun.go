@@ -708,7 +708,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				config.MarkTutorialDone(m.globalDir)
 				switch m.tutorialCursor {
 				case 0: // Start Tutorial
-					fs.KillAgent(tutorialDir, 3*time.Second)
+					fs.SuspendAndWait(tutorialDir, 3*time.Second)
 					os.RemoveAll(tutorialDir)
 					p := m.presets[m.cursor]
 					langs := []string{"en", "zh", "wen"}
