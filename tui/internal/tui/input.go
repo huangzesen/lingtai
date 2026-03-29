@@ -65,11 +65,11 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
 		case "enter":
 			return m, func() tea.Msg { return SendMsg{} }
 		case "up":
-			// Multiline: let textarea handle cursor movement between lines
-			if m.HasNewlines() {
+			// Multiline and not on first line: let textarea handle cursor
+			if m.calcHeight() > 1 && m.textarea.Line() > 0 {
 				break // fall through to textarea
 			}
-			// Single-line or empty: navigate history
+			// On first line or single-line: navigate history
 			if len(m.history) > 0 && m.historyIdx < len(m.history)-1 {
 				m.historyIdx++
 				m.textarea.SetValue(m.history[len(m.history)-1-m.historyIdx])
@@ -78,8 +78,8 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
 			}
 			return m, nil
 		case "down":
-			// Multiline: let textarea handle cursor movement between lines
-			if m.HasNewlines() {
+			// Multiline and not on last line: let textarea handle cursor
+			if m.calcHeight() > 1 && m.textarea.Line() < m.calcHeight()-1 {
 				break // fall through to textarea
 			}
 			// Single-line or empty: navigate history
@@ -98,6 +98,7 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
 		// Forward to textarea for all other keys (including ctrl+j for newline)
 		var cmd tea.Cmd
 		m.textarea, cmd = m.textarea.Update(msg)
+		m.autoWrap()
 		m.textarea.SetHeight(m.calcHeight())
 
 		// After update, check if slash is first char → activate palette
@@ -145,32 +146,67 @@ func (m InputModel) View() string {
 	return rendered + pad + hint + "\n" + border
 }
 
-// calcHeight returns the display height by reading the textarea's own rendered
-// output. This ensures we stay in sync with its internal word-wrap logic
-// regardless of character width (CJK, emoji, etc.).
-//
-// Pointer receiver: textarea.Model contains pointer fields (viewport, cache),
-// so a value-receiver copy would still mutate the real viewport via the shared
-// pointer. We use a pointer receiver and explicitly save/restore the height.
+// autoWrap inserts a real newline when the current line exceeds the textarea
+// width. Word-wraps at the last space, or hard-breaks if no space is found.
+func (m *InputModel) autoWrap() {
+	w := m.textarea.Width()
+	if w < 1 {
+		return
+	}
+	val := m.textarea.Value()
+	lines := strings.Split(val, "\n")
+	changed := false
+	for i, line := range lines {
+		if lipgloss.Width(line) <= w {
+			continue
+		}
+		// Find last space that fits within width
+		runes := []rune(line)
+		breakAt := -1
+		widthSoFar := 0
+		for j, r := range runes {
+			widthSoFar = lipgloss.Width(string(runes[:j+1]))
+			if widthSoFar > w {
+				break
+			}
+			if r == ' ' {
+				breakAt = j
+			}
+		}
+		if breakAt > 0 {
+			// Word wrap: break at last space
+			lines[i] = string(runes[:breakAt])
+			rest := string(runes[breakAt+1:]) // skip the space
+			lines = append(lines[:i+1], append([]string{rest}, lines[i+1:]...)...)
+		} else {
+			// Hard break: no space found, break at width boundary
+			breakIdx := 0
+			for j := range runes {
+				if lipgloss.Width(string(runes[:j+1])) > w {
+					breakIdx = j
+					break
+				}
+			}
+			if breakIdx > 0 {
+				lines[i] = string(runes[:breakIdx])
+				lines = append(lines[:i+1], append([]string{string(runes[breakIdx:])}, lines[i+1:]...)...)
+			}
+		}
+		changed = true
+	}
+	if changed {
+		m.textarea.SetValue(strings.Join(lines, "\n"))
+		m.textarea.CursorEnd()
+	}
+}
+
+// calcHeight returns the number of display lines.
 func (m *InputModel) calcHeight() int {
 	val := m.textarea.Value()
 	if val == "" {
 		return 1
 	}
-	// Temporarily inflate height so View() renders all content unclipped.
-	oldHeight := m.textarea.Height()
-	m.textarea.SetHeight(6)
-	rendered := m.textarea.View()
-	m.textarea.SetHeight(oldHeight)
-	// Count non-blank rendered lines. textarea pads unused rows with spaces,
-	// so trimming to empty distinguishes real content from padding. When
-	// content exceeds 6 lines the textarea clips to 6, so the cap is free.
-	total := 0
-	for _, line := range strings.Split(rendered, "\n") {
-		if strings.TrimSpace(line) != "" {
-			total++
-		}
-	}
+	total := len(strings.Split(val, "\n"))
 	if total < 1 {
 		total = 1
 	}

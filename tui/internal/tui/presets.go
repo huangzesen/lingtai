@@ -411,10 +411,21 @@ func (m PresetsModel) viewList() string {
 	b.WriteString(strings.Repeat("─", m.width) + "\n\n")
 
 	if len(m.presets) == 0 {
-		b.WriteString(StyleSubtle.Render("  " + i18n.T("firstrun.no_presets")) + "\n")
+		b.WriteString(StyleSubtle.Render("  "+i18n.T("firstrun.no_presets")) + "\n")
 	}
 
+	savedCount := preset.SavedCount(m.presets)
 	for i, p := range m.presets {
+		// Section headers between saved and template presets
+		if savedCount > 0 && i == 0 {
+			b.WriteString("  " + StyleFaint.Render(i18n.T("preset.saved")) + "\n")
+		}
+		if i == savedCount {
+			if savedCount > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString("  " + StyleFaint.Render(i18n.T("preset.templates")) + "\n")
+		}
 		cursor := "  "
 		if i == m.cursor {
 			cursor = "> "

@@ -16,6 +16,10 @@ func BuildNetwork(baseDir string) (Network, error) {
 			nodes[i].Alive = true
 		} else {
 			nodes[i].Alive = IsAlive(nodes[i].WorkingDir, 2.0)
+			// Heartbeat is ground truth — no heartbeat means SUSPENDED
+			if !nodes[i].Alive && nodes[i].State != "" {
+				nodes[i].State = "SUSPENDED"
+			}
 		}
 	}
 

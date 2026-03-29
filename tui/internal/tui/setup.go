@@ -31,8 +31,8 @@ var providers = []struct {
 
 // SetupModel handles API key configuration (provider-agnostic).
 type SetupModel struct {
-	step         int          // current step
-	providerIdx  int          // selected provider index
+	step         int // current step
+	providerIdx  int // selected provider index
 	input        textinput.Model
 	globalDir    string
 	done         bool
