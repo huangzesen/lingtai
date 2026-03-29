@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // GlobalDirName is the name of the global config directory under $HOME.
@@ -56,7 +57,40 @@ func SaveConfig(dir string, cfg Config) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, "config.json"), data, 0o644)
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), data, 0o644); err != nil {
+		return err
+	}
+	return WriteEnvFile(dir, cfg)
+}
+
+// EnvFilePath returns the path to the global .env file.
+func EnvFilePath(globalDir string) string {
+	return filepath.Join(globalDir, ".env")
+}
+
+// WriteEnvFile writes API keys from config to ~/.lingtai-tui/.env.
+// This file is loaded by agents at boot via env_file in init.json.
+func WriteEnvFile(globalDir string, cfg Config) error {
+	var lines []string
+	for provider, key := range cfg.Keys {
+		if key == "" {
+			continue
+		}
+		envKey := providerToEnvKey(provider)
+		lines = append(lines, envKey+"="+key)
+	}
+	path := EnvFilePath(globalDir)
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o600)
+}
+
+// providerToEnvKey maps provider name to environment variable name.
+func providerToEnvKey(provider string) string {
+	switch provider {
+	case "minimax":
+		return "MINIMAX_API_KEY"
+	default:
+		return "LLM_API_KEY"
+	}
 }
 
 func NeedsSetup(dir string) bool {
