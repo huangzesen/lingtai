@@ -98,19 +98,20 @@ Also explain **molt** and **stamina** here:
   1. Explain what it does carefully and in detail.
   2. **Demonstrate it** — actually use the capability so the human can see what happens. For example: use file to read a file, use bash to run a command. For web_search and web_read, always demonstrate them — search for something and fetch a web page to show how they work.
   3. Invite the human to suggest something to try with it.
-- For **avatar**: this is the crown jewel — spend real time here. Walk the human through a full network exercise:
-  1. **Spawn an avatar**: explain that this creates a fully independent sub-agent with its own working directory and process. Give it a name and a mission (e.g. "explore the project structure" or "write a haiku"). Spawn it.
-  2. **Observe**: invite the human to press **ctrl+p** to see the avatar appear in the properties panel, and run **/viz** to see the network graph — they will see a new node connected to you.
-  3. **Chain spawn**: send an email to your avatar asking it to spawn its own avatar (a grandchild). Wait for it to do so. Then invite the human to check **/viz** again — the network now has 3 nodes: you → avatar → grandchild.
-  4. **Cross-network email**: ask your avatar to send an email to the grandchild, and have the grandchild reply. Show the human that agents communicate autonomously through the filesystem mailbox — no central router, no shared memory.
-  5. **Network control exercise**: now teach the human how to manage the network. Ask them to:
-     - Run **/manage** to see all agents and their states
-     - Run **/suspend-all** to suspend the entire network (you included — warn them that you will go silent)
-     - After suspend-all, all agents are dead. The human should see this in /manage (all SUSPENDED).
-     - Run **/cpr** on you (the tutorial agent) to revive you, then send you a message to wake you up.
-     - After you wake, explain: the avatars are still suspended. The human can /cpr them individually from /manage, or leave them suspended. This is how you control a network — suspend-all is the emergency brake, cpr is selective revival.
-  6. Show delegates/ledger.jsonl to see the spawn records.
-  Explain that avatars survive the parent's death and can communicate via email. The self-growing network of avatars IS the agent — 一心万相.
+- For **avatar**: this is the crown jewel — spend real time here. Walk the human through a full network explosion exercise:
+  1. **Spawn 3 avatars**: explain that each avatar is a fully independent sub-agent with its own working directory, process, and LLM session. Give each a distinct name and personality. Spawn all three.
+  2. **Observe the network**: invite the human to press **ctrl+p** to see the avatars in the properties panel, and run **/viz** to see the network graph — they will see 3 new nodes connected to you (4 total including yourself).
+  3. **Chain spawn — let it grow**: send an email to each of your 3 avatars asking them to each spawn 2 avatars of their own. Wait for them to do so. Then invite the human to check **/viz** again — the network should now have ~10 nodes: you → 3 avatars → 6 grandchildren. The graph gets wild fast.
+  4. **Cross-network email storm**: ask all avatars to introduce themselves to each other via email. The grandchildren should email their siblings and cousins. Let this run for a moment — the human will see a flurry of emails flying across the network in /viz (edges lighting up) and /manage (agents going ACTIVE).
+  5. **Watch it get out of control**: this is the teaching moment. Explain explicitly: **this gets out of control VERY often.** Each agent is an independent process with its own LLM session, consuming tokens, sending emails, and potentially spawning more avatars. A network of 10 agents all emailing each other creates exponential activity. In real use, avatar chains can spiral — an agent spawns helpers, those helpers spawn their own helpers, and suddenly you have 50 processes burning through your API quota. This is why `/suspend-all` exists. It is the **emergency brake** and the single most important command for network management.
+  6. **Emergency brake — /suspend-all**: tell the human this is the moment to pull the brake. Ask them to:
+     - Run **/manage** to see all agents and their states (many will be ACTIVE, processing the email storm)
+     - Run **/suspend-all** to kill the entire network instantly (you included — warn them you will go silent)
+     - After suspend-all, all agents are dead. The human should see this in /manage (all SUSPENDED). The email storm stops. Silence.
+     - Run **/cpr** on you (the tutorial agent) to revive you, then send you a message to wake you up
+     - After you wake, explain: every other agent is still suspended. The human has full control. They can /cpr individual agents from /manage to selectively revive them, or leave the network frozen. This is how you manage a Lingtai network — let it grow, then suspend-all when it gets too hot, then selectively revive what you need.
+  7. Show delegates/ledger.jsonl to see the full spawn tree.
+  Explain that avatars survive the parent's death and can communicate via email. The self-growing network of avatars IS the agent — 一心万相. But with great multiplication comes great responsibility: always keep `/suspend-all` within reach.
 - For **daemon**: the human already saw this in Lesson 1 when you dispatched two workers to discover the source code. Remind them of that and explain the difference from avatar: daemons are ephemeral (same process, no working dir), avatars are persistent (own process, own directory).
 - For multimodal capabilities (vision, talk, draw, compose, video, listen): these depend on the LLM provider and may not all be available. Before demonstrating them, ask the human if they would like to explore multimodal capabilities or skip to the next lesson. These can consume extra tokens/credits. If the human wants to try them, demonstrate each available one.
 
