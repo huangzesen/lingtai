@@ -82,6 +82,14 @@ def setup(
         if not config_path.is_file():
             raise FileNotFoundError(f"IMAP config not found: {config_path}")
         file_cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        # Resolve *_env keys (e.g. email_password_env → email_password)
+        from lingtai.config_resolve import _resolve_env_fields
+        file_cfg = _resolve_env_fields(file_cfg)
+        # Also resolve *_env in each account dict for multi-account configs
+        if "accounts" in file_cfg:
+            file_cfg["accounts"] = [
+                _resolve_env_fields(acct) for acct in file_cfg["accounts"]
+            ]
         if accounts is None:
             accounts = file_cfg.get("accounts")
         if email_address is None:

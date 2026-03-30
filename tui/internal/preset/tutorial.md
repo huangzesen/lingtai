@@ -300,8 +300,18 @@ Two built-in addons: **IMAP** (real email — Gmail, Outlook, etc.) and **Telegr
     "imap": { "config": "~/.lingtai-tui/addons/imap/gmail/config.json" }
   }
   ```
-- The config JSON contains credentials and connection details. The addon setup function validates the fields at boot.
+- The config JSON contains connection details and references secrets via `*_env` fields (e.g. `email_password_env`, `bot_token_env`). The actual secrets live in the `.env` file at `~/.lingtai-tui/.env`, never in the config file itself.
 - The TUI's `/addon` command provides a simple screen to set the config path in init.json. After setting it, the user types `/refresh` to activate.
+
+#### Security model: secrets go in .env, not config files
+Addon config files use `*_env` fields to reference environment variable names. The actual secrets are stored in `~/.lingtai-tui/.env`, which is loaded at agent startup.
+
+Example flow:
+1. `~/.lingtai-tui/.env` contains: `IMAP_PASSWORD=xxxx xxxx xxxx xxxx`
+2. Config file contains: `"email_password_env": "IMAP_PASSWORD"`
+3. At startup, the agent resolves `IMAP_PASSWORD` from the environment → gets the real password.
+
+This way, config files can be shared or version-controlled without exposing secrets.
 
 #### Interactive setup
 Ask the human if they would like to set up IMAP or Telegram right now. If they are interested:
@@ -309,23 +319,34 @@ Ask the human if they would like to set up IMAP or Telegram right now. If they a
 **For IMAP:**
 1. Read the template at `~/.lingtai-tui/addons/imap/example/config.json` (or `~/.lingtai-tui/templates/imap.jsonc`) and explain each field.
 2. Ask the human for their email provider (Gmail, Outlook, iCloud, or custom).
-3. Ask for their email address and app password. For Gmail, explain that they need a Google App Password (not their regular password).
-4. Fill in the config with the correct IMAP/SMTP host/port for their provider. Use sensible defaults:
+3. Ask for their email address. Explain that they need an App Password (not their regular password):
+   - Gmail: enable 2FA, then go to myaccount.google.com/apppasswords
+   - Outlook: enable 2FA, then Security → App passwords
+   - iCloud: enable 2FA, then appleid.apple.com → App-specific passwords
+4. Ask for the app password. **Do not save it in the config file.** Instead:
+   - Choose an env var name (e.g. `IMAP_PASSWORD`, or `IMAP_PASSWORD_GMAIL` if multiple accounts).
+   - Append `IMAP_PASSWORD=<their-app-password>` to `~/.lingtai-tui/.env`.
+   - In the config file, set `"email_password_env": "IMAP_PASSWORD"`.
+5. Fill in the config with the correct IMAP/SMTP host/port for their provider. Use sensible defaults:
    - Gmail: imap.gmail.com:993, smtp.gmail.com:587
    - Outlook: outlook.office365.com:993, smtp.office365.com:587
    - iCloud: imap.mail.me.com:993, smtp.mail.me.com:587
-5. Save the completed config to `~/.lingtai-tui/addons/imap/<alias>/config.json`, where `<alias>` is a name the human chooses (e.g. "gmail", "work"). Use your file write capability to create the directory and write the file.
-6. Tell the human the exact path where the config was saved.
-7. Explain: "To connect this to any agent, use `/addon` in the TUI to enter this path, then `/refresh`. Or add it to init.json manually."
+6. Save the completed config to `~/.lingtai-tui/addons/imap/<alias>/config.json`, where `<alias>` is a name the human chooses (e.g. "gmail", "work"). Use your file write capability to create the directory and write the file.
+7. Tell the human the exact path where the config was saved.
+8. Explain: "To connect this to any agent, use `/addon` in the TUI to enter this path, then `/refresh`. Or add it to init.json manually."
 
 **For Telegram:**
 1. Read the template at `~/.lingtai-tui/addons/telegram/example/config.json` and explain each field.
 2. Walk the human through creating a bot via @BotFather on Telegram.
-3. Ask for the bot token and their Telegram user ID (for allowed_users).
-4. Save the config to `~/.lingtai-tui/addons/telegram/<alias>/config.json`.
-5. Tell the human the exact path. Same `/addon` + `/refresh` flow to activate.
+3. Ask for the bot token. **Do not save it in the config file.** Instead:
+   - Append `TELEGRAM_BOT_TOKEN=<their-token>` to `~/.lingtai-tui/.env`.
+   - In the config file, set `"bot_token_env": "TELEGRAM_BOT_TOKEN"`.
+4. Ask for their Telegram user ID (for allowed_users). This is not a secret — it goes directly in the config file.
+5. Save the config to `~/.lingtai-tui/addons/telegram/<alias>/config.json`.
+6. Tell the human the exact path. Same `/addon` + `/refresh` flow to activate.
 
 #### Key points to teach
+- **Secrets always go in `~/.lingtai-tui/.env`**, never in config files. Config files use `*_env` fields to reference environment variable names.
 - **Avatars do NOT inherit addons** — each agent must be explicitly configured. This is by design: you do not want multiple agents polling the same email account or Telegram bot.
 - The config files under `~/.lingtai-tui/addons/` are reusable — any agent can reference them. Set up once, use everywhere.
 - **To set up addons for future agents**, the human can either: come back to this tutorial (`lingtai-tui tutorial`) and go through Lesson 11 again, use `/addon` in the TUI, or manually edit init.json.

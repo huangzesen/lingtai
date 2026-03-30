@@ -175,19 +175,13 @@
   // Addons — external service integrations
   // =============================================================
   // Addons connect the agent to external services (IMAP email, Telegram).
-  // Two ways to enable:
-  //
-  // 1. Auto-discovery (recommended): drop imap.json or telegram.json
-  //    in the working directory. No init.json changes needed.
-  //    See examples/imap.json and examples/telegram.json.
-  //
-  // 2. Explicit declaration: point to a config file in init.json.
-  //    The config key is a path relative to the working directory.
-  //    All addon settings live in the config file, NOT inline here.
+  // Each addon requires an explicit declaration pointing to a config file.
+  // The config file holds credentials (via *_env references to .env)
+  // and connection details. See examples/imap.jsonc and examples/telegram.jsonc.
   //
   //   "addons": {
-  //     "imap": { "config": "imap.json" },
-  //     "telegram": { "config": "telegram.json" }
+  //     "imap": { "config": "~/.lingtai-tui/addons/imap/gmail/config.json" },
+  //     "telegram": { "config": "~/.lingtai-tui/addons/telegram/mybot/config.json" }
   //   }
 
   // =============================================================

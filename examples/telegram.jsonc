@@ -1,12 +1,13 @@
 // =============================================================
 // Telegram Bot — telegram.json
 // =============================================================
-// Drop this file into your agent's working directory.
-// Auto-discovered by `lingtai run` — no init.json changes needed.
+// Point to this file from init.json:
+//   "addons": { "telegram": { "config": "path/to/this/config.json" } }
 //
 // Setup:
 //   1. Message @BotFather on Telegram → /newbot → copy the token.
-//   2. Add TELEGRAM_BOT_TOKEN=<your-token> to your .env file.
+//   2. Add TELEGRAM_BOT_TOKEN=<your-token> to your .env file
+//      (see env_file in init.json). Do NOT put the token here.
 //   3. Start the agent — it will long-poll for messages automatically.
 //
 // By default, the bot accepts messages from EVERYONE (open access).
