@@ -28,11 +28,15 @@ Named after 灵台方寸山 — the mountain where 孙悟空 (Sun Wukong) learne
 
 One heart-mind (一心), myriad forms (万相).
 
-## Why this architecture
+## Orchestration as a Service
 
-Most agent frameworks orchestrate with code — DAGs, chains, routers. Lingtai orchestrates like humans do: **autonomous agents communicating through messages**. This pattern has 10,000 years of proven track record, has scaled to 8 billion nodes, and we see no reason it can't do 10 billion.
+Context length is a single-body problem. It will always be finite. No amount of scaling will change this — a single agent will always forget. Don't make the body bigger. Let it forget. Let the network remember.
 
-The architecture supports self-growing networks from day one — not as a feature bolted on later, but as the natural consequence of agents being directories, mail being files, and avatars being independent processes. There is no central coordinator to bottleneck. There is no shared state to corrupt. Each agent is a sovereign process that happens to know how to write letters.
+What makes humanity powerful is not the individual, but the organization. Mediocre individuals forming a group — the resulting power is a phase transition. *More is different.* So it is with agents. Most agent frameworks orchestrate with code — DAGs, chains, routers. Lingtai orchestrates like humans do: **autonomous agents communicating through messages**. This pattern has 10,000 years of proven track record, has scaled to 8 billion nodes, and we see no reason it can't do 10 billion.
+
+Everything is a file. Knowledge, identity, memory, relationships — all files in a directory. Every token burned is not wasted — it is transformed into files in the network, into experience in the topology. The more it serves, the larger and wiser the network grows. Self-growing agent orchestration is not a feature bolted on later — it is the natural consequence of agents being directories, mail being files, and avatars being independent processes. There is no central coordinator to bottleneck. There is no shared state to corrupt. The network is the product.
+
+Read the full manifesto at [lingtai.ai](https://lingtai.ai).
 
 ## How it works
 
