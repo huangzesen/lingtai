@@ -359,6 +359,7 @@ class Agent(BaseAgent):
         """Read and validate init.json from working directory."""
         import json
         from .init_schema import validate_init
+        from .config_resolve import resolve_paths
 
         init_path = self._working_dir / "init.json"
         if not init_path.is_file():
@@ -371,11 +372,14 @@ class Agent(BaseAgent):
             return None
 
         try:
-            validate_init(data)
+            warnings = validate_init(data)
         except ValueError as e:
             self._log("refresh_init_error", error=str(e))
             return None
+        for w in warnings:
+            self._log("refresh_init_warning", warning=w)
 
+        resolve_paths(data, self._working_dir)
         return data
 
     def _setup_from_init(self) -> None:
@@ -540,13 +544,8 @@ class Agent(BaseAgent):
                 except (ValueError, ImportError) as e:
                     self._log("capability_skipped", capability=name, reason=str(e))
 
-        # Re-run addon setup — merge explicit config with auto-discovered files
+        # Re-run addon setup — only from explicit init.json declarations
         addons = _resolve_addons(data.get("addons")) or {}
-        for addon_name in ("telegram", "imap"):
-            if addon_name not in addons:
-                addon_file = self._working_dir / f"{addon_name}.json"
-                if addon_file.is_file():
-                    addons[addon_name] = {"config": str(addon_file)}
         if addons:
             from .addons import setup_addon
             for addon_name, addon_kwargs in addons.items():

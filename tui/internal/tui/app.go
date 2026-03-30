@@ -27,6 +27,7 @@ const (
 	appViewSettings
 	appViewPresets
 	appViewProps
+	appViewAddon
 )
 
 // App is the root Bubble Tea model. Routes between views via slash commands.
@@ -39,6 +40,7 @@ type App struct {
 	presets     PresetsModel
 	props       PropsModel
 	firstRun    FirstRunModel
+	addon       AddonModel
 
 	globalDir     string
 	projectDir    string // .lingtai/ directory
@@ -151,6 +153,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.presets, cmd = a.presets.Update(msg)
 		case appViewProps:
 			a.props, cmd = a.props.Update(msg)
+		case appViewAddon:
+			a.addon, cmd = a.addon.Update(msg)
 		case appViewFirstRun:
 			a.firstRun, cmd = a.firstRun.Update(msg)
 		}
@@ -189,6 +193,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.mail.messages = append(a.mail.messages, ChatMessage{From: i18n.T("mail.system_sender"), Body: launchErr, Type: "mail"})
 		}
 		return a, tea.Batch(a.mail.Init(), a.sendSize())
+
+	case AddonSavedMsg:
+		a.mail.AddSystemMessage(i18n.T("addon.saved"))
+		return a.switchToView("mail")
 
 	case SetupDoneMsg:
 		// During first-run, forward to firstrun model (needs to create default preset)
@@ -290,6 +298,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case appViewProps:
 		updated, cmd := a.props.Update(msg)
 		a.props = updated
+		return a, cmd
+	case appViewAddon:
+		updated, cmd := a.addon.Update(msg)
+		a.addon = updated
 		return a, cmd
 	}
 
@@ -440,6 +452,13 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		// Open browser, stay on mail
 		openBrowser(a.vizURL)
 		return a, nil
+	case "addon":
+		if a.orchDir != "" {
+			a.currentView = appViewAddon
+			a.addon = NewAddonModel(a.orchDir)
+			return a, tea.Batch(a.addon.Init(), a.sendSize())
+		}
+		return a, nil
 	case "setup":
 		a.currentView = appViewSetup
 		a.setup = NewSetupModel(a.globalDir)
@@ -466,6 +485,7 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 			i18n.T("help.lang") + "\n" +
 			i18n.T("help.clear") + "\n" +
 			i18n.T("help.refresh") + "\n" +
+			i18n.T("help.addon") + "\n" +
 			i18n.T("help.manage") + "\n" +
 			i18n.T("help.viz") + "\n" +
 			i18n.T("help.setup") + "\n" +
@@ -594,6 +614,13 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 		a.currentView = appViewProps
 		a.props = NewPropsModel(a.projectDir, a.orchDir)
 		return a, tea.Batch(a.props.Init(), a.sendSize())
+	case "addon":
+		if a.orchDir != "" {
+			a.currentView = appViewAddon
+			a.addon = NewAddonModel(a.orchDir)
+			return a, tea.Batch(a.addon.Init(), a.sendSize())
+		}
+		return a, nil
 	case "welcome":
 		a.currentView = appViewFirstRun
 		a.firstRun = NewFirstRunModel(a.projectDir, a.globalDir, true)
@@ -619,6 +646,8 @@ func (a App) View() string {
 		return a.presets.View()
 	case appViewProps:
 		return a.props.View()
+	case appViewAddon:
+		return a.addon.View()
 	}
 	return ""
 }

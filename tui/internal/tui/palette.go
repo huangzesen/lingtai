@@ -52,6 +52,7 @@ func DefaultCommands() []Command {
 		{Name: "refresh", Description: "palette.refresh"},
 		{Name: "manage", Description: "palette.manage"},
 		{Name: "viz", Description: "palette.viz"},
+		{Name: "addon", Description: "palette.addon"},
 		{Name: "setup", Description: "palette.setup"},
 		{Name: "settings", Description: "palette.settings"},
 		{Name: "presets", Description: "palette.presets"},
