@@ -10,8 +10,6 @@
 
 [English](README.md) | [中文](README.zh.md) | [文言](README.wen.md) | [lingtai.ai](https://lingtai.ai)
 
-[![PyPI](https://img.shields.io/pypi/v/lingtai?color=%237dab8f)](https://pypi.org/project/lingtai/)
-[![Python](https://img.shields.io/badge/python-%E2%89%A53.11-%237dab8f)](https://pypi.org/project/lingtai/)
 [![Homebrew](https://img.shields.io/badge/brew-lingtai--tui-%237dab8f)](https://github.com/huangzesen/homebrew-lingtai)
 [![License](https://img.shields.io/github/license/huangzesen/lingtai?color=%237dab8f)](LICENSE)
 [![Kernel](https://img.shields.io/badge/kernel-lingtai--kernel-%237dab8f)](https://github.com/huangzesen/lingtai-kernel)
@@ -21,7 +19,7 @@
 
 ---
 
-**Think** with any LLM. **Communicate** through filesystem mail. **Spawn avatars** that outlive their creators. **Grow** into self-expanding networks — no central coordinator, no shared state.
+A Unix-style Agent OS. **Think** with any LLM. **Communicate** through filesystem mail. **Spawn avatars** that outlive their creators. **Grow** into self-expanding networks — no central coordinator, no shared state. Everything is a file.
 
 ```bash
 brew install huangzesen/lingtai/lingtai-tui

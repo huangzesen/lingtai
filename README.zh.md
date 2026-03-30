@@ -9,8 +9,6 @@
 
 [English](README.md) | [中文](README.zh.md) | [文言](README.wen.md) | [lingtai.ai](https://lingtai.ai)
 
-[![PyPI](https://img.shields.io/pypi/v/lingtai?color=%237dab8f)](https://pypi.org/project/lingtai/)
-[![Python](https://img.shields.io/badge/python-%E2%89%A53.11-%237dab8f)](https://pypi.org/project/lingtai/)
 [![Homebrew](https://img.shields.io/badge/brew-lingtai--tui-%237dab8f)](https://github.com/huangzesen/homebrew-lingtai)
 [![License](https://img.shields.io/github/license/huangzesen/lingtai?color=%237dab8f)](LICENSE)
 [![Kernel](https://img.shields.io/badge/内核-lingtai--kernel-%237dab8f)](https://github.com/huangzesen/lingtai-kernel)
@@ -20,23 +18,26 @@
 
 ---
 
-## 一心化万相
+Unix 风格的智能体操作系统。**思考**用任意 LLM。**通信**靠文件系统传书。**化出分身**能脱离创造者独立存活。**自生长**为不断扩展的网络——无中央调度，无共享状态。万物皆文件。
 
-灵台不是编程助手，而是一个**智能体操作系统**——让智能体思考、通信、化出分身、自己生长成网络的运行时。为**编排即服务（OaaS）**而生：网络因服务而生长，因生长而服务。
+```bash
+brew install huangzesen/lingtai/lingtai-tui
+lingtai-tui
+```
 
-灵台方寸山，斜月三星洞。悟空在这里从一只猴子变成了齐天大圣——不是因为山本身有什么魔力，而是因为这里提供了修行所需的一切：师父（LLM）、功法（能力）、同门（其他智能体）、以及一个可以安心修炼的地方（工作目录）。灵台做的事情也是这样：给每个智能体一个灵台，让它学会七十二变。
+## 为什么选灵台
 
-智能体化出分身，分身再化分身。每个分身都是独立的进程，有自己的目录、自己的信箱、自己的 LLM 会话。分身不断增殖的网络，就是智能体本身。
+多数智能体框架用代码编排——DAG、链、路由。灵台用人类的方式编排：**自治的智能体通过消息通信**。这套模式经过一万年验证，已扩展到 80 亿节点，我们没有理由认为它不能到 100 亿。
 
-## 编排即服务
+| | DAG / 链式框架 | 灵台 |
+|---|---|---|
+| 编排方式 | 代码定义的流水线 | 智能体之间对话 |
+| 扩展方式 | 增加步骤 | 智能体化出分身 |
+| 记忆 | 共享状态 / 向量数据库 | 每个智能体拥有自己的目录 |
+| 容错 | 流水线中断 | 单个智能体休眠，网络继续运转 |
+| 增长 | 手动连线 | 自生长——分身再化分身 |
 
-上下文长度是单体问题。它永远是有限的。再怎么扩展也改变不了这一点——单个智能体终会遗忘。不要让身体变得更大，让它遗忘，让网络记住。
-
-人之所以强大，不在个体，而在组织。平庸的个体组成的团体，其力量是相变式的——*more is different*。智能体亦然。多数智能体框架用代码编排——DAG、链、路由。灵台用人类的方式编排：**自治的智能体通过消息通信**。这套模式经过一万年的验证，已经扩展到 80 亿节点，我们没有理由认为它不能到 100 亿。
-
-万物皆文件。知识、身份、记忆、关系——都是目录中的文件。每一个燃烧的 token 都不是消耗，而是转化——化为网络中的文件，化为拓扑中的经验。服务越多，网络越大、越智慧。自生长智能体编排不是后来加的功能，而是智能体即目录、信件即文件、分身即独立进程的自然结果。没有中央调度器成为瓶颈，没有共享状态会被破坏。网络即产品。
-
-完整宣言见 [lingtai.ai](https://lingtai.ai)。
+上下文长度是单体问题。它永远是有限的。不要让身体变得更大。**让它遗忘，让网络记住。**
 
 ## 四个核心
 
@@ -47,14 +48,25 @@
 
 ## 快速开始
 
+TUI 会引导你创建第一个智能体——选择 LLM 供应商、配置能力、启动。运行 `lingtai-tui tutorial` 可以体验引导式教程。
+
 ```bash
 brew install huangzesen/lingtai/lingtai-tui
 lingtai-tui
 ```
 
-TUI 会引导你创建第一个智能体——选择 LLM 供应商、配置能力、启动。运行 `lingtai-tui tutorial` 可以体验引导式教程。
-
 Python 运行时（`pip install lingtai`）会在首次启动时自动安装。
+
+<details>
+<summary>不使用 Homebrew</summary>
+
+```bash
+pip install lingtai
+```
+
+然后直接使用 Python API（见下方[扩展](#扩展)）。
+
+</details>
 
 ## 架构
 
@@ -64,8 +76,6 @@ Python 运行时（`pip install lingtai`）会在首次启动时自动安装。
 |----|------|
 | **[lingtai-kernel](https://github.com/huangzesen/lingtai-kernel)** | 最小运行时——BaseAgent、固有之器、LLM 协议、传书、日志。零硬依赖。 |
 | **lingtai**（本仓库） | 全功能层——19 种能力、5 种 LLM 适配器、MCP 集成、扩展插件。 |
-
-三层智能体层级：
 
 ```
 BaseAgent              — 内核（固有之器，封闭工具面）
@@ -77,40 +87,42 @@ CustomAgent(Agent)     — 你的领域逻辑
 
 ## 能力（七十二变）
 
-### 感知
+<table>
+<tr><th>感知</th><th>行动</th><th>心智</th><th>网络</th></tr>
+<tr>
+<td>
 
-| 能力 | 用途 |
-|------|------|
-| `vision` | 图像理解 |
-| `listen` | 语音转文字、音乐分析 |
-| `web_search` | 搜索网络（DuckDuckGo、MiniMax、Gemini 等） |
-| `web_read` | 读取网页内容 |
+`vision` — 图像理解
+`listen` — 语音转文字、音乐分析
+`web_search` — 搜索网络
+`web_read` — 读取网页内容
 
-### 行动
+</td>
+<td>
 
-| 能力 | 用途 |
-|------|------|
-| `file` | 读、写、编辑、glob、grep（组合简写） |
-| `bash` | Shell 执行，基于策略的安全限制 |
-| `talk` | 文字转语音 |
-| `compose` | 生成音乐 |
-| `draw` | 文字转图像 |
-| `video` | 生成视频 |
+`file` — 读、写、编辑、glob、grep
+`bash` — Shell 执行，策略约束
+`talk` — 文字转语音
+`compose` — 生成音乐
+`draw` — 文字转图像
+`video` — 生成视频
 
-### 心智
+</td>
+<td>
 
-| 能力 | 用途 |
-|------|------|
-| `psyche` | 进化的身份与性格 |
-| `library` | 知识归档与检索 |
-| `email` | 完整信箱——回复、抄送、联系人、归档、定时发送 |
+`psyche` — 进化的身份与性格
+`library` — 知识归档与检索
+`email` — 完整信箱系统
 
-### 网络
+</td>
+<td>
 
-| 能力 | 用途 |
-|------|------|
-| `avatar` | 化出分身——独立进程的子智能体 |
-| `daemon` | 神識——临时并行工作者 |
+`avatar` — 化出分身（独立进程）
+`daemon` — 神識（并行工作者）
+
+</td>
+</tr>
+</table>
 
 ## 智能体 = 目录
 
@@ -162,9 +174,15 @@ class ResearchAgent(Agent):
 await agent.connect_mcp("npx -y @modelcontextprotocol/server-filesystem /data")
 ```
 
-## 了解更多
+## 一心化万相
 
-设计哲学、架构解析、开发笔记，尽在 **[lingtai.ai](https://lingtai.ai)**。
+灵台方寸山，斜月三星洞。悟空在这里从一只猴子变成了齐天大圣——不是因为山本身有什么魔力，而是因为这里提供了修行所需的一切：师父（LLM）、功法（能力）、同门（其他智能体）、以及一个可以安心修炼的地方（工作目录）。灵台做的事情也是这样：给每个智能体一个灵台，让它学会七十二变。
+
+万物皆文件。知识、身份、记忆、关系——都是目录中的文件。每一个燃烧的 token 都不是消耗，而是转化——化为网络中的文件，化为拓扑中的经验。服务越多，网络越大、越智慧。自生长智能体编排不是后来加的功能，而是智能体即目录、信件即文件、分身即独立进程的自然结果。
+
+一心化万相。
+
+完整宣言见 [lingtai.ai](https://lingtai.ai)。
 
 ## 许可
 
