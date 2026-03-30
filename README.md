@@ -2,7 +2,7 @@
 
 # 灵台 LingTai
 
-**Self-growing agent network**
+**Agent OS — self-growing agent orchestration**
 
 > *灵台者有持，而不知其所持，而不可持者也。*
 > *The spirit platform holds something, yet knows not what it holds — and what it holds cannot be held.*
