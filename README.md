@@ -34,46 +34,16 @@ One heart-mind (一心), myriad forms (万相).
 - **Multiply** — Avatars (分身) are fully independent agents spawned as separate processes. They survive their creator. Daemons (神識) are ephemeral parallel workers for quick tasks.
 - **Persist** — Agents are directories. Molt (凝蜕) compacts context and rebirth the session — the agent lives indefinitely. Memory and identity survive across molts.
 
-## Install
-
-```bash
-pip install lingtai
-```
-
-Terminal UI for managing agent networks:
+## Quick start
 
 ```bash
 brew install huangzesen/lingtai/lingtai-tui
+lingtai-tui
 ```
 
-Or from source:
+The TUI guides you through creating your first agent — pick an LLM provider, configure capabilities, and launch. Run `lingtai-tui tutorial` for a guided walkthrough.
 
-```bash
-git clone https://github.com/huangzesen/lingtai-kernel.git
-git clone https://github.com/huangzesen/lingtai.git
-pip install -e lingtai-kernel -e lingtai
-```
-
-## Quick start
-
-```python
-from lingtai import Agent
-from lingtai.llm import LLMService
-
-service = LLMService(provider="gemini", model="gemini-2.5-flash")
-
-agent = Agent(
-    service=service,
-    working_dir="/agents/wukong",
-    agent_name="wukong",
-    capabilities=["file", "email", "avatar", "web_search", "bash"],
-)
-
-agent.start()
-agent.send("Begin your research on quantum computing")
-```
-
-The agent now lives at `/agents/wukong/`. It can read files, search the web, send mail to other agents, and spawn avatars to parallelize its work. Close your terminal — it keeps running.
+Python runtime (`pip install lingtai`) is installed automatically on first launch.
 
 ## Architecture
 
@@ -179,15 +149,6 @@ Connect MCP servers for domain tools:
 
 ```python
 await agent.connect_mcp("npx -y @modelcontextprotocol/server-filesystem /data")
-```
-
-## TUI
-
-Terminal UI for managing agent networks:
-
-```bash
-lingtai-tui              # launch TUI
-lingtai-tui tutorial     # guided walkthrough
 ```
 
 ## License

@@ -33,46 +33,16 @@
 - **化** — 分身（avatar）是完全独立的智能体，作为单独进程运行，生存不依赖于创建者。神識（daemon）是临时的并行工作者，适合短平快的任务。
 - **生** — 智能体就是一个目录。凝蜕（molt）压缩上下文、重启会话——智能体可以无限期存活。记忆和身份跨凝蜕存续。
 
-## 安装
-
-```bash
-pip install lingtai
-```
-
-用于管理智能体网络的终端界面：
+## 快速开始
 
 ```bash
 brew install huangzesen/lingtai/lingtai-tui
+lingtai-tui
 ```
 
-从源码安装：
+TUI 会引导你创建第一个智能体——选择 LLM 供应商、配置能力、启动。运行 `lingtai-tui tutorial` 可以体验引导式教程。
 
-```bash
-git clone https://github.com/huangzesen/lingtai-kernel.git
-git clone https://github.com/huangzesen/lingtai.git
-pip install -e lingtai-kernel -e lingtai
-```
-
-## 快速开始
-
-```python
-from lingtai import Agent
-from lingtai.llm import LLMService
-
-service = LLMService(provider="gemini", model="gemini-2.5-flash")
-
-agent = Agent(
-    service=service,
-    working_dir="/agents/wukong",
-    agent_name="悟空",
-    capabilities=["file", "email", "avatar", "web_search", "bash"],
-)
-
-agent.start()
-agent.send("开始调研量子计算")
-```
-
-智能体现在活在 `/agents/wukong/`。它可以读写文件、搜索网络、给其他智能体传书、化出分身来并行工作。关掉终端——它继续运行。
+Python 运行时（`pip install lingtai`）会在首次启动时自动安装。
 
 ## 架构
 
@@ -178,15 +148,6 @@ class ResearchAgent(Agent):
 
 ```python
 await agent.connect_mcp("npx -y @modelcontextprotocol/server-filesystem /data")
-```
-
-## 终端界面
-
-管理智能体网络的 TUI：
-
-```bash
-lingtai-tui              # 启动 TUI
-lingtai-tui tutorial     # 引导式教程
 ```
 
 ## 许可

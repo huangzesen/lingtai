@@ -33,46 +33,16 @@
 - **化** — 分身者，完全独立之器灵也，为单独进程而运行，其生不系于造者。神識者，临时之并行工者也，宜短平快之务。
 - **生** — 器灵即一目录。凝蜕压缩上下文、重启会话——器灵可以无限期而存。记忆与身份跨凝蜕而续。
 
-## 安装
-
-```bash
-pip install lingtai
-```
-
-管理器灵之网的终端界面：
+## 速启
 
 ```bash
 brew install huangzesen/lingtai/lingtai-tui
+lingtai-tui
 ```
 
-从源码安装：
+TUI 引导汝创第一器灵——择 LLM 供者、配能力、启之。运行 `lingtai-tui tutorial` 可循引导教程。
 
-```bash
-git clone https://github.com/huangzesen/lingtai-kernel.git
-git clone https://github.com/huangzesen/lingtai.git
-pip install -e lingtai-kernel -e lingtai
-```
-
-## 速启
-
-```python
-from lingtai import Agent
-from lingtai.llm import LLMService
-
-service = LLMService(provider="gemini", model="gemini-2.5-flash")
-
-agent = Agent(
-    service=service,
-    working_dir="/agents/wukong",
-    agent_name="悟空",
-    capabilities=["file", "email", "avatar", "web_search", "bash"],
-)
-
-agent.start()
-agent.send("始调研量子计算")
-```
-
-器灵今活于 `/agents/wukong/`。能读写文卷、游历网络、传书于诸器灵、化分身以并行。关终端——其运行不止。
+Python 运行时（`pip install lingtai`）首启时自动安装。
 
 ## 制式
 
@@ -178,15 +148,6 @@ class ResearchAgent(Agent):
 
 ```python
 await agent.connect_mcp("npx -y @modelcontextprotocol/server-filesystem /data")
-```
-
-## 终端界面
-
-管理器灵之网的 TUI：
-
-```bash
-lingtai-tui              # 启 TUI
-lingtai-tui tutorial     # 引导教程
 ```
 
 ## 许可
