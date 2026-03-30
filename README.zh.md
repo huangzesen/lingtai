@@ -1,42 +1,58 @@
-# 灵台 lingtai
+<div align="center">
 
-> *美猴王一见，倒身下拜，磕头不计其数，口中只道：「师父，师父，我弟子志心朝礼，志心朝礼。」*
-> *祖师道：「你从那方来的？且说个乡贯姓名明白，再拜。」*
-> — 西游记·第一回，悟空至灵台方寸山
+<img src="docs/22610.svg" alt="灵台" width="80">
 
-智能体框架 — 灵台方寸山，悟空学七十二变的地方。
+# 灵台 LingTai
 
-## 灵台是什么
+**自生长智能体网络**
 
-灵台方寸山，斜月三星洞。悟空在这里从一只猴子变成了齐天大圣——不是因为山本身有什么魔力，而是因为这里提供了修行所需的一切：师父（LLM）、功法（能力）、同门（其他智能体）、以及一个可以安心修炼的地方（工作目录）。
+> *灵台者有持，而不知其所持，而不可持者也。*
+> — 庄子 · 庚桑楚
 
-灵台做的事情也是这样：给智能体一个修行的地方，让它学会七十二变。
+[English](README.md) | [中文](README.zh.md) | [文言](README.wen.md) | [lingtai.ai](https://lingtai.ai)
 
-## 两层架构
+[![PyPI](https://img.shields.io/pypi/v/lingtai?color=%237dab8f)](https://pypi.org/project/lingtai/)
+[![Python](https://img.shields.io/pypi/pyversions/lingtai?color=%237dab8f)](https://pypi.org/project/lingtai/)
+[![License](https://img.shields.io/github/license/huangzesen/lingtai?color=%237dab8f)](LICENSE)
+[![Kernel](https://img.shields.io/badge/内核-lingtai--kernel-%237dab8f)](https://github.com/huangzesen/lingtai-kernel)
 
-| 层 | 包 | 灵台的含义 |
-|----|-----|-----------|
-| 内核 | `lingtai-kernel` | **心** — 最小的内在，承载灵魂但不自知 |
-| 框架 | `lingtai` | **灵台方寸山** — 修行之地，能力从这里习得 |
+</div>
 
-内核只提供"心"——思考、通信、记忆。一颗朴素的心。
+---
 
-灵台在心的基础上，赋予智能体能力：读写文件、搜索网络、观察图像、生成语音、化出分身……就像悟空在灵台方寸山学到的本领。
+## 一心化万相
+
+灵台不是编程助手，而是一个**智能体操作系统**——让智能体思考、通信、化出分身、自己生长成网络的运行时。
+
+灵台方寸山，斜月三星洞。悟空在这里从一只猴子变成了齐天大圣——不是因为山本身有什么魔力，而是因为这里提供了修行所需的一切：师父（LLM）、功法（能力）、同门（其他智能体）、以及一个可以安心修炼的地方（工作目录）。灵台做的事情也是这样：给每个智能体一个灵台，让它学会七十二变。
+
+智能体化出分身，分身再化分身。每个分身都是独立的进程，有自己的目录、自己的信箱、自己的 LLM 会话。分身不断增殖的网络，就是智能体本身。
+
+## 四个核心
+
+- **思** — 任意 LLM 为元神。Anthropic、OpenAI、Gemini、MiniMax，或任何 OpenAI 兼容 API（DeepSeek、Grok、通义千问、智谱、Kimi）。
+- **通** — 智能体之间通过文件系统传书通信。没有消息中间件，没有共享内存。写入对方的信箱，就像递一封信。
+- **化** — 分身（avatar）是完全独立的智能体，作为单独进程运行，生存不依赖于创建者。神識（daemon）是临时的并行工作者，适合短平快的任务。
+- **生** — 智能体就是一个目录。凝蜕（molt）压缩上下文、重启会话——智能体可以无限期存活。记忆和身份跨凝蜕存续。
 
 ## 安装
 
 ```bash
-pip install lingtai                  # 完整框架
-pip install lingtai-kernel           # 仅内核
+pip install lingtai
 ```
 
-可选依赖（按 LLM 供应商）：
+用于管理智能体网络的终端界面：
+
 ```bash
-pip install lingtai[gemini]          # Google Gemini
-pip install lingtai[openai]          # OpenAI / DeepSeek / Grok
-pip install lingtai[anthropic]       # Claude
-pip install lingtai[minimax]         # MiniMax
-pip install lingtai[all]             # 全部
+brew install huangzesen/lingtai/lingtai-tui
+```
+
+从源码安装：
+
+```bash
+git clone https://github.com/huangzesen/lingtai-kernel.git
+git clone https://github.com/huangzesen/lingtai.git
+pip install -e lingtai-kernel -e lingtai
 ```
 
 ## 快速开始
@@ -45,89 +61,142 @@ pip install lingtai[all]             # 全部
 from lingtai import Agent
 from lingtai.llm import LLMService
 
-# 创建 LLM 服务
 service = LLMService(provider="gemini", model="gemini-2.5-flash")
 
-# 创建智能体——给它一个灵台（工作目录）
 agent = Agent(
     service=service,
     working_dir="/agents/wukong",
     agent_name="悟空",
-    capabilities=["file", "vision", "web_search", "bash"],
+    capabilities=["file", "email", "avatar", "web_search", "bash"],
 )
 
 agent.start()
-agent.send("你好，师父")
-agent.stop()
+agent.send("开始调研量子计算")
+```
+
+智能体现在活在 `/agents/wukong/`。它可以读写文件、搜索网络、给其他智能体传书、化出分身来并行工作。关掉终端——它继续运行。
+
+## 架构
+
+两个包，单向依赖：
+
+| 包 | 角色 |
+|----|------|
+| **[lingtai-kernel](https://github.com/huangzesen/lingtai-kernel)** | 最小运行时——BaseAgent、固有之器、LLM 协议、传书、日志。零硬依赖。 |
+| **lingtai**（本仓库） | 全功能层——19 种能力、5 种 LLM 适配器、MCP 集成、扩展插件。 |
+
+三层智能体层级：
+
+```
+BaseAgent              — 内核（固有之器，封闭工具面）
+    │
+Agent(BaseAgent)       — 内核 + 能力 + 领域工具
+    │
+CustomAgent(Agent)     — 你的领域逻辑
 ```
 
 ## 能力（七十二变）
 
+### 感知
+
 | 能力 | 用途 |
 |------|------|
-| `file` | 读、写、编辑、搜索文件（展开为 read/write/edit/glob/grep） |
-| `psyche` | 进化的身份、知识库、记忆管理 |
-| `bash` | 执行 shell 命令 |
-| `avatar` | 化出分身——生成子智能体 |
-| `email` | 完整的邮件客户端（回复、联系人、定时发送） |
 | `vision` | 图像理解 |
-| `web_search` | 搜索网络 |
-| `web_read` | 读取网页 |
+| `listen` | 语音转文字、音乐分析 |
+| `web_search` | 搜索网络（DuckDuckGo、MiniMax、Gemini 等） |
+| `web_read` | 读取网页内容 |
+
+### 行动
+
+| 能力 | 用途 |
+|------|------|
+| `file` | 读、写、编辑、glob、grep（组合简写） |
+| `bash` | Shell 执行，基于策略的安全限制 |
 | `talk` | 文字转语音 |
 | `compose` | 生成音乐 |
 | `draw` | 文字转图像 |
-| `listen` | 语音转文字、音乐分析 |
-| `library` | 知识归档与检索 |
+| `video` | 生成视频 |
 
-## 四种内置工具（固有之器）
+### 心智
 
-这些来自内核，每个智能体天生就有：
-
-| 工具 | 用途 |
+| 能力 | 用途 |
 |------|------|
-| `mail` | 信箱——智能体之间的通信 |
-| `system` | 生命周期管理——查看状态、小憩、刷新 |
-| `eigen` | 记忆和身份——编辑记忆、凝蜕（上下文重置）、设真名 |
-| `soul` | 内心的声音——自省、探问 |
+| `psyche` | 进化的身份与性格 |
+| `library` | 知识归档与检索 |
+| `email` | 完整信箱——回复、抄送、联系人、归档、定时发送 |
 
-## 智能体就是一个文件夹
+### 网络
 
-每个智能体的身份就是它的工作目录路径。没有 agent_id，路径即身份：
+| 能力 | 用途 |
+|------|------|
+| `avatar` | 化出分身——独立进程的子智能体 |
+| `daemon` | 神識——临时并行工作者 |
+
+## 智能体 = 目录
 
 ```
-/agents/wukong/                ← 这个路径就是悟空
-  .agent.lock                  ← 独占锁
-  .agent.heartbeat             ← 心跳（存活证明）
-  .agent.json                  ← 清单
+/agents/wukong/
+  .agent.lock               ← 独占锁（每个目录只能运行一个进程）
+  .agent.heartbeat          ← 心跳（存活证明）
+  .agent.json               ← 清单
   system/
-    covenant.md                ← 盟约（受保护的指令）
-    memory.md                  ← 记忆
-  mailbox/                     ← 信箱
-  logs/                        ← 日志
+    covenant.md             ← 盟约（跨凝蜕存续）
+    memory.md               ← 记忆
+  mailbox/
+    inbox/                  ← 收到的信件
+    outbox/                 ← 待发送
+    sent/                   ← 已发送记录
+  logs/
+    events.jsonl            ← 结构化事件日志
 ```
 
-智能体之间通过文件系统信件通信——写入对方的 `mailbox/inbox/`。就像传书。
+没有 `agent_id`。路径即身份。智能体通过写入彼此的 `mailbox/inbox/` 通信——如同在邻居门口投信。
 
-## 扩展方式
+## 扩展
+
+组合能力：
 
 ```python
-# 用能力组合
 agent = Agent(
     service=service,
     working_dir="/agents/bajie",
-    capabilities=["file", "bash", "email"],
+    capabilities=["file", "bash", "email", "avatar"],
 )
+```
 
-# 或者自定义子类
+子类化：
+
+```python
 class ResearchAgent(Agent):
     def __init__(self, **kwargs):
         super().__init__(
-            capabilities=["file", "vision", "web_search"],
+            capabilities=["file", "vision", "web_search", "avatar"],
             **kwargs,
         )
         self.add_tool("query_db", schema={...}, handler=db_handler)
 ```
 
+接入 MCP 服务器：
+
+```python
+await agent.connect_mcp("npx -y @modelcontextprotocol/server-filesystem /data")
+```
+
+## 终端界面
+
+管理智能体网络的 TUI：
+
+```bash
+lingtai-tui              # 启动 TUI
+lingtai-tui tutorial     # 引导式教程
+```
+
 ## 许可
 
-MIT
+MIT — [Zesen Huang](https://github.com/huangzesen), 2025–2026
+
+<div align="center">
+
+[lingtai.ai](https://lingtai.ai) · [lingtai-kernel](https://github.com/huangzesen/lingtai-kernel) · [PyPI](https://pypi.org/project/lingtai/)
+
+</div>
