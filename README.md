@@ -22,11 +22,17 @@
 
 ## One soul, thousand avatars
 
-Lingtai is not a coding assistant. It is an **agent operating system** — a runtime where agents think, communicate, spawn avatars, and grow into networks.
+Lingtai is not a coding assistant. It is an **agent operating system** — a runtime where agents think, communicate, spawn avatars, and grow into networks. Built for **Orchestration as a Service (OaaS)**: the network grows as it serves, serves as it grows.
 
 Named after 灵台方寸山 — the mountain where 孙悟空 (Sun Wukong) learned his 72 transformations. Lingtai gives each agent a place to cultivate: a working directory on disk where memory, identity, covenant, and mailbox live. The directory IS the agent. Agents communicate through filesystem mail. They spawn avatars that become independent agents with their own directories, their own mail, their own LLM sessions. Those avatars can spawn their own. The self-growing network of avatars is the agent itself.
 
 One heart-mind (一心), myriad forms (万相).
+
+## Why this architecture
+
+Most agent frameworks orchestrate with code — DAGs, chains, routers. Lingtai orchestrates like humans do: **autonomous agents communicating through messages**. This pattern has 10,000 years of proven track record, has scaled to 8 billion nodes, and we see no reason it can't do 10 billion.
+
+The architecture supports self-growing networks from day one — not as a feature bolted on later, but as the natural consequence of agents being directories, mail being files, and avatars being independent processes. There is no central coordinator to bottleneck. There is no shared state to corrupt. Each agent is a sovereign process that happens to know how to write letters.
 
 ## How it works
 
