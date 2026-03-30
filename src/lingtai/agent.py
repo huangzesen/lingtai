@@ -401,10 +401,13 @@ class Agent(BaseAgent):
             load_env_file(env_file)
 
         # Resolve *_file fields for top-level text content
-        for key in ("covenant", "principle", "memory", "prompt", "comment"):
+        for key in ("covenant", "principle", "memory", "prompt", "comment", "soul"):
             file_key = f"{key}_file"
             if file_key in data:
                 data[key] = resolve_file(data.get(key), data.pop(file_key))
+
+        # Store soul flow prompt for the soul intrinsic
+        self._soul_flow_prompt = data.get("soul", "")
 
         m = data["manifest"]
 

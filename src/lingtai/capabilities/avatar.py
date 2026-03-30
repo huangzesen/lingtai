@@ -153,7 +153,7 @@ class AvatarManager:
             avatar_working_dir.mkdir(parents=True, exist_ok=True)
 
         # Resolve relative file paths to absolute so avatar can find them
-        for key in ("env_file", "covenant_file", "comment_file"):
+        for key in ("env_file", "covenant_file", "comment_file", "soul_file"):
             val = parent_init.get(key)
             if val and not os.path.isabs(val):
                 resolved = parent._working_dir / val

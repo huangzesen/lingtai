@@ -10,7 +10,7 @@ def validate_init(data: dict) -> None:
     }, prefix="")
 
     # Text fields: inline value OR _file path (at least one required)
-    for key in ("principle", "covenant", "memory", "prompt"):
+    for key in ("principle", "covenant", "memory", "prompt", "soul"):
         file_key = f"{key}_file"
         has_inline = key in data
         has_file = file_key in data
