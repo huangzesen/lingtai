@@ -275,6 +275,67 @@ func populate(globalDir string, fsys embed.FS, root string) {
 	})
 }
 
+// migrateAddonTemplates copies legacy ~/.lingtai-tui/templates/{imap,telegram}.jsonc
+// to ~/.lingtai-tui/addons/{addon}/example/config.json as plain JSON.
+// Skips if the target already exists.
+func migrateAddonTemplates(globalDir string) {
+	for _, addon := range []string{"imap", "telegram"} {
+		target := filepath.Join(globalDir, "addons", addon, "example", "config.json")
+		if _, err := os.Stat(target); err == nil {
+			continue // already migrated
+		}
+
+		// Read from embedded FS (same source as populate uses for templates/)
+		src := filepath.Join("templates", addon+".jsonc")
+		data, err := templatesFS.ReadFile(src)
+		if err != nil {
+			continue
+		}
+
+		// Strip JSONC comments and trailing commas → plain JSON
+		plain := stripJSONC(data)
+
+		os.MkdirAll(filepath.Dir(target), 0o755)
+		os.WriteFile(target, plain, 0o644)
+	}
+}
+
+// stripJSONC removes // comments and trailing commas from JSONC bytes.
+func stripJSONC(data []byte) []byte {
+	lines := strings.Split(string(data), "\n")
+	var out []string
+	for _, line := range lines {
+		// Remove // comments, but not inside quoted strings (e.g. URLs with //)
+		inString := false
+		stripped := line
+		for i := 0; i < len(line)-1; i++ {
+			if line[i] == '"' && (i == 0 || line[i-1] != '\\') {
+				inString = !inString
+			}
+			if !inString && line[i] == '/' && line[i+1] == '/' {
+				stripped = line[:i]
+				break
+			}
+		}
+		out = append(out, stripped)
+	}
+	text := strings.Join(out, "\n")
+	// Remove trailing commas before } or ]
+	for _, ch := range []string{"}", "]"} {
+		text = strings.ReplaceAll(text, ",\n"+ch, "\n"+ch)
+		text = strings.ReplaceAll(text, ", "+ch, " "+ch)
+	}
+	// Compact: parse and re-marshal to get clean JSON
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(text), &parsed); err == nil {
+		if pretty, err := json.MarshalIndent(parsed, "", "  "); err == nil {
+			return append(pretty, '\n')
+		}
+	}
+	// Fallback: return stripped text as-is
+	return []byte(text)
+}
+
 // Bootstrap populates all embedded assets and default presets at ~/.lingtai-tui/.
 func Bootstrap(globalDir string) error {
 	populate(globalDir, covenantFS, "covenant")
@@ -288,6 +349,7 @@ func Bootstrap(globalDir string) error {
 	if _, err := os.Stat(tutorialPath); err != nil {
 		os.WriteFile(tutorialPath, tutorialMD, 0o644)
 	}
+	migrateAddonTemplates(globalDir)
 	return EnsureDefault()
 }
 
