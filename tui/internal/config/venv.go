@@ -1,11 +1,15 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"time"
 )
 
 // RuntimeVenvDir returns ~/.lingtai-tui/runtime/venv/.
@@ -164,4 +168,63 @@ func findPython() string {
 		}
 	}
 	return ""
+}
+
+// CheckUpgrade compares installed lingtai version to PyPI latest.
+// Runs pip install --upgrade if a newer version is available.
+// Returns true if an upgrade was performed.
+// Non-blocking: silently returns false on any error (offline, timeout, etc.).
+func CheckUpgrade(globalDir string) bool {
+	python := VenvPython(RuntimeVenvDir(globalDir))
+	if _, err := os.Stat(python); err != nil {
+		return false // no venv yet
+	}
+
+	// Get installed version
+	out, err := exec.Command(python, "-c",
+		"import lingtai; print(lingtai.__version__)").Output()
+	if err != nil {
+		return false
+	}
+	installed := strings.TrimSpace(string(out))
+
+	// Get latest from PyPI (3s timeout)
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("https://pypi.org/pypi/lingtai/json")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return false
+	}
+
+	var pypi struct {
+		Info struct {
+			Version string `json:"version"`
+		} `json:"info"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pypi); err != nil {
+		return false
+	}
+
+	if installed == pypi.Info.Version {
+		return false
+	}
+
+	// Upgrade
+	var pipCmd string
+	if runtime.GOOS == "windows" {
+		pipCmd = filepath.Join(filepath.Dir(python), "pip.exe")
+	} else {
+		pipCmd = filepath.Join(filepath.Dir(python), "pip")
+	}
+	uvCmd := findUV()
+	if uvCmd != "" {
+		exec.Command(uvCmd, "pip", "install", "--upgrade", "lingtai",
+			"-p", RuntimeVenvDir(globalDir)).Run()
+	} else {
+		exec.Command(pipCmd, "install", "--upgrade", "lingtai").Run()
+	}
+	return true
 }
