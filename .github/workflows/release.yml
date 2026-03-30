@@ -111,6 +111,9 @@ jobs:
             version "${VERSION}"
             license "MIT"
 
+            depends_on "uv"
+            depends_on "python@3.13"
+
             on_macos do
               on_arm do
                 url "https://github.com/huangzesen/lingtai/releases/download/${TAG}/lingtai-darwin-arm64"
