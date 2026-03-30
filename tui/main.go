@@ -123,6 +123,11 @@ func main() {
 			if err := config.EnsureVenv(globalDir); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: %v\n", err)
 			}
+		} else {
+			// Venv exists — check for lingtai upgrades
+			if config.CheckUpgrade(globalDir) {
+				fmt.Println("Upgraded lingtai to latest version.")
+			}
 		}
 		preset.Bootstrap(globalDir)
 	}
@@ -177,6 +182,10 @@ func tutorialMain() {
 		if err := config.EnsureVenv(globalDir); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
+		}
+	} else {
+		if config.CheckUpgrade(globalDir) {
+			fmt.Println("Upgraded lingtai to latest version.")
 		}
 	}
 	preset.Bootstrap(globalDir)
