@@ -19,6 +19,8 @@ from lingtai_kernel.services.mail import FilesystemMailService
 
 def load_init(working_dir: Path) -> dict:
     """Read and validate init.json from working_dir. Exits on error."""
+    from lingtai.config_resolve import resolve_paths
+
     init_path = working_dir / "init.json"
     if not init_path.is_file():
         print(f"error: {init_path} not found", file=sys.stderr)
@@ -31,11 +33,14 @@ def load_init(working_dir: Path) -> dict:
         sys.exit(1)
 
     try:
-        validate_init(data)
+        warnings = validate_init(data)
     except ValueError as e:
         print(f"error: invalid init.json: {e}", file=sys.stderr)
         sys.exit(1)
+    for w in warnings:
+        print(f"warning: init.json: {w}", file=sys.stderr)
 
+    resolve_paths(data, working_dir)
     return data
 
 

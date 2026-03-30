@@ -71,6 +71,36 @@ def _resolve_file_fields(d: dict) -> dict:
     return result
 
 
+def resolve_paths(data: dict, working_dir: str | Path) -> None:
+    """Make every path field in init.json absolute, resolved against working_dir.
+
+    Mutates *data* in place. Handles:
+    - Top-level: env_file, venv_path, *_file (covenant_file, etc.)
+    - Addon configs: addons.*.config
+    """
+    wd = Path(working_dir)
+
+    # Top-level path fields
+    for key in ("env_file", "venv_path",
+                "covenant_file", "principle_file", "memory_file",
+                "prompt_file", "comment_file", "soul_file"):
+        if key in data and isinstance(data[key], str) and data[key]:
+            p = Path(data[key]).expanduser()
+            if not p.is_absolute():
+                p = wd / p
+            data[key] = str(p)
+
+    # Addon config paths
+    addons = data.get("addons")
+    if isinstance(addons, dict):
+        for cfg in addons.values():
+            if isinstance(cfg, dict) and "config" in cfg:
+                p = Path(cfg["config"]).expanduser()
+                if not p.is_absolute():
+                    p = wd / p
+                cfg["config"] = str(p)
+
+
 def _resolve_capabilities(capabilities: dict) -> dict:
     """Resolve ``*_env`` fields in each capability's kwargs."""
     resolved = {}

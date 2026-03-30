@@ -174,17 +174,21 @@
   // =============================================================
   // Addons — external service integrations
   // =============================================================
-  // Addons are auto-discovered: if telegram.json or imap.json exists
-  // in the working directory, it is loaded automatically.
-  // No need to declare them here — just drop the file in.
-  // See examples/telegram.json and examples/imap.json.
+  // Addons connect the agent to external services (IMAP email, Telegram).
+  // Two ways to enable:
   //
-  // You CAN still declare addons inline here if you prefer:
+  // 1. Auto-discovery (recommended): drop imap.json or telegram.json
+  //    in the working directory. No init.json changes needed.
+  //    See examples/imap.json and examples/telegram.json.
+  //
+  // 2. Explicit declaration: point to a config file in init.json.
+  //    The config key is a path relative to the working directory.
+  //    All addon settings live in the config file, NOT inline here.
+  //
   //   "addons": {
-  //     "telegram": { "bot_token_env": "TELEGRAM_BOT_TOKEN" },
-  //     "imap": { "email_address": "...", "email_password_env": "..." }
+  //     "imap": { "config": "imap.json" },
+  //     "telegram": { "config": "telegram.json" }
   //   }
-  // Inline config takes precedence over auto-discovered files.
 
   // =============================================================
   // Agent personality & initial state
@@ -208,6 +212,11 @@
   // The agent can edit this via the eigen intrinsic.
   "memory": "",
   // Or use a file: "memory_file": "memory.md"
+
+  // Soul flow — the agent's subconscious inner monologue prompt.
+  // Shapes the periodic self-reflection triggered by soul.delay.
+  "soul": "",
+  // Or use a file: "soul_file": "soul-flow.md"
 
   // First message — what the agent sees when it wakes up.
   // This is the initial user prompt that starts the conversation.

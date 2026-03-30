@@ -69,6 +69,7 @@ def _make_init(
         "covenant": covenant,
         "memory": memory,
         "prompt": "",
+        "soul": "",
     }
     if addons:
         data["addons"] = addons
