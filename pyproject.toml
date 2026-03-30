@@ -8,6 +8,11 @@ version = "0.3.0"
 description = "Generic research agent with intrinsic tools and MCP-compatible extension interface"
 requires-python = ">=3.11"
 license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
 dependencies = [
     "lingtai-kernel>=0.2.0",
     "httpx>=0.27",
