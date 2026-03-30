@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -41,6 +43,11 @@ type mailRefreshMsg struct {
 }
 type tickMsg time.Time
 
+// EditorDoneMsg carries the final text from the external editor.
+type EditorDoneMsg struct {
+	Text string
+}
+
 func tickEvery(d time.Duration) tea.Cmd {
 	return tea.Every(d, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
@@ -51,8 +58,8 @@ type verboseLevel int
 
 const (
 	verboseOff      verboseLevel = iota // normal: mail only
-	verboseThinking                     // ctrl+o: mail + thinking + diary
-	verboseExtended                     // ctrl+e: everything (+ text_input, text_output, tool_call, tool_result)
+	verboseThinking                     // ctrl+o cycle: mail + thinking + diary
+	verboseExtended                     // ctrl+o cycle: everything (+ text_input, text_output, tool_call, tool_result)
 )
 
 type MailModel struct {
@@ -77,6 +84,7 @@ type MailModel struct {
 	statusExpiry     time.Time // when to clear the flash
 	lastInputLines   int
 	lastPaletteLines int
+	pendingMessage   string // full text from editor, sent on Enter
 }
 
 func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pollRate int) MailModel {
@@ -264,7 +272,13 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 		return m, tea.Batch(m.refreshMail, tickEvery(m.pollRate))
 
 	case SendMsg:
-		text := m.input.Value()
+		var text string
+		if m.pendingMessage != "" {
+			text = m.pendingMessage
+			m.pendingMessage = ""
+		} else {
+			text = m.input.Value()
+		}
 		if text == "" {
 			return m, nil
 		}
@@ -287,6 +301,36 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 			return m, m.refreshMail
 		}
 		return m, nil
+
+	case OpenEditorMsg:
+		// Open external editor with current text
+		tmpFile, err := os.CreateTemp("", "lingtai-input-*.txt")
+		if err != nil {
+			return m, nil
+		}
+		tmpFile.WriteString(msg.Text)
+		tmpFile.Close()
+		editor := os.Getenv("EDITOR")
+		if editor == "" {
+			editor = "vim"
+		}
+		cmd := exec.Command(editor, tmpFile.Name())
+		return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
+			if err != nil {
+				os.Remove(tmpFile.Name())
+				return nil
+			}
+			content, _ := os.ReadFile(tmpFile.Name())
+			os.Remove(tmpFile.Name())
+			return EditorDoneMsg{Text: string(content)}
+		})
+
+	case EditorDoneMsg:
+		m.pendingMessage = msg.Text
+		firstLine := strings.SplitAfterN(msg.Text, "\n", 2)[0]
+		m.input.SetValue(firstLine)
+		// Re-enable mouse after external editor and refresh viewport
+		return m, tea.Batch(tea.EnableMouseAllMotion, m.refreshMail)
 
 	case PaletteSelectMsg:
 		m.input.Reset()
@@ -346,20 +390,14 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 			return m, func() tea.Msg { return ViewChangeMsg{View: "props"} }
 
 		case "ctrl+o":
-			// Toggle: off → thinking → off
-			if m.verbose == verboseThinking {
-				m.verbose = verboseOff
-			} else {
+			// Cycle: normal → thinking → extended → normal
+			switch m.verbose {
+			case verboseOff:
 				m.verbose = verboseThinking
-			}
-			return m, m.refreshMail
-
-		case "ctrl+e":
-			// Toggle: off → extended → off
-			if m.verbose == verboseExtended {
-				m.verbose = verboseOff
-			} else {
+			case verboseThinking:
 				m.verbose = verboseExtended
+			case verboseExtended:
+				m.verbose = verboseOff
 			}
 			return m, m.refreshMail
 
@@ -564,20 +602,15 @@ func (m MailModel) View() string {
 	var hints string
 	switch m.verbose {
 	case verboseOff:
-		hints = StyleFaint.Render(i18n.T("hints.verbose") + " " + RuneBullet + " " + i18n.T("hints.extended") + " " + RuneBullet + " " + i18n.T("hints.commands"))
+		hints = StyleFaint.Render(i18n.T("hints.verbose") + " " + RuneBullet + " " + i18n.T("hints.editor") + " " + RuneBullet + " " + i18n.T("hints.commands"))
 	case verboseThinking:
-		hints = lipgloss.NewStyle().Foreground(ColorAgent).Render(i18n.T("hints.verbose_off")) +
-			StyleFaint.Render(" "+RuneBullet+" "+i18n.T("hints.extended")+" "+RuneBullet+" "+i18n.T("hints.commands"))
+		hints = lipgloss.NewStyle().Foreground(ColorAgent).Render(i18n.T("hints.verbose_on")) +
+			StyleFaint.Render(" "+RuneBullet+" "+i18n.T("hints.editor")+" "+RuneBullet+" "+i18n.T("hints.commands"))
 	case verboseExtended:
-		hints = StyleFaint.Render(i18n.T("hints.verbose")+" "+RuneBullet+" ") +
-			lipgloss.NewStyle().Foreground(ColorThinking).Render(i18n.T("hints.extended_off")) +
-			StyleFaint.Render(" "+RuneBullet+" "+i18n.T("hints.commands"))
+		hints = lipgloss.NewStyle().Foreground(ColorThinking).Render(i18n.T("hints.extended_on")) +
+			StyleFaint.Render(" "+RuneBullet+" "+i18n.T("hints.editor")+" "+RuneBullet+" "+i18n.T("hints.commands"))
 	}
 	hints += StyleFaint.Render(" " + RuneBullet + " " + i18n.T("hints.props"))
-	if m.input.HasNewlines() {
-		newlineHint := StyleFaint.Render(" " + RuneBullet + " " + i18n.T("hints.newline"))
-		hints += newlineHint
-	}
 	statusPad := m.width - lipgloss.Width(leftLabel) - lipgloss.Width(hints) - 1
 	statusBar := leftLabel
 	if statusPad > 0 {
