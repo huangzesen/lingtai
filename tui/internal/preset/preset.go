@@ -375,11 +375,17 @@ func DefaultPreset() Preset {
 
 // AgentOpts holds per-agent configuration values set at creation time.
 type AgentOpts struct {
-	Language     string  // "en", "zh", or "wen"
-	Stamina      float64 // max uptime in seconds
-	ContextLimit int     // token budget
-	SoulDelay    float64 // seconds between soul cycles
-	MoltPressure float64 // 0–1 ratio triggering molt
+	Language      string  // "en", "zh", or "wen"
+	Stamina       float64 // max uptime in seconds
+	ContextLimit  int     // token budget
+	SoulDelay     float64 // seconds between soul cycles
+	MoltPressure  float64 // 0–1 ratio triggering molt
+	Karma         bool    // lifecycle control over other agents
+	Nirvana       bool    // permanent agent destruction
+	CovenantFile  string  // path to covenant file
+	PrincipleFile string  // path to principle file
+	SoulFile      string  // path to soul flow file
+	CommentFile   string  // path to comment file (optional)
 }
 
 // DefaultAgentOpts returns sensible defaults for agent creation.
@@ -390,6 +396,8 @@ func DefaultAgentOpts() AgentOpts {
 		ContextLimit: 200000,
 		SoulDelay:    120,
 		MoltPressure: 0.8,
+		Karma:        true,
+		Nirvana:      false,
 	}
 }
 
@@ -424,8 +432,9 @@ func GenerateInitJSONWithOpts(p Preset, agentName, dirName, lingtaiDir, globalDi
 	if caps, ok := p.Manifest["capabilities"]; ok {
 		manifest["capabilities"] = caps
 	}
-	if admin, ok := p.Manifest["admin"]; ok {
-		manifest["admin"] = admin
+	manifest["admin"] = map[string]interface{}{
+		"karma":   opts.Karma,
+		"nirvana": opts.Nirvana,
 	}
 	manifest["soul"] = map[string]interface{}{"delay": opts.SoulDelay}
 	manifest["stamina"] = opts.Stamina
@@ -435,22 +444,34 @@ func GenerateInitJSONWithOpts(p Preset, agentName, dirName, lingtaiDir, globalDi
 	manifest["max_turns"] = 100
 	manifest["streaming"] = true
 
-	// Comment: persistent app-level system prompt for the orchestrator
-	comment := "You are the 本我 (orchestrator) — the primary agent the human interacts with. " +
-		"Templates and examples for setting up IMAP email and Telegram integrations " +
-		"are available at " + filepath.Join(globalDir, "templates") + "/ — " +
-		"guide the human there if they want to connect external services. " +
-		"Covenants for all languages are at " + filepath.Join(globalDir, "covenant") + "/."
+	// Resolve file paths — use opts if set, fallback to language defaults
+	covenantFile := opts.CovenantFile
+	if covenantFile == "" {
+		covenantFile = CovenantPath(globalDir, lang)
+	}
+	principleFile := opts.PrincipleFile
+	if principleFile == "" {
+		principleFile = PrinciplePath(globalDir, lang)
+	}
+	soulFile := opts.SoulFile
+	if soulFile == "" {
+		soulFile = SoulFlowPath(globalDir, lang)
+	}
 
 	initJSON := map[string]interface{}{
 		"manifest":       manifest,
-		"covenant_file":  CovenantPath(globalDir, lang),
-		"principle_file": PrinciplePath(globalDir, lang),
+		"covenant_file":  covenantFile,
+		"principle_file": principleFile,
+		"soul_file":      soulFile,
 		"env_file":       config.EnvFilePath(globalDir),
 		"venv_path":      filepath.Join(globalDir, "runtime", "venv"),
 		"memory":         "",
 		"prompt":         "",
-		"comment":        comment,
+	}
+
+	// Comment file — only if user specified one
+	if opts.CommentFile != "" {
+		initJSON["comment_file"] = opts.CommentFile
 	}
 
 	data, err := json.MarshalIndent(initJSON, "", "  ")
@@ -469,7 +490,10 @@ func GenerateInitJSONWithOpts(p Preset, agentName, dirName, lingtaiDir, globalDi
 		"agent_name": agentName,
 		"address":    absDir,
 		"state":      "",
-		"admin":      p.Manifest["admin"],
+		"admin": map[string]interface{}{
+			"karma":   opts.Karma,
+			"nirvana": opts.Nirvana,
+		},
 	}
 
 	// Create mailbox structure
@@ -522,6 +546,7 @@ func GenerateTutorialInit(p Preset, lingtaiDir, globalDir, lang string) error {
 		"manifest":       manifest,
 		"covenant_file":  CovenantPath(globalDir, lang),
 		"principle_file": PrinciplePath(globalDir, lang),
+		"soul_file":      SoulFlowPath(globalDir, lang),
 		"env_file":       config.EnvFilePath(globalDir),
 		"comment_file":   TutorialCommentPath(globalDir),
 		"venv_path":      filepath.Join(globalDir, "runtime", "venv"),
