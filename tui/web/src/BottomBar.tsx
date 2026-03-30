@@ -19,6 +19,9 @@ export function BottomBar({ network, edgeMode, lang, onToggle }: {
       display: 'flex',
       alignItems: 'flex-start',
       gap: 24,
+      maxHeight: '40vh',
+      overflowY: 'auto',
+      flexShrink: 0,
     }}>
       <Stats stats={network.stats} lang={lang} />
       <div style={{ display: 'flex', flexShrink: 0, alignSelf: 'center', borderRadius: 4, overflow: 'hidden', border: `1px solid ${inkBorder}` }}>

@@ -29,7 +29,7 @@ export default function App() {
 
   return (
     <div style={{ background: inkBg, height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, minHeight: 0 }}>
         <Graph network={network} edgeMode={edgeMode} />
       </div>
       <BottomBar
