@@ -1,0 +1,149 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: arm64
+            asset: lingtai-darwin-arm64
+            runner: macos-14
+          - goos: darwin
+            goarch: amd64
+            asset: lingtai-darwin-x64
+            runner: macos-13
+          - goos: linux
+            goarch: amd64
+            asset: lingtai-linux-x64
+            runner: ubuntu-latest
+          - goos: linux
+            goarch: arm64
+            asset: lingtai-linux-arm64
+            runner: ubuntu-latest
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tui/go.mod
+
+      - name: Build
+        working-directory: tui
+        env:
+          CGO_ENABLED: '0'
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: go build -o ../dist/${{ matrix.asset }} .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+
+  update-homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Compute checksums
+        id: sha
+        run: |
+          echo "darwin_arm64=$(shasum -a 256 dist/lingtai-darwin-arm64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "darwin_x64=$(shasum -a 256 dist/lingtai-darwin-x64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "linux_x64=$(shasum -a 256 dist/lingtai-linux-x64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "linux_arm64=$(shasum -a 256 dist/lingtai-linux-arm64 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Update Homebrew formula
+        uses: actions/checkout@v4
+        with:
+          repository: huangzesen/homebrew-lingtai
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Write formula
+        env:
+          TAG: ${{ github.ref_name }}
+          SHA_DARWIN_ARM64: ${{ steps.sha.outputs.darwin_arm64 }}
+          SHA_DARWIN_X64: ${{ steps.sha.outputs.darwin_x64 }}
+          SHA_LINUX_X64: ${{ steps.sha.outputs.linux_x64 }}
+          SHA_LINUX_ARM64: ${{ steps.sha.outputs.linux_arm64 }}
+        run: |
+          VERSION="${TAG#v}"
+          cat > homebrew-tap/lingtai-tui.rb << EOF
+          class LingtaiTui < Formula
+            desc "Terminal UI for the Lingtai AI agent framework"
+            homepage "https://github.com/huangzesen/lingtai"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/huangzesen/lingtai/releases/download/${TAG}/lingtai-darwin-arm64"
+                sha256 "${SHA_DARWIN_ARM64}"
+              end
+              on_intel do
+                url "https://github.com/huangzesen/lingtai/releases/download/${TAG}/lingtai-darwin-x64"
+                sha256 "${SHA_DARWIN_X64}"
+              end
+            end
+
+            on_linux do
+              on_arm do
+                url "https://github.com/huangzesen/lingtai/releases/download/${TAG}/lingtai-linux-arm64"
+                sha256 "${SHA_LINUX_ARM64}"
+              end
+              on_intel do
+                url "https://github.com/huangzesen/lingtai/releases/download/${TAG}/lingtai-linux-x64"
+                sha256 "${SHA_LINUX_X64}"
+              end
+            end
+
+            def install
+              bin.install stable.url.split("/").last => "lingtai-tui"
+            end
+
+            test do
+              assert_match "lingtai-tui", shell_output("#{bin}/lingtai-tui version 2>&1", 0)
+            end
+          end
+          EOF
+
+      - name: Push formula update
+        working-directory: homebrew-tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add lingtai-tui.rb
+          git commit -m "Update lingtai-tui to ${{ github.ref_name }}"
+          git push
