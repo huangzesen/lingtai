@@ -95,7 +95,8 @@ func ensureVenv(globalDir string, quiet bool, progress ProgressFunc) error {
 	os.MkdirAll(filepath.Dir(venvPath), 0o755)
 	var cmd *exec.Cmd
 	if uvCmd != "" {
-		cmd = exec.Command(uvCmd, "venv", venvPath)
+		// uv can download Python automatically — request 3.13 to avoid conda/system conflicts
+		cmd = exec.Command(uvCmd, "venv", "--python", "3.13", venvPath)
 	} else {
 		pythonCmd := findPython()
 		if pythonCmd == "" {
