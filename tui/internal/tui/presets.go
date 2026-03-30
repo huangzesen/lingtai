@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/preset"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // UsePresetMsg is emitted when a preset is selected for use.
@@ -63,7 +64,7 @@ func NewPresetsModel() PresetsModel {
 	ti := textinput.New()
 	ti.Placeholder = i18n.T("presets.enter_name")
 	ti.CharLimit = 64
-	ti.Width = 40
+	ti.SetWidth(40)
 
 	presets, _ := preset.List()
 	return PresetsModel{
@@ -81,7 +82,7 @@ func (m PresetsModel) Update(msg tea.Msg) (PresetsModel, tea.Cmd) {
 		m.height = msg.Height
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch m.mode {
 		case presetsListMode:
 			return m.updateList(msg)
@@ -94,7 +95,7 @@ func (m PresetsModel) Update(msg tea.Msg) (PresetsModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m PresetsModel) updateList(msg tea.KeyMsg) (PresetsModel, tea.Cmd) {
+func (m PresetsModel) updateList(msg tea.KeyPressMsg) (PresetsModel, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		return m, func() tea.Msg { return ViewChangeMsg{View: "mail"} }
@@ -136,7 +137,7 @@ func (m PresetsModel) updateList(msg tea.KeyMsg) (PresetsModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m PresetsModel) updateEditor(msg tea.KeyMsg) (PresetsModel, tea.Cmd) {
+func (m PresetsModel) updateEditor(msg tea.KeyPressMsg) (PresetsModel, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		// Save and return to list
@@ -158,7 +159,7 @@ func (m PresetsModel) updateEditor(msg tea.KeyMsg) (PresetsModel, tea.Cmd) {
 			f.Current--
 			applyEditField(&m.editPreset, f)
 		}
-	case "right", " ":
+	case "right", "space":
 		f := &m.editFields[m.editCursor]
 		if f.Current < len(f.Options)-1 {
 			f.Current++
@@ -168,7 +169,7 @@ func (m PresetsModel) updateEditor(msg tea.KeyMsg) (PresetsModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m PresetsModel) updateNew(msg tea.KeyMsg) (PresetsModel, tea.Cmd) {
+func (m PresetsModel) updateNew(msg tea.KeyPressMsg) (PresetsModel, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		m.mode = presetsListMode

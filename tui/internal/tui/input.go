@@ -6,10 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"charm.land/bubbles/v2/textarea"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+
 	"github.com/anthropics/lingtai-tui/i18n"
-	"github.com/charmbracelet/bubbles/textarea"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // SendMsg is emitted when the user presses Enter in the input box.
@@ -59,7 +60,7 @@ func (m InputModel) Init() tea.Cmd {
 
 func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "esc":
 			if m.showPalette {

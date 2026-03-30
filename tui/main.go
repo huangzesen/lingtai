@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/api"
@@ -153,7 +153,7 @@ func main() {
 
 	// Launch TUI
 	app := tui.NewApp(globalDir, lingtaiDir, srv.URL(), needsFirstRun, orchestrators, settings)
-	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -253,7 +253,7 @@ func tutorialMain() {
 
 	// Launch TUI directly into the tutorial agent
 	app := tui.NewApp(globalDir, lingtaiDir, srv.URL(), false, []string{"tutorial"}, settings)
-	prog := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	prog := tea.NewProgram(app)
 	if _, err := prog.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)

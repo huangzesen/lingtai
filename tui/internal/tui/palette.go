@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/anthropics/lingtai-tui/i18n"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // PaletteSelectMsg is sent when the user selects a command from the palette.
@@ -65,7 +65,7 @@ func (m PaletteModel) Init() tea.Cmd { return nil }
 
 func (m PaletteModel) Update(msg tea.Msg) (PaletteModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "up":
 			if m.cursor > 0 {

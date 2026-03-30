@@ -7,10 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+
 	"github.com/anthropics/lingtai-tui/i18n"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // AddonSavedMsg is sent when addon config is saved to init.json.
@@ -32,13 +33,13 @@ func NewAddonModel(orchDir string) AddonModel {
 	imapInput := textinput.New()
 	imapInput.Placeholder = "~/.lingtai-tui/addons/imap/.../config.json"
 	imapInput.CharLimit = 256
-	imapInput.Width = 60
+	imapInput.SetWidth(60)
 	imapInput.SetValue(imapPath)
 
 	telegramInput := textinput.New()
 	telegramInput.Placeholder = "~/.lingtai-tui/addons/telegram/.../config.json"
 	telegramInput.CharLimit = 256
-	telegramInput.Width = 60
+	telegramInput.SetWidth(60)
 	telegramInput.SetValue(telegramPath)
 
 	// Focus the first input
@@ -59,7 +60,7 @@ func (m AddonModel) Update(msg tea.Msg) (AddonModel, tea.Cmd) {
 		m.height = msg.Height
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "esc":
 			m.saveAddonPaths()

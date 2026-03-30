@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/glamour"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/fs"
@@ -136,7 +136,7 @@ func (m *MailModel) syncViewportHeight() bool {
 	if vpHeight < 1 {
 		vpHeight = 1
 	}
-	m.viewport.Height = vpHeight
+	m.viewport.SetHeight(vpHeight)
 	return true
 }
 
@@ -220,9 +220,9 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.MouseMsg:
-		// Only forward scroll wheel events to viewport
-		if m.ready && (msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelDown) {
+	case tea.MouseWheelMsg:
+		// Forward scroll wheel events to viewport
+		if m.ready {
 			var cmd tea.Cmd
 			m.viewport, cmd = m.viewport.Update(msg)
 			return m, cmd
@@ -241,12 +241,14 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 			if vpHeight < 1 {
 				vpHeight = 1
 			}
-			m.viewport = viewport.New(msg.Width, vpHeight)
+			m.viewport = viewport.New()
+			m.viewport.SetWidth(msg.Width)
+			m.viewport.SetHeight(vpHeight)
 			m.viewport.SetContent(m.renderMessages())
 			m.lastInputLines = inputLines
 			m.ready = true
 		} else {
-			m.viewport.Width = msg.Width
+			m.viewport.SetWidth(msg.Width)
 			m.lastInputLines = -1 // force recalculate
 			m.syncViewportHeight()
 		}
@@ -329,8 +331,8 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 		m.pendingMessage = msg.Text
 		firstLine := strings.SplitAfterN(msg.Text, "\n", 2)[0]
 		m.input.SetValue(firstLine)
-		// Re-enable mouse after external editor and refresh viewport
-		return m, tea.Batch(tea.EnableMouseAllMotion, m.refreshMail)
+		// Refresh viewport after external editor
+		return m, m.refreshMail
 
 	case PaletteSelectMsg:
 		m.input.Reset()
@@ -338,7 +340,7 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 		// Forward to app
 		return m, func() tea.Msg { return PaletteSelectMsg{Command: msg.Command} }
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		// If palette is active, route to palette
 		if m.input.IsPaletteActive() {
 			switch msg.String() {

@@ -10,13 +10,14 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/config"
 	"github.com/anthropics/lingtai-tui/internal/fs"
 	"github.com/anthropics/lingtai-tui/internal/preset"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // FirstRunDoneMsg is emitted when first-run flow completes.
@@ -159,69 +160,69 @@ type FirstRunModel struct {
 func NewFirstRunModel(baseDir, globalDir string, hasPresets bool) FirstRunModel {
 	ti := textinput.New()
 	ti.CharLimit = 64
-	ti.Width = 40
+	ti.SetWidth(40)
 
 	di := textinput.New()
 	di.CharLimit = 64
-	di.Width = 40
+	di.SetWidth(40)
 
 	pki := textinput.New()
 	pki.CharLimit = 128
-	pki.Width = 50
+	pki.SetWidth(50)
 
 	pei := textinput.New() // endpoint input for custom provider
 	pei.CharLimit = 256
-	pei.Width = 50
+	pei.SetWidth(50)
 	pei.Placeholder = "https://openrouter.ai/api/v1"
 
 	pmi := textinput.New() // model input for custom provider
 	pmi.CharLimit = 64
-	pmi.Width = 50
+	pmi.SetWidth(50)
 	pmi.Placeholder = "model-name"
 
 	pni := textinput.New() // preset name input for custom provider
 	pni.CharLimit = 64
-	pni.Width = 50
+	pni.SetWidth(50)
 	pni.Placeholder = "openrouter"
 
 	si := textinput.New()
 	si.CharLimit = 10
-	si.Width = 15
+	si.SetWidth(15)
 	si.Prompt = ""
 
 	ci := textinput.New()
 	ci.CharLimit = 10
-	ci.Width = 15
+	ci.SetWidth(15)
 	ci.Prompt = ""
 
 	sdi := textinput.New()
 	sdi.CharLimit = 10
-	sdi.Width = 15
+	sdi.SetWidth(15)
 	sdi.Prompt = ""
 
 	mpi := textinput.New()
 	mpi.CharLimit = 6
-	mpi.Width = 15
+	mpi.SetWidth(15)
 	mpi.Prompt = ""
 
 	covi := textinput.New()
 	covi.CharLimit = 256
-	covi.Width = 50
+	covi.SetWidth(50)
 	covi.Prompt = ""
 
 	prini := textinput.New()
 	prini.CharLimit = 256
-	prini.Width = 50
+	prini.SetWidth(50)
 	prini.Prompt = ""
 
 	sfli := textinput.New()
 	sfli.CharLimit = 256
-	sfli.Width = 50
+	sfli.SetWidth(50)
 	sfli.Prompt = ""
 
 	comi := textinput.New()
 	comi.CharLimit = 256
-	comi.Width = 50
+	comi.SetWidth(50)
 	comi.Prompt = ""
 
 	// Load existing keys from Config.Keys
@@ -325,12 +326,12 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 		if inputWidth < 40 {
 			inputWidth = 40
 		}
-		m.nameInput.Width = inputWidth
-		m.dirInput.Width = inputWidth
-		m.covenantInput.Width = inputWidth
-		m.principleInput.Width = inputWidth
-		m.soulFlowInput.Width = inputWidth
-		m.commentInput.Width = inputWidth
+		m.nameInput.SetWidth(inputWidth)
+		m.dirInput.SetWidth(inputWidth)
+		m.covenantInput.SetWidth(inputWidth)
+		m.principleInput.SetWidth(inputWidth)
+		m.soulFlowInput.SetWidth(inputWidth)
+		m.commentInput.SetWidth(inputWidth)
 		return m, nil
 
 	case bootstrapProgressMsg:
@@ -415,7 +416,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 		m.step = stepPickPreset
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch m.step {
 		case stepWelcome:
 			langs := []string{"en", "zh", "wen"}
@@ -711,7 +712,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				if m.capCursor < colSize && m.capCursor+colSize < len(m.capOrder) {
 					m.capCursor += colSize
 				}
-			case " ":
+			case "space":
 				name := m.capOrder[m.capCursor]
 				info, ok := m.capInfos[name]
 				if !ok {

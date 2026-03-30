@@ -14,7 +14,7 @@ import (
 	"github.com/anthropics/lingtai-tui/internal/fs"
 	"github.com/anthropics/lingtai-tui/internal/preset"
 	"github.com/anthropics/lingtai-tui/internal/process"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 type appView int
@@ -238,7 +238,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// === Global keys ===
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+c":
 			return a, tea.Quit
@@ -630,26 +630,30 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-func (a App) View() string {
+func (a App) View() tea.View {
+	var content string
 	switch a.currentView {
 	case appViewFirstRun:
-		return a.firstRun.View()
+		content = a.firstRun.View()
 	case appViewMail:
-		return a.mail.View()
+		content = a.mail.View()
 	case appViewManage:
-		return a.manage.View()
+		content = a.manage.View()
 	case appViewSetup:
-		return a.setup.View()
+		content = a.setup.View()
 	case appViewSettings:
-		return a.settings.View()
+		content = a.settings.View()
 	case appViewPresets:
-		return a.presets.View()
+		content = a.presets.View()
 	case appViewProps:
-		return a.props.View()
+		content = a.props.View()
 	case appViewAddon:
-		return a.addon.View()
+		content = a.addon.View()
 	}
-	return ""
+	v := tea.NewView(content)
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+	return v
 }
 
 func openBrowser(url string) {

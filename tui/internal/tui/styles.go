@@ -1,6 +1,10 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"image/color"
+
+	"charm.land/lipgloss/v2"
+)
 
 // 墨韵灵台调色板
 // 灵感：中国水墨画 · 明镜台 · 古印章
@@ -55,7 +59,7 @@ var (
 	RuneBullet = "·"
 )
 
-func StateColor(state string) lipgloss.Color {
+func StateColor(state string) color.Color {
 	switch state {
 	case "ACTIVE":
 		return ColorActive

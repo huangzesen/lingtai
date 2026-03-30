@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/fs"
@@ -60,7 +60,7 @@ func (m ManageModel) Update(msg tea.Msg) (ManageModel, tea.Cmd) {
 	case tickMsg:
 		return m, tea.Batch(m.refreshAgents, tickEvery(time.Second))
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "esc":
 			return m, func() tea.Msg { return ViewChangeMsg{View: "mail"} }

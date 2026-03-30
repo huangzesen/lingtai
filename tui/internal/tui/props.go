@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/fs"
@@ -112,7 +112,7 @@ func (m PropsModel) Update(msg tea.Msg) (PropsModel, tea.Cmd) {
 		m.agentDirs = msg.agentDirs
 		m.agentNodes = msg.agentNodes
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.pickerOpen {
 			return m.updatePicker(msg)
 		}
@@ -132,7 +132,7 @@ func (m PropsModel) Update(msg tea.Msg) (PropsModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m PropsModel) updatePicker(msg tea.KeyMsg) (PropsModel, tea.Cmd) {
+func (m PropsModel) updatePicker(msg tea.KeyPressMsg) (PropsModel, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "ctrl+t":
 		m.pickerOpen = false

@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/config"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // SetupDoneMsg is emitted when API key setup completes.
@@ -47,7 +48,7 @@ func NewSetupModel(globalDir string) SetupModel {
 	ti.Placeholder = i18n.T("setup.prompt_api_key")
 	ti.Focus()
 	ti.CharLimit = 128
-	ti.Width = 50
+	ti.SetWidth(50)
 
 	// Load existing keys for display
 	existingKeys := make(map[string]string)
@@ -83,7 +84,7 @@ func (m SetupModel) Update(msg tea.Msg) (SetupModel, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
 			return m.handleEnter()
