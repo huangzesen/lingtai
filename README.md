@@ -21,7 +21,7 @@
 
 ---
 
-A Unix-style Agent OS. **Think** with any LLM. **Communicate** through filesystem mail. **Spawn avatars** that outlive their creators. **Grow** into self-expanding networks — no central coordinator, no shared state. Everything is a file.
+A Unix-style Agent OS. **Think** with any LLM. **Communicate** through filesystem mail. **Spawn avatars** that outlive their creators. **Grow** into self-expanding networks — no central coordinator, no shared state. Everything is a file. Agent is filesystem, filesystem is agent. Self-growing agent network, trivial migration on day one. Serve as you grow, grow as you serve. **Orchestration as a Service.**
 
 ## Quick start — 10 seconds
 

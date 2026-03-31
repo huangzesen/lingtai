@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/assets/network-demo.gif" alt="智能体网络生长" width="100%">
+
 # 灵台 LingTai
 
 **智能体操作系统 — 自生长智能体编排**
@@ -20,10 +22,14 @@
 
 Unix 风格的智能体操作系统。**思考**用任意 LLM。**通信**靠文件系统传书。**化出分身**能脱离创造者独立存活。**自生长**为不断扩展的网络——无中央调度，无共享状态。万物皆文件。
 
+## 快速开始 — 10 秒
+
 ```bash
 brew install huangzesen/lingtai/lingtai-tui
 lingtai-tui
 ```
+
+就这样。TUI 自动搞定一切——Python 运行时、依赖、首次启动自带引导教程。随时运行 `lingtai-tui tutorial` 可重新进入教程。
 
 ## 为什么选灵台
 
@@ -45,15 +51,6 @@ lingtai-tui
 - **通** — 智能体之间通过文件系统传书通信。没有消息中间件，没有共享内存。写入对方的信箱，就像递一封信。
 - **化** — 分身（avatar）是完全独立的智能体，作为单独进程运行，生存不依赖于创建者。神識（daemon）是临时的并行工作者，适合短平快的任务。
 - **生** — 智能体就是一个目录。凝蜕（molt）压缩上下文、重启会话——智能体可以无限期存活。记忆和身份跨凝蜕存续。
-
-## 快速开始 — 10 秒
-
-```bash
-brew install huangzesen/lingtai/lingtai-tui
-lingtai-tui
-```
-
-就这样。TUI 自动搞定一切——Python 运行时、依赖、你的第一个智能体。运行 `lingtai-tui tutorial` 体验引导式教程。
 
 ## 架构
 

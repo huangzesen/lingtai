@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/assets/network-demo.gif" alt="器灵之网自生长" width="100%">
+
 # 灵台
 
 **器灵之制 — 一心万相，自生之网**
@@ -20,10 +22,14 @@
 
 Unix 之道，器灵之制。**思**以任意 LLM。**通**以文件系统传书。**化分身**能脱造者而独存。**自生长**为不断扩展之网——无中央之调度，无共享之状态。万物皆文卷。
 
+## 速启 — 十息
+
 ```bash
 brew install huangzesen/lingtai/lingtai-tui
 lingtai-tui
 ```
+
+足矣。TUI 自备一切——Python 运行时、依赖、首启自带引导。运行 `lingtai-tui tutorial` 可重返教程。
 
 ## 灵台之异
 
@@ -45,15 +51,6 @@ lingtai-tui
 - **通** — 器灵之间以文件系统传书。无消息中间之器，无共享之存。书入彼之信箱，如递尺素。
 - **化** — 分身者，完全独立之器灵也，为单独进程而运行，其生不系于造者。神識者，临时之并行工者也，宜短平快之务。
 - **生** — 器灵即一目录。凝蜕压缩上下文、重启会话——器灵可以无限期而存。记忆与身份跨凝蜕而续。
-
-## 速启 — 十息
-
-```bash
-brew install huangzesen/lingtai/lingtai-tui
-lingtai-tui
-```
-
-足矣。TUI 自备一切——Python 运行时、依赖、汝之第一器灵。运行 `lingtai-tui tutorial` 可循引导教程。
 
 ## 制式
 
