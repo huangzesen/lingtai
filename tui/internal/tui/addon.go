@@ -31,13 +31,13 @@ func NewAddonModel(orchDir string) AddonModel {
 	imapPath, telegramPath := readAddonPaths(orchDir)
 
 	imapInput := textinput.New()
-	imapInput.Placeholder = "~/.lingtai-tui/addons/imap/.../config.json"
+	imapInput.Placeholder = ""
 	imapInput.CharLimit = 256
 	imapInput.SetWidth(60)
 	imapInput.SetValue(imapPath)
 
 	telegramInput := textinput.New()
-	telegramInput.Placeholder = "~/.lingtai-tui/addons/telegram/.../config.json"
+	telegramInput.Placeholder = ""
 	telegramInput.CharLimit = 256
 	telegramInput.SetWidth(60)
 	telegramInput.SetValue(telegramPath)
