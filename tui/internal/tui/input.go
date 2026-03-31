@@ -3,7 +3,9 @@ package tui
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"charm.land/bubbles/v2/textarea"
@@ -104,6 +106,14 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
 			// Open external editor with current text
 			return m, func() tea.Msg {
 				return OpenEditorMsg{Text: m.textarea.Value()}
+			}
+		case "ctrl+v":
+			// Manual paste fallback — read system clipboard directly
+			if clip := readSystemClipboard(); clip != "" {
+				m.textarea.InsertString(clip)
+				m.autoWrap()
+				m.textarea.SetHeight(m.calcHeight())
+				return m, nil
 			}
 		}
 		// Forward to textarea for all other keys (including ctrl+j for newline)
@@ -310,4 +320,53 @@ func (m *InputModel) saveHistory() {
 	}
 	data, _ := json.Marshal(m.history)
 	os.WriteFile(m.historyPath(), data, 0o644)
+}
+
+// readSystemClipboard reads from the system clipboard using platform tools.
+// Returns empty string on any failure (silently).
+func readSystemClipboard() string {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("pbpaste")
+	case "linux":
+		// WSL: try powershell.exe first, then xclip/xsel
+		if isWSL() {
+			for _, ps := range []string{
+				"powershell.exe",
+				"/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+			} {
+				if path, err := exec.LookPath(ps); err == nil {
+					cmd = exec.Command(path, "-NoProfile", "-Command", "Get-Clipboard")
+					break
+				}
+			}
+		}
+		if cmd == nil {
+			if path, err := exec.LookPath("xclip"); err == nil {
+				cmd = exec.Command(path, "-selection", "clipboard", "-o")
+			} else if path, err := exec.LookPath("xsel"); err == nil {
+				cmd = exec.Command(path, "--clipboard", "--output")
+			}
+		}
+	}
+	if cmd == nil {
+		return ""
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	// PowerShell adds trailing \r\n
+	return strings.TrimRight(string(out), "\r\n")
+}
+
+// isWSL returns true if running inside Windows Subsystem for Linux.
+func isWSL() bool {
+	data, err := os.ReadFile("/proc/version")
+	if err != nil {
+		return false
+	}
+	lower := strings.ToLower(string(data))
+	return strings.Contains(lower, "microsoft") || strings.Contains(lower, "wsl")
 }
