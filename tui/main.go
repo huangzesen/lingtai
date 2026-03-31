@@ -82,9 +82,18 @@ func main() {
 			if err := cmd.Run(); err != nil {
 				fmt.Fprintf(os.Stderr, "  Upgrade failed: %v\n", err)
 			} else {
-				fmt.Println("  Upgraded! Restarting...")
-				self, _ := os.Executable()
-				syscallExec(self, os.Args, os.Environ())
+				// Verify the upgrade actually changed the binary by re-checking
+				// the version. Brew returns exit 0 even for "already installed".
+				postUpgrade := config.CheckTUIUpgrade(version)
+				if postUpgrade != "" {
+					// Still outdated — brew formula not updated yet, don't loop
+					fmt.Println("  Brew formula not yet updated. Run manually later:")
+					fmt.Println("    brew update && brew upgrade huangzesen/lingtai/lingtai-tui")
+				} else {
+					fmt.Println("  Upgraded! Restarting...")
+					self, _ := os.Executable()
+					syscallExec(self, os.Args, os.Environ())
+				}
 			}
 		}
 	} else {
