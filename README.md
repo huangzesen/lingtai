@@ -23,7 +23,7 @@
 
 ---
 
-A Unix-style Agent OS. Everything is a file — agent is filesystem, filesystem is agent. Spawn avatars that outlive their creators. Serve as you grow, grow as you serve. **Orchestration as a Service.**
+A Unix-style Agent OS — agent is filesystem, filesystem is agent. Spawn avatars that outlive their creators. Serve as you grow, grow as you serve. **Orchestration as a Service.**
 
 ## Quick start — 10 seconds
 
