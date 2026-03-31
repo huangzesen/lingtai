@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lingtai"
-version = "0.4.2"
+version = "0.4.3"
 description = "Generic research agent with intrinsic tools and MCP-compatible extension interface"
 requires-python = ">=3.11"
 license = "MIT"
