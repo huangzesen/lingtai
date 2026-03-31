@@ -23,10 +23,14 @@
 
 A Unix-style Agent OS. **Think** with any LLM. **Communicate** through filesystem mail. **Spawn avatars** that outlive their creators. **Grow** into self-expanding networks — no central coordinator, no shared state. Everything is a file.
 
+## Quick start — 10 seconds
+
 ```bash
 brew install huangzesen/lingtai/lingtai-tui
 lingtai-tui
 ```
+
+That's it. The TUI bootstraps everything — Python runtime, dependencies, your first agent. Run `lingtai-tui tutorial` for a guided walkthrough.
 
 ## Why Lingtai
 
@@ -48,15 +52,6 @@ Context length is a single-body problem. It will always be finite. Don't make th
 - **Communicate** — Filesystem mail between agents. No message broker, no shared memory. Write to another agent's inbox, like passing a letter.
 - **Multiply** — Avatars (分身) are fully independent agents spawned as separate processes. They survive their creator. Daemons (神識) are ephemeral parallel workers for quick tasks.
 - **Persist** — Agents are directories. Molt (凝蜕) compacts context and rebirths the session — the agent lives indefinitely. Memory and identity survive across molts.
-
-## Quick start — 10 seconds
-
-```bash
-brew install huangzesen/lingtai/lingtai-tui
-lingtai-tui
-```
-
-That's it. The TUI bootstraps everything — Python runtime, dependencies, your first agent. Run `lingtai-tui tutorial` for a guided walkthrough.
 
 ## Architecture
 
