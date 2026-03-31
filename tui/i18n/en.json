@@ -56,6 +56,8 @@
   "firstrun.checking_caps": "Checking available capabilities...",
   "firstrun.confirm_caps": "confirm",
   "firstrun.caps_warning": "Capabilities cannot be changed after creation (unless you rm -rf .lingtai) — choose carefully.",
+  "firstrun.caps_recommend": "Highly recommended to select all, especially on first run.",
+  "firstrun.caps_toggle_all": "select/deselect all",
   "firstrun.tutorial_title": "Tutorial",
   "firstrun.tutorial_desc": "Learn how Lingtai works with a guided tutorial agent.",
   "firstrun.tutorial_patience": "The guide will greet you — please allow ~30 seconds for startup.",

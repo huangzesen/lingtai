@@ -757,6 +757,23 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				if m.isCapCompatible(info, provider) || m.isCapLocal(info) {
 					m.capSelected[name] = !m.capSelected[name]
 				}
+			case "ctrl+a":
+				provider := m.getPresetProvider(m.presets[m.cursor])
+				// If all selectable caps are selected, deselect all; otherwise select all
+				allSelected := true
+				for _, name := range m.capOrder {
+					info := m.capInfos[name]
+					if (m.isCapCompatible(info, provider) || m.isCapLocal(info)) && !m.capSelected[name] {
+						allSelected = false
+						break
+					}
+				}
+				for _, name := range m.capOrder {
+					info := m.capInfos[name]
+					if m.isCapCompatible(info, provider) || m.isCapLocal(info) {
+						m.capSelected[name] = !allSelected
+					}
+				}
 			case "enter":
 				m.applyCapSelections()
 				if config.TutorialDone(m.globalDir) {
@@ -1104,7 +1121,7 @@ func (m FirstRunModel) View() string {
 
 				if compat || local {
 					if m.capSelected[name] {
-						checkbox = "[x]"
+						checkbox = "[✓]"
 					} else {
 						checkbox = "[ ]"
 					}
@@ -1144,8 +1161,10 @@ func (m FirstRunModel) View() string {
 
 		warnStyle := lipgloss.NewStyle().Foreground(ColorSuspended)
 		b.WriteString("\n  " + warnStyle.Render(i18n.T("firstrun.caps_warning")) + "\n")
+		b.WriteString("  " + StyleFaint.Render(i18n.T("firstrun.caps_recommend")) + "\n")
 		b.WriteString("\n" + StyleFaint.Render("  ↑↓←→ "+i18n.T("settings.select")+
 			"  space "+i18n.T("settings.change")+
+			"  Ctrl+A "+i18n.T("firstrun.caps_toggle_all")+
 			"  [Enter] "+i18n.T("firstrun.confirm_caps")+
 			"  [Esc] "+i18n.T("firstrun.back")) + "\n")
 

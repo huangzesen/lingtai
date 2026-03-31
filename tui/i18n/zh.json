@@ -56,6 +56,8 @@
   "firstrun.checking_caps": "正在检查可用功能...",
   "firstrun.confirm_caps": "确认",
   "firstrun.caps_warning": "功能在创建后无法更改，除非 rm -rf .lingtai，请仔细选择。",
+  "firstrun.caps_recommend": "强烈建议全选，尤其是首次使用。",
+  "firstrun.caps_toggle_all": "全选/全不选",
   "firstrun.tutorial_title": "教程",
   "firstrun.tutorial_desc": "通过教程Agent学习灵台的使用方法。",
   "firstrun.tutorial_patience": "教程Agent会主动问好，启动约需30秒，请稍候。",
