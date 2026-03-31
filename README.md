@@ -36,7 +36,7 @@ lingtai-tui
 
 That's it. The TUI bootstraps everything — Python runtime, dependencies, and a guided tutorial on first launch. Use `lingtai-tui tutorial` anytime to revisit the guide.
 
-> **Recommended:** [iTerm2](https://iterm2.com/) on macOS, [Windows Terminal](https://aka.ms/terminal) on WSL — for clipboard and true color support.
+> The TUI is a [Bubble Tea](https://github.com/charmbracelet/bubbletea) app. Text selection requires [iTerm2](https://iterm2.com/) (hold Option + drag). On WSL, use [Windows Terminal](https://aka.ms/terminal) and Ctrl+V to paste. Ctrl+E opens an external editor as a last resort.
 
 ## Why Lingtai
 
