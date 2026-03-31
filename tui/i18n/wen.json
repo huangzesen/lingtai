@@ -55,7 +55,7 @@
   "firstrun.select_caps": "法術",
   "firstrun.checking_caps": "正在探查可用法術...",
   "firstrun.confirm_caps": "確認",
-  "firstrun.caps_warning": "法術既定，不可更易，慎之。",
+  "firstrun.caps_warning": "法術既定，非毀山門（rm -rf .lingtai）不可更易，慎之。",
   "firstrun.tutorial_title": "初入山门",
   "firstrun.tutorial_desc": "以引路灵引导，习灵台之道。",
   "firstrun.tutorial_patience": "祖师将先行问候，启约三十息，请稍候。",
