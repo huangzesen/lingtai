@@ -159,7 +159,7 @@ func main() {
 	if !needsFirstRun {
 		if latest := config.CheckTUIUpgrade(version); latest != "" {
 			fmt.Printf("  ⬆ New version available: %s → %s\n", version, latest)
-			fmt.Printf("    Upgrade now? (brew upgrade lingtai-tui) [y/N] ")
+			fmt.Printf("    Upgrade now? (brew upgrade huangzesen/lingtai/lingtai-tui) [y/N] ")
 			reader := bufio.NewReader(os.Stdin)
 			line, _ := reader.ReadString('\n')
 			if strings.TrimSpace(strings.ToLower(line)) == "y" {
