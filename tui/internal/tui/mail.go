@@ -16,6 +16,7 @@ import (
 
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/fs"
+	"github.com/anthropics/lingtai-tui/internal/preset"
 )
 
 // ChatMessage represents a single message in the chat stream.
@@ -89,9 +90,13 @@ type MailModel struct {
 	lastPaletteLines int
 	lastBannerLines  int
 	pendingMessage   string // full text from editor, sent on Enter
+	greetEnabled   bool   // from settings
+	greetChecked   bool   // true after first refresh check
+	greetGlobalDir string // ~/.lingtai-tui/ for reading greet template
+	greetLang      string // current language
 }
 
-func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pollRate, pageSize int) MailModel {
+func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pageSize int, greeting bool, globalDir, lang string) MailModel {
 	input := NewInputModel(humanDir)
 	input.textarea.Focus()
 	palette := NewPaletteModel()
@@ -101,9 +106,6 @@ func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pollRa
 		if node, err := fs.ReadAgent(orchDir); err == nil && node.Address != "" {
 			orchAddr = node.Address
 		}
-	}
-	if pollRate <= 0 {
-		pollRate = 1
 	}
 	if pageSize <= 0 {
 		pageSize = 50
@@ -117,9 +119,12 @@ func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pollRa
 		orchName:     orchName,
 		input:        input,
 		palette:      palette,
-		pollRate:     time.Duration(pollRate) * time.Second,
+		pollRate:     1 * time.Second,
 		cache:        fs.NewMailCache(humanDir),
 		pageSize:     pageSize,
+		greetEnabled:   greeting,
+		greetGlobalDir: globalDir,
+		greetLang:      lang,
 	}
 }
 
@@ -252,6 +257,51 @@ func (m *MailModel) buildMessages() {
 	m.messages = chatMsgs
 }
 
+// buildGreetPrompt reads the greet template, replaces placeholders, and returns
+// the final prompt string. Returns "" if the template file is missing.
+func (m *MailModel) buildGreetPrompt() string {
+	path := preset.GreetPath(m.greetGlobalDir, m.greetLang)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	prompt := string(data)
+	prompt = strings.ReplaceAll(prompt, "{{time}}", time.Now().Format("2006-01-02 15:04"))
+	prompt = strings.ReplaceAll(prompt, "{{addr}}", m.humanAddr)
+	prompt = strings.ReplaceAll(prompt, "{{lang}}", m.greetLang)
+	// Location from human's .agent.json
+	loc := ""
+	humanNode, err := fs.ReadAgent(m.humanDir)
+	if err == nil && humanNode.Location != nil {
+		parts := []string{}
+		if humanNode.Location.City != "" {
+			parts = append(parts, humanNode.Location.City)
+		}
+		if humanNode.Location.Region != "" {
+			parts = append(parts, humanNode.Location.Region)
+		}
+		if humanNode.Location.Country != "" {
+			parts = append(parts, humanNode.Location.Country)
+		}
+		loc = strings.Join(parts, ", ")
+	}
+	if loc == "" {
+		loc = "unknown"
+	}
+	prompt = strings.ReplaceAll(prompt, "{{location}}", loc)
+	// Soul delay from agent's init.json
+	soulDelay := "unknown"
+	if m.orchestrator != "" {
+		if manifest, err := fs.ReadInitManifest(m.orchestrator); err == nil {
+			if sd, ok := manifest["soul_delay"]; ok {
+				soulDelay = fmt.Sprintf("%v", sd)
+			}
+		}
+	}
+	prompt = strings.ReplaceAll(prompt, "{{soul_delay}}", soulDelay)
+	return prompt
+}
+
 func (m MailModel) Init() tea.Cmd {
 	return tea.Batch(
 		m.input.Init(),
@@ -306,6 +356,15 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 			m.orchName = msg.orchName
 		}
 		m.buildMessages()
+		// Auto-greet: on first refresh, if history is empty, write .prompt
+		if !m.greetChecked {
+			m.greetChecked = true
+			if m.greetEnabled && len(m.messages) == 0 && m.orchestrator != "" {
+				if prompt := m.buildGreetPrompt(); prompt != "" {
+					fs.WritePrompt(m.orchestrator, prompt)
+				}
+			}
+		}
 		if m.ready {
 			atBottom := m.viewport.AtBottom()
 			m.syncViewportHeight()

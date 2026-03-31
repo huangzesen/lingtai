@@ -52,7 +52,7 @@ type App struct {
 	lingtaiCmd    string
 	width         int
 	height        int
-	appSettings   Settings
+	tuiConfig     config.TUIConfig
 	pendingRename bool
 	pendingLang   bool
 }
@@ -70,15 +70,15 @@ func humanAddr(projectDir string) string {
 }
 
 // NewApp creates the root app model.
-func NewApp(globalDir, projectDir, vizURL string, needsFirstRun bool, orchestrators []string, settings Settings) App {
+func NewApp(globalDir, projectDir, vizURL string, needsFirstRun bool, orchestrators []string, tuiCfg config.TUIConfig) App {
 	lingtaiCmd := config.LingtaiCmd(globalDir)
 
 	app := App{
-		globalDir:   globalDir,
-		projectDir:  projectDir,
-		vizURL:      vizURL,
-		lingtaiCmd:  lingtaiCmd,
-		appSettings: settings,
+		globalDir: globalDir,
+		projectDir: projectDir,
+		vizURL:    vizURL,
+		lingtaiCmd: lingtaiCmd,
+		tuiConfig: tuiCfg,
 	}
 
 	if needsFirstRun {
@@ -87,38 +87,39 @@ func NewApp(globalDir, projectDir, vizURL string, needsFirstRun bool, orchestrat
 		app.firstRun = NewFirstRunModel(projectDir, globalDir, hasPresets)
 	} else {
 		// Determine orchestrator
+		localSettings := LoadSettings(projectDir)
 		if len(orchestrators) == 1 {
 			app.orchName = orchestrators[0]
 			app.orchDir = filepath.Join(projectDir, orchestrators[0])
 		} else if len(orchestrators) > 1 {
 			// Check saved setting
-			if settings.Orchestrator != "" {
+			if localSettings.Orchestrator != "" {
 				// Verify it still exists
 				found := false
 				for _, o := range orchestrators {
-					if o == settings.Orchestrator {
+					if o == localSettings.Orchestrator {
 						found = true
 						break
 					}
 				}
 				if found {
-					app.orchName = settings.Orchestrator
-					app.orchDir = filepath.Join(projectDir, settings.Orchestrator)
+					app.orchName = localSettings.Orchestrator
+					app.orchDir = filepath.Join(projectDir, localSettings.Orchestrator)
 				}
 			}
 			// If no saved or stale, use first (app could prompt, but keep simple for now)
 			if app.orchName == "" {
 				app.orchName = orchestrators[0]
 				app.orchDir = filepath.Join(projectDir, orchestrators[0])
-				settings.Orchestrator = orchestrators[0]
-				SaveSettings(projectDir, settings)
+				localSettings.Orchestrator = orchestrators[0]
+				SaveSettings(projectDir, localSettings)
 			}
 		}
 
 		app.currentView = appViewMail
 		humanDir := filepath.Join(projectDir, "human")
 		addr := humanAddr(projectDir)
-		app.mail = NewMailModel(humanDir, addr, projectDir, app.orchDir, app.orchName, settings.PollRate, settings.MailPageSize)
+		app.mail = NewMailModel(humanDir, addr, projectDir, app.orchDir, app.orchName, tuiCfg.MailPageSize, tuiCfg.Greeting, globalDir, tuiCfg.Language)
 		app.manage = NewManageModel(projectDir, lingtaiCmd)
 	}
 
@@ -197,7 +198,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.currentView = appViewMail
 		humanDir := filepath.Join(a.projectDir, "human")
 		addr := humanAddr(a.projectDir)
-		a.mail = NewMailModel(humanDir, addr, a.projectDir, a.orchDir, a.orchName, a.appSettings.PollRate, a.appSettings.MailPageSize)
+		a.mail = NewMailModel(humanDir, addr, a.projectDir, a.orchDir, a.orchName, a.tuiConfig.MailPageSize, a.tuiConfig.Greeting, a.globalDir, a.tuiConfig.Language)
 		a.manage = NewManageModel(a.projectDir, a.lingtaiCmd)
 		if launchErr != "" {
 			a.mail.messages = append(a.mail.messages, ChatMessage{From: i18n.T("mail.system_sender"), Body: launchErr, Type: "mail"})
@@ -243,7 +244,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.currentView = appViewMail
 		humanDir := filepath.Join(a.projectDir, "human")
 		addr := humanAddr(a.projectDir)
-		a.mail = NewMailModel(humanDir, addr, a.projectDir, a.orchDir, a.orchName, a.appSettings.PollRate, a.appSettings.MailPageSize)
+		a.mail = NewMailModel(humanDir, addr, a.projectDir, a.orchDir, a.orchName, a.tuiConfig.MailPageSize, a.tuiConfig.Greeting, a.globalDir, a.tuiConfig.Language)
 		a.manage = NewManageModel(a.projectDir, a.lingtaiCmd)
 		if launchErr != "" {
 			a.mail.messages = append(a.mail.messages, ChatMessage{From: i18n.T("mail.system_sender"), Body: launchErr, Type: "mail"})
@@ -490,8 +491,8 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		return a, tea.Batch(a.firstRun.Init(), a.sendSize())
 	case "settings":
 		a.currentView = appViewSettings
-		settings := LoadSettings(a.projectDir)
-		a.settings = NewSettingsModel(a.projectDir, a.globalDir, settings)
+		tuiCfg := config.LoadTUIConfig(a.globalDir)
+		a.settings = NewSettingsModel(a.globalDir, tuiCfg)
 		return a, tea.Batch(a.settings.Init(), a.sendSize())
 	case "presets":
 		a.currentView = appViewPresets
@@ -629,8 +630,8 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 		return a, tea.Batch(a.firstRun.Init(), a.sendSize())
 	case "settings":
 		a.currentView = appViewSettings
-		settings := LoadSettings(a.projectDir)
-		a.settings = NewSettingsModel(a.projectDir, a.globalDir, settings)
+		tuiCfg := config.LoadTUIConfig(a.globalDir)
+		a.settings = NewSettingsModel(a.globalDir, tuiCfg)
 		return a, tea.Batch(a.settings.Init(), a.sendSize())
 	case "presets":
 		a.currentView = appViewPresets

@@ -13,50 +13,26 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// Settings holds TUI preferences persisted to .lingtai/human/settings.json.
+// Settings holds per-project preferences at .lingtai/human/settings.json.
 type Settings struct {
-	Language     string `json:"language"`
-	PollRate     int    `json:"poll_rate"`
-	Verbose      bool   `json:"verbose"`
 	Orchestrator string `json:"orchestrator,omitempty"`
-	MailPageSize int    `json:"mail_page_size,omitempty"`
 }
 
-// DefaultSettings returns sensible defaults.
-func DefaultSettings() Settings {
-	return Settings{
-		Language:     "en",
-		PollRate:     1,
-		Verbose:      false,
-		MailPageSize: 50,
-	}
-}
-
-// LoadSettings reads settings from .lingtai/human/settings.json.
+// LoadSettings reads per-project settings from .lingtai/human/settings.json.
 func LoadSettings(baseDir string) Settings {
 	path := filepath.Join(baseDir, "human", "settings.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return DefaultSettings()
+		return Settings{}
 	}
 	var s Settings
 	if err := json.Unmarshal(data, &s); err != nil {
-		return DefaultSettings()
-	}
-	// Fill defaults for zero values
-	if s.Language == "" {
-		s.Language = "en"
-	}
-	if s.PollRate == 0 {
-		s.PollRate = 1
-	}
-	if s.MailPageSize == 0 {
-		s.MailPageSize = 50
+		return Settings{}
 	}
 	return s
 }
 
-// SaveSettings writes settings to .lingtai/human/settings.json.
+// SaveSettings writes per-project settings to .lingtai/human/settings.json.
 func SaveSettings(baseDir string, s Settings) error {
 	dir := filepath.Join(baseDir, "human")
 	os.MkdirAll(dir, 0o755)
@@ -78,53 +54,26 @@ type SettingField struct {
 // SettingsModel is the /settings view.
 type SettingsModel struct {
 	cursor    int
-	settings  Settings
+	tuiConfig config.TUIConfig
 	fields    []SettingField
-	baseDir   string
 	globalDir string
 	width     int
 	height    int
 }
 
-func NewSettingsModel(baseDir, globalDir string, settings Settings) SettingsModel {
-	// Read language from global config
+func NewSettingsModel(globalDir string, tuiCfg config.TUIConfig) SettingsModel {
 	langOptions := []string{"en", "zh", "wen"}
 	langCurrent := 0
-	if globalCfg, err := config.LoadConfig(globalDir); err == nil && globalCfg.Language != "" {
-		for i, l := range langOptions {
-			if l == globalCfg.Language {
-				langCurrent = i
-				break
-			}
-		}
-	} else {
-		for i, l := range langOptions {
-			if l == settings.Language {
-				langCurrent = i
-				break
-			}
-		}
-	}
-
-	pollOptions := []string{"1", "2", "3", "5"}
-	pollCurrent := 0
-	pollStr := fmt.Sprintf("%d", settings.PollRate)
-	for i, p := range pollOptions {
-		if p == pollStr {
-			pollCurrent = i
+	for i, l := range langOptions {
+		if l == tuiCfg.Language {
+			langCurrent = i
 			break
 		}
 	}
 
-	verboseOptions := []string{"off", "on"}
-	verboseCurrent := 0
-	if settings.Verbose {
-		verboseCurrent = 1
-	}
-
 	pageSizeOptions := []string{"20", "50", "100", "200"}
 	pageSizeCurrent := 1 // default to 50
-	pageSizeStr := fmt.Sprintf("%d", settings.MailPageSize)
+	pageSizeStr := fmt.Sprintf("%d", tuiCfg.MailPageSize)
 	for i, p := range pageSizeOptions {
 		if p == pageSizeStr {
 			pageSizeCurrent = i
@@ -132,17 +81,21 @@ func NewSettingsModel(baseDir, globalDir string, settings Settings) SettingsMode
 		}
 	}
 
+	greetingOptions := []string{"off", "on"}
+	greetingCurrent := 1 // default on
+	if !tuiCfg.Greeting {
+		greetingCurrent = 0
+	}
+
 	fields := []SettingField{
 		{Key: "language", Label: "settings.language", Options: langOptions, Current: langCurrent},
-		{Key: "poll_rate", Label: "settings.poll_rate", Options: pollOptions, Current: pollCurrent},
-		{Key: "verbose", Label: "settings.verbose", Options: verboseOptions, Current: verboseCurrent},
 		{Key: "mail_page_size", Label: "settings.mail_page_size", Options: pageSizeOptions, Current: pageSizeCurrent},
+		{Key: "greeting", Label: "settings.greeting", Options: greetingOptions, Current: greetingCurrent},
 	}
 
 	return SettingsModel{
-		settings:  settings,
+		tuiConfig: tuiCfg,
 		fields:    fields,
-		baseDir:   baseDir,
 		globalDir: globalDir,
 	}
 }
@@ -194,25 +147,16 @@ func (m *SettingsModel) applyField(f *SettingField) {
 	val := f.Options[f.Current]
 	switch f.Key {
 	case "language":
-		m.settings.Language = val
+		m.tuiConfig.Language = val
 		i18n.SetLang(val)
-		// Save language to global config
-		if cfg, err := config.LoadConfig(m.globalDir); err == nil {
-			cfg.Language = val
-			config.SaveConfig(m.globalDir, cfg)
-		}
-	case "poll_rate":
-		rate := 1
-		fmt.Sscanf(val, "%d", &rate)
-		m.settings.PollRate = rate
-	case "verbose":
-		m.settings.Verbose = val == "on"
 	case "mail_page_size":
 		size := 50
 		fmt.Sscanf(val, "%d", &size)
-		m.settings.MailPageSize = size
+		m.tuiConfig.MailPageSize = size
+	case "greeting":
+		m.tuiConfig.Greeting = val == "on"
 	}
-	SaveSettings(m.baseDir, m.settings)
+	config.SaveTUIConfig(m.globalDir, m.tuiConfig)
 }
 
 func (m SettingsModel) View() string {
@@ -245,10 +189,7 @@ func (m SettingsModel) View() string {
 
 		// Show display-friendly value
 		displayVal := value
-		if f.Key == "poll_rate" {
-			displayVal = value + "s"
-		}
-		if f.Key == "verbose" {
+		if f.Key == "greeting" {
 			displayVal = i18n.T("settings." + value)
 		}
 
@@ -273,7 +214,3 @@ func (m SettingsModel) View() string {
 	return b.String()
 }
 
-// GetSettings returns the current settings.
-func (m SettingsModel) GetSettings() Settings {
-	return m.settings
-}

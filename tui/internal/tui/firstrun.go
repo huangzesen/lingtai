@@ -243,15 +243,14 @@ func NewFirstRunModel(baseDir, globalDir string, hasPresets bool) FirstRunModel 
 		existingKeys = make(map[string]string)
 	}
 
-	// Pre-set language cursor from global config
+	// Pre-set language cursor from TUI config
 	langCursor := 0
 	langOptions := []string{"en", "zh", "wen"}
-	if cfg.Language != "" {
-		for i, l := range langOptions {
-			if l == cfg.Language {
-				langCursor = i
-				break
-			}
+	tuiCfg := config.LoadTUIConfig(globalDir)
+	for i, l := range langOptions {
+		if l == tuiCfg.Language {
+			langCursor = i
+			break
 		}
 	}
 
@@ -471,16 +470,17 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					return m, nil // blocked — still installing
 				}
 				lang := langs[m.langCursor]
-				// Save language to global config
-				cfg, _ := config.LoadConfig(m.globalDir)
-				cfg.Language = lang
-				config.SaveConfig(m.globalDir, cfg)
+				// Save language to TUI config
+				tuiCfg := config.LoadTUIConfig(m.globalDir)
+				tuiCfg.Language = lang
+				config.SaveTUIConfig(m.globalDir, tuiCfg)
 				// Opened from /settings — return to mail
 				if m.welcomeOnly {
 					return m, func() tea.Msg { return ViewChangeMsg{View: "mail"} }
 				}
 				// Reload keys after potential config change
-				m.existingKeys = cfg.Keys
+				keyCfg, _ := config.LoadConfig(m.globalDir)
+				m.existingKeys = keyCfg.Keys
 				if m.existingKeys == nil {
 					m.existingKeys = make(map[string]string)
 				}
@@ -497,10 +497,8 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 			case "esc":
 				if m.welcomeOnly {
 					// Restore original language and return
-					cfg, _ := config.LoadConfig(m.globalDir)
-					if cfg.Language != "" {
-						i18n.SetLang(cfg.Language)
-					}
+					tuiCfg := config.LoadTUIConfig(m.globalDir)
+					i18n.SetLang(tuiCfg.Language)
 					return m, func() tea.Msg { return ViewChangeMsg{View: "mail"} }
 				}
 			case "ctrl+c":

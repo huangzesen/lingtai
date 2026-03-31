@@ -40,6 +40,7 @@ func main() {
 			fmt.Println("  suspend      Suspend all agents in current directory")
 			fmt.Println("  purge        Kill lingtai processes (all, or only those in <dir>)")
 			fmt.Println("  list         Show running lingtai processes (all, or only those in <dir>)")
+			fmt.Println("  clean        Suspend all agents, remove .lingtai/ in current directory")
 			os.Exit(0)
 		}
 		if arg == "--version" || arg == "-v" || arg == "version" {
@@ -60,6 +61,10 @@ func main() {
 		}
 		if arg == "list" {
 			listMain()
+			return
+		}
+		if arg == "clean" {
+			cleanMain()
 			return
 		}
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\nRun 'lingtai-tui --help' for usage.\n", arg)
@@ -143,14 +148,10 @@ func main() {
 	_, configErr := os.Stat(configPath)
 	needsFirstRun := os.IsNotExist(configErr)
 
-	// Load global config and settings
-	globalCfg, _ := config.LoadConfig(globalDir)
-	settings := tui.LoadSettings(lingtaiDir)
-	if globalCfg.Language != "" {
-		i18n.SetLang(globalCfg.Language)
-	} else {
-		i18n.SetLang(settings.Language)
-	}
+	// Load TUI config (migrate language from legacy config.json if needed)
+	config.MigrateLegacyLanguage(globalDir)
+	tuiCfg := config.LoadTUIConfig(globalDir)
+	i18n.SetLang(tuiCfg.Language)
 
 	orchestrators := tui.DetectOrchestrators(lingtaiDir)
 
@@ -168,6 +169,9 @@ func main() {
 			}
 		}
 		preset.Bootstrap(globalDir)
+		// Resolve human location in background (ipinfo.io, cached 1h)
+		humanDir := filepath.Join(lingtaiDir, "human")
+		go fs.UpdateHumanLocation(humanDir)
 	}
 	// If needsFirstRun: welcome page goroutine handles everything
 
@@ -190,7 +194,7 @@ func main() {
 	}
 
 	// Launch TUI
-	app := tui.NewApp(globalDir, lingtaiDir, srv.URL(), needsFirstRun, orchestrators, settings)
+	app := tui.NewApp(globalDir, lingtaiDir, srv.URL(), needsFirstRun, orchestrators, tuiCfg)
 	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -251,11 +255,8 @@ func tutorialMain() {
 	fs.SuspendAndWait(tutorialDir, 3*time.Second)
 	os.RemoveAll(tutorialDir)
 	p := preset.First()
-	globalCfg, _ := config.LoadConfig(globalDir)
-	lang := globalCfg.Language
-	if lang == "" {
-		lang = "en"
-	}
+	tutorialTuiCfg := config.LoadTUIConfig(globalDir)
+	lang := tutorialTuiCfg.Language
 	if err := preset.GenerateTutorialInit(p, lingtaiDir, globalDir, lang); err != nil {
 		fmt.Fprintf(os.Stderr, "error creating tutorial: %v\n", err)
 		os.Exit(1)
@@ -281,16 +282,13 @@ func tutorialMain() {
 	}
 	defer srv.Stop(context.Background())
 
-	// Load settings
-	settings := tui.LoadSettings(lingtaiDir)
-	if globalCfg.Language != "" {
-		i18n.SetLang(globalCfg.Language)
-	} else {
-		i18n.SetLang(settings.Language)
-	}
+	// Load TUI config
+	config.MigrateLegacyLanguage(globalDir)
+	tuiCfg := config.LoadTUIConfig(globalDir)
+	i18n.SetLang(tuiCfg.Language)
 
 	// Launch TUI directly into the tutorial agent
-	app := tui.NewApp(globalDir, lingtaiDir, srv.URL(), false, []string{"tutorial"}, settings)
+	app := tui.NewApp(globalDir, lingtaiDir, srv.URL(), false, []string{"tutorial"}, tuiCfg)
 	prog := tea.NewProgram(app)
 	if _, err := prog.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -332,6 +330,39 @@ func suspendMain() {
 	} else {
 		fmt.Printf("Suspended %d agent(s).\n", count)
 	}
+}
+
+func cleanMain() {
+	projectDir, _ := os.Getwd()
+	projectDir, _ = filepath.Abs(projectDir)
+	lingtaiDir := filepath.Join(projectDir, ".lingtai")
+
+	if _, err := os.Stat(lingtaiDir); os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "No .lingtai/ found in %s\n", projectDir)
+		os.Exit(1)
+	}
+
+	// Suspend all agents first
+	agents, _ := fs.DiscoverAgents(lingtaiDir)
+	for _, agent := range agents {
+		if agent.IsHuman {
+			continue
+		}
+		if fs.IsAlive(agent.WorkingDir, 3.0) {
+			fmt.Printf("Suspending %s...\n", agent.AgentName)
+			fs.SuspendAndWait(agent.WorkingDir, 5*time.Second)
+		}
+	}
+
+	// Remove .lingtai/
+	if err := os.RemoveAll(lingtaiDir); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to remove %s: %v\n", lingtaiDir, err)
+		os.Exit(1)
+	}
+	fmt.Printf("Removed %s\n", lingtaiDir)
+	fmt.Println()
+	fmt.Println("To also remove global config, run:")
+	fmt.Println("  rm -rf ~/.lingtai-tui")
 }
 
 // purgeMain is defined in purge_unix.go / purge_windows.go

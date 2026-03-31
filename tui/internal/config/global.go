@@ -7,12 +7,77 @@ import (
 	"strings"
 )
 
+// MigrateLegacyLanguage moves Language from config.json to tui_config.json if needed.
+func MigrateLegacyLanguage(globalDir string) {
+	cfg, err := LoadConfig(globalDir)
+	if err != nil || cfg.Language == "" {
+		return
+	}
+	tc := LoadTUIConfig(globalDir)
+	if tc.Language == "en" || tc.Language == "" {
+		// Only migrate if tui_config hasn't been explicitly set
+		tcPath := filepath.Join(globalDir, "tui_config.json")
+		if _, err := os.Stat(tcPath); os.IsNotExist(err) {
+			tc.Language = cfg.Language
+			SaveTUIConfig(globalDir, tc)
+		}
+	}
+}
+
 // GlobalDirName is the name of the global config directory under $HOME.
 const GlobalDirName = ".lingtai-tui"
 
 type Config struct {
 	Keys     map[string]string `json:"keys,omitempty"`     // provider → key, e.g. {"minimax": "xxx"}
-	Language string            `json:"language,omitempty"` // TUI language: "en", "zh", "wen"
+	Language string            `json:"language,omitempty"` // deprecated: use TUIConfig.Language
+}
+
+// TUIConfig holds global TUI preferences at ~/.lingtai-tui/tui_config.json.
+type TUIConfig struct {
+	Language     string `json:"language"`
+	MailPageSize int    `json:"mail_page_size"`
+	Greeting     bool   `json:"greeting"`
+}
+
+// DefaultTUIConfig returns sensible defaults.
+func DefaultTUIConfig() TUIConfig {
+	return TUIConfig{
+		Language:     "en",
+		MailPageSize: 50,
+		Greeting:     true,
+	}
+}
+
+// LoadTUIConfig reads ~/.lingtai-tui/tui_config.json.
+func LoadTUIConfig(globalDir string) TUIConfig {
+	data, err := os.ReadFile(filepath.Join(globalDir, "tui_config.json"))
+	if err != nil {
+		return DefaultTUIConfig()
+	}
+	var tc TUIConfig
+	if err := json.Unmarshal(data, &tc); err != nil {
+		return DefaultTUIConfig()
+	}
+	if tc.Language == "" {
+		tc.Language = "en"
+	}
+	if tc.MailPageSize == 0 {
+		tc.MailPageSize = 50
+	}
+	// Greeting defaults to true when absent from JSON.
+	if !strings.Contains(string(data), `"greeting"`) {
+		tc.Greeting = true
+	}
+	return tc
+}
+
+// SaveTUIConfig writes ~/.lingtai-tui/tui_config.json.
+func SaveTUIConfig(globalDir string, tc TUIConfig) error {
+	data, err := json.MarshalIndent(tc, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(globalDir, "tui_config.json"), data, 0o644)
 }
 
 func GlobalDir() (string, error) {
