@@ -30,7 +30,7 @@ brew install huangzesen/lingtai/lingtai-tui
 lingtai-tui
 ```
 
-That's it. The TUI bootstraps everything — Python runtime, dependencies, your first agent. Run `lingtai-tui tutorial` for a guided walkthrough.
+That's it. The TUI bootstraps everything — Python runtime, dependencies, and a guided tutorial on first launch. Use `lingtai-tui tutorial` anytime to revisit the guide.
 
 ## Why Lingtai
 
