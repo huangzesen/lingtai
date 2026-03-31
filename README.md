@@ -23,9 +23,9 @@
 
 ---
 
-A Unix-style Agent OS — agent is filesystem, filesystem is agent.
-Agents spawn avatars, avatars spawn avatars. The network IS the product.
-**Orchestration as a Service.**
+<p align="center">A Unix-style Agent OS — agent is filesystem, filesystem is agent.</p>
+<p align="center">Agents spawn avatars, avatars spawn avatars. The network IS the product.</p>
+<p align="center"><b>Orchestration as a Service.</b></p>
 
 ## Quick start — 10 seconds
 
