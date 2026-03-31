@@ -185,6 +185,7 @@ Walk through the TUI-specific features that do not exist in `lingtai run` alone:
 - **Setup wizard** — first-run flow that asks for API keys, provider, model, and agent name.
 - **Slash commands** — `/manage`, `/viz`, `/sleep`, `/suspend`, `/cpr`, `/refresh`, etc. These are TUI features that translate to signal files or process management under the hood.
 - **Keyboard shortcuts** — ctrl+o (verbose mode — cycles off → verbose → extended → off), ctrl+e (open external editor), ctrl+p (properties panel).
+- **Text selection** — hold Option (macOS) or Alt (Linux/WSL) and drag to select text in the TUI. Use iTerm2 on macOS or Windows Terminal on WSL for best clipboard support.
 - **Network visualization** — `/viz` shows the agent network graph. This reads the filesystem (delegates/ledger.jsonl, mailbox/) to reconstruct the topology.
 - **Human directory** — the TUI creates `.lingtai/human/` with its own `.agent.json` and mailbox. The human is modeled as an agent peer.
 - **CLI commands** — `lingtai-tui list`, `lingtai-tui suspend`, `lingtai-tui purge` for headless management.
