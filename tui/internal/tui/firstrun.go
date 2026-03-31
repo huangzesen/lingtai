@@ -533,29 +533,56 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					p := m.presets[m.cursor]
 					provider := m.getPresetProvider(p)
 					m.selectedProvider = provider
-					// Check if key is needed and missing
-					if m.needsKey(provider) || provider == "custom" {
-						m.step = stepPresetKey
-						m.presetKeyInput.Reset()
-						m.presetEndpointIn.Reset()
-						m.presetModelIn.Reset()
-						m.presetNameIn.Reset()
-						m.presetKeyFieldIdx = 0
-						if provider == "custom" {
-							// field 0 = compat selector (no text focus)
-							m.customCompat = 0
-							m.presetEndpointIn.SetValue("https://openrouter.ai/api/v1")
-							m.presetNameIn.SetValue("openrouter")
-						} else if provider == "minimax" {
-							// field 0 = region selector (no text focus)
-							m.presetKeyInput.Blur()
+					// Always go to key page — prefill if key exists
+					m.step = stepPresetKey
+					m.presetKeyInput.Reset()
+					m.presetEndpointIn.Reset()
+					m.presetModelIn.Reset()
+					m.presetNameIn.Reset()
+					m.presetKeyFieldIdx = 0
+					if provider == "custom" {
+						// field 0 = compat selector (no text focus)
+						m.customCompat = 0
+						// Prefill from saved preset manifest if available
+						if llm, ok := p.Manifest["llm"].(map[string]interface{}); ok {
+							if baseURL, ok := llm["base_url"].(string); ok && baseURL != "" {
+								m.presetEndpointIn.SetValue(baseURL)
+							} else {
+								m.presetEndpointIn.SetValue("https://openrouter.ai/api/v1")
+							}
+							if model, ok := llm["model"].(string); ok && model != "" {
+								m.presetModelIn.SetValue(model)
+							}
+							if compat, ok := llm["api_compat"].(string); ok && compat == "anthropic" {
+								m.customCompat = 1
+							}
 						} else {
-							m.presetKeyInput.Focus()
+							m.presetEndpointIn.SetValue("https://openrouter.ai/api/v1")
 						}
-						return m, textinput.Blink
+						if p.Name != "" && !preset.IsBuiltin(p.Name) {
+							m.presetNameIn.SetValue(p.Name)
+						} else {
+							m.presetNameIn.SetValue("openrouter")
+						}
+					} else if provider == "minimax" {
+						// field 0 = region selector (no text focus)
+						m.presetKeyInput.Blur()
+						// Prefill region from saved preset's base_url
+						if llm, ok := p.Manifest["llm"].(map[string]interface{}); ok {
+							if baseURL, ok := llm["base_url"].(string); ok && strings.Contains(baseURL, "minimaxi.com") {
+								m.minimaxRegion = 0 // China
+							} else {
+								m.minimaxRegion = 1 // International
+							}
+						}
+					} else {
+						m.presetKeyInput.Focus()
 					}
-					// Key exists, proceed to capabilities
-					return m, m.enterCapabilities()
+					// Prefill with existing key
+					if existing := m.existingKeys[provider]; existing != "" {
+						m.presetKeyInput.SetValue(existing)
+					}
+					return m, textinput.Blink
 				}
 			case "esc":
 				if m.setupMode {

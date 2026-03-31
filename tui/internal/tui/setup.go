@@ -121,21 +121,11 @@ func (m SetupModel) handleEnter() (SetupModel, tea.Cmd) {
 	provider := providers[m.providerIdx].id
 
 	if m.step == stepSelectProvider {
-		// If no key exists for this provider, go to input step
-		if m.existingKeys[provider] == "" {
-			m.step = stepEnterKey
-			m.input.Reset()
-			m.input.Placeholder = i18n.TF("firstrun.enter_provider_key", i18n.T(providers[m.providerIdx].nameKey))
-			return m, textinput.Blink
-		}
-		// Has existing key, save and done
-		cfg := config.Config{Keys: m.existingKeys}
-		if err := config.SaveConfig(m.globalDir, cfg); err != nil {
-			m.err = err
-			return m, nil
-		}
-		m.done = true
-		return m, func() tea.Msg { return SetupDoneMsg{} }
+		// Always go to key input step — user can change or keep existing key
+		m.step = stepEnterKey
+		m.input.Reset()
+		m.input.Placeholder = i18n.TF("firstrun.enter_provider_key", i18n.T(providers[m.providerIdx].nameKey))
+		return m, textinput.Blink
 	}
 
 	// stepEnterKey
