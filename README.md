@@ -26,8 +26,9 @@ brew install huangzesen/lingtai/lingtai-tui
 lingtai-tui
 ```
 
-<!-- TODO: add TUI demo GIF here -->
-<!-- ![lingtai-tui demo](docs/assets/demo.gif) -->
+<div align="center">
+<img src="docs/assets/network-demo.gif" alt="Agent network growing — one soul spawning avatars that communicate and multiply" width="800">
+</div>
 
 ## Why Lingtai
 
