@@ -1005,6 +1005,42 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				return m, cmd
 			}
 		}
+
+	default:
+		// Forward unhandled messages (e.g. tea.PasteMsg) to the focused textinput
+		var cmd tea.Cmd
+		switch m.step {
+		case stepPresetKey:
+			if focused := m.focusedPresetKeyInput(); focused != nil {
+				*focused, cmd = focused.Update(msg)
+			}
+		case stepAgentNameDir:
+			switch m.fieldIdx {
+			case 0:
+				m.nameInput, cmd = m.nameInput.Update(msg)
+			case 1:
+				m.dirInput, cmd = m.dirInput.Update(msg)
+			case 3:
+				m.staminaInput, cmd = m.staminaInput.Update(msg)
+			case 4:
+				m.ctxLimitInput, cmd = m.ctxLimitInput.Update(msg)
+			case 5:
+				m.soulDelayInput, cmd = m.soulDelayInput.Update(msg)
+			case 6:
+				m.moltPressInput, cmd = m.moltPressInput.Update(msg)
+			case 9:
+				m.covenantInput, cmd = m.covenantInput.Update(msg)
+			case 10:
+				m.principleInput, cmd = m.principleInput.Update(msg)
+			case 11:
+				m.soulFlowInput, cmd = m.soulFlowInput.Update(msg)
+			case 12:
+				m.commentInput, cmd = m.commentInput.Update(msg)
+			}
+		case stepAPIKey:
+			m.setup, cmd = m.setup.Update(msg)
+		}
+		return m, cmd
 	}
 	return m, nil
 }
