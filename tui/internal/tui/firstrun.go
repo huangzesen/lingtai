@@ -161,6 +161,11 @@ type FirstRunModel struct {
 	capCursor   int                // current cursor position (0..len-1)
 	capLoading  bool               // true while check-caps is running
 	capErr      string             // error message if check-caps fails
+	// Addon selection state (shown below capabilities)
+	addonSelected map[string]bool // "imap", "telegram"
+	addonOrder    []string        // ["imap", "telegram"]
+	addonCursor   int             // cursor when in addon zone
+	inAddonZone   bool            // true when cursor is in addon section
 	// Tutorial step state
 }
 
@@ -764,46 +769,75 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 			colSize := (len(m.capOrder) + 1) / 2
 			switch msg.String() {
 			case "up":
-				if m.capCursor >= colSize {
-					// Right column
-					if m.capCursor > colSize {
-						m.capCursor--
+				if m.inAddonZone {
+					if m.addonCursor > 0 {
+						m.addonCursor--
+					} else {
+						// Exit addon zone, go to bottom of capability grid
+						m.inAddonZone = false
+						m.capCursor = colSize - 1 // bottom of left column
 					}
 				} else {
-					// Left column
-					if m.capCursor > 0 {
-						m.capCursor--
+					if m.capCursor >= colSize {
+						// Right column
+						if m.capCursor > colSize {
+							m.capCursor--
+						}
+					} else {
+						// Left column
+						if m.capCursor > 0 {
+							m.capCursor--
+						}
 					}
 				}
 			case "down":
-				if m.capCursor >= colSize {
-					// Right column
-					if m.capCursor < len(m.capOrder)-1 {
-						m.capCursor++
+				if m.inAddonZone {
+					if m.addonCursor < len(m.addonOrder)-1 {
+						m.addonCursor++
 					}
 				} else {
-					// Left column
-					if m.capCursor < colSize-1 {
-						m.capCursor++
+					if m.capCursor >= colSize {
+						// Right column
+						if m.capCursor < len(m.capOrder)-1 {
+							m.capCursor++
+						} else {
+							// At bottom of right column — enter addon zone
+							m.inAddonZone = true
+							m.addonCursor = 0
+						}
+					} else {
+						// Left column
+						if m.capCursor < colSize-1 {
+							m.capCursor++
+						} else {
+							// At bottom of left column — enter addon zone
+							m.inAddonZone = true
+							m.addonCursor = 0
+						}
 					}
 				}
 			case "left":
-				if m.capCursor >= colSize {
+				if !m.inAddonZone && m.capCursor >= colSize {
 					m.capCursor -= colSize
 				}
 			case "right":
-				if m.capCursor < colSize && m.capCursor+colSize < len(m.capOrder) {
+				if !m.inAddonZone && m.capCursor < colSize && m.capCursor+colSize < len(m.capOrder) {
 					m.capCursor += colSize
 				}
 			case "space":
-				name := m.capOrder[m.capCursor]
-				info, ok := m.capInfos[name]
-				if !ok {
-					return m, nil
-				}
-				provider := m.getPresetProvider(m.presets[m.cursor])
-				if m.isCapCompatible(info, provider) || m.isCapLocal(info) {
-					m.capSelected[name] = !m.capSelected[name]
+				if m.inAddonZone {
+					name := m.addonOrder[m.addonCursor]
+					m.addonSelected[name] = !m.addonSelected[name]
+				} else {
+					name := m.capOrder[m.capCursor]
+					info, ok := m.capInfos[name]
+					if !ok {
+						return m, nil
+					}
+					provider := m.getPresetProvider(m.presets[m.cursor])
+					if m.isCapCompatible(info, provider) || m.isCapLocal(info) {
+						m.capSelected[name] = !m.capSelected[name]
+					}
 				}
 			case "ctrl+a":
 				provider := m.getPresetProvider(m.presets[m.cursor])
@@ -907,6 +941,19 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					PrincipleFile: m.principleInput.Value(),
 					SoulFile:      m.soulFlowInput.Value(),
 					CommentFile:   m.commentInput.Value(),
+				}
+				// Generate addon comment file if any addons selected
+				var selectedAddons []string
+				for _, name := range m.addonOrder {
+					if m.addonSelected[name] {
+						selectedAddons = append(selectedAddons, name)
+					}
+				}
+				if len(selectedAddons) > 0 {
+					commentPath := preset.WriteAddonComment(m.globalDir, selectedAddons, opts.CommentFile)
+					if commentPath != "" {
+						opts.CommentFile = commentPath
+					}
 				}
 				if m.setupMode {
 					// Overwrite current agent's init.json in-place
@@ -1210,6 +1257,25 @@ func (m FirstRunModel) View() string {
 			b.WriteString(line + "\n")
 		}
 
+		// Addon section
+		b.WriteString("\n  " + StyleAccent.Render(i18n.T("firstrun.addons_section")) + "\n\n")
+		for i, name := range m.addonOrder {
+			var checkbox string
+			if m.addonSelected[name] {
+				checkbox = "[✓]"
+			} else {
+				checkbox = "[ ]"
+			}
+			prefix := "  "
+			isCurrent := m.inAddonZone && i == m.addonCursor
+			if isCurrent {
+				cell := "> " + checkbox + " " + name
+				b.WriteString(cursorStyle.Render(cell) + "\n")
+			} else {
+				b.WriteString(prefix + checkbox + " " + name + "\n")
+			}
+		}
+
 		b.WriteString("\n  " + StyleAccent.Render(i18n.T("firstrun.caps_recommend")) + "\n")
 		b.WriteString("  " + StyleFaint.Render(i18n.T("firstrun.caps_change_later")) + "\n")
 		b.WriteString("\n" + StyleFaint.Render("  ↑↓←→ "+i18n.T("settings.select")+
@@ -1448,6 +1514,10 @@ func (m *FirstRunModel) enterCapabilities() tea.Cmd {
 	m.capOrder = AllCapabilities
 	m.capSelected = make(map[string]bool)
 	m.capInfos = nil
+	m.addonSelected = map[string]bool{"imap": true, "telegram": true}
+	m.addonOrder = []string{"imap", "telegram"}
+	m.addonCursor = 0
+	m.inAddonZone = false
 	return m.runCheckCaps()
 }
 
