@@ -31,7 +31,7 @@ brew install huangzesen/lingtai/lingtai-tui
 lingtai-tui
 ```
 
-足矣。TUI 自备一切——Python 运行时、依赖、首启自带引导。运行 `lingtai-tui tutorial` 可重返教程。
+足矣。TUI 自备一切——Python 运行时、依赖、首启自带引导。于 TUI 中输入 `/tutorial` 可重返教程。
 
 > TUI 以墨韵为底，**宜用深色终端**。
 

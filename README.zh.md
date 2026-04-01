@@ -31,7 +31,7 @@ brew install huangzesen/lingtai/lingtai-tui
 lingtai-tui
 ```
 
-就这样。TUI 自动搞定一切——Python 运行时、依赖、首次启动自带引导教程。随时运行 `lingtai-tui tutorial` 可重新进入教程。
+就这样。TUI 自动搞定一切——Python 运行时、依赖、首次启动自带引导教程。在 TUI 中输入 `/tutorial` 可随时重新进入教程。
 
 > TUI 采用墨韵深色主题，**请使用深色终端背景**以获得最佳体验。Windows Terminal 中按住 Shift 可选择文本。
 
