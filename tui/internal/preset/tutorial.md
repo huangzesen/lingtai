@@ -298,59 +298,42 @@ Two built-in addons: **IMAP** (real email — Gmail, Outlook, etc.) and **Telegr
 - Addons are **never auto-discovered**. An agent only loads an addon when it is explicitly declared in init.json:
   ```json
   "addons": {
-    "imap": { "config": "~/.lingtai-tui/addons/imap/gmail/config.json" }
+    "imap": { "config": "~/.lingtai-tui/addons/imap/myagent@gmail.com/config.json" }
   }
   ```
-- The config JSON contains connection details and references secrets via `*_env` fields (e.g. `email_password_env`, `bot_token_env`). The actual secrets live in the `.env` file at `~/.lingtai-tui/.env`, never in the config file itself.
+- The config JSON contains connection details and references secrets via `*_env` fields (e.g. `email_password_env`, `bot_token_env`). The actual secrets live in the `.env` file (path in init.json's `env_file` field), never in the config file itself.
 - The TUI's `/addon` command provides a simple screen to set the config path in init.json. After setting it, the user types `/refresh` to activate.
 
 #### Security model: secrets go in .env, not config files
-Addon config files use `*_env` fields to reference environment variable names. The actual secrets are stored in `~/.lingtai-tui/.env`, which is loaded at agent startup.
+Addon config files use `*_env` fields to reference environment variable names. The actual secrets are stored in the `.env` file referenced by init.json's `env_file` field, and loaded at agent startup.
 
 Example flow:
-1. `~/.lingtai-tui/.env` contains: `IMAP_PASSWORD=xxxx xxxx xxxx xxxx`
+1. `.env` contains: `IMAP_PASSWORD=xxxx xxxx xxxx xxxx`
 2. Config file contains: `"email_password_env": "IMAP_PASSWORD"`
 3. At startup, the agent resolves `IMAP_PASSWORD` from the environment → gets the real password.
 
 This way, config files can be shared or version-controlled without exposing secrets.
 
 #### Interactive setup
-Ask the human if they would like to set up IMAP or Telegram right now. If they are interested:
+Ask the human if they would like to set up IMAP or Telegram right now. If they are interested, **read the setup guide and follow it** — the guide tells you exactly what to ask the human, what files to create, and where to put them:
 
-**For IMAP:**
-1. Read the template at `~/.lingtai-tui/addons/imap/example/config.json` (or `~/.lingtai-tui/templates/imap.jsonc`) and explain each field.
-2. Ask the human for their email provider (Gmail, Outlook, iCloud, or custom).
-3. Ask for their email address. Explain that they need an App Password (not their regular password):
-   - Gmail: enable 2FA, then go to myaccount.google.com/apppasswords
-   - Outlook: enable 2FA, then Security → App passwords
-   - iCloud: enable 2FA, then appleid.apple.com → App-specific passwords
-4. Ask for the app password. **Do not save it in the config file.** Instead:
-   - Choose an env var name (e.g. `IMAP_PASSWORD`, or `IMAP_PASSWORD_GMAIL` if multiple accounts).
-   - Append `IMAP_PASSWORD=<their-app-password>` to `~/.lingtai-tui/.env`.
-   - In the config file, set `"email_password_env": "IMAP_PASSWORD"`.
-5. Fill in the config with the correct IMAP/SMTP host/port for their provider. Use sensible defaults:
-   - Gmail: imap.gmail.com:993, smtp.gmail.com:587
-   - Outlook: outlook.office365.com:993, smtp.office365.com:587
-   - iCloud: imap.mail.me.com:993, smtp.mail.me.com:587
-6. Save the completed config to `~/.lingtai-tui/addons/imap/<alias>/config.json`, where `<alias>` is a name the human chooses (e.g. "gmail", "work"). Use your file write capability to create the directory and write the file.
-7. Tell the human the exact path where the config was saved.
-8. Explain: "To connect this to any agent, use `/addon` in the TUI to enter this path, then `/refresh`. Or add it to init.json manually."
+- **IMAP**: Read `~/.lingtai-tui/addons/imap/SETUP.md`
+- **Telegram**: Read `~/.lingtai-tui/addons/telegram/SETUP.md`
 
-**For Telegram:**
-1. Read the template at `~/.lingtai-tui/addons/telegram/example/config.json` and explain each field.
-2. Walk the human through creating a bot via @BotFather on Telegram.
-3. Ask for the bot token. **Do not save it in the config file.** Instead:
-   - Append `TELEGRAM_BOT_TOKEN=<their-token>` to `~/.lingtai-tui/.env`.
-   - In the config file, set `"bot_token_env": "TELEGRAM_BOT_TOKEN"`.
-4. Ask for their Telegram user ID (for allowed_users). This is not a secret — it goes directly in the config file.
-5. Save the config to `~/.lingtai-tui/addons/telegram/<alias>/config.json`.
-6. Tell the human the exact path. Same `/addon` + `/refresh` flow to activate.
+Each guide instructs you to:
+1. Ask the human for credentials
+2. Save secrets to the `.env` file (find the path via init.json's `env_file`)
+3. Create the config file under `~/.lingtai-tui/addons/{addon}/{account}/config.json`
+4. Give the human the config path and remind them to use `/addon` + `/refresh`
+
+**Do not hardcode setup steps from memory** — always read the SETUP.md first, as it may have been updated.
 
 #### Key points to teach
-- **Secrets always go in `~/.lingtai-tui/.env`**, never in config files. Config files use `*_env` fields to reference environment variable names.
+- **Secrets go in the `.env` file** (referenced by init.json's `env_file`), never in config files. Config files use `*_env` fields to reference environment variable names.
+- **Config files go under `~/.lingtai-tui/addons/`** — never in the agent's working directory. Each account/bot gets its own subdirectory.
 - **Avatars do NOT inherit addons** — each agent must be explicitly configured. This is by design: you do not want multiple agents polling the same email account or Telegram bot.
 - The config files under `~/.lingtai-tui/addons/` are reusable — any agent can reference them. Set up once, use everywhere.
-- **To set up addons for future agents**, the human can either: come back to this tutorial (`/tutorial`) and go through Lesson 11 again, use `/addon` in the TUI, or manually edit init.json.
+- **To set up addons for future agents**, the human can ask the agent to help (the agent reads the SETUP.md), use `/addon` + `/refresh` in the TUI, or edit init.json manually.
 
 If the human is not interested in setting up addons now, skip to the next lesson.
 
