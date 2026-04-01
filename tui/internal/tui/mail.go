@@ -160,6 +160,7 @@ func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pageSi
 		greetEnabled:   greeting,
 		greetGlobalDir: globalDir,
 		greetLang:      lang,
+		quoteIdx:       -1,
 	}
 }
 
