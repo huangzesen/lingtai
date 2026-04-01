@@ -31,6 +31,9 @@ var greetFS embed.FS
 //go:embed tutorial.md
 var tutorialMD []byte
 
+//go:embed all:addons
+var addonsFS embed.FS
+
 // Preset is a reusable agent template stored at ~/.lingtai-tui/presets/.
 type Preset struct {
 	Name        string                 `json:"name"`
@@ -346,6 +349,7 @@ func Bootstrap(globalDir string) error {
 	populate(globalDir, soulFS, "soul")
 	populate(globalDir, greetFS, "greet")
 	populate(globalDir, templatesFS, "templates")
+	populate(globalDir, addonsFS, "addons")
 	// Tutorial comment file — now in tutorial/ subfolder
 	tutorialDir := filepath.Join(globalDir, "tutorial")
 	os.MkdirAll(tutorialDir, 0o755)
@@ -375,6 +379,58 @@ func SoulFlowPath(globalDir, lang string) string {
 // GreetPath returns the absolute path to the greet prompt file for a language.
 func GreetPath(globalDir, lang string) string {
 	return filepath.Join(globalDir, "greet", lang, "greet.md")
+}
+
+// AddonCommentPath returns the absolute path to the addon comment file.
+func AddonCommentPath(globalDir string) string {
+	return filepath.Join(globalDir, "addons", "comment.md")
+}
+
+// WriteAddonComment generates addons/comment.md with setup pointers for selected addons.
+// If userCommentFile is non-empty and exists, its content is prepended.
+// Returns the path to the written file, or "" if no addons selected.
+func WriteAddonComment(globalDir string, addons []string, userCommentFile string) string {
+	if len(addons) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+
+	// Prepend user's existing comment content if any
+	if userCommentFile != "" {
+		if data, err := os.ReadFile(userCommentFile); err == nil {
+			content := strings.TrimSpace(string(data))
+			if content != "" {
+				b.WriteString(content)
+				b.WriteString("\n\n")
+			}
+		}
+	}
+
+	b.WriteString("## Add-ons\n\n")
+	b.WriteString("The following add-ons are enabled. Read each setup guide to help the human configure them.\n\n")
+
+	for _, addon := range addons {
+		setupPath := filepath.Join(globalDir, "addons", addon, "SETUP.md")
+		templatePath := filepath.Join(globalDir, "addons", addon, "example", "config.json")
+		switch addon {
+		case "imap":
+			b.WriteString("### IMAP Email\n")
+			b.WriteString("- Setup guide: " + setupPath + "\n")
+			b.WriteString("- Config template: " + templatePath + "\n")
+			b.WriteString("- After setup, tell the human to use /addon to set the config path, then /refresh.\n\n")
+		case "telegram":
+			b.WriteString("### Telegram Bot\n")
+			b.WriteString("- Setup guide: " + setupPath + "\n")
+			b.WriteString("- Config template: " + templatePath + "\n")
+			b.WriteString("- After setup, tell the human to use /addon to set the config path, then /refresh.\n\n")
+		}
+	}
+
+	outPath := AddonCommentPath(globalDir)
+	os.MkdirAll(filepath.Dir(outPath), 0o755)
+	os.WriteFile(outPath, []byte(b.String()), 0o644)
+	return outPath
 }
 
 // DefaultPreset returns the first built-in preset (minimax).
