@@ -134,12 +134,13 @@ export function TopBar({ lang, theme, vizMode, playing, speed, replayTime, tapeR
       {/* Speed input */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
         <input
-          type="number"
-          min={1}
-          max={9999}
+          type="text"
+          inputMode="numeric"
           value={speed}
           onChange={e => {
-            const v = Math.max(1, Math.min(9999, Number(e.target.value) || 1));
+            const raw = e.target.value.replace(/[^0-9]/g, '');
+            if (raw === '') return;
+            const v = Math.max(1, Math.min(9999, Number(raw)));
             onChangeSpeed(v);
           }}
           style={{
