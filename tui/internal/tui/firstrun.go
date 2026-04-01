@@ -149,8 +149,9 @@ type FirstRunModel struct {
 	presetEndpointIn  textinput.Model   // base_url for custom provider
 	presetModelIn     textinput.Model   // model name for custom provider
 	presetNameIn      textinput.Model   // preset name for custom provider (separate from nameInput)
-	presetKeyFieldIdx int               // 0=compat, 1=endpoint, 2=model, 3=key, 4=name (custom); 0=region,1=key (minimax)
-	minimaxRegion     int               // 0=international, 1=china
+	presetKeyFieldIdx int               // 0=compat, 1=endpoint, 2=model, 3=key, 4=name (custom); 0=region, 1=model, 2=key (minimax)
+	minimaxRegion     int               // 0=china, 1=international
+	minimaxModel      int               // 0=highspeed, 1=standard
 	customCompat      int               // 0=openai, 1=anthropic
 	selectedProvider  string            // provider of currently selected preset
 	existingKeys      map[string]string // loaded from Config.Keys
@@ -574,6 +575,13 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 								m.minimaxRegion = 1 // International
 							}
 						}
+						// Prefill model from saved preset
+						m.minimaxModel = 0 // default highspeed
+						if llm, ok := p.Manifest["llm"].(map[string]interface{}); ok {
+							if model, ok := llm["model"].(string); ok && model == "MiniMax-M2.7" {
+								m.minimaxModel = 1 // standard
+							}
+						}
 					} else {
 						m.presetKeyInput.Focus()
 					}
@@ -602,7 +610,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				fieldCount = 5 // compat + endpoint + model + key + name
 			}
 			if isMinimax {
-				fieldCount = 2 // region + key
+				fieldCount = 3 // region + model + key
 			}
 			switch msg.String() {
 			case "ctrl+e":
@@ -635,7 +643,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 			case "up":
 				if isCustom || isMinimax {
 					m.presetKeyFieldIdx = (m.presetKeyFieldIdx - 1 + fieldCount) % fieldCount
-					if isMinimax && m.presetKeyFieldIdx == 0 {
+					if isMinimax && m.presetKeyFieldIdx < 2 {
 						m.presetKeyInput.Blur()
 						return m, nil
 					}
@@ -645,7 +653,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 			case "down", "tab":
 				if isCustom || isMinimax {
 					m.presetKeyFieldIdx = (m.presetKeyFieldIdx + 1) % fieldCount
-					if isMinimax && m.presetKeyFieldIdx == 0 {
+					if isMinimax && m.presetKeyFieldIdx < 2 {
 						m.presetKeyInput.Blur()
 						return m, nil
 					}
@@ -656,6 +664,11 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				// Toggle region for minimax
 				if isMinimax && m.presetKeyFieldIdx == 0 {
 					m.minimaxRegion = 1 - m.minimaxRegion
+					return m, nil
+				}
+				// Toggle model for minimax
+				if isMinimax && m.presetKeyFieldIdx == 1 {
+					m.minimaxModel = 1 - m.minimaxModel
 					return m, nil
 				}
 				// Toggle compat for custom
@@ -693,7 +706,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				if isMinimax {
 					// Clone the template with auto-name based on region
 					p := m.presets[m.cursor]
-					var name, baseURL string
+					var name, baseURL, model string
 					if m.minimaxRegion == 0 {
 						name = "minimax_cn"
 						baseURL = "https://api.minimaxi.com/anthropic"
@@ -701,9 +714,15 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 						name = "minimax_intl"
 						baseURL = "https://api.minimax.io/anthropic"
 					}
+					if m.minimaxModel == 0 {
+						model = "MiniMax-M2.7-highspeed"
+					} else {
+						model = "MiniMax-M2.7"
+					}
 					clone := preset.Clone(p, name)
 					if llm, ok := clone.Manifest["llm"].(map[string]interface{}); ok {
 						llm["base_url"] = baseURL
+						llm["model"] = model
 					}
 					if err := preset.Save(clone); err != nil {
 						m.message = i18n.TF("firstrun.error", err)
@@ -1177,6 +1196,21 @@ func (m FirstRunModel) View() string {
 				endpointURL = "api.minimax.io/anthropic"
 			}
 			b.WriteString("            " + StyleFaint.Render(endpointURL) + "\n")
+			// Model toggle
+			hsLabel := "M2.7-highspeed"
+			stdLabel := "M2.7"
+			if m.minimaxModel == 0 {
+				hsLabel = "● " + hsLabel
+				stdLabel = "○ " + stdLabel
+			} else {
+				hsLabel = "○ " + hsLabel
+				stdLabel = "● " + stdLabel
+			}
+			modelStyle := lipgloss.NewStyle()
+			if m.presetKeyFieldIdx == 1 {
+				modelStyle = modelStyle.Bold(true).Foreground(ColorAccent)
+			}
+			b.WriteString("  " + i18n.T("presets.model") + ":   " + modelStyle.Render(hsLabel+"  "+stdLabel) + "\n")
 			b.WriteString("  " + i18n.T("setup.api_key_label") + "  " + m.presetKeyInput.View() + "\n\n")
 			b.WriteString(StyleFaint.Render("  [↑↓] "+i18n.T("firstrun.toggle_field")+
 				"  [←→] "+i18n.T("firstrun.toggle_region")+
