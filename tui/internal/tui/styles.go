@@ -1,12 +1,9 @@
 package tui
 
 import (
-	"fmt"
 	"image/color"
-	"os"
 	"sort"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
 
@@ -56,8 +53,8 @@ type Theme struct {
 // Gold lacquer accents on ink-dark ground.
 func ThemeInkDark() Theme {
 	return Theme{
-		BG:        lipgloss.Color("#181618"), // 墨色（背景）
-		Surface:   lipgloss.Color("#1e1c1e"), // 玄色（面板）
+		BG:        lipgloss.Color("#161718"), // 墨色（背景）
+		Surface:   lipgloss.Color("#1c1d1e"), // 玄色（面板）
 		Border:    lipgloss.Color("#2a2a30"), // 墨线（分割线）
 		Text:      lipgloss.Color("#e8e4df"), // 宣纸白（主文字）
 		TextDim:   lipgloss.Color("#8a8680"), // 旧墨灰（次要文字）
@@ -180,26 +177,6 @@ func SetThemeByName(name string) {
 	SetTheme(ThemeByName(name))
 }
 
-// ApplyTerminalBG writes OSC 10/11 directly to stdout for the active theme.
-// Safe to call before tea.NewProgram.Run() starts.
-func ApplyTerminalBG() {
-	if activeTheme.PaintBG {
-		applyTerminalBG()
-	}
-}
-
-// ApplyTerminalBGCmd returns a tea.Cmd that writes OSC sequences.
-// Use this when switching themes while Bubble Tea is running so the
-// write is coordinated with the renderer (avoids screen jumps).
-func ApplyTerminalBGCmd() tea.Cmd {
-	if !activeTheme.PaintBG {
-		return nil
-	}
-	return func() tea.Msg {
-		applyTerminalBG()
-		return nil
-	}
-}
 
 // ActiveTheme returns the current theme (read-only copy).
 func ActiveTheme() Theme { return activeTheme }
@@ -303,19 +280,4 @@ func StateColor(state string) color.Color {
 	}
 }
 
-// applyTerminalBG writes OSC 10 (foreground) and OSC 11 (background) escape
-// sequences directly to stdout, overriding the terminal's default colors.
-// This bypasses Bubble Tea's renderer so it takes effect immediately.
-func applyTerminalBG() {
-	fr, fg, fb, _ := ColorText.RGBA()
-	br, bg, bb, _ := ColorBG.RGBA()
-	// OSC 10 = default foreground, OSC 11 = default background
-	fmt.Fprintf(os.Stdout, "\033]10;rgb:%02x/%02x/%02x\033\\", fr>>8, fg>>8, fb>>8)
-	fmt.Fprintf(os.Stdout, "\033]11;rgb:%02x/%02x/%02x\033\\", br>>8, bg>>8, bb>>8)
-}
 
-// ResetBackground returns the OSC sequences that restore the terminal's
-// original foreground and background colors. Should be called on program exit.
-func ResetBackground() string {
-	return "\033]110\033\\\033]111\033\\"
-}

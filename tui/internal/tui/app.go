@@ -70,7 +70,6 @@ func humanAddr(projectDir string) string {
 func NewApp(globalDir, projectDir string, needsFirstRun bool, orchestrators []string, tuiCfg config.TUIConfig) App {
 	// Apply persisted theme (or default).
 	SetThemeByName(tuiCfg.Theme)
-	ApplyTerminalBG() // safe here — tea.NewProgram hasn't started yet
 
 	lingtaiCmd := config.LingtaiCmd(globalDir)
 
@@ -602,6 +601,11 @@ func (a App) View() tea.View {
 	v := tea.NewView(content)
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
+	t := ActiveTheme()
+	if t.PaintBG {
+		v.BackgroundColor = t.BG
+		v.ForegroundColor = t.Text
+	}
 	return v
 }
 

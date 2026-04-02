@@ -199,8 +199,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
-	// Restore terminal's original background color after alt screen exits.
-	fmt.Print(tui.ResetBackground())
 }
 
 func cleanMain() {

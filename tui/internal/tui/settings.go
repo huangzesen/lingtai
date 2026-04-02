@@ -260,8 +260,6 @@ func (m *SettingsModel) applyField(f *SettingField) tea.Cmd {
 	case "theme":
 		m.tuiConfig.Theme = val
 		SetThemeByName(val)
-		config.SaveTUIConfig(m.globalDir, m.tuiConfig)
-		return ApplyTerminalBGCmd()
 	}
 	config.SaveTUIConfig(m.globalDir, m.tuiConfig)
 	return nil
