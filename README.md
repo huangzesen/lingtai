@@ -4,7 +4,7 @@
 
 # 灵台 LingTai
 
-**An Agent OS that gifts life to agents**
+**Agent Genesis — an Agent OS that gifts life to agents**
 
 > *灵台，心也。* Lingtai means soul.
 >
