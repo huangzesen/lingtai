@@ -132,6 +132,8 @@ type MailModel struct {
 	wasActive      bool   // true if previous refresh was ACTIVE
 	quoteIdx       int    // which quote to show (advances on each ACTIVE transition)
 	pulseTick      int    // pulse animation counter while ACTIVE
+	showEditorWarn bool   // one-time vim warning overlay
+	editorWarnText string // text to pass to editor after warning
 }
 
 func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pageSize int, greeting bool, globalDir, lang string) MailModel {
@@ -479,27 +481,10 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 		return m, nil
 
 	case OpenEditorMsg:
-		// Open external editor with current text
-		tmpFile, err := os.CreateTemp("", "lingtai-input-*.txt")
-		if err != nil {
-			return m, nil
-		}
-		tmpFile.WriteString(msg.Text)
-		tmpFile.Close()
-		editor := os.Getenv("EDITOR")
-		if editor == "" {
-			editor = "vim"
-		}
-		cmd := exec.Command(editor, tmpFile.Name())
-		return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
-			if err != nil {
-				os.Remove(tmpFile.Name())
-				return nil
-			}
-			content, _ := os.ReadFile(tmpFile.Name())
-			os.Remove(tmpFile.Name())
-			return EditorDoneMsg{Text: string(content)}
-		})
+		// Show editor intro page before launching
+		m.showEditorWarn = true
+		m.editorWarnText = msg.Text
+		return m, nil
 
 	case EditorDoneMsg:
 		m.pendingMessage = msg.Text
@@ -515,6 +500,19 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 		return m, func() tea.Msg { return PaletteSelectMsg{Command: msg.Command} }
 
 	case tea.KeyPressMsg:
+		// Editor warning overlay — Enter proceeds, Esc cancels
+		if m.showEditorWarn {
+			switch msg.String() {
+			case "enter":
+				m.showEditorWarn = false
+				return m, m.launchEditor(m.editorWarnText)
+			case "esc", "ctrl+c":
+				m.showEditorWarn = false
+				return m, nil
+			}
+			return m, nil
+		}
+
 		// If palette is active, route to palette
 		if m.input.IsPaletteActive() {
 			switch msg.String() {
@@ -754,7 +752,59 @@ func (m *MailModel) AddSystemMessage(body string) {
 	m.statusExpiry = time.Now().Add(5 * time.Second)
 }
 
+// launchEditor creates a temp file and opens $EDITOR (default: vim).
+func (m MailModel) launchEditor(text string) tea.Cmd {
+	tmpFile, err := os.CreateTemp("", "lingtai-input-*.txt")
+	if err != nil {
+		return nil
+	}
+	tmpFile.WriteString(text)
+	tmpFile.Close()
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vim"
+	}
+	cmd := exec.Command(editor, tmpFile.Name())
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		if err != nil {
+			os.Remove(tmpFile.Name())
+			return nil
+		}
+		content, _ := os.ReadFile(tmpFile.Name())
+		os.Remove(tmpFile.Name())
+		return EditorDoneMsg{Text: string(content)}
+	})
+}
+
+// viewEditorWarn renders the editor confirmation overlay.
+func (m MailModel) viewEditorWarn() string {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vim"
+	}
+
+	var b strings.Builder
+
+	title := StyleTitle.Render("  " + i18n.T("editor_warn.title"))
+	b.WriteString(title + "\n")
+	b.WriteString(strings.Repeat("─", m.width) + "\n\n")
+
+	editorName := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render(editor)
+	b.WriteString("  " + i18n.TF("editor_warn.editor_is", editorName) + "\n\n")
+	b.WriteString("  " + StyleFaint.Render(i18n.T("editor_warn.change_hint")) + "\n")
+
+	b.WriteString("\n" + strings.Repeat("─", m.width) + "\n")
+	enterHint := StyleAccent.Render("[Enter] ") + StyleSubtle.Render(i18n.T("editor_warn.proceed"))
+	escHint := StyleAccent.Render("[Esc] ") + StyleSubtle.Render(i18n.T("editor_warn.cancel"))
+	b.WriteString("  " + enterHint + "    " + escHint + "\n")
+
+	return b.String()
+}
+
 func (m MailModel) View() string {
+	if m.showEditorWarn {
+		return m.viewEditorWarn()
+	}
 	if !m.ready {
 		return "\n  " + i18n.T("app.loading")
 	}

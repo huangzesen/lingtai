@@ -1,9 +1,12 @@
 package tui
 
 import (
+	"fmt"
 	"image/color"
+	"os"
 	"sort"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
 
@@ -49,12 +52,12 @@ type Theme struct {
 	PaintBG bool
 }
 
-// ThemeInkDark is the default theme — 墨韵灵台调色板.
-// Inspired by Chinese ink painting, seal stamps, and Xuan paper.
+// ThemeInkDark is the default theme — 金漆墨韵.
+// Gold lacquer accents on ink-dark ground.
 func ThemeInkDark() Theme {
 	return Theme{
-		BG:        lipgloss.Color("#0d0d0f"), // 墨黑（背景）
-		Surface:   lipgloss.Color("#151518"), // 玄色（面板）
+		BG:        lipgloss.Color("#181618"), // 墨色（背景）
+		Surface:   lipgloss.Color("#1e1c1e"), // 玄色（面板）
 		Border:    lipgloss.Color("#2a2a30"), // 墨线（分割线）
 		Text:      lipgloss.Color("#e8e4df"), // 宣纸白（主文字）
 		TextDim:   lipgloss.Color("#8a8680"), // 旧墨灰（次要文字）
@@ -89,16 +92,16 @@ func ThemeInkDark() Theme {
 	}
 }
 
-// ThemeXuanPaper is the light theme — 宣纸调色板.
-// Warm cream paper with deep ink tones, matching portal/web lightTheme.
+// ThemeXuanPaper is the light theme — 水墨宣纸.
+// Ink wash on warm xuan paper, matching portal/web lightTheme.
 func ThemeXuanPaper() Theme {
 	return Theme{
 		BG:        lipgloss.Color("#f5f0e8"), // 宣纸色（背景）
 		Surface:   lipgloss.Color("#ebe6dc"), // 熟宣（面板）
-		Border:    lipgloss.Color("#d5cfc5"), // 淡墨线（分割线）
+		Border:    lipgloss.Color("#c5bfb5"), // 淡墨线（分割线）
 		Text:      lipgloss.Color("#2a2520"), // 浓墨（主文字）
-		TextDim:   lipgloss.Color("#6b6560"), // 暗墨灰（次要文字）
-		TextFaint: lipgloss.Color("#a09a90"), // 旧墨（极淡文字）
+		TextDim:   lipgloss.Color("#5a504a"), // 暗墨灰（次要文字）
+		TextFaint: lipgloss.Color("#8a8078"), // 旧墨（极淡文字）
 
 		Agent:  lipgloss.Color("#3d7a54"), // 深竹青（器灵）
 		Human:  lipgloss.Color("#9a7040"), // 深琥珀（人）
@@ -111,7 +114,7 @@ func ThemeXuanPaper() Theme {
 		Suspended: lipgloss.Color("#9b3a3a"), // 深朱砂
 
 		Thinking: lipgloss.Color("#3a6b85"), // 深苍蓝（心思）
-		Tool:     lipgloss.Color("#a09a90"), // 旧墨（工具）
+		Tool:     lipgloss.Color("#8a8078"), // 旧墨（工具）
 		Input:    lipgloss.Color("#ebe6dc"), // 熟宣（输入）
 
 		Accent: lipgloss.Color("#9a7040"), // 深琥珀（光）
@@ -165,7 +168,8 @@ func ThemeNames() []string {
 var activeTheme = ThemeInkDark()
 
 // SetTheme switches the active theme and rebuilds all derived values.
-// Must be called before tea.NewProgram.Run() — not goroutine-safe.
+// Does NOT write OSC sequences — call ApplyTerminalBG() or use
+// ApplyTerminalBGCmd() separately.
 func SetTheme(t Theme) {
 	activeTheme = t
 	rebuildStyles()
@@ -174,6 +178,27 @@ func SetTheme(t Theme) {
 // SetThemeByName looks up a theme by name and applies it.
 func SetThemeByName(name string) {
 	SetTheme(ThemeByName(name))
+}
+
+// ApplyTerminalBG writes OSC 10/11 directly to stdout for the active theme.
+// Safe to call before tea.NewProgram.Run() starts.
+func ApplyTerminalBG() {
+	if activeTheme.PaintBG {
+		applyTerminalBG()
+	}
+}
+
+// ApplyTerminalBGCmd returns a tea.Cmd that writes OSC sequences.
+// Use this when switching themes while Bubble Tea is running so the
+// write is coordinated with the renderer (avoids screen jumps).
+func ApplyTerminalBGCmd() tea.Cmd {
+	if !activeTheme.PaintBG {
+		return nil
+	}
+	return func() tea.Msg {
+		applyTerminalBG()
+		return nil
+	}
 }
 
 // ActiveTheme returns the current theme (read-only copy).
@@ -276,4 +301,21 @@ func StateColor(state string) color.Color {
 	default:
 		return ColorTextDim
 	}
+}
+
+// applyTerminalBG writes OSC 10 (foreground) and OSC 11 (background) escape
+// sequences directly to stdout, overriding the terminal's default colors.
+// This bypasses Bubble Tea's renderer so it takes effect immediately.
+func applyTerminalBG() {
+	fr, fg, fb, _ := ColorText.RGBA()
+	br, bg, bb, _ := ColorBG.RGBA()
+	// OSC 10 = default foreground, OSC 11 = default background
+	fmt.Fprintf(os.Stdout, "\033]10;rgb:%02x/%02x/%02x\033\\", fr>>8, fg>>8, fb>>8)
+	fmt.Fprintf(os.Stdout, "\033]11;rgb:%02x/%02x/%02x\033\\", br>>8, bg>>8, bb>>8)
+}
+
+// ResetBackground returns the OSC sequences that restore the terminal's
+// original foreground and background colors. Should be called on program exit.
+func ResetBackground() string {
+	return "\033]110\033\\\033]111\033\\"
 }

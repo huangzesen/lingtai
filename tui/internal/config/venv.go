@@ -55,18 +55,6 @@ func NeedsVenv(globalDir string) bool {
 	return false
 }
 
-func VerifyVenv(globalDir string) error {
-	if NeedsVenv(globalDir) {
-		return nil
-	}
-	python := LingtaiCmd(globalDir)
-	cmd := exec.Command(python, "-c", "import lingtai")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("lingtai installation is broken. Delete ~/.lingtai-tui/runtime/venv/ and restart to reinstall")
-	}
-	return nil
-}
-
 func EnsureVenv(globalDir string) error {
 	return ensureVenv(globalDir, false, nil)
 }

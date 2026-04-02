@@ -475,7 +475,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				tuiCfg.Theme = next
 				SetThemeByName(next)
 				config.SaveTUIConfig(m.globalDir, tuiCfg)
-				return m, nil
+				return m, ApplyTerminalBGCmd()
 			case "up":
 				if m.langCursor > 0 {
 					m.langCursor--

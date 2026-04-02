@@ -225,7 +225,7 @@ func (m SettingsModel) Update(msg tea.Msg) (SettingsModel, tea.Cmd) {
 				f := &m.fields[m.cursor]
 				if f.Current > 0 {
 					f.Current--
-					m.applyField(f)
+					return m, m.applyField(f)
 				}
 			}
 		case "right":
@@ -233,7 +233,7 @@ func (m SettingsModel) Update(msg tea.Msg) (SettingsModel, tea.Cmd) {
 				f := &m.fields[m.cursor]
 				if f.Current < len(f.Options)-1 {
 					f.Current++
-					m.applyField(f)
+					return m, m.applyField(f)
 				}
 			}
 		}
@@ -241,7 +241,7 @@ func (m SettingsModel) Update(msg tea.Msg) (SettingsModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m *SettingsModel) applyField(f *SettingField) {
+func (m *SettingsModel) applyField(f *SettingField) tea.Cmd {
 	val := f.Options[f.Current]
 	switch f.Key {
 	case "language":
@@ -260,8 +260,11 @@ func (m *SettingsModel) applyField(f *SettingField) {
 	case "theme":
 		m.tuiConfig.Theme = val
 		SetThemeByName(val)
+		config.SaveTUIConfig(m.globalDir, m.tuiConfig)
+		return ApplyTerminalBGCmd()
 	}
 	config.SaveTUIConfig(m.globalDir, m.tuiConfig)
+	return nil
 }
 
 // localTextPtr returns a pointer to the text being edited.
@@ -343,27 +346,32 @@ func (m SettingsModel) View() string {
 	b.WriteString(StyleFaint.Render("  "+i18n.T("welcome.poem_line2")) + "\n\n")
 
 	// Fields
+	labelStyle := lipgloss.NewStyle().Foreground(ColorText)
+	dimValStyle := lipgloss.NewStyle().Foreground(ColorTextDim)
 	for i, f := range m.fields {
 		cursor := "  "
 		if i == m.cursor {
-			cursor = "> "
+			cursor = StyleAccent.Render("> ")
 		}
-		label := i18n.T(f.Label) + ":"
+		label := labelStyle.Render(fmt.Sprintf("%-15s", i18n.T(f.Label)+":"))
 		value := f.Options[f.Current]
 
 		// Show display-friendly value
 		displayVal := value
 		if f.Key == "greeting" || (f.Key == "mail_page_size" && value == "unlimited") {
 			displayVal = i18n.T("settings." + value)
+		} else if f.Key == "theme" {
+			displayVal = i18n.T("theme." + value)
 		}
 
 		// Highlight selected
 		if i == m.cursor {
 			displayVal = lipgloss.NewStyle().Bold(true).Foreground(ColorActive).Render("< " + displayVal + " >")
+		} else {
+			displayVal = dimValStyle.Render(displayVal)
 		}
 
-		line := fmt.Sprintf("%s%-15s %s", cursor, label, displayVal)
-		b.WriteString(line + "\n")
+		b.WriteString(cursor + label + " " + displayVal + "\n")
 	}
 
 	// Local section
@@ -385,9 +393,9 @@ func (m SettingsModel) View() string {
 		absIdx := localStart + i
 		cursor := "  "
 		if m.cursor == absIdx {
-			cursor = "> "
+			cursor = StyleAccent.Render("> ")
 		}
-		label := lf.label + ":"
+		label := labelStyle.Render(fmt.Sprintf("%-15s", lf.label+":"))
 		displayVal := lf.value
 		if displayVal == "" {
 			displayVal = "—"
@@ -396,8 +404,10 @@ func (m SettingsModel) View() string {
 			displayVal = lipgloss.NewStyle().Bold(true).Foreground(ColorActive).Render(lf.value + "▎")
 		} else if m.cursor == absIdx {
 			displayVal = lipgloss.NewStyle().Bold(true).Foreground(ColorActive).Render(displayVal)
+		} else {
+			displayVal = dimValStyle.Render(displayVal)
 		}
-		b.WriteString(fmt.Sprintf("%s%-15s %s", cursor, label, displayVal))
+		b.WriteString(cursor + label + " " + displayVal)
 		if m.cursor == absIdx && !m.editing {
 			b.WriteString("  " + StyleFaint.Render(lf.hint))
 		}

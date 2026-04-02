@@ -39,22 +39,4 @@ func TestSaveAndLoadConfig_NewFormat(t *testing.T) {
 	}
 }
 
-func TestNeedsSetup_WithKeys(t *testing.T) {
-	dir := t.TempDir()
-	if !NeedsSetup(dir) {
-		t.Error("should need setup when no config.json")
-	}
-	SaveConfig(dir, Config{Keys: map[string]string{"minimax": "key"}})
-	if NeedsSetup(dir) {
-		t.Error("should not need setup after saving config with keys")
-	}
-}
-
-func TestNeedsSetup_EmptyKeys(t *testing.T) {
-	dir := t.TempDir()
-	SaveConfig(dir, Config{Keys: map[string]string{}})
-	if !NeedsSetup(dir) {
-		t.Error("should need setup with empty keys map")
-	}
-}
 

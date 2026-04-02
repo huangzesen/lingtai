@@ -70,6 +70,7 @@ func humanAddr(projectDir string) string {
 func NewApp(globalDir, projectDir string, needsFirstRun bool, orchestrators []string, tuiCfg config.TUIConfig) App {
 	// Apply persisted theme (or default).
 	SetThemeByName(tuiCfg.Theme)
+	ApplyTerminalBG() // safe here — tea.NewProgram hasn't started yet
 
 	lingtaiCmd := config.LingtaiCmd(globalDir)
 

@@ -34,10 +34,10 @@ type Config struct {
 
 // TUIConfig holds global TUI preferences at ~/.lingtai-tui/tui_config.json.
 type TUIConfig struct {
-	Language     string `json:"language"`
-	MailPageSize int    `json:"mail_page_size"`
-	Greeting     bool   `json:"greeting"`
-	Theme        string `json:"theme,omitempty"` // theme name: "ink-dark" (default), etc.
+	Language       string `json:"language"`
+	MailPageSize   int    `json:"mail_page_size"`
+	Greeting       bool   `json:"greeting"`
+	Theme          string `json:"theme,omitempty"` // theme name: "ink-dark" (default), etc.
 }
 
 // DefaultTUIConfig returns sensible defaults.
@@ -148,20 +148,6 @@ func providerToEnvKey(provider string) string {
 	default:
 		return "LLM_API_KEY"
 	}
-}
-
-func NeedsSetup(dir string) bool {
-	cfg, err := LoadConfig(dir)
-	if err != nil {
-		return true
-	}
-	return len(cfg.Keys) == 0
-}
-
-// TutorialDone returns true if the user has completed or skipped the tutorial.
-func TutorialDone(globalDir string) bool {
-	_, err := os.Stat(filepath.Join(globalDir, ".tutorial"))
-	return err == nil
 }
 
 // MarkTutorialDone writes a .tutorial marker to the global dir.

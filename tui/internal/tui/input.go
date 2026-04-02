@@ -44,6 +44,7 @@ func NewInputModel(humanDir string) InputModel {
 	ti.SetWidth(80)
 	ti.SetHeight(1)
 	ti.ShowLineNumbers = false
+	ti.SetStyles(themedTextareaStyles())
 
 	m := InputModel{
 		textarea:   ti,
@@ -52,6 +53,35 @@ func NewInputModel(humanDir string) InputModel {
 	}
 	m.loadHistory()
 	return m
+}
+
+// themedTextareaStyles builds textarea.Styles from the active theme colors.
+func themedTextareaStyles() textarea.Styles {
+	var s textarea.Styles
+	s.Focused = textarea.StyleState{
+		Base:        lipgloss.NewStyle().Foreground(ColorText),
+		CursorLine:  lipgloss.NewStyle(),
+		Placeholder: lipgloss.NewStyle().Foreground(ColorTextDim),
+		Prompt:      lipgloss.NewStyle().Foreground(ColorAccent),
+		Text:        lipgloss.NewStyle().Foreground(ColorText),
+	}
+	s.Blurred = textarea.StyleState{
+		Base:        lipgloss.NewStyle().Foreground(ColorTextDim),
+		CursorLine:  lipgloss.NewStyle(),
+		Placeholder: lipgloss.NewStyle().Foreground(ColorTextFaint),
+		Prompt:      lipgloss.NewStyle().Foreground(ColorTextDim),
+		Text:        lipgloss.NewStyle().Foreground(ColorTextDim),
+	}
+	s.Cursor = textarea.CursorStyle{
+		Color: ColorCursor,
+		Blink: true,
+	}
+	return s
+}
+
+// ApplyTheme updates the textarea styles to match the current theme.
+func (m *InputModel) ApplyTheme() {
+	m.textarea.SetStyles(themedTextareaStyles())
 }
 
 func (m InputModel) Init() tea.Cmd {
