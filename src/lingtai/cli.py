@@ -66,6 +66,7 @@ def build_agent(data: dict, working_dir: Path) -> Agent:
         model=llm["model"],
         api_key=api_key,
         base_url=llm.get("base_url"),
+        context_window=m.get("context_limit", 200_000),
     )
 
     mail_service = FilesystemMailService(working_dir=working_dir)
