@@ -1,22 +1,14 @@
-.PHONY: web-deps web-build go-build build clean
+.PHONY: build clean
 
-web-deps:
-	cd web && npm install
-
-web-build: web-deps
-	cd web && npm run build
-
-go-build: web-build
+build:
 	go build -o bin/lingtai-tui .
 
-build: go-build
-
-cross-compile: web-build
-	GOOS=darwin GOARCH=arm64 go build -o bin/lingtai-tui-darwin-arm64 .
-	GOOS=darwin GOARCH=amd64 go build -o bin/lingtai-tui-darwin-x64 .
-	GOOS=linux GOARCH=amd64 go build -o bin/lingtai-tui-linux-x64 .
-	GOOS=linux GOARCH=arm64 go build -o bin/lingtai-tui-linux-arm64 .
-	GOOS=windows GOARCH=amd64 go build -o bin/lingtai-tui-win32-x64.exe .
+cross-compile:
+	GOOS=darwin GOARCH=arm64 go build -o bin/lingtai-darwin-arm64 .
+	GOOS=darwin GOARCH=amd64 go build -o bin/lingtai-darwin-x64 .
+	GOOS=linux GOARCH=amd64 go build -o bin/lingtai-linux-x64 .
+	GOOS=linux GOARCH=arm64 go build -o bin/lingtai-linux-arm64 .
+	GOOS=windows GOARCH=amd64 go build -o bin/lingtai-win32-x64.exe .
 
 clean:
-	rm -rf bin/ web/dist/
+	rm -rf bin/
