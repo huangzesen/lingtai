@@ -16,7 +16,6 @@ import (
 	"github.com/anthropics/lingtai-tui/internal/preset"
 	"github.com/anthropics/lingtai-tui/internal/process"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 )
 
 type appView int
@@ -446,6 +445,8 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		url := a.portalURL()
 		if url != "" {
 			openBrowser(url)
+		} else {
+			a.mail.AddSystemMessage("lingtai-portal not found. Install it or add it to PATH.")
 		}
 		return a, nil
 	case "addon":
@@ -544,6 +545,8 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 			ps = unlimitedPageSize
 		}
 		a.mail.pageSize = ps
+		// Re-apply theme to textarea (settings may have changed it)
+		a.mail.input.ApplyTheme()
 		// Restart mail tick + refresh + pulse (ticks die when another view is active)
 		return a, tea.Batch(a.mail.refreshMail, tickEvery(a.mail.pollRate), pulseTick(), a.sendSize())
 	case "setup":
@@ -595,15 +598,6 @@ func (a App) View() tea.View {
 	case appViewTutorial:
 		content = a.tutorial.View()
 	}
-	// Paint the active theme's background across the full terminal area.
-	if ActiveTheme().PaintBG && a.width > 0 && a.height > 0 {
-		content = lipgloss.NewStyle().
-			Width(a.width).
-			Height(a.height).
-			Background(ColorBG).
-			Foreground(ColorText).
-			Render(content)
-	}
 	v := tea.NewView(content)
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
@@ -629,8 +623,8 @@ func (a *App) portalURL() string {
 		os.Remove(portFile)
 	}
 
-	// Try to spawn portal
-	portalCmd, _ := exec.LookPath("lingtai-portal")
+	// Try to spawn portal — check next to own binary first, then PATH
+	portalCmd := findPortalBinary()
 	if portalCmd == "" {
 		return ""
 	}
@@ -650,6 +644,23 @@ func (a *App) portalURL() string {
 		if data, err := os.ReadFile(portFile); err == nil {
 			return "http://localhost:" + strings.TrimSpace(string(data))
 		}
+	}
+	return ""
+}
+
+// findPortalBinary looks for lingtai-portal in the same directory as the
+// running TUI binary first (works for both brew and dev builds), then PATH.
+func findPortalBinary() string {
+	// Check next to own binary (e.g., /usr/local/bin/lingtai-portal alongside lingtai-tui)
+	if self, err := os.Executable(); err == nil {
+		sibling := filepath.Join(filepath.Dir(self), "lingtai-portal")
+		if _, err := os.Stat(sibling); err == nil {
+			return sibling
+		}
+	}
+	// Fall back to PATH
+	if p, err := exec.LookPath("lingtai-portal"); err == nil {
+		return p
 	}
 	return ""
 }
