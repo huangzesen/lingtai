@@ -164,13 +164,10 @@ func ensureVenv(globalDir string, quiet bool, progress ProgressFunc) error {
 	return nil
 }
 
-// linkLingtaiCLI creates a symlink from ~/.local/bin/lingtai to the venv's
-// lingtai entry point. Silently does nothing on error (best-effort).
+// linkLingtaiCLI creates a symlink to the venv's lingtai entry point
+// in a directory that's already on PATH. Tries brew prefix first (macOS),
+// falls back to ~/.local/bin. Silently does nothing on error (best-effort).
 func linkLingtaiCLI(venvPath string) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return
-	}
 	src := filepath.Join(venvPath, "bin", "lingtai")
 	if runtime.GOOS == "windows" {
 		src = filepath.Join(venvPath, "Scripts", "lingtai.exe")
@@ -179,16 +176,48 @@ func linkLingtaiCLI(venvPath string) {
 		return
 	}
 
-	localBin := filepath.Join(home, ".local", "bin")
-	os.MkdirAll(localBin, 0o755)
-	dst := filepath.Join(localBin, "lingtai")
+	binDir := findLinkDir()
+	if binDir == "" {
+		return
+	}
+
+	dst := filepath.Join(binDir, "lingtai")
 	if runtime.GOOS == "windows" {
-		dst = filepath.Join(localBin, "lingtai.exe")
+		dst += ".exe"
 	}
 
 	// Remove stale symlink if it exists
 	os.Remove(dst)
 	os.Symlink(src, dst)
+}
+
+// findLinkDir returns a writable directory already on PATH.
+func findLinkDir() string {
+	// Prefer Homebrew bin (always on PATH for brew users)
+	if out, err := exec.Command("brew", "--prefix").Output(); err == nil {
+		brewBin := filepath.Join(strings.TrimSpace(string(out)), "bin")
+		if writable(brewBin) {
+			return brewBin
+		}
+	}
+	// Fallback: ~/.local/bin
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	localBin := filepath.Join(home, ".local", "bin")
+	os.MkdirAll(localBin, 0o755)
+	return localBin
+}
+
+func writable(dir string) bool {
+	f, err := os.CreateTemp(dir, ".lingtai-probe-*")
+	if err != nil {
+		return false
+	}
+	f.Close()
+	os.Remove(f.Name())
+	return true
 }
 
 func findUV() string {
