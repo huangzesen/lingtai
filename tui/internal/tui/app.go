@@ -623,8 +623,8 @@ func (a *App) portalURL() string {
 		os.Remove(portFile)
 	}
 
-	// Try to spawn portal — check next to own binary first, then PATH
-	portalCmd := findPortalBinary()
+	// Try to spawn portal
+	portalCmd, _ := exec.LookPath("lingtai-portal")
 	if portalCmd == "" {
 		return ""
 	}
@@ -644,23 +644,6 @@ func (a *App) portalURL() string {
 		if data, err := os.ReadFile(portFile); err == nil {
 			return "http://localhost:" + strings.TrimSpace(string(data))
 		}
-	}
-	return ""
-}
-
-// findPortalBinary looks for lingtai-portal in the same directory as the
-// running TUI binary first (works for both brew and dev builds), then PATH.
-func findPortalBinary() string {
-	// Check next to own binary (e.g., /usr/local/bin/lingtai-portal alongside lingtai-tui)
-	if self, err := os.Executable(); err == nil {
-		sibling := filepath.Join(filepath.Dir(self), "lingtai-portal")
-		if _, err := os.Stat(sibling); err == nil {
-			return sibling
-		}
-	}
-	// Fall back to PATH
-	if p, err := exec.LookPath("lingtai-portal"); err == nil {
-		return p
 	}
 	return ""
 }
