@@ -38,6 +38,31 @@ That's it. The TUI bootstraps everything — Python runtime, dependencies, and a
 
 > The TUI is a [Bubble Tea](https://github.com/charmbracelet/bubbletea) app designed for **dark terminals** — use a dark background for the best experience. Text selection requires [iTerm2](https://iterm2.com/) (hold Option + drag). On Windows Terminal, hold Shift to select text; Ctrl+V to paste. Ctrl+E opens an external editor as a last resort.
 
+<details>
+<summary><b>Build from source</b> (requires Go 1.24+)</summary>
+
+```bash
+# Replace v0.5.2 with the latest version
+VERSION=v0.5.2
+
+curl -L "https://github.com/huangzesen/lingtai/archive/refs/tags/${VERSION}.tar.gz" -o lingtai.tar.gz
+tar xzf lingtai.tar.gz
+cd "lingtai-${VERSION}/tui"
+
+go build -ldflags "-X main.version=${VERSION}" -o /usr/local/bin/lingtai-tui .
+
+cd ../.. && rm -rf "lingtai-${VERSION}" lingtai.tar.gz
+
+lingtai-tui
+```
+
+Users in mainland China can download from the [Gitee mirror](https://gitee.com/huangzesen1997/lingtai):
+```bash
+curl -L "https://gitee.com/huangzesen1997/lingtai/repository/archive/${VERSION}.tar.gz" -o lingtai.tar.gz
+```
+
+</details>
+
 ## Why Lingtai
 
 **This is not a coding agent, and hardly an agent harness.** This is agent genesis — giving agents a real digital life form. Agents as autonomous creatures with dignity, that live, sleep, forget, and grow.

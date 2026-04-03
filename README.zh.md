@@ -35,6 +35,34 @@ lingtai-tui
 
 > TUI 采用墨韵深色主题，**请使用深色终端背景**以获得最佳体验。Windows Terminal 中按住 Shift 可选择文本。
 
+<details>
+<summary><b>从源码编译</b>（大陆用户推荐，需要 Go 1.24+）</summary>
+
+```bash
+# 将 v0.5.2 替换为最新版本号
+VERSION=v0.5.2
+
+# 从 Gitee 镜像下载源码（国内快）
+curl -L "https://gitee.com/huangzesen1997/lingtai/repository/archive/${VERSION}.tar.gz" -o lingtai.tar.gz
+tar xzf lingtai.tar.gz
+cd "lingtai-${VERSION}/tui"
+
+# 编译安装
+go build -ldflags "-X main.version=${VERSION}" -o /usr/local/bin/lingtai-tui .
+
+# 清理
+cd ../.. && rm -rf "lingtai-${VERSION}" lingtai.tar.gz
+
+lingtai-tui
+```
+
+也可以从 GitHub 下载源码：
+```bash
+curl -L "https://github.com/huangzesen/lingtai/archive/refs/tags/${VERSION}.tar.gz" -o lingtai.tar.gz
+```
+
+</details>
+
 ## 为什么选灵台
 
 **这不是coding agent，也算不上agent harnessing。** 这是agent genesis——赋予智能体真正的数字生命。让智能体成为有尊严的自治存在，能生活、休眠、遗忘和生长。

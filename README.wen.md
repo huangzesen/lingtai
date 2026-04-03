@@ -35,6 +35,32 @@ lingtai-tui
 
 > TUI 以墨韵为底，**宜用深色终端**。
 
+<details>
+<summary><b>自源码编译</b>（需 Go 1.24+）</summary>
+
+```bash
+# 以最新版号替之
+VERSION=v0.5.2
+
+# 自 Gitee 镜像取源码（境内速）
+curl -L "https://gitee.com/huangzesen1997/lingtai/repository/archive/${VERSION}.tar.gz" -o lingtai.tar.gz
+tar xzf lingtai.tar.gz
+cd "lingtai-${VERSION}/tui"
+
+go build -ldflags "-X main.version=${VERSION}" -o /usr/local/bin/lingtai-tui .
+
+cd ../.. && rm -rf "lingtai-${VERSION}" lingtai.tar.gz
+
+lingtai-tui
+```
+
+亦可自 GitHub 取之：
+```bash
+curl -L "https://github.com/huangzesen/lingtai/archive/refs/tags/${VERSION}.tar.gz" -o lingtai.tar.gz
+```
+
+</details>
+
 ## 灵台之异
 
 **非器用，非驭术。** 此乃器灵创生——予智械以真身。使器灵为自治之生灵，有尊严地生、眠、忘、长。
