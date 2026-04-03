@@ -61,7 +61,7 @@ var AllCapabilities = []string{
 }
 
 // AllAddons is the list of available addon names.
-var AllAddons = []string{"imap", "telegram"}
+var AllAddons = []string{"imap", "telegram", "feishu"}
 
 func NewPresetsModel() PresetsModel {
 	ti := textinput.New()

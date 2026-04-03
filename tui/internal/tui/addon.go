@@ -17,36 +17,35 @@ import (
 // AddonSavedMsg is sent when addon config is saved to init.json.
 type AddonSavedMsg struct{}
 
-// AddonModel is the /addon view — two text fields for addon config paths.
+// AddonModel is the /addon view — one text field per registered addon.
+// The field count is derived from AllAddons at construction time.
 type AddonModel struct {
 	cursor  int
-	inputs  [2]textinput.Model // 0=imap, 1=telegram
+	inputs  []textinput.Model
 	orchDir string
 	width   int
 	height  int
 }
 
 func NewAddonModel(orchDir string) AddonModel {
-	// Read existing addon paths from init.json
-	imapPath, telegramPath := readAddonPaths(orchDir)
+	existing := readAddonPaths(orchDir)
 
-	imapInput := textinput.New()
-	imapInput.Placeholder = ""
-	imapInput.CharLimit = 256
-	imapInput.SetWidth(60)
-	imapInput.SetValue(imapPath)
+	inputs := make([]textinput.Model, len(AllAddons))
+	for i, name := range AllAddons {
+		ti := textinput.New()
+		ti.Placeholder = ""
+		ti.CharLimit = 256
+		ti.SetWidth(60)
+		if path, ok := existing[name]; ok {
+			ti.SetValue(path)
+		}
+		inputs[i] = ti
+	}
 
-	telegramInput := textinput.New()
-	telegramInput.Placeholder = ""
-	telegramInput.CharLimit = 256
-	telegramInput.SetWidth(60)
-	telegramInput.SetValue(telegramPath)
-
-	// Focus the first input
-	imapInput.Focus()
+	inputs[0].Focus()
 
 	return AddonModel{
-		inputs:  [2]textinput.Model{imapInput, telegramInput},
+		inputs:  inputs,
 		orchDir: orchDir,
 	}
 }
@@ -96,6 +95,11 @@ func (m *AddonModel) updateFocus() {
 	}
 }
 
+// addonFieldKey returns the i18n key for the addon path field (e.g. "addon.imap_path").
+func addonFieldKey(name, suffix string) string {
+	return "addon." + name + "_" + suffix
+}
+
 func (m AddonModel) View() string {
 	var b strings.Builder
 
@@ -116,25 +120,24 @@ func (m AddonModel) View() string {
 	b.WriteString(StyleSubtle.Render("  "+i18n.T("addon.desc_template")) + "\n")
 	b.WriteString(StyleSubtle.Render("  "+i18n.T("addon.desc_empty")) + "\n\n")
 
-	// Fields
-	labels := [2]string{
-		i18n.T("addon.imap_path"),
-		i18n.T("addon.telegram_path"),
-	}
-	hints := [2]string{
-		i18n.T("addon.imap_hint"),
-		i18n.T("addon.telegram_hint"),
-	}
-
-	for i, input := range m.inputs {
+	// Fields — one per addon
+	for i, name := range AllAddons {
 		cursor := "  "
 		if i == m.cursor {
 			cursor = "> "
 		}
-		label := labels[i] + ":"
-		b.WriteString(fmt.Sprintf("%s%s\n", cursor, label))
-		b.WriteString(fmt.Sprintf("    %s\n", input.View()))
-		b.WriteString(StyleFaint.Render("    "+hints[i]) + "\n\n")
+		label := i18n.T(addonFieldKey(name, "path"))
+		if label == addonFieldKey(name, "path") {
+			// Fallback: capitalize the addon name
+			label = strings.ToUpper(name[:1]) + name[1:] + " config"
+		}
+		b.WriteString(fmt.Sprintf("%s%s:\n", cursor, label))
+		b.WriteString(fmt.Sprintf("    %s\n", m.inputs[i].View()))
+		hint := i18n.T(addonFieldKey(name, "hint"))
+		if hint == addonFieldKey(name, "hint") {
+			hint = "~/.lingtai-tui/addons/" + name + "/example/config.json"
+		}
+		b.WriteString(StyleFaint.Render("    "+hint) + "\n\n")
 	}
 
 	// Footer
@@ -160,11 +163,16 @@ func (m AddonModel) saveAddonPaths() {
 		return
 	}
 
-	imapVal := strings.TrimSpace(m.inputs[0].Value())
-	telegramVal := strings.TrimSpace(m.inputs[1].Value())
+	// Collect non-empty paths
+	nonEmpty := false
+	for i := range AllAddons {
+		if strings.TrimSpace(m.inputs[i].Value()) != "" {
+			nonEmpty = true
+			break
+		}
+	}
 
-	if imapVal == "" && telegramVal == "" {
-		// Remove addons block entirely
+	if !nonEmpty {
 		delete(init, "addons")
 	} else {
 		addons, ok := init["addons"].(map[string]interface{})
@@ -172,16 +180,13 @@ func (m AddonModel) saveAddonPaths() {
 			addons = make(map[string]interface{})
 		}
 
-		if imapVal != "" {
-			addons["imap"] = map[string]interface{}{"config": imapVal}
-		} else {
-			delete(addons, "imap")
-		}
-
-		if telegramVal != "" {
-			addons["telegram"] = map[string]interface{}{"config": telegramVal}
-		} else {
-			delete(addons, "telegram")
+		for i, name := range AllAddons {
+			path := strings.TrimSpace(m.inputs[i].Value())
+			if path != "" {
+				addons[name] = map[string]interface{}{"config": path}
+			} else {
+				delete(addons, name)
+			}
 		}
 
 		if len(addons) > 0 {
@@ -199,31 +204,30 @@ func (m AddonModel) saveAddonPaths() {
 }
 
 // readAddonPaths reads current addon config paths from init.json.
-func readAddonPaths(orchDir string) (imapPath, telegramPath string) {
+// Returns a map from addon name → config path.
+func readAddonPaths(orchDir string) map[string]string {
+	result := make(map[string]string)
 	initPath := filepath.Join(orchDir, "init.json")
 	data, err := os.ReadFile(initPath)
 	if err != nil {
-		return "", ""
+		return result
 	}
 	var init map[string]interface{}
 	if err := json.Unmarshal(data, &init); err != nil {
-		return "", ""
+		return result
 	}
 
 	addons, ok := init["addons"].(map[string]interface{})
 	if !ok {
-		return "", ""
+		return result
 	}
 
-	if imap, ok := addons["imap"].(map[string]interface{}); ok {
-		if cfg, ok := imap["config"].(string); ok {
-			imapPath = cfg
+	for _, name := range AllAddons {
+		if addon, ok := addons[name].(map[string]interface{}); ok {
+			if cfg, ok := addon["config"].(string); ok {
+				result[name] = cfg
+			}
 		}
 	}
-	if telegram, ok := addons["telegram"].(map[string]interface{}); ok {
-		if cfg, ok := telegram["config"].(string); ok {
-			telegramPath = cfg
-		}
-	}
-	return
+	return result
 }

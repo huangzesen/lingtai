@@ -1573,7 +1573,7 @@ func (m *FirstRunModel) enterCapabilities() tea.Cmd {
 	m.capOrder = AllCapabilities
 	m.capSelected = make(map[string]bool)
 	m.capInfos = nil
-	m.addonSelected = map[string]bool{"imap": true, "telegram": true}
+	m.addonSelected = map[string]bool{"imap": true, "telegram": true, "feishu": true}
 	m.addonOrder = AllAddons
 	m.addonCursor = 0
 	m.inAddonZone = false

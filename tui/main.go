@@ -31,11 +31,13 @@ func main() {
 			fmt.Println("Usage: lingtai-tui")
 			fmt.Println("       lingtai-tui purge [dir]")
 			fmt.Println("       lingtai-tui list [dir]")
+			fmt.Println("       lingtai-tui suspend [dir]")
 			fmt.Println("       lingtai-tui clean")
 			fmt.Println()
 			fmt.Println("  (no args)    Launch TUI in current directory")
 			fmt.Println("  purge        Kill lingtai processes (all, or only those in <dir>)")
 			fmt.Println("  list         Show running lingtai processes (all, or only those in <dir>)")
+			fmt.Println("  suspend      Gracefully suspend agents via signal files (all, or those in <dir>)")
 			fmt.Println("  clean        Suspend agents in current directory, then remove .lingtai/")
 			fmt.Println()
 			// Show directories
@@ -65,6 +67,10 @@ func main() {
 		}
 		if arg == "clean" {
 			cleanMain()
+			return
+		}
+		if arg == "suspend" {
+			suspendMain()
 			return
 		}
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\nRun 'lingtai-tui --help' for usage.\n", arg)

@@ -154,7 +154,7 @@
   "manage.title": "器灵管辖",
   "addon.title": "外法",
   "addon.desc": "录入各外法之配置 JSON 路径。",
-  "addon.desc_template": "范本: ~/.lingtai-tui/addons/{imap,telegram}/example/config.json",
+  "addon.desc_template": "范本: ~/.lingtai-tui/addons/{imap,telegram,feishu}/example/config.json",
   "addon.desc_empty": "空则不启。存后以 /refresh 施之。",
   "addon.imap_path": "IMAP 配",
   "addon.imap_hint": "如: ~/.lingtai-tui/addons/imap/example/config.json",
@@ -163,8 +163,8 @@
   "addon.navigate": "移",
   "addon.save_exit": "存退",
   "addon.saved": "外法已存。入 /refresh 以施。",
-  "help.addon": "/addon     — 配外法路径（IMAP、Telegram）",
-  "palette.addon": "配外法路径（IMAP、Telegram）",
+  "help.addon": "/addon     — 配外法路径（IMAP、Telegram、飞书）",
+  "palette.addon": "配外法路径（IMAP、Telegram、飞书）",
   "palette.cpr": "苏灵（/cpr all 诸灵）",
   "palette.help": "示命令",
   "palette.lang": "换器灵言（en/zh/wen）",
@@ -333,5 +333,7 @@
   "tutorial.preparing": "初入山门",
   "tutorial.done": "备矣",
   "tutorial.start": "入门",
-  "tutorial.cancel": "返"
+  "tutorial.cancel": "返",
+  "addon.feishu_path": "飞书配",
+  "addon.feishu_hint": "如: ~/.lingtai-tui/addons/feishu/example/config.json"
 }

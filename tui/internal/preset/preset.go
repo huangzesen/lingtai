@@ -285,7 +285,7 @@ func populate(globalDir string, fsys embed.FS, root string) {
 // to ~/.lingtai-tui/addons/{addon}/example/config.json as plain JSON.
 // Skips if the target already exists.
 func migrateAddonTemplates(globalDir string) {
-	for _, addon := range []string{"imap", "telegram"} {
+	for _, addon := range []string{"imap", "telegram", "feishu"} {
 		target := filepath.Join(globalDir, "addons", addon, "example", "config.json")
 		if _, err := os.Stat(target); err == nil {
 			continue // already migrated

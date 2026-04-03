@@ -1,0 +1,34 @@
+// =============================================================
+// Feishu (Lark) Bot — feishu.json
+// =============================================================
+// Point to this file from init.json:
+//   "addons": { "feishu": { "config": "path/to/this/config.json" } }
+//
+// Setup (Feishu Open Platform):
+//   1. Go to https://open.feishu.cn/app → Create enterprise app
+//   2. Enable "Bot" capability
+//   3. In "Event Subscriptions" → choose "Use long connection to receive events"
+//      (no public URL needed!)
+//   4. Subscribe to event: im.message.receive_v1
+//   5. Add permission: im:message (read and send messages)
+//   6. Copy App ID (starts with cli_) and App Secret
+//
+// Add credentials to your .env file (see env_file in init.json):
+//   FEISHU_APP_ID=cli_xxxxxxxxxxxxxxxxxxxxxxxx
+//   FEISHU_APP_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+//
+// =============================================================
+{
+  // Environment variables holding App ID and App Secret.
+  // Get these from Feishu Developer Console → Credentials.
+  "app_id_env": "FEISHU_APP_ID",
+  "app_secret_env": "FEISHU_APP_SECRET",
+
+  // Optional: restrict to specific Feishu open_ids.
+  // Omit for open access (anyone can message the bot).
+  // "allowed_users": ["ou_xxxxxxxxxxxxxxxx", "ou_yyyyyyyyyyyyyyyy"],
+
+  // Optional: alias for this bot account (default: "default").
+  // Useful for multi-account setups.
+  // "alias": "support"
+}
