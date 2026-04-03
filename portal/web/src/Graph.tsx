@@ -375,19 +375,19 @@ export function Graph({ network, edgeMode, theme, bullets, vizMode }: {
     // ── Edges ──────────────────────────────────────────────
     const edges: Array<{ src: string; tgt: string; weight: number }> = [];
     if (mode === 'avatar') {
-      for (const e of net.avatar_edges)
+      for (const e of (net.avatar_edges || []))
         edges.push({ src: e.parent, tgt: e.child, weight: 1 });
-      const human = net.nodes.find(n => n.is_human);
+      const human = (net.nodes || []).find(n => n.is_human);
       if (human) {
         const children = new Set(edges.map(e => e.tgt));
-        for (const n of net.nodes)
+        for (const n of (net.nodes || []))
           if (!n.is_human && !children.has(n.address))
             edges.push({ src: human.address, tgt: n.address, weight: 1 });
       }
     } else {
-      for (const e of net.mail_edges)
+      for (const e of (net.mail_edges || []))
         edges.push({ src: e.sender, tgt: e.recipient, weight: e.count });
-      for (const e of net.contact_edges)
+      for (const e of (net.contact_edges || []))
         if (!edges.some(x => x.src === e.owner && x.tgt === e.target))
           edges.push({ src: e.owner, tgt: e.target, weight: 0 });
     }

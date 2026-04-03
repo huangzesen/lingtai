@@ -98,6 +98,20 @@ func AppendTopologyAt(path string, network fs.Network, unixMs int64) {
 	TopologyMu.Lock()
 	defer TopologyMu.Unlock()
 
+	// Normalize nil slices so JSON encodes [] instead of null
+	if network.Nodes == nil {
+		network.Nodes = []fs.AgentNode{}
+	}
+	if network.AvatarEdges == nil {
+		network.AvatarEdges = []fs.AvatarEdge{}
+	}
+	if network.ContactEdges == nil {
+		network.ContactEdges = []fs.ContactEdge{}
+	}
+	if network.MailEdges == nil {
+		network.MailEdges = []fs.MailEdge{}
+	}
+
 	entry := struct {
 		T   int64      `json:"t"`
 		Net fs.Network `json:"net"`
