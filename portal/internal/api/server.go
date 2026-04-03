@@ -1,7 +1,9 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net"
@@ -64,19 +66,20 @@ func (s *Server) StartRecording(baseDir string) {
 		ticker := time.NewTicker(3 * time.Second)
 		defer ticker.Stop()
 
-		// Record immediately on start.
-		// If the tape is empty and agents already exist, backdate the first
-		// frame to the earliest agent birth so replay covers the full history.
-		if network, err := agentfs.BuildNetwork(baseDir); err == nil {
-			tapeEmpty := true
-			if info, err := os.Stat(topologyPath); err == nil && info.Size() > 0 {
-				tapeEmpty = false
-			}
-			if tapeEmpty {
-				if earliest := earliestBirth(baseDir); earliest > 0 {
-					AppendTopologyAt(topologyPath, network, earliest)
+		// Check if tape needs reconstruction
+		if needsReconstruction(topologyPath) {
+			frames, err := agentfs.ReconstructTape(baseDir)
+			if err == nil && len(frames) > 0 {
+				os.MkdirAll(filepath.Dir(topologyPath), 0o755)
+				os.Remove(topologyPath)
+				for _, f := range frames {
+					AppendTopologyAt(topologyPath, f.Net, f.T)
 				}
 			}
+		}
+
+		// Record current state immediately
+		if network, err := agentfs.BuildNetwork(baseDir); err == nil {
 			AppendTopology(topologyPath, network)
 		}
 
@@ -111,26 +114,30 @@ func (s *Server) Stop(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
 }
 
-// earliestBirth scans agent directories and returns the oldest birth time
-// as unix milliseconds. Returns 0 if no agents have a determinable birth time.
-func earliestBirth(baseDir string) int64 {
-	entries, err := os.ReadDir(baseDir)
-	if err != nil {
-		return 0
+// needsReconstruction checks if topology.jsonl is missing, empty,
+// or uses the old format (missing direct/cc/bcc on mail edges).
+func needsReconstruction(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil || len(data) == 0 {
+		return true
 	}
-	var earliest int64
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		t, err := agentfs.BirthTime(filepath.Join(baseDir, entry.Name()))
-		if err != nil {
-			continue
-		}
-		ms := t.UnixMilli()
-		if earliest == 0 || ms < earliest {
-			earliest = ms
-		}
+	lines := bytes.Split(bytes.TrimSpace(data), []byte("\n"))
+	if len(lines) == 0 {
+		return true
 	}
-	return earliest
+	lastLine := lines[len(lines)-1]
+	var frame struct {
+		Net struct {
+			MailEdges []struct {
+				Direct *int `json:"direct"`
+			} `json:"mail_edges"`
+		} `json:"net"`
+	}
+	if json.Unmarshal(lastLine, &frame) != nil {
+		return true
+	}
+	if len(frame.Net.MailEdges) == 0 {
+		return false
+	}
+	return frame.Net.MailEdges[0].Direct == nil
 }

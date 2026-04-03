@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 // agentManifest is the raw JSON shape of .agent.json.
@@ -152,35 +151,6 @@ func DiscoverAgents(baseDir string) ([]AgentNode, error) {
 		nodes = append(nodes, node)
 	}
 	return nodes, nil
-}
-
-// BirthTime returns the agent's creation timestamp by checking, in order:
-// 1. "created_at" or "started_at" field in .agent.json (RFC 3339)
-// 2. init.json modtime (stable — never rewritten after creation)
-// 3. .agent.json modtime
-func BirthTime(dir string) (time.Time, error) {
-	// Check for explicit timestamp in .agent.json
-	if raw, err := ReadAgentRaw(dir); err == nil {
-		for _, key := range []string{"created_at", "started_at"} {
-			if v, ok := raw[key].(string); ok && v != "" {
-				if t, err := time.Parse(time.RFC3339, v); err == nil {
-					return t, nil
-				}
-			}
-		}
-	}
-
-	// Fallback: init.json modtime (created once, never rewritten)
-	if info, err := os.Stat(filepath.Join(dir, "init.json")); err == nil {
-		return info.ModTime(), nil
-	}
-
-	// Fallback: .agent.json modtime
-	if info, err := os.Stat(filepath.Join(dir, ".agent.json")); err == nil {
-		return info.ModTime(), nil
-	}
-
-	return time.Time{}, fmt.Errorf("cannot determine birth time for %s", dir)
 }
 
 // AgentStatus holds live runtime status from .status.json (same as system("show")).

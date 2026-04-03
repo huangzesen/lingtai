@@ -112,10 +112,7 @@ func AppendTopologyAt(path string, network fs.Network, unixMs int64) {
 		network.MailEdges = []fs.MailEdge{}
 	}
 
-	entry := struct {
-		T   int64      `json:"t"`
-		Net fs.Network `json:"net"`
-	}{
+	entry := fs.TapeFrame{
 		T:   unixMs,
 		Net: network,
 	}
