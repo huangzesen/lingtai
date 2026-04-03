@@ -24,6 +24,9 @@ export interface MailEdge {
   sender: string;
   recipient: string;
   count: number;
+  direct: number;
+  cc: number;
+  bcc: number;
 }
 
 export interface NetworkStats {

@@ -4,15 +4,29 @@ import type { Theme } from './theme';
 import { Stats } from './Stats';
 import { t } from './i18n';
 
-export function BottomBar({ network, edgeMode, showNames, lang, theme, onToggle, onToggleNames }: {
+export function BottomBar({ network, edgeMode, showNames, showFilter, lang, theme, onToggle, onToggleNames, onToggleFilter }: {
   network: Network;
   edgeMode: EdgeMode;
   showNames: boolean;
+  showFilter: boolean;
   lang: string;
   theme: Theme;
   onToggle: () => void;
   onToggleNames: () => void;
+  onToggleFilter: () => void;
 }) {
+  const btnStyle = (active: boolean): React.CSSProperties => ({
+    background: active ? theme.textDim + '20' : 'transparent',
+    border: `1px solid ${theme.border}`,
+    borderRadius: 4,
+    padding: '3px 10px',
+    cursor: 'pointer',
+    color: active ? theme.textDim : theme.textDim + '66',
+    fontSize: 10,
+    letterSpacing: 0.5,
+    flexShrink: 0,
+  });
+
   return (
     <div style={{
       background: theme.barBg,
@@ -48,23 +62,11 @@ export function BottomBar({ network, edgeMode, showNames, lang, theme, onToggle,
           );
         })}
       </div>
-      {/* Name toggle */}
-      <button
-        onClick={onToggleNames}
-        style={{
-          background: showNames ? theme.textDim + '20' : 'transparent',
-          border: `1px solid ${theme.border}`,
-          borderRadius: 4,
-          padding: '3px 10px',
-          cursor: 'pointer',
-          color: showNames ? theme.textDim : theme.textDim + '66',
-          fontSize: 10,
-          letterSpacing: 0.5,
-          flexShrink: 0,
-        }}
-        title={showNames ? 'Hide agent names' : 'Show agent names'}
-      >
+      <button onClick={onToggleNames} style={btnStyle(showNames)} title={showNames ? 'Hide names' : 'Show names'}>
         {showNames ? 'name ✓' : 'name'}
+      </button>
+      <button onClick={onToggleFilter} style={btnStyle(showFilter)} title="Filter nodes and mail types">
+        filter
       </button>
     </div>
   );

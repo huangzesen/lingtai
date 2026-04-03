@@ -157,13 +157,14 @@ function findNearest(dots: Map<string, Dot>, mx: number, my: number): Dot | null
   return best;
 }
 
-export function Graph({ network, edgeMode, theme, bullets, vizMode, showNames = true }: {
+export function Graph({ network, edgeMode, theme, bullets, vizMode, showNames = true, filter }: {
   network: Network;
   edgeMode: EdgeMode;
   theme: Theme;
   bullets: Bullet[];
   vizMode?: 'live' | 'replay';
   showNames?: boolean;
+  filter?: { hiddenNodes: Set<string>; showDirect: boolean; showCC: boolean; showBCC: boolean };
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dotsRef = useRef<Map<string, Dot>>(new Map());
@@ -172,6 +173,7 @@ export function Graph({ network, edgeMode, theme, bullets, vizMode, showNames = 
   const themeRef = useRef(theme);
   const vizModeRef = useRef(vizMode ?? 'live');
   const showNamesRef = useRef(showNames);
+  const filterRef = useRef(filter);
   const animRef = useRef(0);
   const grabbedRef = useRef<Dot | null>(null);
 
@@ -188,6 +190,7 @@ export function Graph({ network, edgeMode, theme, bullets, vizMode, showNames = 
   themeRef.current = theme;
   vizModeRef.current = vizMode ?? 'live';
   showNamesRef.current = showNames;
+  filterRef.current = filter;
 
   // Absorb new bullets from props into mutable ref
   useEffect(() => {
@@ -375,6 +378,8 @@ export function Graph({ network, edgeMode, theme, bullets, vizMode, showNames = 
     const dots = dotsRef.current;
     const net = networkRef.current;
     const mode = edgeModeRef.current;
+    const filt = filterRef.current;
+    const hidden = filt?.hiddenNodes ?? new Set<string>();
 
     const pulse = 0.5 + 0.5 * Math.sin(now * Math.PI * 2 / 1000);
 
@@ -391,8 +396,13 @@ export function Graph({ network, edgeMode, theme, bullets, vizMode, showNames = 
             edges.push({ src: human.address, tgt: n.address, weight: 1 });
       }
     } else {
-      for (const e of (net.mail_edges || []))
-        edges.push({ src: e.sender, tgt: e.recipient, weight: e.count });
+      const sd = filt?.showDirect ?? true;
+      const sc = filt?.showCC ?? true;
+      const sb = filt?.showBCC ?? true;
+      for (const e of (net.mail_edges || [])) {
+        const w = (sd ? (e.direct || 0) : 0) + (sc ? (e.cc || 0) : 0) + (sb ? (e.bcc || 0) : 0);
+        if (w > 0) edges.push({ src: e.sender, tgt: e.recipient, weight: w });
+      }
       for (const e of (net.contact_edges || []))
         if (!edges.some(x => x.src === e.owner && x.tgt === e.target))
           edges.push({ src: e.owner, tgt: e.target, weight: 0 });
@@ -403,6 +413,7 @@ export function Graph({ network, edgeMode, theme, bullets, vizMode, showNames = 
       const b = dots.get(e.tgt);
       if (!a || !b) continue;
       if (a.state === '__hidden__' || b.state === '__hidden__') continue;
+      if (hidden.has(e.src) || hidden.has(e.tgt)) continue;
 
       const isAvatar = mode === 'avatar';
       const rgb = isAvatar ? th.amberRgb : hexRgb(th.edgeColors.mail);
@@ -411,7 +422,7 @@ export function Graph({ network, edgeMode, theme, bullets, vizMode, showNames = 
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(b.x, b.y);
       ctx.strokeStyle = rgba(rgb[0], rgb[1], rgb[2], th.edgeOpacity);
-      ctx.lineWidth = isAvatar ? 0.8 : Math.min(0.8 + (e.weight || 1) * 0.3, 2.5);
+      ctx.lineWidth = isAvatar ? 0.8 : Math.min(0.8 + (e.weight || 1) * 0.5, 5);
       ctx.setLineDash(isAvatar ? [] : [4, 4]);
       ctx.stroke();
       ctx.setLineDash([]);
@@ -489,6 +500,7 @@ export function Graph({ network, edgeMode, theme, bullets, vizMode, showNames = 
     const humanRgb: [number, number, number] = hexRgb(th.text);
     for (const d of dots.values()) {
       if (d.state === '__hidden__') continue; // not in current replay frame
+      if (hidden.has(d.id)) continue; // filtered out by user
       const isAgent = !d.isHuman;
       const stateHex = isAgent ? (th.stateColors[d.state] || th.stateColors['']) : '';
       const [dr, dg, db] = d.isHuman ? humanRgb : hexRgb(stateHex);

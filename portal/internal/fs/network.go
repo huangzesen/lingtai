@@ -66,7 +66,17 @@ func BuildNetwork(baseDir string) (Network, error) {
 
 func buildMailEdges(nodes []AgentNode) []MailEdge {
 	type edgeKey struct{ sender, recipient string }
-	counts := make(map[edgeKey]int)
+	type edgeCounts struct{ direct, cc, bcc int }
+	counts := make(map[edgeKey]*edgeCounts)
+
+	ensure := func(k edgeKey) *edgeCounts {
+		if c, ok := counts[k]; ok {
+			return c
+		}
+		c := &edgeCounts{}
+		counts[k] = c
+		return c
+	}
 
 	for _, n := range nodes {
 		if n.WorkingDir == "" {
@@ -76,9 +86,18 @@ func buildMailEdges(nodes []AgentNode) []MailEdge {
 		archive, _ := ReadArchive(n.WorkingDir)
 		allMail := append(inbox, archive...)
 		for _, msg := range allMail {
+			// Direct recipients (To field)
 			recipients := resolveRecipients(msg.To)
 			for _, r := range recipients {
-				counts[edgeKey{msg.From, r}]++
+				ensure(edgeKey{msg.From, r}).direct++
+			}
+			// CC recipients
+			for _, r := range msg.CC {
+				ensure(edgeKey{msg.From, r}).cc++
+			}
+			// BCC recipients
+			for _, r := range msg.BCC {
+				ensure(edgeKey{msg.From, r}).bcc++
 			}
 		}
 	}
@@ -88,7 +107,10 @@ func buildMailEdges(nodes []AgentNode) []MailEdge {
 		edges = append(edges, MailEdge{
 			Sender:    k.sender,
 			Recipient: k.recipient,
-			Count:     c,
+			Count:     c.direct + c.cc + c.bcc,
+			Direct:    c.direct,
+			CC:        c.cc,
+			BCC:       c.bcc,
 		})
 	}
 	return edges

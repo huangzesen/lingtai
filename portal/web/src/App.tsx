@@ -5,6 +5,7 @@ import { Graph, type EdgeMode, type Bullet } from './Graph';
 import { TopBar } from './TopBar';
 import { BottomBar } from './BottomBar';
 import { getTheme, loadThemePreference, saveThemePreference } from './theme';
+import { FilterPanel, defaultFilter, type FilterState } from './FilterPanel';
 import { t } from './i18n';
 
 function mailKey(sender: string, recipient: string) {
@@ -44,6 +45,8 @@ export default function App() {
   const [network, setNetwork] = useState<Network | null>(null);
   const [edgeMode, setEdgeMode] = useState<EdgeMode>('avatar');
   const [showNames, setShowNames] = useState(true);
+  const [filter, setFilter] = useState<FilterState>(defaultFilter);
+  const [showFilter, setShowFilter] = useState(false);
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>(loadThemePreference);
   const [bullets, setBullets] = useState<Bullet[]>([]);
 
@@ -286,7 +289,7 @@ export default function App() {
         onSetViewRange={changeViewRange}
         onToggleTheme={toggleTheme}
       />
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <Graph
           network={network}
           edgeMode={edgeMode}
@@ -294,16 +297,28 @@ export default function App() {
           bullets={bullets}
           vizMode={vizMode}
           showNames={showNames}
+          filter={filter}
         />
+        {showFilter && (
+          <FilterPanel
+            network={network}
+            filter={filter}
+            theme={theme}
+            onClose={() => setShowFilter(false)}
+            onChange={setFilter}
+          />
+        )}
       </div>
       <BottomBar
         network={network}
         edgeMode={edgeMode}
         showNames={showNames}
+        showFilter={showFilter}
         lang={lang}
         theme={theme}
         onToggle={() => setEdgeMode(m => m === 'avatar' ? 'email' : 'avatar')}
         onToggleNames={() => setShowNames(v => !v)}
+        onToggleFilter={() => setShowFilter(v => !v)}
       />
     </div>
   );

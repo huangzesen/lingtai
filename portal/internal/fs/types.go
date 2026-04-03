@@ -43,6 +43,9 @@ type MailEdge struct {
 	Sender    string `json:"sender"`
 	Recipient string `json:"recipient"`
 	Count     int    `json:"count"`
+	Direct    int    `json:"direct"`
+	CC        int    `json:"cc"`
+	BCC       int    `json:"bcc"`
 }
 
 // NetworkStats holds aggregate counts.
@@ -72,6 +75,7 @@ type MailMessage struct {
 	From       string                 `json:"from"`
 	To         interface{}            `json:"to"` // string or []string
 	CC         []string               `json:"cc"`
+	BCC        []string               `json:"bcc"`
 	Subject    string                 `json:"subject"`
 	Message    string                 `json:"message"`
 	Type        string                 `json:"type"`
