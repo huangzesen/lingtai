@@ -289,24 +289,33 @@ export default function App() {
         onSetViewRange={changeViewRange}
         onToggleTheme={toggleTheme}
       />
-      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        <Graph
-          network={network}
-          edgeMode={edgeMode}
-          theme={theme}
-          bullets={bullets}
-          vizMode={vizMode}
-          showNames={showNames}
-          filter={filter}
-        />
-        {showFilter && (
-          <FilterPanel
+      <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Graph
             network={network}
-            filter={filter}
+            edgeMode={edgeMode}
             theme={theme}
-            onClose={() => setShowFilter(false)}
-            onChange={setFilter}
+            bullets={bullets}
+            vizMode={vizMode}
+            showNames={showNames}
+            filter={filter}
           />
+        </div>
+        {showFilter && (
+          <div style={{
+            width: 180,
+            flexShrink: 0,
+            borderLeft: `1px solid ${theme.border}`,
+            background: theme.barBg,
+            overflow: 'hidden',
+          }}>
+            <FilterPanel
+              network={network}
+              filter={filter}
+              theme={theme}
+              onChange={setFilter}
+            />
+          </div>
         )}
       </div>
       <BottomBar

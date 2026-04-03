@@ -13,26 +13,27 @@ export function defaultFilter(): FilterState {
   return { hiddenNodes: new Set(), showDirect: true, showCC: true, showBCC: true };
 }
 
-export function FilterPanel({ network, filter, theme, onClose, onChange }: {
+export function FilterPanel({ network, filter, theme, onChange }: {
   network: Network;
   filter: FilterState;
   theme: Theme;
-  onClose: () => void;
   onChange: (f: FilterState) => void;
 }) {
   const [tab, setTab] = useState<'nodes' | 'mail'>('nodes');
 
-  const agents = (network.nodes || []).filter(n => !n.is_human);
+  const agents = (network.nodes || []);
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     background: active ? theme.stateColors['ACTIVE'] + '20' : 'transparent',
     border: 'none',
     borderBottom: active ? `2px solid ${theme.stateColors['ACTIVE']}` : '2px solid transparent',
-    padding: '6px 16px',
+    padding: '6px 12px',
     cursor: 'pointer',
     color: active ? theme.text : theme.textDim,
     fontSize: 11,
     fontWeight: active ? 600 : 400,
+    flex: 1,
+    textAlign: 'center' as const,
   });
 
   const toggleNode = (addr: string) => {
@@ -45,53 +46,21 @@ export function FilterPanel({ network, filter, theme, onClose, onChange }: {
 
   return (
     <div style={{
-      position: 'absolute',
-      top: 48,
-      right: 16,
-      background: theme.barBg,
-      border: `1px solid ${theme.border}`,
-      borderRadius: 6,
-      boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-      zIndex: 100,
-      minWidth: 220,
-      maxHeight: '60vh',
       display: 'flex',
       flexDirection: 'column',
+      height: '100%',
       userSelect: 'none',
     }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '8px 12px 0',
-      }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: theme.text }}>Filter</span>
-        <button
-          onClick={onClose}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: theme.textDim,
-            fontSize: 14,
-            padding: '0 4px',
-          }}
-        >
-          ×
-        </button>
-      </div>
-
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}` }}>
+      <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, flexShrink: 0 }}>
         <button onClick={() => setTab('nodes')} style={tabStyle(tab === 'nodes')}>Nodes</button>
         <button onClick={() => setTab('mail')} style={tabStyle(tab === 'mail')}>Mail</button>
       </div>
 
       {/* Content */}
-      <div style={{ padding: '8px 12px', overflowY: 'auto', flex: 1 }}>
+      <div style={{ padding: '8px 10px', overflowY: 'auto', flex: 1 }}>
         {tab === 'nodes' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {/* Select all / none */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
               <button
@@ -120,8 +89,9 @@ export function FilterPanel({ network, filter, theme, onClose, onChange }: {
             </div>
             {agents.map(a => {
               const visible = !filter.hiddenNodes.has(a.address);
-              const name = a.nickname || a.agent_name || a.address.split('/').pop() || '?';
-              const stateColor = theme.stateColors[(a.state || '').toUpperCase()] || theme.stateColors[''];
+              const baseName = a.nickname || a.agent_name || a.address.split('/').pop() || '?';
+              const name = a.is_human ? `${baseName} (human)` : baseName;
+              const stateColor = a.is_human ? theme.text : (theme.stateColors[(a.state || '').toUpperCase()] || theme.stateColors['']);
               return (
                 <label
                   key={a.address}
@@ -130,23 +100,26 @@ export function FilterPanel({ network, filter, theme, onClose, onChange }: {
                     alignItems: 'center',
                     gap: 6,
                     cursor: 'pointer',
-                    fontSize: 11,
+                    fontSize: 10,
                     color: visible ? theme.text : theme.textDim + '66',
+                    padding: '2px 0',
                   }}
                 >
                   <input
                     type="checkbox"
                     checked={visible}
                     onChange={() => toggleNode(a.address)}
-                    style={{ accentColor: stateColor }}
+                    style={{ accentColor: stateColor, margin: 0 }}
                   />
                   <span style={{
-                    width: 6, height: 6, borderRadius: '50%',
+                    width: 5, height: 5, borderRadius: '50%',
                     background: stateColor,
                     flexShrink: 0,
                     opacity: visible ? 1 : 0.3,
                   }} />
-                  {name}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {name}
+                  </span>
                 </label>
               );
             })}
@@ -155,14 +128,14 @@ export function FilterPanel({ network, filter, theme, onClose, onChange }: {
 
         {tab === 'mail' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <p style={{ fontSize: 10, color: theme.textDim, margin: '0 0 4px' }}>
-              Filter which email types count toward edge thickness and display.
+            <p style={{ fontSize: 9, color: theme.textDim, margin: '0 0 4px' }}>
+              Edge thickness reflects selected types.
             </p>
             {([
-              { key: 'showDirect' as const, label: 'Direct (To)', desc: 'Primary recipients' },
-              { key: 'showCC' as const, label: 'CC', desc: 'Carbon copy' },
-              { key: 'showBCC' as const, label: 'BCC', desc: 'Blind carbon copy' },
-            ]).map(({ key, label, desc }) => (
+              { key: 'showDirect' as const, label: 'Direct (To)' },
+              { key: 'showCC' as const, label: 'CC' },
+              { key: 'showBCC' as const, label: 'BCC' },
+            ]).map(({ key, label }) => (
               <label
                 key={key}
                 style={{
@@ -178,12 +151,9 @@ export function FilterPanel({ network, filter, theme, onClose, onChange }: {
                   type="checkbox"
                   checked={filter[key]}
                   onChange={() => onChange({ ...filter, [key]: !filter[key] })}
-                  style={{ accentColor: theme.edgeColors.mail }}
+                  style={{ accentColor: theme.edgeColors.mail, margin: 0 }}
                 />
-                <div>
-                  <div>{label}</div>
-                  <div style={{ fontSize: 9, color: theme.textDim }}>{desc}</div>
-                </div>
+                {label}
               </label>
             ))}
           </div>
