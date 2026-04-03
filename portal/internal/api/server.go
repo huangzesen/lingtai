@@ -64,8 +64,19 @@ func (s *Server) StartRecording(baseDir string) {
 		ticker := time.NewTicker(3 * time.Second)
 		defer ticker.Stop()
 
-		// Record immediately on start
+		// Record immediately on start.
+		// If the tape is empty and agents already exist, backdate the first
+		// frame to the earliest agent birth so replay covers the full history.
 		if network, err := agentfs.BuildNetwork(baseDir); err == nil {
+			tapeEmpty := true
+			if info, err := os.Stat(topologyPath); err == nil && info.Size() > 0 {
+				tapeEmpty = false
+			}
+			if tapeEmpty {
+				if earliest := earliestBirth(baseDir); earliest > 0 {
+					AppendTopologyAt(topologyPath, network, earliest)
+				}
+			}
 			AppendTopology(topologyPath, network)
 		}
 
@@ -98,4 +109,28 @@ func (s *Server) Stop(ctx context.Context) error {
 		<-s.done
 	}
 	return s.httpServer.Shutdown(ctx)
+}
+
+// earliestBirth scans agent directories and returns the oldest birth time
+// as unix milliseconds. Returns 0 if no agents have a determinable birth time.
+func earliestBirth(baseDir string) int64 {
+	entries, err := os.ReadDir(baseDir)
+	if err != nil {
+		return 0
+	}
+	var earliest int64
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		t, err := agentfs.BirthTime(filepath.Join(baseDir, entry.Name()))
+		if err != nil {
+			continue
+		}
+		ms := t.UnixMilli()
+		if earliest == 0 || ms < earliest {
+			earliest = ms
+		}
+	}
+	return earliest
 }

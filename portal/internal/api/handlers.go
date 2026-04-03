@@ -88,7 +88,13 @@ func splitLines(data []byte) [][]byte {
 }
 
 // AppendTopology writes one JSONL line: {"t": <unix_ms>, "net": <network>}
+// using the current wall-clock time.
 func AppendTopology(path string, network fs.Network) {
+	AppendTopologyAt(path, network, time.Now().UnixMilli())
+}
+
+// AppendTopologyAt writes one JSONL line with an explicit timestamp.
+func AppendTopologyAt(path string, network fs.Network, unixMs int64) {
 	TopologyMu.Lock()
 	defer TopologyMu.Unlock()
 
@@ -96,7 +102,7 @@ func AppendTopology(path string, network fs.Network) {
 		T   int64      `json:"t"`
 		Net fs.Network `json:"net"`
 	}{
-		T:   time.Now().UnixMilli(),
+		T:   unixMs,
 		Net: network,
 	}
 	line, err := json.Marshal(entry)
