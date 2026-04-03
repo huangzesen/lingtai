@@ -16,10 +16,10 @@ function mailKey(sender: string, recipient: string) {
 function diffMailBullets(prev: Network | null, next: Network, realNow: number): Bullet[] {
   if (!prev) return [];
   const prevMap = new Map<string, number>();
-  for (const e of prev.mail_edges) prevMap.set(mailKey(e.sender, e.recipient), e.count);
+  for (const e of (prev.mail_edges || [])) prevMap.set(mailKey(e.sender, e.recipient), e.count);
 
   const bullets: Bullet[] = [];
-  for (const e of next.mail_edges) {
+  for (const e of (next.mail_edges || [])) {
     const key = mailKey(e.sender, e.recipient);
     const prevCount = prevMap.get(key) ?? 0;
     const delta = e.count - prevCount;
