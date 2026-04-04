@@ -255,8 +255,8 @@
   "setup.select_provider": "选择 Provider",
   "setup.title": "配置",
   "setup.saved_refresh": "设置已保存。使用 /refresh 使更改生效。",
-  "hints.props": "ctrl+p 属性",
-  "hints.props_off": "ctrl+p 关闭",
+  "hints.props": "/agents",
+  "hints.props_off": "esc 返回",
   "props.title": "器灵属性",
   "props.name": "名",
   "props.nickname": "别号",
@@ -345,5 +345,13 @@
   "tutorial.preparing": "正在准备",
   "tutorial.done": "就绪",
   "tutorial.start": "开始教程",
-  "tutorial.cancel": "取消"
+  "tutorial.cancel": "取消",
+  "palette.agents": "智能体网络看板",
+  "palette.skills": "查看已安装技能",
+  "skills.title": "技能",
+  "skills.installed": "已安装",
+  "skills.none": "未找到技能",
+  "skills.problems": "问题",
+  "skills.select_hint": "未安装技能",
+  "hints.skills_nav": "↑↓ 导航  r 刷新  esc 返回"
 }

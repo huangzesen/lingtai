@@ -29,6 +29,7 @@ const (
 	appViewDoctor
 	appViewTutorial
 	appViewNirvana
+	appViewSkills
 )
 
 // App is the root Bubble Tea model. Routes between views via slash commands.
@@ -38,6 +39,7 @@ type App struct {
 	setup       SetupModel
 	settings    SettingsModel
 	props       PropsModel
+	skills      SkillsModel
 	firstRun    FirstRunModel
 	addon       AddonModel
 	doctor      DoctorModel
@@ -293,7 +295,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		case "q":
 			// Only quit if not in a text input context
-			if a.currentView != appViewSetup && a.currentView != appViewFirstRun && a.currentView != appViewMail && a.currentView != appViewProps && a.currentView != appViewAddon && a.currentView != appViewNirvana {
+			if a.currentView != appViewSetup && a.currentView != appViewFirstRun && a.currentView != appViewMail && a.currentView != appViewProps && a.currentView != appViewAddon && a.currentView != appViewNirvana && a.currentView != appViewSkills {
 				return a, tea.Quit
 			}
 		}
@@ -336,6 +338,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case appViewNirvana:
 		updated, cmd := a.nirvana.Update(msg)
 		a.nirvana = updated
+		return a, cmd
+	case appViewSkills:
+		updated, cmd := a.skills.Update(msg)
+		a.skills = updated
 		return a, cmd
 	}
 
@@ -483,6 +489,14 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		a.currentView = appViewNirvana
 		a.nirvana = NewNirvanaModel(a.projectDir)
 		return a, tea.Batch(a.nirvana.Init(), a.sendSize())
+	case "agents":
+		a.currentView = appViewProps
+		a.props = NewPropsModel(a.projectDir, a.orchDir)
+		return a, tea.Batch(a.props.Init(), a.sendSize())
+	case "skills":
+		a.currentView = appViewSkills
+		a.skills = NewSkillsModel(a.projectDir)
+		return a, tea.Batch(a.skills.Init(), a.sendSize())
 	case "btw":
 		if a.orchDir != "" && args != "" {
 			fs.WriteInquiry(a.orchDir, args)
@@ -556,10 +570,14 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 		tuiCfg := config.LoadTUIConfig(a.globalDir)
 		a.settings = NewSettingsModel(a.globalDir, a.projectDir, a.orchDir, tuiCfg)
 		return a, tea.Batch(a.settings.Init(), a.sendSize())
-	case "props":
+	case "props", "agents":
 		a.currentView = appViewProps
 		a.props = NewPropsModel(a.projectDir, a.orchDir)
 		return a, tea.Batch(a.props.Init(), a.sendSize())
+	case "skills":
+		a.currentView = appViewSkills
+		a.skills = NewSkillsModel(a.projectDir)
+		return a, tea.Batch(a.skills.Init(), a.sendSize())
 	case "addon":
 		if a.orchDir != "" {
 			a.currentView = appViewAddon
@@ -597,6 +615,8 @@ func (a App) View() tea.View {
 		content = a.tutorial.View()
 	case appViewNirvana:
 		content = a.nirvana.View()
+	case appViewSkills:
+		content = a.skills.View()
 	}
 	v := tea.NewView(content)
 	v.AltScreen = true

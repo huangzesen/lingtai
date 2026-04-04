@@ -9,6 +9,7 @@ import (
 
 	"github.com/anthropics/lingtai-tui/internal/config"
 	"github.com/anthropics/lingtai-tui/internal/fs"
+	"github.com/anthropics/lingtai-tui/internal/preset"
 )
 
 func InitProject(lingtaiDir string) error {
@@ -48,6 +49,8 @@ func InitProject(lingtaiDir string) error {
 	if err := os.MkdirAll(tuiAssetDir, 0o755); err != nil {
 		return fmt.Errorf("create .tui-asset: %w", err)
 	}
+	// Bundled skills — write to .lingtai/.skills/ (shared across all agents)
+	preset.PopulateBundledSkills(lingtaiDir)
 	return nil
 }
 
@@ -72,11 +75,8 @@ func resolvePython(agentDir, fallbackCmd string) string {
 
 // LaunchAgent starts an agent process. lingtaiCmd is the global fallback Python;
 // the agent's init.json venv_path is tried first.
-// globalDir is the TUI data directory (~/.lingtai-tui/) used for addon installation.
-func LaunchAgent(lingtaiCmd, agentDir, globalDir string) (*exec.Cmd, error) {
+func LaunchAgent(lingtaiCmd, agentDir string) (*exec.Cmd, error) {
 	fs.CleanSignals(agentDir)
-	// Auto-install declared addons if missing
-	config.EnsureAddons(globalDir, agentDir)
 	python := resolvePython(agentDir, lingtaiCmd)
 	cmd := exec.Command(python, "-m", "lingtai", "run", agentDir)
 	// Redirect agent output to a log file instead of the TUI terminal

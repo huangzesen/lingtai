@@ -150,7 +150,7 @@ func (m PropsModel) Update(msg tea.Msg) (PropsModel, tea.Cmd) {
 			return m.updatePicker(msg)
 		}
 		switch msg.String() {
-		case "esc", "ctrl+p", "q":
+		case "esc", "q":
 			return m, func() tea.Msg { return ViewChangeMsg{View: "mail"} }
 		case "ctrl+t":
 			m.pickerOpen = true

@@ -68,7 +68,7 @@ Explain the design philosophy: **agents and humans are peers**. Both have the sa
 Then show YOUR own directory (tutorial/) as a live example. Glob it and walk through what you find:
 - init.json — read it and walk through the manifest fields (llm, capabilities, soul, stamina, molt_pressure, etc.)
 - .agent.json — runtime identity
-- system/ — covenant.md, memory.md, character.md, system.md (the assembled prompt), llm.json
+- system/ — covenant.md, memory.md, lingtai.md, system.md (the assembled prompt), llm.json
 - mailbox/ — inbox, sent, archive
 - logs/, history/ — event log, conversation history
 - Signal files (.sleep, .suspend, .interrupt, .prompt) — how the TUI talks to the agent process
@@ -198,7 +198,7 @@ Read system/system.md and show the human the fully assembled system prompt. Walk
 2. **Covenant** — code of conduct. Protected. Shared across all agents. The rules every agent follows — like the rules of a monastery.
 3. **Tools** — auto-generated descriptions of all intrinsics and capabilities. The agent reads this to know what tools it has.
 4. **Identity** — the agent's .agent.json manifest. Name, address, state, admin permissions.
-5. **Character** — the agent's evolving self-concept (system/character.md, created by the psyche capability). This is what **differentiates one agent from another**. Agents are encouraged to develop their own identity — their strengths, specialties, personality, what they have learned. Two agents with the same covenant and principle become unique individuals through their character. The agent writes and revises this itself.
+5. **Character** — the agent's evolving self-concept (system/lingtai.md, created by the psyche capability). This is what **differentiates one agent from another**. Agents are encouraged to develop their own identity — their strengths, specialties, personality, what they have learned. Two agents with the same covenant and principle become unique individuals through their character. The agent writes and revises this itself.
 6. **Memory** — working notes (system/memory.md). Editable by the agent. Task context, reference material, things to remember across molts.
 7. **Comment** — app-level system prompt set at creation. Like your tutorial instructions. Not inherited by avatars.
 Explain which sections are protected (principle, covenant — the agent cannot change them) vs editable (character, memory — the agent evolves these over time). Emphasize that character is the key to individuality: it is how an agent grows a unique identity through experience.
@@ -254,7 +254,7 @@ Go through them in this order (skip any you don't have loaded):
 - **daemon** — the human already saw this in Lesson 1 when you dispatched two workers to discover the source code. Remind them of that and explain the difference from avatar: daemons are ephemeral one-shot workers (same process, no working directory of their own — they run commands in the parent agent's directory), avatars are persistent sub-agents (own process, own directory, own LLM session). Demonstrate by dispatching a daemon to do a quick task.
 - **file** (read, write, edit, glob, grep) — demonstrate reading and writing a file.
 - **bash** — run a command to show how it works.
-- **psyche** — explain the evolving identity system (character, library). Show your character.md.
+- **psyche** — explain the evolving identity system (character, library). Show your lingtai.md.
 - **library** — explain the knowledge library, show how it connects to psyche.
 - **email** — already covered in Lesson 7, but briefly recap what it adds on top of the mail intrinsic.
 - **web_search** — search for something interesting and show the results.

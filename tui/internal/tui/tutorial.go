@@ -171,7 +171,7 @@ func (m TutorialConfirmModel) doTutorial() tea.Cmd {
 
 		// 7. Launch tutorial agent
 		if m.lingtaiCmd != "" {
-			process.LaunchAgent(m.lingtaiCmd, tutorialDir, m.globalDir)
+			process.LaunchAgent(m.lingtaiCmd, tutorialDir)
 		}
 
 		// 8. Update human location in background

@@ -577,9 +577,6 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 		}
 
 		switch msg.String() {
-		case "ctrl+p":
-			return m, func() tea.Msg { return ViewChangeMsg{View: "props"} }
-
 		case "ctrl+o":
 			// Cycle: normal → thinking → extended → normal
 			switch m.verbose {
@@ -912,8 +909,13 @@ func (m MailModel) View() string {
 	}
 	header := titleLine + "\n" + strings.Repeat("\u2500", m.width)
 
-	// Build footer
-	sep := strings.Repeat("\u2500", m.width)
+	// Build footer — "Email To: AgentName ─────────"
+	toLabel := StyleFaint.Render("Email To: ") + lipgloss.NewStyle().Foreground(ColorAgent).Render(m.orchDisplayName()) + " "
+	sepWidth := m.width - lipgloss.Width(toLabel)
+	if sepWidth < 0 {
+		sepWidth = 0
+	}
+	sep := toLabel + strings.Repeat("\u2500", sepWidth)
 	var inputSection string
 	if m.input.IsPaletteActive() {
 		inputSection = m.palette.View() + "\n" + m.input.View()
@@ -941,7 +943,6 @@ func (m MailModel) View() string {
 		hints = lipgloss.NewStyle().Foreground(ColorThinking).Render(i18n.T("hints.extended_on")) +
 			StyleFaint.Render(" "+RuneBullet+" "+i18n.T("hints.editor")+" "+RuneBullet+" "+i18n.T("hints.commands"))
 	}
-	hints += StyleFaint.Render(" " + RuneBullet + " " + i18n.T("hints.props"))
 	statusPad := m.width - lipgloss.Width(leftLabel) - lipgloss.Width(hints) - 1
 	statusBar := leftLabel
 	if statusPad > 0 {

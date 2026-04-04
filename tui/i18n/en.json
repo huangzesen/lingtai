@@ -255,8 +255,8 @@
   "setup.select_provider": "Select Provider",
   "setup.title": "Configure",
   "setup.saved_refresh": "Settings saved. Use /refresh for changes to take effect.",
-  "hints.props": "ctrl+p properties",
-  "hints.props_off": "ctrl+p close",
+  "hints.props": "/agents",
+  "hints.props_off": "esc back",
   "props.title": "Agent Properties",
   "props.name": "Name",
   "props.nickname": "Nickname",
@@ -345,5 +345,13 @@
   "tutorial.preparing": "Preparing",
   "tutorial.done": "Ready",
   "tutorial.start": "Start Tutorial",
-  "tutorial.cancel": "Cancel"
+  "tutorial.cancel": "Cancel",
+  "palette.agents": "Agent network dashboard",
+  "palette.skills": "View installed skills",
+  "skills.title": "Skills",
+  "skills.installed": "Installed",
+  "skills.none": "No skills found",
+  "skills.problems": "Problems",
+  "skills.select_hint": "No skills installed",
+  "hints.skills_nav": "↑↓ navigate  r refresh  esc back"
 }

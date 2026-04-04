@@ -253,8 +253,8 @@
   "setup.select_provider": "選 Provider",
   "setup.title": "配置",
   "setup.saved_refresh": "已存。/refresh 方生效。",
-  "hints.props": "ctrl+p 性",
-  "hints.props_off": "ctrl+p 闭",
+  "hints.props": "/agents",
+  "hints.props_off": "esc 返",
   "props.title": "器灵性",
   "props.name": "名",
   "props.nickname": "别号",
@@ -345,5 +345,13 @@
   "tutorial.start": "入门",
   "tutorial.cancel": "返",
   "addon.feishu_path": "飞书配",
-  "addon.feishu_hint": "如: ~/.lingtai-tui/addons/feishu/example/config.json"
+  "addon.feishu_hint": "如: ~/.lingtai-tui/addons/feishu/example/config.json",
+  "palette.agents": "器灵网络之看板",
+  "palette.skills": "查阅已安技艺",
+  "skills.title": "技艺",
+  "skills.installed": "已安",
+  "skills.none": "未寻得技艺",
+  "skills.problems": "异",
+  "skills.select_hint": "未安技艺",
+  "hints.skills_nav": "↑↓ 择  r 刷新  esc 返"
 }

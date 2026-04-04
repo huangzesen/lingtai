@@ -191,7 +191,7 @@ func main() {
 		if !fs.IsAlive(orchDir, 2.0) {
 			lingtaiCmd := config.LingtaiCmd(globalDir)
 			if lingtaiCmd != "" {
-				if _, err := process.LaunchAgent(lingtaiCmd, orchDir, globalDir); err != nil {
+				if _, err := process.LaunchAgent(lingtaiCmd, orchDir); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: failed to launch agent: %v\n", err)
 				}
 			}

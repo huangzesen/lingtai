@@ -34,6 +34,9 @@ var tutorialMD []byte
 //go:embed all:addons
 var addonsFS embed.FS
 
+//go:embed all:skills
+var skillsFS embed.FS
+
 // Preset is a reusable agent template stored at ~/.lingtai-tui/presets/.
 type Preset struct {
 	Name        string                 `json:"name"`
@@ -212,6 +215,7 @@ func minimaxPreset() Preset {
 				"web_search": mm, "psyche": e(), "library": e(),
 				"vision": mm, "talk": mm, "draw": mm, "video": mm, "compose": mm,
 				"listen": e(), "web_read": e(), "avatar": e(), "daemon": e(),
+				"skills": e(),
 			},
 			"admin": map[string]interface{}{"karma": true},
 		},
@@ -231,7 +235,7 @@ func customPreset() Preset {
 				"file": e(), "email": e(), "bash": map[string]interface{}{"yolo": true},
 				"web_search": e(), "psyche": e(), "library": e(),
 				"web_read": e(), "avatar": e(), "daemon": e(),
-				"listen": e(),
+				"listen": e(), "skills": e(),
 			},
 			"admin": map[string]interface{}{"karma": true},
 		},
@@ -280,6 +284,7 @@ func populate(globalDir string, fsys embed.FS, root string) {
 		return nil
 	})
 }
+
 
 // migrateAddonTemplates copies legacy ~/.lingtai-tui/templates/{imap,telegram}.jsonc
 // to ~/.lingtai-tui/addons/{addon}/example/config.json as plain JSON.
@@ -359,6 +364,29 @@ func Bootstrap(globalDir string) error {
 	}
 	migrateAddonTemplates(globalDir)
 	return EnsureDefault()
+}
+
+// PopulateBundledSkills writes the bundled skills into the project's
+// .lingtai/.skills/ directory. Skips files that already exist so user
+// modifications are preserved.
+func PopulateBundledSkills(lingtaiDir string) {
+	skillsDir := filepath.Join(lingtaiDir, ".skills")
+	fs.WalkDir(skillsFS, "skills", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		rel, _ := filepath.Rel("skills", path)
+		target := filepath.Join(skillsDir, rel)
+		if _, err := os.Stat(target); err == nil {
+			return nil // already exists — don't overwrite
+		}
+		os.MkdirAll(filepath.Dir(target), 0o755)
+		data, err := skillsFS.ReadFile(path)
+		if err == nil {
+			os.WriteFile(target, data, 0o644)
+		}
+		return nil
+	})
 }
 
 // CovenantPath returns the absolute path to the covenant file for a language.
