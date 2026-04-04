@@ -214,6 +214,7 @@
   "props.total_tokens": "词元（全部）",
   "props.total_api_calls": "问天",
   "props.total_mails": "书",
+  "props.tree": "谱",
   "props.select_agent": "择器灵",
   "hints.props_select": "ctrl+t 择器灵",
   "state.active": "醒",

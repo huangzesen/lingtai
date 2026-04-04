@@ -216,6 +216,7 @@
   "props.total_tokens": "Token（全部）",
   "props.total_api_calls": "API 调用",
   "props.total_mails": "邮件",
+  "props.tree": "谱系",
   "props.select_agent": "选择Agent",
   "hints.props_select": "ctrl+t 选择Agent",
   "state.active": "活跃",

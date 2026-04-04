@@ -532,6 +532,12 @@ func (m PropsModel) renderRight(maxW int) string {
 	lines = append(lines, "")
 	lines = append(lines, "  "+labelStyle.Render("Total: ")+valueStyle.Render(fmt.Sprintf("%d", stats.TotalMails)))
 
+	// Avatar tree
+	lines = append(lines, "")
+	lines = append(lines, "  "+sectionStyle.Render(i18n.T("props.tree")))
+	lines = append(lines, "")
+	lines = append(lines, m.renderTree(maxW)...)
+
 	return strings.Join(lines, "\n")
 }
 
@@ -584,6 +590,86 @@ func (m PropsModel) renderPicker() string {
 	lines = append(lines, "  "+StyleFaint.Render("↑↓ "+i18n.T("manage.select")+"  [enter]  [esc/ctrl+t] "+i18n.T("manage.back")))
 
 	return strings.Join(lines, "\n")
+}
+
+func (m PropsModel) renderTree(maxW int) []string {
+	nodes := m.network.Nodes
+	edges := m.network.AvatarEdges
+	if len(nodes) == 0 {
+		return nil
+	}
+
+	nodeMap := make(map[string]fs.AgentNode)
+	for _, n := range nodes {
+		nodeMap[n.Address] = n
+	}
+
+	childrenOf := make(map[string][]string)
+	childSet := make(map[string]bool)
+	for _, e := range edges {
+		childrenOf[e.Parent] = append(childrenOf[e.Parent], e.Child)
+		childSet[e.Child] = true
+	}
+
+	// Roots: human first, then admins (no parent)
+	var roots []fs.AgentNode
+	for _, n := range nodes {
+		if n.IsHuman {
+			roots = append([]fs.AgentNode{n}, roots...)
+		} else if !childSet[n.Address] {
+			roots = append(roots, n)
+		}
+	}
+
+	nameOf := func(n fs.AgentNode) string {
+		if n.Nickname != "" {
+			return n.Nickname
+		}
+		if n.AgentName != "" {
+			return n.AgentName
+		}
+		parts := strings.Split(n.Address, "/")
+		return parts[len(parts)-1]
+	}
+
+	var lines []string
+	var walk func(addr, prefix string, isLast, isRoot bool)
+	walk = func(addr, prefix string, isLast, isRoot bool) {
+		n, ok := nodeMap[addr]
+		if !ok {
+			return
+		}
+		connector := ""
+		if !isRoot {
+			if isLast {
+				connector = "└ "
+			} else {
+				connector = "├ "
+			}
+		}
+		stateColor := StateColor(strings.ToUpper(n.State))
+		name := lipgloss.NewStyle().Foreground(stateColor).Render(nameOf(n))
+		dimPrefix := lipgloss.NewStyle().Foreground(ColorTextFaint).Render(prefix + connector)
+		lines = append(lines, "  "+dimPrefix+name)
+
+		children := childrenOf[addr]
+		childPrefix := prefix
+		if !isRoot {
+			if isLast {
+				childPrefix += "  "
+			} else {
+				childPrefix += "│ "
+			}
+		}
+		for i, c := range children {
+			walk(c, childPrefix, i == len(children)-1, false)
+		}
+	}
+
+	for i, r := range roots {
+		walk(r.Address, "", i == len(roots)-1, true)
+	}
+	return lines
 }
 
 func formatComma(n int64) string {

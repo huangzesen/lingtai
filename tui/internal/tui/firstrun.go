@@ -493,8 +493,8 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					i18n.SetLang(langs[m.langCursor])
 				}
 			case "enter":
-				if !m.setupDone {
-					return m, nil // blocked — still installing
+				if !m.setupDone || m.setupErr != "" {
+					return m, nil // blocked — still installing or failed
 				}
 				lang := langs[m.langCursor]
 				// Save language to TUI config

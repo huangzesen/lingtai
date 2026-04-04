@@ -216,6 +216,7 @@
   "props.total_tokens": "Tokens (all agents)",
   "props.total_api_calls": "API Calls",
   "props.total_mails": "Mail",
+  "props.tree": "Tree",
   "props.select_agent": "Select Agent",
   "hints.props_select": "ctrl+t select agent",
   "state.active": "active",
