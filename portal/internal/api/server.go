@@ -74,8 +74,10 @@ func (s *Server) StartRecording(baseDir string) {
 			if err == nil && len(frames) > 0 {
 				os.MkdirAll(filepath.Dir(topologyPath), 0o755)
 				os.Remove(topologyPath)
-				// Clear replay chunk cache since tape was rebuilt
+				// Clear replay chunk cache and manifest since tape was rebuilt
 				os.RemoveAll(filepath.Join(baseDir, ".portal", "replay"))
+				manifestCache = nil
+				manifestCacheSize = 0
 				for _, f := range frames {
 					AppendTopologyAt(topologyPath, f.Net, f.T)
 				}

@@ -357,6 +357,13 @@ func loadChunk(replayDir, topologyPath string, hourStart int64) (ReplayChunk, er
 	return deltaEncode(frames, defaultKeyframeInterval), nil
 }
 
+// cachedManifest avoids re-scanning the full JSONL on every manifest request.
+// Invalidated when the topology file grows.
+var (
+	manifestCache     *ReplayManifest
+	manifestCacheSize int64
+)
+
 // NewManifestHandler serves GET /api/topology/manifest.
 func NewManifestHandler(baseDir string) http.HandlerFunc {
 	topologyPath := filepath.Join(baseDir, ".portal", "topology.jsonl")
@@ -364,7 +371,29 @@ func NewManifestHandler(baseDir string) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		TopologyMu.Lock()
+		// Check if cached manifest is still valid (file hasn't grown)
+		fi, _ := os.Stat(topologyPath)
+		fileSize := int64(0)
+		if fi != nil {
+			fileSize = fi.Size()
+		}
+		if manifestCache != nil && fileSize == manifestCacheSize {
+			manifest := *manifestCache
+			TopologyMu.Unlock()
+			if manifest.Chunks == nil {
+				manifest.Chunks = []ChunkInfo{}
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			json.NewEncoder(w).Encode(manifest)
+			return
+		}
+
 		manifest, err := compileChunks(topologyPath, replayDir)
+		if err == nil {
+			manifestCache = &manifest
+			manifestCacheSize = fileSize
+		}
 		TopologyMu.Unlock()
 
 		if err != nil {
@@ -400,7 +429,10 @@ func NewChunkHandler(baseDir string) http.HandlerFunc {
 			return
 		}
 
+		// Lock while reading JSONL (loadChunk may fall back to scanning the file)
+		TopologyMu.Lock()
 		chunk, err := loadChunk(replayDir, topologyPath, hourStart)
+		TopologyMu.Unlock()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

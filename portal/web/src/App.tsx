@@ -77,7 +77,7 @@ export default function App() {
   const chunkManagerRef = useRef({
     manifest: null as ReplayManifest | null,
     loadedChunks: new Map<number, TapeFrame[]>(),
-    loadedOrder: [] as number[],
+    loadedOrder: [] as number[],                   // FIFO eviction order
     loading: new Set<number>(),
   });
   const MAX_LOADED_CHUNKS = 3;

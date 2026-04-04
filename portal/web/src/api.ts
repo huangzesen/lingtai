@@ -1,4 +1,4 @@
-import type { Network, AgentNode, MailEdge, NetworkStats } from './types';
+import type { Network, AgentNode, AvatarEdge, ContactEdge, MailEdge, NetworkStats } from './types';
 
 export async function fetchNetwork(): Promise<Network> {
   const res = await fetch('/api/network');
@@ -35,6 +35,8 @@ export interface ReplayManifest {
 
 interface FrameDelta {
   nodes?: AgentNode[];
+  avatar_edges?: AvatarEdge[];
+  contact_edges?: ContactEdge[];
   mail?: MailEdge[];
   stats?: NetworkStats;
 }
@@ -93,6 +95,28 @@ export function reconstructFrames(chunk: ReplayChunk): TapeFrame[] {
             }
           }
           net.nodes = Array.from(nodeMap.values());
+        }
+
+        // Apply avatar edge changes
+        if (rf.d.avatar_edges) {
+          const avatarMap = new Map(
+            net.avatar_edges.map(e => [`${e.parent}\0${e.child}`, e])
+          );
+          for (const e of rf.d.avatar_edges) {
+            avatarMap.set(`${e.parent}\0${e.child}`, e);
+          }
+          net.avatar_edges = Array.from(avatarMap.values());
+        }
+
+        // Apply contact edge changes
+        if (rf.d.contact_edges) {
+          const contactMap = new Map(
+            net.contact_edges.map(e => [`${e.owner}\0${e.target}`, e])
+          );
+          for (const e of rf.d.contact_edges) {
+            contactMap.set(`${e.owner}\0${e.target}`, e);
+          }
+          net.contact_edges = Array.from(contactMap.values());
         }
 
         // Apply mail edge changes
