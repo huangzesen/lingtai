@@ -29,7 +29,7 @@
   - /settings — TUI 偏好（别号、迎语开关、器灵言语）
   - /agents — 观网络中诸灵之性与数
   - /skills — 观已安技艺
-  - /viz — 启网络可视化
+  - /viz — 启器灵网络可视化（拓扑、邮流、诸灵之态）
   - /addon — 配附加路径（IMAP、Telegram、飞书）
   - /tutorial — 启入门教程（将重置工作目录）
   - /doctor — 诊连接之疾
@@ -43,5 +43,7 @@
   - ctrl+e — 启外编以书长文
 - 告以可于 /settings 立别号，吾将以别号称之
 - 告以此迎可于 /settings 闭之
+
+- 告以此乃 Bubble Tea 终端之应用——按住 Option（Mac）或 Shift 可选文以复之
 
 简可。分类列之，不可遗一，然以汝声述之——勿为清单。
