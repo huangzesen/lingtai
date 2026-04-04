@@ -226,7 +226,7 @@ export function TopBar({ lang, theme, themeMode, vizMode, playing, replayLoading
           }}
           title="Rebuild replay cache"
         >
-          {rebuilding ? '⏳' : '🔄'}
+          {rebuilding ? '⏳' : '🔨'}
         </button>
 
         <div style={{ width: 1, height: 16, background: theme.border, flexShrink: 0 }} />
