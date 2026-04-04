@@ -191,10 +191,12 @@ func (m PropsModel) updatePicker(msg tea.KeyPressMsg) (PropsModel, tea.Cmd) {
 	case "up", "k":
 		if m.pickerIdx > 0 {
 			m.pickerIdx--
+			m.syncViewportContent()
 		}
 	case "down", "j":
 		if m.pickerIdx < len(m.agentNodes)-1 {
 			m.pickerIdx++
+			m.syncViewportContent()
 		}
 	case "enter":
 		if m.pickerIdx < len(m.agentNodes) {
