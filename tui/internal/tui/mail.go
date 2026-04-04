@@ -932,7 +932,8 @@ func (m MailModel) View() string {
 	var hints string
 	switch m.verbose {
 	case verboseOff:
-		hints = StyleFaint.Render(i18n.T("hints.verbose") + " " + RuneBullet + " " + i18n.T("hints.editor") + " " + RuneBullet + " " + i18n.T("hints.commands"))
+		hints = StyleSubtle.Render(i18n.T("hints.verbose")) +
+			StyleFaint.Render(" "+RuneBullet+" "+i18n.T("hints.editor")+" "+RuneBullet+" "+i18n.T("hints.commands"))
 	case verboseThinking:
 		hints = lipgloss.NewStyle().Foreground(ColorAgent).Render(i18n.T("hints.verbose_on")) +
 			StyleFaint.Render(" "+RuneBullet+" "+i18n.T("hints.editor")+" "+RuneBullet+" "+i18n.T("hints.commands"))
