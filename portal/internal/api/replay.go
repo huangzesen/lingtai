@@ -214,52 +214,43 @@ func hourBucket(t int64) int64 {
 	return (t / hourMs) * hourMs
 }
 
-// buildManifest constructs the manifest from cached chunk files on disk
-// plus a quick tail-scan of the JSONL for the current (uncached) hour.
-// This is O(current_hour_frames) instead of O(all_frames).
+// buildManifest constructs the manifest from a cached manifest.json on disk
+// plus a quick tail-scan of the JSONL for any new frames since the last build.
+// This is O(new_frames) — typically just the current hour.
 func buildManifest(topologyPath, replayDir string) (ReplayManifest, error) {
 	os.MkdirAll(replayDir, 0o755)
 
-	// 1. Read cached chunk files from disk
-	entries, _ := os.ReadDir(replayDir)
-	var chunks []ChunkInfo
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json.gz") {
-			continue
-		}
-		name := strings.TrimSuffix(e.Name(), ".json.gz")
-		hourStart, err := strconv.ParseInt(name, 10, 64)
-		if err != nil {
-			continue
-		}
-		// Read the chunk header to get frame count and end time
-		chunk, err := readChunkCache(filepath.Join(replayDir, e.Name()))
-		if err != nil {
-			continue
-		}
-		chunks = append(chunks, ChunkInfo{
-			Start:  hourStart,
-			End:    chunk.End,
-			Frames: len(chunk.Frames),
-		})
-	}
-
-	// 2. Scan JSONL tail for frames not covered by any cache.
-	// Find the latest cached hour boundary to know where to start scanning.
-	var latestCached int64
-	for _, c := range chunks {
-		if c.Start > latestCached {
-			latestCached = c.Start
+	// 1. Try reading the cached manifest
+	manifestPath := filepath.Join(replayDir, "manifest.json")
+	var cached ReplayManifest
+	var hasCached bool
+	if data, err := os.ReadFile(manifestPath); err == nil {
+		if json.Unmarshal(data, &cached) == nil && len(cached.Chunks) > 0 {
+			hasCached = true
 		}
 	}
-	scanFrom := latestCached + hourMs // start scanning after the last cached hour
 
+	// 2. Determine where to start scanning the JSONL
+	// We need to re-scan from the start of the last cached chunk
+	// (it may have been the "current" hour that has grown since last build)
+	var scanFrom int64
+	var fixedChunks []ChunkInfo // chunks we trust (completed hours)
+	if hasCached {
+		// All chunks except the last are immutable — trust them
+		fixedChunks = cached.Chunks[:len(cached.Chunks)-1]
+		if len(fixedChunks) > 0 {
+			scanFrom = fixedChunks[len(fixedChunks)-1].Start + hourMs
+		}
+	}
+
+	// 3. Scan JSONL tail for new/updated frames
 	tailFrames, err := scanJSONLFrom(topologyPath, scanFrom)
 	if err != nil && !os.IsNotExist(err) {
 		return ReplayManifest{}, err
 	}
 
-	// Group tail frames by hour and add as uncached chunks
+	// 4. Group tail frames into hours
+	chunks := append([]ChunkInfo{}, fixedChunks...)
 	if len(tailFrames) > 0 {
 		type hourGroup struct {
 			start  int64
@@ -288,11 +279,13 @@ func buildManifest(topologyPath, replayDir string) (ReplayManifest, error) {
 			}
 			chunks = append(chunks, info)
 
-			// Cache all but the last (current) hour
 			if i < len(tailHours)-1 {
 				cachePath := filepath.Join(replayDir, strconv.FormatInt(g.start, 10)+".json.gz")
-				chunk := deltaEncode(g.frames, defaultKeyframeInterval)
-				writeChunkCache(cachePath, chunk)
+				if _, err := os.Stat(cachePath); err != nil {
+					// Only write if not already cached
+					chunk := deltaEncode(g.frames, defaultKeyframeInterval)
+					writeChunkCache(cachePath, chunk)
+				}
 			}
 		}
 	}
@@ -301,14 +294,20 @@ func buildManifest(topologyPath, replayDir string) (ReplayManifest, error) {
 		return ReplayManifest{}, nil
 	}
 
-	// Sort chunks by start time
 	sort.Slice(chunks, func(i, j int) bool { return chunks[i].Start < chunks[j].Start })
 
-	return ReplayManifest{
+	manifest := ReplayManifest{
 		TapeStart: chunks[0].Start,
 		TapeEnd:   chunks[len(chunks)-1].End,
 		Chunks:    chunks,
-	}, nil
+	}
+
+	// 5. Write manifest cache to disk
+	if data, err := json.Marshal(manifest); err == nil {
+		os.WriteFile(manifestPath, data, 0o644)
+	}
+
+	return manifest, nil
 }
 
 // scanJSONLFrom reads topology.jsonl and returns frames with T >= fromMs.
