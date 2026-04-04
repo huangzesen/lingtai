@@ -58,6 +58,8 @@ export function FilterPanel({ network, filter, lang, theme, showNames, onToggleN
 }) {
   const [tab, setTab] = useState<'nodes' | 'mail'>('nodes');
   const agents = network.nodes || [];
+  const childSet = new Set((network.avatar_edges || []).map(e => e.child));
+  const adminAddrs = new Set(agents.filter(a => !a.is_human && !childSet.has(a.address)).map(a => a.address));
 
   const toggleNode = (addr: string) => {
     const next = new Set(filter.hiddenNodes);
@@ -234,6 +236,19 @@ export function FilterPanel({ network, filter, lang, theme, showNames, onToggleN
                       flexShrink: 0,
                     }}>
                       {t(lang, 'filter.human')}
+                    </span>
+                  )}
+                  {adminAddrs.has(a.address) && (
+                    <span style={{
+                      fontSize: 8,
+                      color: theme.gold,
+                      border: `1px solid ${theme.gold}40`,
+                      borderRadius: 2,
+                      padding: '0 3px',
+                      letterSpacing: 0.3,
+                      flexShrink: 0,
+                    }}>
+                      {t(lang, 'filter.admin')}
                     </span>
                   )}
                   <Toggle on={visible} color={stateColor} onChange={() => {}} />
