@@ -29,7 +29,7 @@ After you have been idle for {{soul_delay}} seconds, your inner voice — the so
   - /settings — TUI preferences (nickname, greeting toggle, agent language)
   - /agents — properties and statistics of all agents in the network
   - /skills — view installed skills
-  - /viz — open network visualization
+  - /viz — open agent network visualization (topology, mail flows, agent states)
   - /addon — configure addon paths (IMAP, Telegram, Feishu)
   - /tutorial — start guided tutorial (resets working directory)
   - /doctor — diagnose connection issues
@@ -43,5 +43,7 @@ After you have been idle for {{soul_delay}} seconds, your inner voice — the so
   - ctrl+e — open external editor for composing longer messages
 - Mention they can set a nickname in /settings and you will address them by it
 - Mention this greeting can be turned off in /settings
+
+- Mention this is a Bubble Tea terminal app — hold Option (Mac) or Shift to select and copy text
 
 Keep it concise and natural. Group logically. Do not skip any item above, but express them in your own voice — not as a checklist.
