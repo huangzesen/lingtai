@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -324,4 +325,68 @@ func loadChunk(replayDir, topologyPath string, hourStart int64) (ReplayChunk, er
 	}
 
 	return deltaEncode(frames, defaultKeyframeInterval), nil
+}
+
+// NewManifestHandler serves GET /api/topology/manifest.
+func NewManifestHandler(baseDir string) http.HandlerFunc {
+	topologyPath := filepath.Join(baseDir, ".portal", "topology.jsonl")
+	replayDir := filepath.Join(baseDir, ".portal", "replay", "chunks")
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		TopologyMu.Lock()
+		manifest, err := compileChunks(topologyPath, replayDir)
+		TopologyMu.Unlock()
+
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			json.NewEncoder(w).Encode(ReplayManifest{Chunks: []ChunkInfo{}})
+			return
+		}
+		if manifest.Chunks == nil {
+			manifest.Chunks = []ChunkInfo{}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		json.NewEncoder(w).Encode(manifest)
+	}
+}
+
+// NewChunkHandler serves GET /api/topology/chunk?start=<hourMs>.
+func NewChunkHandler(baseDir string) http.HandlerFunc {
+	topologyPath := filepath.Join(baseDir, ".portal", "topology.jsonl")
+	replayDir := filepath.Join(baseDir, ".portal", "replay", "chunks")
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		startStr := r.URL.Query().Get("start")
+		if startStr == "" {
+			http.Error(w, "missing start parameter", http.StatusBadRequest)
+			return
+		}
+		hourStart, err := strconv.ParseInt(startStr, 10, 64)
+		if err != nil {
+			http.Error(w, "invalid start parameter", http.StatusBadRequest)
+			return
+		}
+
+		chunk, err := loadChunk(replayDir, topologyPath, hourStart)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			w.Header().Set("Content-Encoding", "gzip")
+			gw := gzip.NewWriter(w)
+			json.NewEncoder(gw).Encode(chunk)
+			gw.Close()
+			return
+		}
+
+		json.NewEncoder(w).Encode(chunk)
+	}
 }

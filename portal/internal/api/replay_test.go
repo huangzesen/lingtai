@@ -1,6 +1,11 @@
 package api
 
 import (
+	"compress/gzip"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -230,5 +235,92 @@ func TestLoadChunk_FromCache(t *testing.T) {
 	}
 	if len(chunk.Frames) != 3 {
 		t.Errorf("len(Frames) = %d, want 3", len(chunk.Frames))
+	}
+}
+
+func TestManifestHandler(t *testing.T) {
+	dir := t.TempDir()
+	baseDir := filepath.Join(dir, "base")
+	topologyPath := filepath.Join(baseDir, ".portal", "topology.jsonl")
+
+	net := fs.Network{
+		Nodes:        []fs.AgentNode{{Address: "a", State: "ACTIVE"}},
+		AvatarEdges:  []fs.AvatarEdge{},
+		ContactEdges: []fs.ContactEdge{},
+		MailEdges:    []fs.MailEdge{},
+		Stats:        fs.NetworkStats{Active: 1},
+	}
+	AppendTopologyAt(topologyPath, net, 3600000)
+	AppendTopologyAt(topologyPath, net, 3601000)
+
+	handler := NewManifestHandler(baseDir)
+	req := httptest.NewRequest("GET", "/api/topology/manifest", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
+	}
+
+	var manifest ReplayManifest
+	if err := json.NewDecoder(rr.Body).Decode(&manifest); err != nil {
+		t.Fatalf("decode manifest: %v", err)
+	}
+	if manifest.TapeStart != 3600000 {
+		t.Errorf("TapeStart = %d, want 3600000", manifest.TapeStart)
+	}
+	if len(manifest.Chunks) == 0 {
+		t.Error("expected at least 1 chunk")
+	}
+}
+
+func TestChunkHandler(t *testing.T) {
+	dir := t.TempDir()
+	baseDir := filepath.Join(dir, "base")
+	topologyPath := filepath.Join(baseDir, ".portal", "topology.jsonl")
+
+	net := fs.Network{
+		Nodes:        []fs.AgentNode{{Address: "a", State: "ACTIVE"}},
+		AvatarEdges:  []fs.AvatarEdge{},
+		ContactEdges: []fs.ContactEdge{},
+		MailEdges:    []fs.MailEdge{},
+		Stats:        fs.NetworkStats{Active: 1},
+	}
+	AppendTopologyAt(topologyPath, net, 3600000)
+	AppendTopologyAt(topologyPath, net, 3601000)
+
+	// Compile first so cache exists
+	replayDir := filepath.Join(baseDir, ".portal", "replay", "chunks")
+	compileChunks(topologyPath, replayDir)
+
+	handler := NewChunkHandler(baseDir)
+	req := httptest.NewRequest("GET", "/api/topology/chunk?start=3600000", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
+	}
+
+	// Response should be gzipped
+	var body []byte
+	if rr.Header().Get("Content-Encoding") == "gzip" {
+		gr, err := gzip.NewReader(rr.Body)
+		if err != nil {
+			t.Fatalf("gzip reader: %v", err)
+		}
+		body, _ = io.ReadAll(gr)
+		gr.Close()
+	} else {
+		body, _ = io.ReadAll(rr.Body)
+	}
+
+	var chunk ReplayChunk
+	if err := json.Unmarshal(body, &chunk); err != nil {
+		t.Fatalf("decode chunk: %v", err)
+	}
+	if len(chunk.Frames) != 2 {
+		t.Errorf("len(Frames) = %d, want 2", len(chunk.Frames))
 	}
 }
