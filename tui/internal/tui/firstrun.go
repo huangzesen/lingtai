@@ -1663,14 +1663,16 @@ func (m *FirstRunModel) enterAgentNameDir(p preset.Preset) {
 	m.nameInput.Focus()
 	m.dirInput.Blur()
 
-	// Language — inherit from preset, fallback "en"
+	// Language — inherit from preset, fallback to TUI config language
 	m.agentLangIdx = 0
-	if l, ok := p.Manifest["language"].(string); ok {
-		for i, lang := range []string{"en", "zh", "wen"} {
-			if lang == l {
-				m.agentLangIdx = i
-				break
-			}
+	presetLang, hasLang := p.Manifest["language"].(string)
+	if !hasLang || presetLang == "" {
+		presetLang = config.LoadTUIConfig(m.globalDir).Language
+	}
+	for i, lang := range []string{"en", "zh", "wen"} {
+		if lang == presetLang {
+			m.agentLangIdx = i
+			break
 		}
 	}
 

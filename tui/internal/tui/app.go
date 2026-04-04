@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"encoding/json"
 	"net/http"
 	"os"
 	"os/exec"
@@ -53,7 +52,6 @@ type App struct {
 	width         int
 	height        int
 	tuiConfig   config.TUIConfig
-	pendingLang bool
 }
 
 func humanAddr(projectDir string) string {
@@ -308,17 +306,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.firstRun = updated
 		return a, cmd
 	case appViewMail:
-		// Intercept SendMsg for pending lang
-		if _, ok := msg.(SendMsg); ok && a.pendingLang {
-			text := strings.TrimSpace(a.mail.input.Value())
-			a.mail.input.Reset()
-			a.pendingLang = false
-			a.doLang(text)
-			return a, func() tea.Msg {
-				a.hardRefresh()
-				return refreshDoneMsg{}
-			}
-		}
 		updated, cmd := a.mail.Update(msg)
 		a.mail = updated
 		return a, cmd
@@ -422,17 +409,8 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 	case "lang":
-		if a.orchDir != "" {
-			if args != "" {
-				a.doLang(args)
-				return a, func() tea.Msg {
-					a.hardRefresh()
-					return refreshDoneMsg{}
-				}
-			} else {
-				a.mail.AddSystemMessage(i18n.T("mail.lang_prompt"))
-			}
-		}
+		// Redirect to /settings — agent language is now configured there
+		a.mail.AddSystemMessage(i18n.T("mail.lang_moved"))
 		return a, nil
 	case "clear":
 		if a.orchDir != "" && a.lingtaiCmd != "" {
@@ -517,31 +495,6 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		return a, tea.Quit
 	}
 	return a, nil
-}
-
-func (a *App) doLang(lang string) {
-	valid := map[string]bool{"en": true, "zh": true, "wen": true}
-	if !valid[lang] {
-		a.mail.AddSystemMessage(i18n.TF("mail.lang_invalid", lang))
-		return
-	}
-	initPath := filepath.Join(a.orchDir, "init.json")
-	if data, err := os.ReadFile(initPath); err == nil {
-		var initData map[string]interface{}
-		if err := json.Unmarshal(data, &initData); err == nil {
-			if m, ok := initData["manifest"].(map[string]interface{}); ok {
-				m["language"] = lang
-			}
-			initData["covenant_file"] = preset.CovenantPath(a.globalDir, lang)
-			initData["principle_file"] = preset.PrinciplePath(a.globalDir, lang)
-			delete(initData, "covenant")  // use file, not inline
-			delete(initData, "principle") // use file, not inline
-			if out, err := json.MarshalIndent(initData, "", "  "); err == nil {
-				os.WriteFile(initPath, out, 0o644)
-			}
-		}
-	}
-	a.mail.AddSystemMessage(i18n.TF("mail.lang_changed", lang))
 }
 
 // hardRefresh suspends the orchestrator and relaunches it.

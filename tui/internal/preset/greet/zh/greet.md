@@ -12,8 +12,7 @@
   - /clear — 清空器灵上下文窗口并重启
   - /refresh — 硬重启器灵（重新加载 init.json）
   - /setup — 器灵设置（服务商、模型、能力、心流间隔）
-  - /settings — TUI 偏好设置（昵称、问候开关）
-  - /lang — 切换器灵语言（en/zh/wen）
+  - /settings — TUI 偏好设置（昵称、问候开关、器灵语言）
   - /viz — 打开网络可视化
   - /addon — 配置附加路径（IMAP、Telegram、飞书）
   - /btw — 向器灵旁问（以洞察问询的形式送达）

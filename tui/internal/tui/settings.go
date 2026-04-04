@@ -10,6 +10,7 @@ import (
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/config"
 	"github.com/anthropics/lingtai-tui/internal/fs"
+	"github.com/anthropics/lingtai-tui/internal/preset"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
@@ -131,12 +132,35 @@ func NewSettingsModel(globalDir, projectDir, orchDir string, tuiCfg config.TUICo
 		insightsCurrent = 0
 	}
 
+	// Read agent language from init.json
+	agentLangOptions := []string{"en", "zh", "wen"}
+	agentLangCurrent := 0
+	if orchDir != "" {
+		initPath := filepath.Join(orchDir, "init.json")
+		if data, err := os.ReadFile(initPath); err == nil {
+			var initData map[string]interface{}
+			if err := json.Unmarshal(data, &initData); err == nil {
+				if m, ok := initData["manifest"].(map[string]interface{}); ok {
+					if l, ok := m["language"].(string); ok {
+						for i, lang := range agentLangOptions {
+							if lang == l {
+								agentLangCurrent = i
+								break
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	fields := []SettingField{
 		{Key: "language", Label: "settings.language", Options: langOptions, Current: langCurrent},
 		{Key: "mail_page_size", Label: "settings.mail_page_size", Options: pageSizeOptions, Current: pageSizeCurrent},
 		{Key: "greeting", Label: "settings.greeting", Options: greetingOptions, Current: greetingCurrent},
 		{Key: "theme", Label: "settings.theme", Options: themeOptions, Current: themeCurrent},
 		{Key: "insights", Label: "settings.insights", Options: insightsOptions, Current: insightsCurrent},
+		{Key: "agent_lang", Label: "settings.agent_lang", Options: agentLangOptions, Current: agentLangCurrent},
 	}
 
 	// Read current nickname from human's .agent.json
@@ -269,6 +293,9 @@ func (m *SettingsModel) applyField(f *SettingField) tea.Cmd {
 	case "theme":
 		m.tuiConfig.Theme = val
 		SetThemeByName(val)
+	case "agent_lang":
+		m.saveAgentLang(val)
+		return nil // don't save TUI config — this writes to init.json
 	}
 	config.SaveTUIConfig(m.globalDir, m.tuiConfig)
 	return nil
@@ -333,6 +360,31 @@ func (m *SettingsModel) saveAgentName() {
 	}
 }
 
+func (m *SettingsModel) saveAgentLang(lang string) {
+	if m.orchDir == "" {
+		return
+	}
+	initPath := filepath.Join(m.orchDir, "init.json")
+	data, err := os.ReadFile(initPath)
+	if err != nil {
+		return
+	}
+	var initData map[string]interface{}
+	if err := json.Unmarshal(data, &initData); err != nil {
+		return
+	}
+	if manifest, ok := initData["manifest"].(map[string]interface{}); ok {
+		manifest["language"] = lang
+	}
+	initData["covenant_file"] = preset.CovenantPath(m.globalDir, lang)
+	initData["principle_file"] = preset.PrinciplePath(m.globalDir, lang)
+	delete(initData, "covenant")
+	delete(initData, "principle")
+	if out, err := json.MarshalIndent(initData, "", "  "); err == nil {
+		os.WriteFile(initPath, out, 0o644)
+	}
+}
+
 func (m SettingsModel) View() string {
 	var b strings.Builder
 
@@ -355,7 +407,12 @@ func (m SettingsModel) View() string {
 	// Fields
 	labelStyle := lipgloss.NewStyle().Foreground(ColorText)
 	dimValStyle := lipgloss.NewStyle().Foreground(ColorTextDim)
+	sectionStyle := lipgloss.NewStyle().Foreground(ColorAccent).Bold(true)
 	for i, f := range m.fields {
+		// Insert "Local" section header before agent fields
+		if f.Key == "agent_lang" {
+			b.WriteString("\n  " + sectionStyle.Render(i18n.T("settings.local")) + "\n")
+		}
 		cursor := "  "
 		if i == m.cursor {
 			cursor = StyleAccent.Render("> ")
@@ -378,13 +435,16 @@ func (m SettingsModel) View() string {
 			displayVal = dimValStyle.Render(displayVal)
 		}
 
-		b.WriteString(cursor + label + " " + displayVal + "\n")
+		b.WriteString(cursor + label + " " + displayVal)
+		// Show /refresh hint for agent fields
+		if f.Key == "agent_lang" && i == m.cursor {
+			b.WriteString("  " + StyleFaint.Render(i18n.T("settings.agent_lang_hint")))
+		}
+		b.WriteString("\n")
 	}
 
-	// Local section
+	// Local text fields
 	localStart := len(m.fields)
-	sectionStyle := lipgloss.NewStyle().Foreground(ColorAccent).Bold(true)
-	b.WriteString("\n  " + sectionStyle.Render(i18n.T("settings.local")) + "\n")
 
 	type localField struct {
 		label string

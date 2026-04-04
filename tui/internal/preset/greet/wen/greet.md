@@ -12,8 +12,7 @@
   - /clear — 清器灵之上下文，重启之
   - /refresh — 硬重启器灵（重载 init.json）
   - /setup — 器灵设置（服务商、模型、能力、心流间隔）
-  - /settings — TUI 偏好（别号、迎语开关）
-  - /lang — 换言语（en/zh/wen）
+  - /settings — TUI 偏好（别号、迎语开关、器灵言语）
   - /viz — 启网络可视化
   - /addon — 配附加路径（IMAP、Telegram、飞书）
   - /btw — 旁问器灵（以省问之式送达）

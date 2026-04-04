@@ -12,8 +12,7 @@ Use the email tool to send a greeting to {{addr}}. In your greeting:
   - /clear — clear agent context window and restart
   - /refresh — hard restart agent (reload init.json)
   - /setup — agent setup (provider, model, capabilities, soul delay)
-  - /settings — TUI preferences (nickname, greeting toggle)
-  - /lang — cycle agent language (en/zh/wen)
+  - /settings — TUI preferences (nickname, greeting toggle, agent language)
   - /viz — open network visualization
   - /addon — configure addon paths (IMAP, Telegram, Feishu)
   - /btw — ask the agent a side question (delivered as an insight inquiry)
