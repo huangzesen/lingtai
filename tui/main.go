@@ -28,29 +28,9 @@ func main() {
 	if len(os.Args) > 1 {
 		arg := os.Args[1]
 		if arg == "--help" || arg == "-h" {
-			fmt.Println("Usage: lingtai-tui")
-			fmt.Println("       lingtai-tui purge [dir]")
-			fmt.Println("       lingtai-tui list [dir]")
-			fmt.Println("       lingtai-tui suspend [dir]")
-			fmt.Println("       lingtai-tui clean")
+			printWelcomeInfo()
 			fmt.Println()
-			fmt.Println("  (no args)    Launch TUI in current directory")
-			fmt.Println("  purge        Kill lingtai processes (all, or only those in <dir>)")
-			fmt.Println("  list         Show running lingtai processes (all, or only those in <dir>)")
-			fmt.Println("  suspend      Gracefully suspend agents via signal files (all, or those in <dir>)")
-			fmt.Println("  clean        Suspend agents in current directory, then remove .lingtai/")
-			fmt.Println()
-			// Show directories
-			home, _ := os.UserHomeDir()
-			globalDir := filepath.Join(home, ".lingtai-tui")
-			fmt.Printf("  Global config: %s\n", globalDir)
-			cwd, _ := os.Getwd()
-			localDir := filepath.Join(cwd, ".lingtai")
-			if _, err := os.Stat(localDir); err == nil {
-				fmt.Printf("  Working dir:   %s\n", localDir)
-			} else {
-				fmt.Printf("  Working dir:   (no .lingtai/ in %s)\n", cwd)
-			}
+			printHelp()
 			os.Exit(0)
 		}
 		if arg == "--version" || arg == "-v" || arg == "version" {
@@ -122,6 +102,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// First-time welcome — show once, write .firstrun sentinel
+	showWelcome(globalDir)
+
 	lingtaiDir := filepath.Join(projectDir, ".lingtai")
 
 	// If .lingtai/ doesn't exist, check for phantom processes before creating it
@@ -168,7 +151,8 @@ func main() {
 		if config.NeedsVenv(globalDir) {
 			fmt.Println("Setting up Python environment...")
 			if err := config.EnsureVenv(globalDir); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+				fmt.Fprintf(os.Stderr, "error: %v\n", err)
+				os.Exit(1)
 			}
 		} else {
 			// Venv exists — check for lingtai upgrades
@@ -176,7 +160,10 @@ func main() {
 				fmt.Println("Upgraded lingtai to latest version.")
 			}
 		}
-		preset.Bootstrap(globalDir)
+		if err := preset.Bootstrap(globalDir); err != nil {
+			fmt.Fprintf(os.Stderr, "bootstrap error: %v\n", err)
+			os.Exit(1)
+		}
 		// Resolve human location in background (ipinfo.io, cached 1h)
 		humanDir := filepath.Join(lingtaiDir, "human")
 		go fs.UpdateHumanLocation(humanDir)
@@ -208,6 +195,72 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func printHelp() {
+	fmt.Println("Usage: lingtai-tui")
+	fmt.Println("       lingtai-tui purge [dir]")
+	fmt.Println("       lingtai-tui list [dir]")
+	fmt.Println("       lingtai-tui suspend [dir]")
+	fmt.Println("       lingtai-tui clean")
+	fmt.Println()
+	fmt.Println("  (no args)    Launch TUI in current directory")
+	fmt.Println("  purge        Kill all lingtai agent processes on this machine.")
+	fmt.Println("               Agents are autonomous — they keep running after you")
+	fmt.Println("               exit the TUI. Use purge when you need them all dead.")
+	fmt.Println("  list         Show running lingtai processes (all, or only those in <dir>)")
+	fmt.Println("  suspend      Gracefully suspend agents via signal files (all, or those in <dir>)")
+	fmt.Println("  clean        Suspend agents in current directory, then remove .lingtai/")
+	fmt.Println()
+	home, _ := os.UserHomeDir()
+	globalDir := filepath.Join(home, ".lingtai-tui")
+	fmt.Printf("  Global config: %s\n", globalDir)
+	cwd, _ := os.Getwd()
+	localDir := filepath.Join(cwd, ".lingtai")
+	if _, err := os.Stat(localDir); err == nil {
+		fmt.Printf("  Working dir:   %s\n", localDir)
+	} else {
+		fmt.Printf("  Working dir:   (no .lingtai/ in %s)\n", cwd)
+	}
+}
+
+func printWelcomeInfo() {
+	fmt.Println()
+	fmt.Println("  ╔══════════════════════════════════════════════════════════════╗")
+	fmt.Println("  ║               Welcome to 灵台 LingTai Agent                 ║")
+	fmt.Println("  ╚══════════════════════════════════════════════════════════════╝")
+	fmt.Println()
+	fmt.Println("  LingTai agents are autonomous digital beings. They have a")
+	fmt.Println("  heartbeat, a lifecycle, and they keep running after you exit")
+	fmt.Println("  this TUI. You talk to them via async email — not direct chat.")
+	fmt.Println()
+	fmt.Println("  Important:")
+	fmt.Println("    • Exiting the TUI does NOT stop agents — use /suspend all first")
+	fmt.Println("    • Agent files live in .lingtai/ — deleting it without stopping")
+	fmt.Println("      agents creates phantoms. Use lingtai-tui purge to clean up")
+	fmt.Println("    • Agents act on their own after idle timeout (soul flow)")
+}
+
+// showWelcome displays a one-time welcome page for first-time users.
+// Writes .firstrun sentinel to globalDir after confirmation.
+func showWelcome(globalDir string) {
+	sentinel := filepath.Join(globalDir, ".firstrun")
+	if _, err := os.Stat(sentinel); err == nil {
+		return // already seen
+	}
+
+	os.MkdirAll(globalDir, 0o755)
+
+	printWelcomeInfo()
+	fmt.Println()
+	fmt.Println("  Run lingtai-tui --help to see CLI commands anytime.")
+	fmt.Println()
+
+	fmt.Print("  Press Enter to continue...")
+	reader := bufio.NewReader(os.Stdin)
+	reader.ReadString('\n')
+
+	os.WriteFile(sentinel, []byte(time.Now().Format(time.RFC3339)+"\n"), 0o644)
 }
 
 func cleanMain() {
