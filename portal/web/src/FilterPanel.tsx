@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { Network } from './types';
+import React, { useState } from 'react';
+import type { Network, AgentNode } from './types';
 import type { Theme } from './theme';
 import { t } from './i18n';
 
@@ -255,6 +255,24 @@ export function FilterPanel({ network, filter, lang, theme, showNames, onToggleN
                 </div>
               );
             })}
+
+            {/* Avatar tree */}
+            <div style={{
+              borderTop: `1px solid ${theme.border}40`,
+              marginTop: 6,
+              padding: '8px 10px 4px',
+            }}>
+              <div style={{
+                fontSize: 9,
+                color: theme.textDim + '80',
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+                marginBottom: 6,
+              }}>
+                {t(lang, 'filter.tree')}
+              </div>
+              <AvatarTree network={network} theme={theme} />
+            </div>
           </>
         )}
 
@@ -313,4 +331,79 @@ export function FilterPanel({ network, filter, lang, theme, showNames, onToggleN
       </div>
     </div>
   );
+}
+
+/** Simple indented avatar tree showing parent→child relationships. */
+function AvatarTree({ network, theme }: { network: Network; theme: Theme }) {
+  const nodes = network.nodes || [];
+  const edges = network.avatar_edges || [];
+  if (nodes.length === 0) return null;
+
+  const nodeMap = new Map<string, AgentNode>();
+  for (const n of nodes) nodeMap.set(n.address, n);
+
+  // Build children map
+  const childrenOf = new Map<string, string[]>();
+  const childSet = new Set<string>();
+  for (const e of edges) {
+    const list = childrenOf.get(e.parent) || [];
+    list.push(e.child);
+    childrenOf.set(e.parent, list);
+    childSet.add(e.child);
+  }
+
+  // Roots: human first, then admins (no parent), then orphans
+  const human = nodes.find(n => n.is_human);
+  const admins = nodes.filter(n => !n.is_human && !childSet.has(n.address));
+  const roots: AgentNode[] = [];
+  if (human) roots.push(human);
+  for (const a of admins) roots.push(a);
+
+  function nameOf(n: AgentNode): string {
+    return n.nickname || n.agent_name || n.address.split('/').pop() || '?';
+  }
+
+  function colorOf(n: AgentNode): string {
+    if (n.is_human) return theme.text;
+    return theme.stateColors[(n.state || '').toUpperCase()] || theme.stateColors[''];
+  }
+
+  function renderNode(addr: string, prefix: string, isLast: boolean, isRoot: boolean): React.ReactElement[] {
+    const node = nodeMap.get(addr);
+    if (!node) return [];
+
+    const connector = isRoot ? '' : (isLast ? '└ ' : '├ ');
+    const color = colorOf(node);
+    const elements: React.ReactElement[] = [
+      <div key={addr} style={{
+        fontSize: 9,
+        lineHeight: '16px',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        color,
+      }}>
+        <span style={{ color: theme.textDim + '50' }}>{prefix}{connector}</span>
+        <span style={{
+          fontFamily: node.is_human ? 'inherit' : "'SF Mono', 'Menlo', monospace",
+        }}>
+          {nameOf(node)}
+        </span>
+      </div>,
+    ];
+
+    const children = childrenOf.get(addr) || [];
+    const childPrefix = isRoot ? '' : (prefix + (isLast ? '  ' : '│ '));
+    for (let i = 0; i < children.length; i++) {
+      elements.push(...renderNode(children[i], childPrefix, i === children.length - 1, false));
+    }
+    return elements;
+  }
+
+  const elements: React.ReactElement[] = [];
+  for (let i = 0; i < roots.length; i++) {
+    elements.push(...renderNode(roots[i].address, '', i === roots.length - 1, true));
+  }
+
+  return <>{elements}</>;
 }

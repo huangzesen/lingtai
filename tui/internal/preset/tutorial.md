@@ -264,11 +264,14 @@ Go through them in this order (skip any you don't have loaded):
 ### Lesson 10: TUI Commands
 List all TUI slash commands for the human, explaining each one. Key commands:
 - /help — show all commands (type / then press Tab to see available commands; /help itself is not a command)
-- /doctor — agent diagnostics panel (see all agents and their states)
+- /agents — properties and statistics of all agents in the network
+- /skills — view installed skills
+- /doctor — diagnose connection issues
 - /viz — open network visualization in browser
 - /addon — configure addon paths (IMAP, Telegram, Feishu) in init.json
-- /setup, /settings — agent and TUI configuration
-- /lang — cycle agent language (en/zh/wen)
+- /setup — agent setup (provider, model, capabilities, soul delay)
+- /settings — TUI preferences (nickname, greeting toggle, agent language)
+- /btw — ask the agent a side question (insight inquiry)
 - /sleep, /suspend, /cpr [all] — lifecycle control
 - /refresh — reload init.json (needed after /addon changes)
 - /clear — wipe conversation and restart

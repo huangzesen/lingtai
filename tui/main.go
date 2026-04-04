@@ -147,6 +147,9 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+	// Bundled skills — always populate (idempotent, skips existing files).
+	// Runs every startup so existing projects get new skills on TUI upgrade.
+	preset.PopulateBundledSkills(lingtaiDir)
 
 	// First run = no config.json in ~/.lingtai-tui/
 	configPath := filepath.Join(globalDir, "config.json")

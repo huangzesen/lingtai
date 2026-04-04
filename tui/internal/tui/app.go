@@ -161,6 +161,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.tutorial, cmd = a.tutorial.Update(msg)
 		case appViewNirvana:
 			a.nirvana, cmd = a.nirvana.Update(msg)
+		case appViewSkills:
+			a.skills, cmd = a.skills.Update(msg)
 		case appViewFirstRun:
 			a.firstRun, cmd = a.firstRun.Update(msg)
 		}

@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/bubbles/v2/viewport"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/glamour"
 
 	"github.com/anthropics/lingtai-tui/i18n"
 )
@@ -204,7 +205,8 @@ func (m *SkillsModel) syncViewportContent() {
 	if !m.ready {
 		return
 	}
-	m.viewport.SetContent(m.renderBody())
+	content := m.renderBody()
+	m.viewport.SetContent(content)
 }
 
 func (m SkillsModel) renderBody() string {
@@ -314,9 +316,25 @@ func (m SkillsModel) renderRight(maxW int) string {
 
 	sk := m.skills[m.cursor]
 
-	// Wrap body text to fit the right panel
-	wrapped := lipgloss.NewStyle().Width(maxW - 2).Render(sk.Body)
+	// Strip frontmatter before rendering
+	body := sk.Body
+	if loc := fmRe.FindStringIndex(body); loc != nil {
+		body = body[loc[1]:]
+	}
 
+	// Render markdown
+	r, err := glamour.NewTermRenderer(
+		glamour.WithStandardStyle(ActiveTheme().GlamourStyle),
+		glamour.WithWordWrap(maxW-2),
+	)
+	if err == nil {
+		if rendered, rerr := r.Render(body); rerr == nil {
+			return "\n" + rendered
+		}
+	}
+
+	// Fallback: plain text wrap
+	wrapped := lipgloss.NewStyle().Width(maxW - 2).Render(body)
 	var lines []string
 	lines = append(lines, "")
 	for _, line := range strings.Split(wrapped, "\n") {

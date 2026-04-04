@@ -13,6 +13,8 @@
   - /refresh — 硬重启器灵（重载 init.json）
   - /setup — 器灵设置（服务商、模型、能力、心流间隔）
   - /settings — TUI 偏好（别号、迎语开关、器灵言语）
+  - /agents — 观网络中诸灵之性与数
+  - /skills — 观已安技艺
   - /viz — 启网络可视化
   - /addon — 配附加路径（IMAP、Telegram、飞书）
   - /btw — 旁问器灵（以省问之式送达）

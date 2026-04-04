@@ -687,18 +687,19 @@ func (m MailModel) renderMessages(msgs []ChatMessage) string {
 			insightStyle := lipgloss.NewStyle().Foreground(ColorAccent)
 
 			if msg.Question != "" {
-				// /btw box: ┌─ btw ─── / question / ├─── / answer / └───
-				b.WriteString(insightStyle.Render("  ┌─ btw "+strings.Repeat("─", max(barWidth-8, 1))) + "\n")
-				wrapped := lipgloss.NewStyle().Width(max(wrapWidth-4, 10)).Render(msg.Question)
+				// /btw: full-width lines
+				fullBar := m.width - 2
+				b.WriteString(insightStyle.Render("  ─ btw "+strings.Repeat("─", max(fullBar-7, 1))) + "\n")
+				wrapped := lipgloss.NewStyle().Width(max(wrapWidth-2, 10)).Render(msg.Question)
 				for _, line := range strings.Split(wrapped, "\n") {
-					b.WriteString(insightStyle.Render("  │ "+line) + "\n")
+					b.WriteString(insightStyle.Render("  "+line) + "\n")
 				}
-				b.WriteString(insightStyle.Render("  ├"+strings.Repeat("─", max(barWidth-1, 1))) + "\n")
-				wrapped = lipgloss.NewStyle().Width(max(wrapWidth-4, 10)).Render(msg.Body)
+				b.WriteString(insightStyle.Render("  "+strings.Repeat("─", fullBar)) + "\n")
+				wrapped = lipgloss.NewStyle().Width(max(wrapWidth-2, 10)).Render(msg.Body)
 				for _, line := range strings.Split(wrapped, "\n") {
-					b.WriteString(insightStyle.Render("  │ "+line) + "\n")
+					b.WriteString(insightStyle.Render("  "+line) + "\n")
 				}
-				b.WriteString(insightStyle.Render("  └"+strings.Repeat("─", max(barWidth-1, 1))) + "\n")
+				b.WriteString(insightStyle.Render("  "+strings.Repeat("─", fullBar)) + "\n")
 			} else {
 				// auto-insight: ★ insight ─── / bullets / ───
 				b.WriteString(insightStyle.Render("  ★ insight "+strings.Repeat("─", max(barWidth-11, 1))) + "\n")
