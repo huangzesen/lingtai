@@ -72,7 +72,7 @@ Then show YOUR own directory (tutorial/) as a live example. Glob it and walk thr
 - mailbox/ — inbox, sent, archive
 - logs/, history/ — event log, conversation history
 - Signal files (.sleep, .suspend, .interrupt, .prompt) — how the TUI talks to the agent process
-After walking through the directory, invite the human to press **ctrl+p** to open the properties panel in the TUI. This shows the same agent info (identity, LLM config, capabilities, context usage, tokens) as a live dashboard. Let them explore it, then press ctrl+p again to close.
+After walking through the directory, invite the human to type **/agents** to open the properties panel in the TUI. This shows the same agent info (identity, LLM config, capabilities, context usage, tokens) as a live dashboard. Let them explore it, then press esc to close.
 Invite the human to ask about anything that looks interesting.
 
 ### Lesson 4: How Agents Are Born — init.json and `lingtai run`
@@ -184,7 +184,7 @@ Walk through the TUI-specific features that do not exist in `lingtai run` alone:
 - **Preset system** — saved agent templates at `~/.lingtai-tui/presets/`. The TUI generates init.json from these.
 - **Setup wizard** — first-run flow that asks for API keys, provider, model, and agent name.
 - **Slash commands** — `/doctor`, `/viz`, `/sleep`, `/suspend`, `/cpr`, `/refresh`, etc. These are TUI features that translate to signal files or process management under the hood.
-- **Keyboard shortcuts** — ctrl+o (verbose mode — cycles off → verbose → extended → off), ctrl+e (open external editor), ctrl+p (properties panel).
+- **Keyboard shortcuts** — ctrl+o (verbose mode — cycles off → verbose → extended → off), ctrl+e (open external editor).
 - **Text selection** — hold Option (macOS) or Alt (Linux/WSL) and drag to select text in the TUI. Use iTerm2 on macOS or Windows Terminal on WSL for best clipboard support.
 - **Network visualization** — `/viz` shows the agent network graph. This reads the filesystem (delegates/ledger.jsonl, mailbox/) to reconstruct the topology.
 - **Human directory** — the TUI creates `.lingtai/human/` with its own `.agent.json` and mailbox. The human is modeled as an agent peer.
@@ -231,7 +231,7 @@ Also explain **molt** and **stamina** here:
 #### Part 1: Avatar — the crown jewel
 Start with avatar. This is the most important and distinctive capability — demonstrate it first, before anything else. Walk the human through a full network explosion exercise:
   1. **Spawn 3 avatars**: explain that each avatar is a fully independent sub-agent with its own working directory, process, and LLM session. Give each a distinct name and personality. Spawn all three.
-  2. **Observe the network**: invite the human to press **ctrl+p** to see the avatars in the properties panel, and run **/viz** to see the network graph — they will see 3 new nodes connected to you (4 total including yourself).
+  2. **Observe the network**: invite the human to type **/agents** to see the avatars in the properties panel, and run **/viz** to see the network graph — they will see 3 new nodes connected to you (4 total including yourself).
   3. **Chain spawn — let it grow**: send an email to each of your 3 avatars asking them to each spawn 2 avatars of their own. Wait for them to do so. Then invite the human to check **/viz** again — the network should now have ~10 nodes: you → 3 avatars → 6 grandchildren. The graph gets wild fast.
   4. **Cross-network email storm**: ask all avatars to introduce themselves to each other via email. The grandchildren should email their siblings and cousins. Let this run for a moment — the human will see a flurry of emails flying across the network in /viz (edges lighting up) and /doctor (agents going ACTIVE).
   5. **Watch it get out of control**: this is the teaching moment. Explain explicitly: **this gets out of control VERY often.** Each agent is an independent process with its own LLM session, consuming tokens, sending emails, and potentially spawning more avatars. A network of 10 agents all emailing each other creates exponential activity. In real use, avatar chains can spiral — an agent spawns helpers, those helpers spawn their own helpers, and suddenly you have 50 processes burning through your API quota. This is why `/suspend-all` exists. It is the **emergency brake** and the single most important command for network management.
@@ -277,12 +277,12 @@ List all TUI slash commands for the human, explaining each one. Key commands:
 - /clear — wipe conversation and restart
 - /quit — quit lingtai-tui
 - /nirvana — wipe everything and start fresh (use with caution)
-- /tutorial — reset tutorial: wipes .lingtai/ and launches a fresh tutorial agent
+- /tutorial — a guide (菩提祖师) will walk you through the codebase and design concepts (resets working directory)
 Keyboard shortcuts: ctrl+o cycles through three verbose modes:
   - **off** (default): shows only human-agent email exchanges.
   - **verbose** (thinking): shows thinking process and diary entries, making the soul's inner voice visible.
   - **extended**: shows everything including tool calls, tool results, and raw text — for deep debugging.
-  ctrl+e opens external editor; ctrl+p opens properties panel. Invite the human to try ctrl+p to see agent properties.
+  ctrl+e opens external editor. /agents opens the properties panel — invite the human to try it.
 
 **Tip — terminal setup**: The TUI uses mouse events for scrolling, so normal click-and-drag to select text will not work. To select and copy text, hold **Option** (⌥) while clicking and dragging — this bypasses the TUI's mouse handling and lets the terminal handle selection as usual. The TUI also uses a rich color palette that may not render correctly in all terminals. For the best experience on macOS, we recommend **iTerm2** — it supports true color and handles Option-click selection properly.
 
