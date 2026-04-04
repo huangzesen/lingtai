@@ -24,7 +24,6 @@ Use the email tool to send a greeting to {{addr}}. In your greeting:
   - /quit — quit lingtai-tui
 - Mention keyboard shortcuts:
   - ctrl+o — toggle soul mode to see the agent's inner thoughts, text I/O, and tool calls
-  - ctrl+p — open properties panel to see agent status and token usage
   - ctrl+e — open external editor for composing longer messages
 - Mention they can set a nickname in /settings and you will address them by it
 - Mention this greeting can be turned off in /settings

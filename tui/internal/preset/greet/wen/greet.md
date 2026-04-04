@@ -24,7 +24,6 @@
   - /quit — 退出 lingtai-tui
 - 告以快捷键：
   - ctrl+o — 启灵台模式，窥器灵之心思、文字出入与器用
-  - ctrl+p — 观器灵之态与词元消耗
   - ctrl+e — 启外编以书长文
 - 告以可于 /settings 立别号，吾将以别号称之
 - 告以此迎可于 /settings 闭之
