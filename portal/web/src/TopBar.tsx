@@ -223,10 +223,11 @@ export function TopBar({ lang, theme, themeMode, vizMode, playing, replayLoading
             ...btnStyle(),
             opacity: rebuilding ? 0.5 : 1,
             cursor: rebuilding ? 'wait' : 'pointer',
+            userSelect: 'auto',
           }}
-          title="Rebuild replay cache"
+          title={rebuilding ? 'Rebuilding...' : 'Rebuild replay cache'}
         >
-          {rebuilding ? '⏳ rebuild...' : '⟳ rebuild'}
+          {rebuilding ? '⏳' : '⟳'}
         </button>
 
         <div style={{ width: 1, height: 16, background: theme.border, flexShrink: 0 }} />
