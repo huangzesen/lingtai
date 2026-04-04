@@ -174,6 +174,42 @@ CustomAgent(Agent)     — 汝之领域逻辑
 
 完整宣言见 [lingtai.ai](https://lingtai.ai)。
 
+## 外接诸器
+
+外接插件者，接通外部通讯之道也。可于 TUI 中以 `/addon` 配置，亦可于 `init.json` 中明示。
+
+### 飞书（Feishu/Lark）
+
+飞书插件以**长连接之术**接收讯息，**无需公网之址，无需回调之路**。
+
+飞书开放台配置：
+
+1. 于 [open.feishu.cn/app](https://open.feishu.cn/app) 创企业自建应用
+2. 启机器人之能（Bot → 功能 → 启用）
+3. 权限管理 → 加 `im:message`
+4. 事件订阅 → 选"以长连接接收事件" → 加 `im.message.receive_v1`
+5. 发布应用版本
+
+配置文件 `feishu.json`：
+
+```json
+{
+  "app_id_env": "FEISHU_APP_ID",
+  "app_secret_env": "FEISHU_APP_SECRET",
+  "allowed_users": ["ou_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"]
+}
+```
+
+于 `init.json` 中明示：
+
+```json
+{
+  "addons": {
+    "feishu": { "config": "feishu.json" }
+  }
+}
+```
+
 ## 许可
 
 MIT — [Zesen Huang](https://github.com/huangzesen), 2025–2026

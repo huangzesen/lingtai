@@ -176,6 +176,59 @@ One heart-mind (一心), myriad forms (万相).
 
 Read the full manifesto at [lingtai.ai](https://lingtai.ai).
 
+## Addons
+
+Addons connect external messaging channels. Configure with `/addon` in the TUI, or declare in `init.json`.
+
+### Feishu (Lark)
+
+The Feishu addon uses a **WebSocket long connection** — **no public IP, no webhook needed**.
+
+**Feishu Open Platform setup:**
+
+1. Go to [open.feishu.cn/app](https://open.feishu.cn/app) and create an **enterprise self-built app**
+2. Enable **Bot capability** (Bot → Features → Enable bot)
+3. Permissions → add: `im:message`
+4. Event Subscriptions → choose **"Use long connection to receive events"** → add `im.message.receive_v1`
+5. Publish the app version
+
+**`feishu.json` config example:**
+
+```json
+{
+  "app_id_env": "FEISHU_APP_ID",
+  "app_secret_env": "FEISHU_APP_SECRET",
+  "allowed_users": ["ou_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"]
+}
+```
+
+Add to your `.env` file:
+
+```
+FEISHU_APP_ID=cli_xxxxxxxxxxxxxxxxxxxxxxxxxx
+FEISHU_APP_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+**Declare in `init.json`:**
+
+```json
+{
+  "addons": {
+    "feishu": { "config": "feishu.json" }
+  }
+}
+```
+
+`allowed_users` is optional (Feishu open_ids, format `ou_xxx`). Leave empty to allow all users. After the first message, the agent records the sender's `from_open_id` in `feishu/default/contacts.json`.
+
+### IMAP Email
+
+IMAP addon for email. See [kernel docs](https://github.com/huangzesen/lingtai-kernel).
+
+### Telegram
+
+Telegram bot addon. See [kernel docs](https://github.com/huangzesen/lingtai-kernel).
+
 ## License
 
 MIT — [Zesen Huang](https://github.com/huangzesen), 2025–2026

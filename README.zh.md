@@ -176,6 +176,59 @@ CustomAgent(Agent)     — 你的领域逻辑
 
 完整宣言见 [lingtai.ai](https://lingtai.ai)。
 
+## 扩展插件（Addons）
+
+插件是连接外部通讯渠道的可选扩展。在 TUI 中输入 `/addon` 可配置，或在 `init.json` 中声明。
+
+### 飞书（Feishu/Lark）
+
+飞书插件使用 **WebSocket 长连接**接收消息，**无需公网 IP，无需 Webhook**。
+
+**飞书开放平台配置步骤：**
+
+1. 进入 [飞书开放平台](https://open.feishu.cn/app) 创建**企业自建应用**
+2. 启用**机器人能力**（机器人 → 功能 → 启用机器人）
+3. 权限管理 → 添加权限：`im:message`
+4. 事件订阅 → 选择**"使用长连接接收事件"** → 添加事件 `im.message.receive_v1`
+5. 发布应用版本
+
+**配置文件 `feishu.json` 示例：**
+
+```json
+{
+  "app_id_env": "FEISHU_APP_ID",
+  "app_secret_env": "FEISHU_APP_SECRET",
+  "allowed_users": ["ou_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"]
+}
+```
+
+在 `.env` 文件中添加：
+
+```
+FEISHU_APP_ID=cli_xxxxxxxxxxxxxxxxxxxxxxxxxx
+FEISHU_APP_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+**在 `init.json` 中声明插件：**
+
+```json
+{
+  "addons": {
+    "feishu": { "config": "feishu.json" }
+  }
+}
+```
+
+`allowed_users` 是可选字段（飞书 open_id，格式为 `ou_xxx`）——留空则允许所有用户发消息。向机器人发送第一条消息后，Agent 会在 `feishu/default/contacts.json` 中记录 `from_open_id`，可从中获取 open_id。
+
+### IMAP 邮件
+
+IMAP 插件支持邮件收发。配置方式见 [内核文档](https://github.com/huangzesen/lingtai-kernel)。
+
+### Telegram
+
+Telegram 插件支持 Bot API。配置方式见 [内核文档](https://github.com/huangzesen/lingtai-kernel)。
+
 ## 许可
 
 MIT — [Zesen Huang](https://github.com/huangzesen), 2025–2026
