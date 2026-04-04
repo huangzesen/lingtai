@@ -396,7 +396,6 @@ export default function App() {
         replayTime={replayTime}
         tapeRange={tapeRange}
         viewRange={viewRange}
-        edgeMode={edgeMode}
         showFilter={showFilter}
         onEnterReplay={enterReplay}
         onExitReplay={exitReplay}
@@ -405,7 +404,6 @@ export default function App() {
         onChangeSpeed={changeSpeed}
         onSetViewRange={changeViewRange}
         onToggleTheme={toggleTheme}
-        onToggleEdgeMode={() => setEdgeMode(m => m === 'avatar' ? 'email' : 'avatar')}
         onToggleFilter={() => setShowFilter(v => !v)}
       />
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
@@ -444,6 +442,8 @@ export default function App() {
         network={network}
         lang={lang}
         theme={theme}
+        edgeMode={edgeMode}
+        onToggleEdgeMode={() => setEdgeMode(m => m === 'avatar' ? 'email' : 'avatar')}
       />
     </div>
   );
