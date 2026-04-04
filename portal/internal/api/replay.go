@@ -112,8 +112,12 @@ func computeDelta(prev, curr *fs.Network) *FrameDelta {
 	}
 	for _, n := range prev.Nodes {
 		if !currNodes[n.Address] {
-			// Emit a tombstone with only the address filled in.
-			delta.Nodes = append(delta.Nodes, fs.AgentNode{Address: n.Address})
+			// Emit a tombstone: address + sentinel state so it can't be
+			// confused with a real node that has empty fields.
+			delta.Nodes = append(delta.Nodes, fs.AgentNode{
+				Address: n.Address,
+				State:   "__REMOVED__",
+			})
 			hasChange = true
 		}
 	}

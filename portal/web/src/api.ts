@@ -87,8 +87,7 @@ export function reconstructFrames(chunk: ReplayChunk): TapeFrame[] {
         if (rf.d.nodes) {
           const nodeMap = new Map(net.nodes.map(n => [n.address, n]));
           for (const n of rf.d.nodes) {
-            if (n.state === '' && n.agent_name === '' && !n.alive) {
-              // Removed node
+            if ((n.state as string) === '__REMOVED__') {
               nodeMap.delete(n.address);
             } else {
               nodeMap.set(n.address, n);
