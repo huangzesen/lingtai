@@ -26,31 +26,30 @@ Unix 风格的智能体操作系统。**思考**用任意 LLM。**通信**靠文
 
 ## 快速开始
 
-**macOS：**
 ```bash
-# 安装 Homebrew（如果尚未安装）
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
 brew install huangzesen/lingtai/lingtai-tui
 lingtai-tui
+```
+
+TUI 自动搞定一切——Python 运行时、依赖、首次启动自带引导教程。输入 `/tutorial` 可随时重新进入教程。**请使用深色终端**以获得最佳体验。选择文本：macOS 按 **Option**（iTerm2），Windows Terminal / Linux 按 **Shift**。Ctrl+E 打开外部编辑器。
+
+<details>
+<summary><b>首次安装？先装 Homebrew</b></summary>
+
+**macOS：**
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
 **Linux / WSL：**
 ```bash
-# 1. 安装 Homebrew（如果尚未安装）
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# 2. 安装构建工具（Linux 上 Homebrew 需要）
 sudo apt install build-essential
-
-# 3. 安装 lingtai-tui
-brew install huangzesen/lingtai/lingtai-tui
-lingtai-tui
 ```
 
-就这样。TUI 自动搞定一切——Python 运行时、依赖、首次启动自带引导教程。在 TUI 中输入 `/tutorial` 可随时重新进入教程。
+然后执行上面的 `brew install` 命令。
 
-> TUI 采用墨韵深色主题，**请使用深色终端背景**以获得最佳体验。选择文本：macOS 按住 **Option**（iTerm2），Windows Terminal / Linux 按住 **Shift**。Ctrl+V 粘贴。Ctrl+E 打开外部编辑器。
+</details>
 
 <details>
 <summary><b>从源码编译</b>（大陆用户推荐，需要 Go 1.24+）</summary>

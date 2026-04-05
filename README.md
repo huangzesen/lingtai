@@ -29,31 +29,30 @@
 
 ## Quick start
 
-**macOS:**
 ```bash
-# Install Homebrew if you don't have it
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
 brew install huangzesen/lingtai/lingtai-tui
 lingtai-tui
+```
+
+The TUI bootstraps everything — Python runtime, dependencies, and a guided tutorial on first launch. Type `/tutorial` anytime to revisit the guide. Use a **dark terminal** for the best experience. Text selection: hold **Option** (macOS/iTerm2) or **Shift** (Windows Terminal/Linux). Ctrl+E opens an external editor.
+
+<details>
+<summary><b>First time? Install Homebrew first</b></summary>
+
+**macOS:**
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
 **Linux / WSL:**
 ```bash
-# 1. Install Homebrew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# 2. Install build tools (required for Homebrew on Linux)
 sudo apt install build-essential
-
-# 3. Install lingtai-tui
-brew install huangzesen/lingtai/lingtai-tui
-lingtai-tui
 ```
 
-That's it. The TUI bootstraps everything — Python runtime, dependencies, and a guided tutorial on first launch. Type `/tutorial` in the TUI anytime to revisit the guide.
+Then run the `brew install` command above.
 
-> The TUI is a [Bubble Tea](https://github.com/charmbracelet/bubbletea) app designed for **dark terminals** — use a dark background for the best experience. Text selection: hold **Option** on macOS (iTerm2), **Shift** on Windows Terminal / Linux. Ctrl+V to paste. Ctrl+E opens an external editor.
+</details>
 
 <details>
 <summary><b>Build from source</b> (requires Go 1.24+)</summary>
