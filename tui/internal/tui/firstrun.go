@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -145,7 +146,7 @@ type FirstRunModel struct {
 	setupSteps   []string    // completed step i18n keys (shown with checkmarks)
 	progressCh   chan string // channel for progress updates
 	// Embedded key input for preset's provider
-	presetKeyInput    textinput.Model
+	presetKeyInput    textarea.Model
 	presetEndpointIn  textinput.Model   // base_url for custom provider
 	presetModelIn     textinput.Model   // model name for custom provider
 	presetNameIn      textinput.Model   // preset name for custom provider (separate from nameInput)
@@ -179,9 +180,15 @@ func NewFirstRunModel(baseDir, globalDir string, hasPresets bool) FirstRunModel 
 	di.CharLimit = 64
 	di.SetWidth(40)
 
-	pki := textinput.New()
-	pki.CharLimit = 128
+	pki := textarea.New()
+	pki.CharLimit = 512
 	pki.SetWidth(50)
+	pki.SetHeight(1)
+	pki.ShowLineNumbers = false
+	pki.Placeholder = "paste API key here"
+	pki.Prompt = ""
+	pki.KeyMap.InsertNewline.SetKeys() // no newlines — single line
+	pki.SetStyles(themedTextareaStyles())
 
 	pei := textinput.New() // endpoint input for custom provider
 	pei.CharLimit = 256
@@ -454,6 +461,8 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 		if msg.Text != "" {
 			if focused := m.focusedPresetKeyInput(); focused != nil {
 				focused.SetValue(msg.Text)
+			} else if ta := m.focusedPresetKeyTextarea(); ta != nil {
+				ta.SetValue(msg.Text)
 			}
 		}
 		return m, textinput.Blink
@@ -640,28 +649,33 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 			switch msg.String() {
 			case "ctrl+e":
 				// Open external editor for the currently focused text field
-				focused := m.focusedPresetKeyInput()
-				if focused != nil {
-					tmpFile, err := os.CreateTemp("", "lingtai-field-*.txt")
-					if err != nil {
-						return m, nil
-					}
-					tmpFile.WriteString(focused.Value())
-					tmpFile.Close()
-					editor := os.Getenv("EDITOR")
-					if editor == "" {
-						editor = "vim"
-					}
-					return m, tea.ExecProcess(exec.Command(editor, tmpFile.Name()), func(err error) tea.Msg {
-						if err != nil {
-							os.Remove(tmpFile.Name())
-							return nil
-						}
-						content, _ := os.ReadFile(tmpFile.Name())
-						os.Remove(tmpFile.Name())
-						return PresetKeyEditorDoneMsg{Text: strings.TrimSpace(string(content))}
-					})
+				var currentVal string
+				if focused := m.focusedPresetKeyInput(); focused != nil {
+					currentVal = focused.Value()
+				} else if ta := m.focusedPresetKeyTextarea(); ta != nil {
+					currentVal = ta.Value()
+				} else {
+					return m, nil
 				}
+				tmpFile, err := os.CreateTemp("", "lingtai-field-*.txt")
+				if err != nil {
+					return m, nil
+				}
+				tmpFile.WriteString(currentVal)
+				tmpFile.Close()
+				editor := os.Getenv("EDITOR")
+				if editor == "" {
+					editor = "vim"
+				}
+				return m, tea.ExecProcess(exec.Command(editor, tmpFile.Name()), func(err error) tea.Msg {
+					if err != nil {
+						os.Remove(tmpFile.Name())
+						return nil
+					}
+					content, _ := os.ReadFile(tmpFile.Name())
+					os.Remove(tmpFile.Name())
+					return PresetKeyEditorDoneMsg{Text: strings.TrimSpace(string(content))}
+				})
 			case "esc":
 				m.step = stepPickPreset
 				return m, nil
@@ -702,7 +716,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					return m, nil
 				}
 			case "enter":
-				key := m.presetKeyInput.Value()
+				key := strings.TrimSpace(m.presetKeyInput.Value())
 				var newPresetName string
 				if isCustom {
 					endpoint := m.presetEndpointIn.Value()
@@ -798,7 +812,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					case 4:
 						m.presetNameIn, cmd = m.presetNameIn.Update(msg)
 					}
-				} else if isMinimax && m.presetKeyFieldIdx == 1 {
+				} else if isMinimax && m.presetKeyFieldIdx == 2 {
 					m.presetKeyInput, cmd = m.presetKeyInput.Update(msg)
 				} else if !isMinimax {
 					m.presetKeyInput, cmd = m.presetKeyInput.Update(msg)
@@ -1078,6 +1092,8 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 		case stepPresetKey:
 			if focused := m.focusedPresetKeyInput(); focused != nil {
 				*focused, cmd = focused.Update(msg)
+			} else if ta := m.focusedPresetKeyTextarea(); ta != nil {
+				*ta, cmd = ta.Update(msg)
 			}
 		case stepAgentNameDir:
 			switch m.fieldIdx {
@@ -1714,10 +1730,7 @@ func (m *FirstRunModel) enterAgentNameDir(p preset.Preset) {
 // in the preset key step, or nil if the current field is a selector (no text).
 func (m *FirstRunModel) focusedPresetKeyInput() *textinput.Model {
 	if m.selectedProvider == "minimax" {
-		switch m.presetKeyFieldIdx {
-		case 1:
-			return &m.presetKeyInput
-		}
+		// minimax key field (idx 2) is a textarea — handled separately
 		return nil
 	}
 	switch m.presetKeyFieldIdx {
@@ -1726,9 +1739,24 @@ func (m *FirstRunModel) focusedPresetKeyInput() *textinput.Model {
 	case 2:
 		return &m.presetModelIn
 	case 3:
-		return &m.presetKeyInput
+		// key field is a textarea — handled separately
+		return nil
 	case 4:
 		return &m.presetNameIn
+	}
+	return nil
+}
+
+// focusedPresetKeyTextarea returns a pointer to presetKeyInput if it's focused.
+func (m *FirstRunModel) focusedPresetKeyTextarea() *textarea.Model {
+	if m.selectedProvider == "minimax" && m.presetKeyFieldIdx == 2 {
+		return &m.presetKeyInput
+	}
+	if m.selectedProvider != "minimax" && m.selectedProvider != "custom" {
+		return &m.presetKeyInput
+	}
+	if m.selectedProvider == "custom" && m.presetKeyFieldIdx == 3 {
+		return &m.presetKeyInput
 	}
 	return nil
 }
@@ -1740,9 +1768,9 @@ func (m *FirstRunModel) focusPresetKeyField() tea.Cmd {
 	m.presetNameIn.Blur()
 	if m.selectedProvider == "minimax" {
 		switch m.presetKeyFieldIdx {
-		case 0:
-			return nil // region selector — no text focus
-		case 1:
+		case 0, 1:
+			return nil // region/model selector — no text focus
+		case 2:
 			return m.presetKeyInput.Focus()
 		}
 		return nil
