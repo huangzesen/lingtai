@@ -394,14 +394,20 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 	case capCheckDoneMsg:
 		m.capLoading = false
 		m.capInfos = msg.infos
-		// Backfill capabilities not returned by check-caps so they're toggleable
+		p := m.presets[m.cursor]
+		provider := m.getPresetProvider(p)
+		// Backfill capabilities not returned by check-caps so they're toggleable.
+		// For custom/openrouter providers, skip MiniMax-only media capabilities
+		// (vision, talk, draw, compose, video) — they cause errors.
+		minimaxOnly := map[string]bool{"vision": true, "talk": true, "draw": true, "compose": true, "video": true}
 		for _, name := range m.capOrder {
 			if _, ok := m.capInfos[name]; !ok {
+				if provider == "custom" && minimaxOnly[name] {
+					continue
+				}
 				m.capInfos[name] = capInfo{}
 			}
 		}
-		p := m.presets[m.cursor]
-		provider := m.getPresetProvider(p)
 		presetCaps := make(map[string]bool)
 		if capsMap, ok := p.Manifest["capabilities"].(map[string]interface{}); ok {
 			for k := range capsMap {
