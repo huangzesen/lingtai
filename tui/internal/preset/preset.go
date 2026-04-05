@@ -218,6 +218,7 @@ func minimaxPreset() Preset {
 				"skills": e(),
 			},
 			"admin": map[string]interface{}{"karma": true},
+			"streaming": false,
 		},
 	}
 }
