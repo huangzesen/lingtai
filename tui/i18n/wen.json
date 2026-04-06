@@ -287,5 +287,16 @@
   "skills.none": "未寻得技艺",
   "skills.problems": "异",
   "skills.select_hint": "未安技艺",
-  "hints.skills_nav": "↑↓ 择  r 刷新  esc 返"
+  "hints.skills_nav": "↑↓ 择  r 刷新  esc 返",
+  "palette.projects": "览已籍之事",
+  "projects.title": "诸事",
+  "projects.registered": "已籍",
+  "projects.none": "未有已籍之事",
+  "projects.select_hint": "未有已籍之事",
+  "projects.section_agents": "器灵",
+  "projects.section_network": "云",
+  "projects.path": "径",
+  "projects.agents_count": "器灵",
+  "projects.current": "（此）",
+  "hints.projects_nav": "↑↓ 择  r 刷新  esc 返"
 }

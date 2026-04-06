@@ -287,5 +287,16 @@
   "skills.none": "未找到技能",
   "skills.problems": "问题",
   "skills.select_hint": "未安装技能",
-  "hints.skills_nav": "↑↓ 导航  r 刷新  esc 返回"
+  "hints.skills_nav": "↑↓ 导航  r 刷新  esc 返回",
+  "palette.projects": "浏览已注册项目",
+  "projects.title": "项目",
+  "projects.registered": "已注册",
+  "projects.none": "无已注册项目",
+  "projects.select_hint": "无已注册项目",
+  "projects.section_agents": "器灵",
+  "projects.section_network": "网络",
+  "projects.path": "路径",
+  "projects.agents_count": "器灵",
+  "projects.current": "（当前）",
+  "hints.projects_nav": "↑↓ 导航  r 刷新  esc 返回"
 }

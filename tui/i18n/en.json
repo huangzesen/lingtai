@@ -287,5 +287,16 @@
   "skills.none": "No skills found",
   "skills.problems": "Problems",
   "skills.select_hint": "No skills installed",
-  "hints.skills_nav": "↑↓ navigate  r refresh  esc back"
+  "hints.skills_nav": "↑↓ navigate  r refresh  esc back",
+  "palette.projects": "Browse registered projects",
+  "projects.title": "Projects",
+  "projects.registered": "Registered",
+  "projects.none": "No projects registered",
+  "projects.select_hint": "No projects registered",
+  "projects.section_agents": "Agents",
+  "projects.section_network": "Network",
+  "projects.path": "Path",
+  "projects.agents_count": "Agents",
+  "projects.current": "(current)",
+  "hints.projects_nav": "↑↓ navigate  r refresh  esc back"
 }
