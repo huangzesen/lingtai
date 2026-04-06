@@ -57,15 +57,7 @@ type App struct {
 }
 
 func humanAddr(projectDir string) string {
-	humanDir := filepath.Join(projectDir, "human")
-	node, err := fs.ReadAgent(humanDir)
-	if err != nil {
-		return humanDir
-	}
-	if node.Address != "" {
-		return node.Address
-	}
-	return humanDir
+	return "human"
 }
 
 // NewApp creates the root app model.

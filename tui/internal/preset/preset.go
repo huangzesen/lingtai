@@ -544,10 +544,9 @@ func GenerateInitJSONWithOpts(p Preset, agentName, dirName, lingtaiDir, globalDi
 	}
 
 	// Also create .agent.json manifest for the agent
-	absDir, _ := filepath.Abs(agentDir)
 	agentManifest := map[string]interface{}{
 		"agent_name": agentName,
-		"address":    absDir,
+		"address":    filepath.Base(agentDir),
 		"state":      "",
 		"admin": map[string]interface{}{
 			"karma":   opts.Karma,
@@ -623,10 +622,9 @@ func GenerateTutorialInit(p Preset, lingtaiDir, globalDir, lang string) error {
 	}
 
 	// Create .agent.json and mailbox dirs (same as GenerateInitJSONWithOpts)
-	absDir, _ := filepath.Abs(agentDir)
 	agentManifest := map[string]interface{}{
 		"agent_name": "guide",
-		"address":    absDir,
+		"address":    "tutorial",
 		"state":      "",
 		"admin":      map[string]interface{}{"karma": true},
 	}

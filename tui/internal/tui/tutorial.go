@@ -163,8 +163,7 @@ func (m TutorialConfirmModel) doTutorial() tea.Cmd {
 
 		// 5. Write initial .prompt
 		tutorialDir := filepath.Join(m.lingtaiDir, "tutorial")
-		humanAddr, _ := filepath.Abs(filepath.Join(m.lingtaiDir, "human"))
-		fs.WritePrompt(tutorialDir, "You have just been created as the tutorial guide. A new user is waiting. Send them a welcome email to introduce yourself and begin Lesson 1. The human's email address is: "+humanAddr)
+		fs.WritePrompt(tutorialDir, "You have just been created as the tutorial guide. A new user is waiting. Send them a welcome email to introduce yourself and begin Lesson 1. The human's email address is: human")
 
 		// 6. Mark tutorial done
 		config.MarkTutorialDone(m.globalDir)

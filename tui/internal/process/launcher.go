@@ -30,10 +30,9 @@ func InitProject(lingtaiDir string) error {
 			return fmt.Errorf("create %s: %w", sub, err)
 		}
 	}
-	absPath, _ := filepath.Abs(humanDir)
 	manifest := map[string]interface{}{
 		"agent_name": "human",
-		"address":    absPath,
+		"address":    "human",
 		"admin":      nil,
 	}
 	data, _ := json.MarshalIndent(manifest, "", "  ")

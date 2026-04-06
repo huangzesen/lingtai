@@ -15,7 +15,7 @@ func TestReadAgent_ValidManifest(t *testing.T) {
 
 	manifest := map[string]interface{}{
 		"agent_name":   "alice",
-		"address":      agentDir,
+		"address":      "alice",
 		"state":        "ACTIVE",
 		"admin":        map[string]interface{}{"karma": true},
 		"capabilities": []string{"file", "vision"},
@@ -49,7 +49,7 @@ func TestReadAgent_HumanAgent(t *testing.T) {
 	// admin: null → is_human = true
 	manifest := map[string]interface{}{
 		"agent_name": "human",
-		"address":    agentDir,
+		"address":    "human",
 		"admin":      nil,
 	}
 	data, _ := json.Marshal(manifest)
@@ -72,7 +72,7 @@ func TestReadAgent_MissingAdminKey(t *testing.T) {
 	// admin key absent → is_human = true
 	manifest := map[string]interface{}{
 		"agent_name": "human2",
-		"address":    agentDir,
+		"address":    "human2",
 	}
 	data, _ := json.Marshal(manifest)
 	os.WriteFile(filepath.Join(agentDir, ".agent.json"), data, 0o644)
