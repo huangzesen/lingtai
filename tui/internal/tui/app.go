@@ -30,6 +30,7 @@ const (
 	appViewTutorial
 	appViewNirvana
 	appViewSkills
+	appViewProjects
 )
 
 // App is the root Bubble Tea model. Routes between views via slash commands.
@@ -40,6 +41,7 @@ type App struct {
 	settings    SettingsModel
 	props       PropsModel
 	skills      SkillsModel
+	projects    ProjectsModel
 	firstRun    FirstRunModel
 	addon       AddonModel
 	doctor      DoctorModel
@@ -155,6 +157,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.nirvana, cmd = a.nirvana.Update(msg)
 		case appViewSkills:
 			a.skills, cmd = a.skills.Update(msg)
+		case appViewProjects:
+			a.projects, cmd = a.projects.Update(msg)
 		case appViewFirstRun:
 			a.firstRun, cmd = a.firstRun.Update(msg)
 		}
@@ -293,7 +297,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		case "q":
 			// Only quit if not in a text input context
-			if a.currentView != appViewSetup && a.currentView != appViewFirstRun && a.currentView != appViewMail && a.currentView != appViewProps && a.currentView != appViewAddon && a.currentView != appViewNirvana && a.currentView != appViewSkills {
+			if a.currentView != appViewSetup && a.currentView != appViewFirstRun && a.currentView != appViewMail && a.currentView != appViewProps && a.currentView != appViewAddon && a.currentView != appViewNirvana && a.currentView != appViewSkills && a.currentView != appViewProjects {
 				return a, tea.Quit
 			}
 		}
@@ -340,6 +344,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case appViewSkills:
 		updated, cmd := a.skills.Update(msg)
 		a.skills = updated
+		return a, cmd
+	case appViewProjects:
+		updated, cmd := a.projects.Update(msg)
+		a.projects = updated
 		return a, cmd
 	}
 
@@ -511,6 +519,10 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		a.currentView = appViewSkills
 		a.skills = NewSkillsModel(a.projectDir)
 		return a, tea.Batch(a.skills.Init(), a.sendSize())
+	case "projects":
+		a.currentView = appViewProjects
+		a.projects = NewProjectsModel(a.globalDir, a.projectDir)
+		return a, tea.Batch(a.projects.Init(), a.sendSize())
 	case "insights":
 		if a.orchDir != "" {
 			if !fs.IsAlive(a.orchDir, 3.0) {
@@ -609,6 +621,10 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 		a.currentView = appViewSkills
 		a.skills = NewSkillsModel(a.projectDir)
 		return a, tea.Batch(a.skills.Init(), a.sendSize())
+	case "projects":
+		a.currentView = appViewProjects
+		a.projects = NewProjectsModel(a.globalDir, a.projectDir)
+		return a, tea.Batch(a.projects.Init(), a.sendSize())
 	case "addon":
 		if a.orchDir != "" {
 			a.currentView = appViewAddon
@@ -648,6 +664,8 @@ func (a App) View() tea.View {
 		content = a.nirvana.View()
 	case appViewSkills:
 		content = a.skills.View()
+	case appViewProjects:
+		content = a.projects.View()
 	}
 	v := tea.NewView(content)
 	v.AltScreen = true
