@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -132,4 +133,43 @@ func AppendTopologyAt(path string, network fs.Network, unixMs int64) {
 	}
 	defer f.Close()
 	f.Write(line)
+}
+
+// NewProgressHandler serves GET /api/topology/progress.
+// Returns reconstruction progress as {"current":N,"total":M} or {} if not rebuilding.
+func NewProgressHandler(baseDir string) http.HandlerFunc {
+	progressPath := filepath.Join(baseDir, ".portal", "reconstruct.progress")
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		data, err := os.ReadFile(progressPath)
+		if err != nil {
+			w.Write([]byte("{}"))
+			return
+		}
+		parts := splitProgress(string(data))
+		if parts == nil {
+			w.Write([]byte("{}"))
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]int{"current": parts[0], "total": parts[1]})
+	}
+}
+
+func splitProgress(s string) []int {
+	for i, c := range s {
+		if c == '/' {
+			var cur, tot int
+			if _, err := fmt.Sscanf(s[:i], "%d", &cur); err != nil {
+				return nil
+			}
+			if _, err := fmt.Sscanf(s[i+1:], "%d", &tot); err != nil {
+				return nil
+			}
+			return []int{cur, tot}
+		}
+	}
+	return nil
 }

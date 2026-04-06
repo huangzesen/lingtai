@@ -30,6 +30,7 @@ func NewServer(baseDir string, staticFS fs.FS) *Server {
 	mux.Handle("/api/topology/manifest", NewManifestHandler(baseDir))
 	mux.Handle("/api/topology/chunk", NewChunkHandler(baseDir))
 	mux.Handle("/api/topology/rebuild", NewRebuildHandler(baseDir))
+	mux.Handle("/api/topology/progress", NewProgressHandler(baseDir))
 	if staticFS != nil {
 		mux.Handle("/", http.FileServer(http.FS(staticFS)))
 	}
@@ -71,16 +72,24 @@ func (s *Server) StartRecording(baseDir string) {
 
 		// Check if tape needs reconstruction
 		if needsReconstruction(topologyPath) {
+			progressPath := filepath.Join(baseDir, ".portal", "reconstruct.progress")
+			os.WriteFile(progressPath, []byte("0/0"), 0o644)
+
 			frames, err := agentfs.ReconstructTape(baseDir)
 			if err == nil && len(frames) > 0 {
 				os.MkdirAll(filepath.Dir(topologyPath), 0o755)
 				os.Remove(topologyPath)
 				// Clear replay chunk cache since tape was rebuilt
 				os.RemoveAll(filepath.Join(baseDir, ".portal", "replay"))
-				for _, f := range frames {
+				total := len(frames)
+				for i, f := range frames {
 					AppendTopologyAt(topologyPath, f.Net, f.T)
+					if i%100 == 0 || i == total-1 {
+						os.WriteFile(progressPath, []byte(fmt.Sprintf("%d/%d", i+1, total)), 0o644)
+					}
 				}
 			}
+			os.Remove(progressPath)
 		}
 
 		// Record current state immediately

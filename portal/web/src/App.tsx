@@ -235,12 +235,12 @@ export default function App() {
     setReplayLoading(true);
     setReplayProgress('');
 
-    // Poll manifest to show reconstruction progress
+    // Poll progress endpoint to show reconstruction status
     const pollId = setInterval(async () => {
       try {
-        const m = await fetchManifest();
-        const total = m.chunks?.reduce((s: number, c: ChunkInfo) => s + c.frames, 0) ?? 0;
-        if (total > 0) setReplayProgress(`${total}`);
+        const res = await fetch('/api/topology/progress');
+        const data = await res.json();
+        if (data.total > 0) setReplayProgress(`${data.current}/${data.total}`);
       } catch { /* ignore */ }
     }, 500);
 
