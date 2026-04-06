@@ -253,7 +253,7 @@ func (m ProjectsModel) renderRight(maxW int) string {
 
 	net := proj.Network
 	if len(net.Nodes) == 0 {
-		lines = append(lines, "  "+StyleFaint.Render("  (empty)"))
+		lines = append(lines, "  "+StyleFaint.Render("  ──"))
 	} else {
 		for _, n := range net.Nodes {
 			name := n.AgentName

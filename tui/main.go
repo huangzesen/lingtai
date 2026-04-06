@@ -136,7 +136,10 @@ func main() {
 		os.Exit(1)
 	}
 	// Register this project in the global registry for /projects discovery.
-	config.Register(globalDir, projectDir)
+	// Non-fatal: TUI works even if registration fails.
+	if err := config.Register(globalDir, projectDir); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to register project: %v\n", err)
+	}
 	// Bundled skills — always populate (idempotent, skips existing files).
 	// Runs every startup so existing projects get new skills on TUI upgrade.
 	preset.PopulateBundledSkills(lingtaiDir)

@@ -14,6 +14,10 @@ type registryEntry struct {
 
 // Register adds a project path to ~/.lingtai-tui/registry.jsonl (deduplicating).
 // projectDir is the parent of .lingtai/ (e.g. /home/user/my-project).
+//
+// Note: the read-check-append cycle is not atomic. Concurrent TUI launches could
+// produce duplicate entries. This is benign for a single-user tool; LoadAndPrune
+// will return duplicates but they won't cause errors.
 func Register(globalDir, projectDir string) error {
 	regPath := filepath.Join(globalDir, "registry.jsonl")
 
@@ -97,6 +101,9 @@ func rewriteRegistry(path string, paths []string) {
 		line, _ := json.Marshal(registryEntry{Path: p})
 		f.Write(append(line, '\n'))
 	}
-	f.Close()
+	if err := f.Close(); err != nil {
+		os.Remove(tmp)
+		return
+	}
 	os.Rename(tmp, path)
 }

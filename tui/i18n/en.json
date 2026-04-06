@@ -296,7 +296,6 @@
   "projects.section_agents": "Agents",
   "projects.section_network": "Network",
   "projects.path": "Path",
-  "projects.agents_count": "Agents",
   "projects.current": "(current)",
   "hints.projects_nav": "↑↓ navigate  r refresh  esc back"
 }
