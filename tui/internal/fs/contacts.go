@@ -22,11 +22,12 @@ func ReadContacts(dir string) []ContactEdge {
 	if err := json.Unmarshal(data, &records); err != nil {
 		return nil
 	}
+	baseDir := filepath.Dir(dir) // .lingtai/ directory
 	var edges []ContactEdge
 	for _, r := range records {
 		edges = append(edges, ContactEdge{
 			Owner:  dir,
-			Target: r.Address,
+			Target: ResolveAddress(r.Address, baseDir),
 			Name:   r.Name,
 		})
 	}

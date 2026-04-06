@@ -2,9 +2,11 @@ package fs
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func setupTestNetwork(t *testing.T) string {
@@ -20,6 +22,8 @@ func setupTestNetwork(t *testing.T) string {
 		"agent_name": "alice", "address": "alice", "state": "ACTIVE",
 		"admin": map[string]interface{}{"karma": true},
 	})
+	// Fresh heartbeat so IsAlive returns true and State is not overridden
+	writeHeartbeat(t, aliceDir)
 
 	// Ledger uses relative name
 	ledger := `{"event":"avatar","name":"bob","working_dir":"bob","ts":1000}`
@@ -30,11 +34,14 @@ func setupTestNetwork(t *testing.T) string {
 	data, _ := json.Marshal(contacts)
 	os.WriteFile(filepath.Join(aliceDir, "mailbox", "contacts.json"), data, 0o644)
 
-	os.MkdirAll(filepath.Join(base, "bob", "mailbox", "inbox"), 0o755)
-	writeJSON(t, filepath.Join(base, "bob", ".agent.json"), map[string]interface{}{
+	bobDir := filepath.Join(base, "bob")
+	os.MkdirAll(filepath.Join(bobDir, "mailbox", "inbox"), 0o755)
+	writeJSON(t, filepath.Join(bobDir, ".agent.json"), map[string]interface{}{
 		"agent_name": "bob", "address": "bob", "state": "IDLE",
 		"admin": map[string]interface{}{"karma": false},
 	})
+	// Fresh heartbeat so IsAlive returns true and State is not overridden
+	writeHeartbeat(t, bobDir)
 
 	humanDir := filepath.Join(base, "human")
 	os.MkdirAll(filepath.Join(humanDir, "mailbox", "inbox"), 0o755)
@@ -50,6 +57,12 @@ func writeJSON(t *testing.T, path string, v interface{}) {
 	os.MkdirAll(filepath.Dir(path), 0o755)
 	data, _ := json.Marshal(v)
 	os.WriteFile(path, data, 0o644)
+}
+
+func writeHeartbeat(t *testing.T, dir string) {
+	t.Helper()
+	content := fmt.Sprintf("%d", time.Now().Unix())
+	os.WriteFile(filepath.Join(dir, ".agent.heartbeat"), []byte(content), 0o644)
 }
 
 func TestBuildNetwork(t *testing.T) {

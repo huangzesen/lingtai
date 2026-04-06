@@ -22,6 +22,8 @@ func ReadLedger(dir string) ([]AvatarEdge, []string) {
 	}
 	defer f.Close()
 
+	baseDir := filepath.Dir(dir) // .lingtai/ directory
+
 	var edges []AvatarEdge
 	var childDirs []string
 	scanner := bufio.NewScanner(f)
@@ -33,12 +35,13 @@ func ReadLedger(dir string) ([]AvatarEdge, []string) {
 		if rec.Event != "avatar" || rec.WorkingDir == "" {
 			continue
 		}
+		resolved := ResolveAddress(rec.WorkingDir, baseDir)
 		edges = append(edges, AvatarEdge{
 			Parent:    dir,
-			Child:     rec.WorkingDir,
+			Child:     resolved,
 			ChildName: rec.Name,
 		})
-		childDirs = append(childDirs, rec.WorkingDir)
+		childDirs = append(childDirs, resolved)
 	}
 	return edges, childDirs
 }
