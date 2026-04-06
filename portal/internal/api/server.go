@@ -72,6 +72,7 @@ func (s *Server) StartRecording(baseDir string) {
 
 		// Check if tape needs reconstruction
 		if needsReconstruction(topologyPath) {
+			replayDir := filepath.Join(baseDir, ".portal", "replay", "chunks")
 			progressPath := filepath.Join(baseDir, ".portal", "reconstruct.progress")
 			os.WriteFile(progressPath, []byte("0/0"), 0o644)
 
@@ -80,25 +81,59 @@ func (s *Server) StartRecording(baseDir string) {
 				os.MkdirAll(filepath.Dir(topologyPath), 0o755)
 				os.Remove(topologyPath)
 				os.RemoveAll(filepath.Join(baseDir, ".portal", "replay"))
+				os.MkdirAll(replayDir, 0o755)
 
-				// Write all frames in one pass — no mutex, bulk write
+				// Stream frames directly into hourly compressed chunks
 				total := len(frames)
-				tmpPath := topologyPath + ".tmp"
-				f, _ := os.Create(tmpPath)
-				if f != nil {
-					for i, frame := range frames {
-						line, err := json.Marshal(frame)
-						if err == nil {
-							f.Write(line)
-							f.Write([]byte("\n"))
-						}
-						if i%500 == 0 || i == total-1 {
-							f.Sync()
-							os.WriteFile(progressPath, []byte(fmt.Sprintf("%d/%d", i+1, total)), 0o644)
-						}
+				var currentHour int64 = -1
+				var hourFrames []agentfs.TapeFrame
+				var chunks []ChunkInfo
+
+				flushHour := func() {
+					if len(hourFrames) == 0 {
+						return
 					}
-					f.Close()
-					os.Rename(tmpPath, topologyPath)
+					info := ChunkInfo{
+						Start:  currentHour,
+						End:    hourFrames[len(hourFrames)-1].T,
+						Frames: len(hourFrames),
+					}
+					chunks = append(chunks, info)
+					cachePath := filepath.Join(replayDir, fmt.Sprintf("%d.json.gz", currentHour))
+					chunk := deltaEncode(hourFrames, defaultKeyframeInterval)
+					writeChunkCache(cachePath, chunk)
+					hourFrames = nil
+				}
+
+				for i, f := range frames {
+					bucket := hourBucket(f.T)
+					if bucket != currentHour {
+						flushHour()
+						currentHour = bucket
+					}
+					hourFrames = append(hourFrames, f)
+					if i%1000 == 0 || i == total-1 {
+						os.WriteFile(progressPath, []byte(fmt.Sprintf("%d/%d", i+1, total)), 0o644)
+					}
+				}
+				flushHour()
+
+				// Write minimal topology.jsonl with just the last frame (for live recording to append to)
+				if len(frames) > 0 {
+					lastFrame := frames[len(frames)-1]
+					line, _ := json.Marshal(lastFrame)
+					os.WriteFile(topologyPath, append(line, '\n'), 0o644)
+				}
+
+				// Write manifest cache
+				if len(chunks) > 0 {
+					manifest := ReplayManifest{
+						TapeStart: chunks[0].Start,
+						TapeEnd:   chunks[len(chunks)-1].End,
+						Chunks:    chunks,
+					}
+					mdata, _ := json.Marshal(manifest)
+					os.WriteFile(filepath.Join(replayDir, "manifest.json"), mdata, 0o644)
 				}
 			}
 			os.Remove(progressPath)
