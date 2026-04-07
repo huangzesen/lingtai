@@ -383,9 +383,6 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 					continue
 				}
 				if fs.IsAlive(agent.WorkingDir, 3.0) {
-					schedulesDir := filepath.Join(agent.WorkingDir, "mailbox", "schedules")
-					os.MkdirAll(schedulesDir, 0o755)
-					os.WriteFile(filepath.Join(schedulesDir, ".cancel"), []byte(""), 0o644)
 					os.WriteFile(filepath.Join(agent.WorkingDir, ".suspend"), []byte(""), 0o644)
 					count++
 				}

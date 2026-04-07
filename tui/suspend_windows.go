@@ -61,10 +61,6 @@ func suspendMain() {
 			continue
 		}
 
-		schedulesDir := filepath.Join(agentDir, "mailbox", "schedules")
-		os.MkdirAll(schedulesDir, 0o755)
-		os.WriteFile(filepath.Join(schedulesDir, ".cancel"), []byte{}, 0o644)
-
 		// Wait for the agent to actually stop before reporting success
 		fs.SuspendAndWait(agentDir, 5*time.Second)
 		if fs.IsAlive(agentDir, 2.0) {
