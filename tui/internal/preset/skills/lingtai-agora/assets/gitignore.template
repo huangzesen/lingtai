@@ -13,6 +13,12 @@
 .lingtai/*/logs/
 .lingtai/*/.git/
 
+# Project-level runtime state (event streams, caches) — regenerated on launch.
+# .portal/topology.jsonl can grow to hundreds of MB and leaks the timeline.
+# .lingtai/.skills/ and .lingtai/.addons/ are intentionally NOT ignored.
+.lingtai/.portal/
+.lingtai/.tui-asset/
+
 # ─────────────────────────────────────────────────────────────────────
 # Mail — only archive/ is versioned
 # Inbox/outbox/sent/schedules are transient working state. If you want

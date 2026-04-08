@@ -17,6 +17,17 @@ For each .lingtai/<agent>/ directory, deletes:
     .git/                         (per-agent time machine snapshots)
     mailbox/schedules/            (future-dated, machine-local)
 
+Also deletes project-level dot-dirs under .lingtai/ that hold publisher-
+local runtime state:
+    .lingtai/.portal/             (portal event stream + replay cache — can
+                                   be hundreds of MB, regenerated on launch)
+    .lingtai/.tui-asset/          (TUI-local cached assets, regenerated)
+
+Preserved (canonical, durable):
+    .lingtai/.skills/             (canonical skills + user-added skills)
+    .lingtai/.addons/             (addon config; secrets are env var refs,
+                                   not literal values — safe to ship)
+
 Mail folders (inbox/outbox/sent/) are left alone — archive_mail.py handles
 them in step 2.
 
@@ -57,6 +68,15 @@ EPHEMERAL_DIRS = [
 # Nested paths that aren't direct children of the agent dir.
 EPHEMERAL_NESTED = [
     "mailbox/schedules",
+]
+
+# Project-level dot-dirs under .lingtai/ itself (not per-agent). These
+# hold publisher-local runtime state and are regenerated on launch.
+# .lingtai/.skills/ and .lingtai/.addons/ are intentionally excluded —
+# they are canonical configuration that belongs in the published network.
+PROJECT_EPHEMERAL_DIRS = [
+    ".portal",
+    ".tui-asset",
 ]
 
 
@@ -134,6 +154,28 @@ def scrub_agent(agent_dir: Path, dry_run: bool) -> dict[str, int]:
     return stats
 
 
+def scrub_project_level(staging_dir: Path, dry_run: bool) -> int:
+    """
+    Delete project-level dot-dirs under .lingtai/ (e.g. .portal, .tui-asset).
+
+    These hold publisher-local runtime state — portal event streams, TUI
+    caches — that would bloat the staging copy (.portal/topology.jsonl can
+    reach hundreds of MB) and leak the publisher's timeline.
+
+    Returns the number of directories removed.
+    """
+    lingtai = staging_dir / ".lingtai"
+    removed = 0
+    for name in PROJECT_EPHEMERAL_DIRS:
+        target = lingtai / name
+        if not target.exists() and not target.is_symlink():
+            continue
+        print(f"project-level: .lingtai/{name}")
+        if remove_path(target, dry_run):
+            removed += 1
+    return removed
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -149,19 +191,21 @@ def main() -> int:
         return 1
 
     agents = find_agents(staging_dir)
-    if not agents:
-        print("no agents found — nothing to do")
-        return 0
 
-    totals = {"files": 0, "dirs": 0, "nested": 0}
+    totals = {"files": 0, "dirs": 0, "nested": 0, "project_dirs": 0}
     try:
         for agent in agents:
             stats = scrub_agent(agent, args.dry_run)
             for k, v in stats.items():
                 totals[k] += v
+        totals["project_dirs"] = scrub_project_level(staging_dir, args.dry_run)
     except OSError as e:
         print(f"error: I/O failure during processing: {e}", file=sys.stderr)
         return 2
+
+    if not agents and totals["project_dirs"] == 0:
+        print("no agents found and no project-level state to scrub — nothing to do")
+        return 0
 
     prefix = "[dry-run] " if args.dry_run else ""
     print(
@@ -169,6 +213,7 @@ def main() -> int:
         f"files={totals['files']} "
         f"dirs={totals['dirs']} "
         f"nested={totals['nested']} "
+        f"project_dirs={totals['project_dirs']} "
         f"(across {len(agents)} agents)"
     )
     return 0
