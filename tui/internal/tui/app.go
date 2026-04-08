@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -397,20 +398,30 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		if args == "all" {
 			agents, _ := fs.DiscoverAgents(a.projectDir)
 			count := 0
+			var failures []string
 			for _, agent := range agents {
 				if agent.IsHuman {
 					continue
 				}
 				if !fs.IsAlive(agent.WorkingDir, 3.0) && a.lingtaiCmd != "" {
-					process.LaunchAgent(a.lingtaiCmd, agent.WorkingDir)
 					count++
+					if _, err := process.LaunchAgent(a.lingtaiCmd, agent.WorkingDir); err != nil {
+						failures = append(failures, fmt.Sprintf("%s (%s)", filepath.Base(agent.WorkingDir), firstLine(err)))
+					}
 				}
 			}
-			a.mail.AddSystemMessage(i18n.TF("mail.cpr_all", count))
+			if len(failures) > 0 {
+				a.mail.AddSystemMessage(i18n.TF("mail.cpr_all_with_failures", count-len(failures), len(failures), strings.Join(failures, ", ")))
+			} else {
+				a.mail.AddSystemMessage(i18n.TF("mail.cpr_all", count))
+			}
 		} else if a.orchDir != "" && a.lingtaiCmd != "" {
 			if !fs.IsAlive(a.orchDir, 3.0) {
-				process.LaunchAgent(a.lingtaiCmd, a.orchDir)
-				a.mail.AddSystemMessage(i18n.TF("mail.cpr", a.orchName))
+				if _, err := process.LaunchAgent(a.lingtaiCmd, a.orchDir); err != nil {
+					a.mail.AddSystemMessage(i18n.TF("mail.launch_failed", firstLine(err)))
+				} else {
+					a.mail.AddSystemMessage(i18n.TF("mail.cpr", a.orchName))
+				}
 			} else {
 				a.mail.AddSystemMessage(i18n.T("mail.cpr_alive"))
 			}
@@ -575,6 +586,23 @@ func hardRefreshDir(lingtaiCmd, dir string) error {
 	os.Remove(suspendFile)
 	_, err := process.LaunchAgent(lingtaiCmd, dir)
 	return err
+}
+
+// firstLine returns the first line of err.Error(), trimmed of trailing
+// whitespace. Used to sanitize errors before they are rendered in the
+// single-line status bar — embedded newlines from wrapped subprocess
+// stderr (e.g., Python tracebacks captured by EnsureAddons) would
+// otherwise corrupt the layout by pushing the status bar across multiple
+// rows.
+func firstLine(err error) string {
+	if err == nil {
+		return ""
+	}
+	s := err.Error()
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = s[:i]
+	}
+	return strings.TrimRight(s, " \t\r")
 }
 
 // tryLock is defined in lock_unix.go / lock_windows.go
