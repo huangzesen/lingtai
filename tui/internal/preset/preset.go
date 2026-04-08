@@ -280,9 +280,16 @@ func Bootstrap(globalDir string) error {
 	return EnsureDefault()
 }
 
-// PopulateBundledSkills writes the bundled skills into the project's
-// .lingtai/.skills/ directory. Skips files that already exist so user
-// modifications are preserved.
+// PopulateBundledSkills writes the bundled (canonical) skills into the
+// project's .lingtai/.skills/ directory, overwriting any existing files
+// at the same path. Called on every TUI startup so canonical skills stay
+// in sync with the shipped binary.
+//
+// Only paths present in the embedded skills/ tree are touched. Files the
+// user has added under .lingtai/.skills/ that are NOT part of the bundled
+// set are left alone — that is how users add their own custom skills.
+// Edits to canonical skills are not preserved (by design: they are
+// tui-managed and refreshed on each launch).
 func PopulateBundledSkills(lingtaiDir string) {
 	skillsDir := filepath.Join(lingtaiDir, ".skills")
 	fs.WalkDir(skillsFS, "skills", func(path string, d fs.DirEntry, err error) error {

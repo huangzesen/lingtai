@@ -148,8 +148,10 @@ func main() {
 	if err := config.Register(globalDir, projectDir); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to register project: %v\n", err)
 	}
-	// Bundled skills — always populate (idempotent, skips existing files).
-	// Runs every startup so existing projects get new skills on TUI upgrade.
+	// Bundled (canonical) skills — refreshed every startup so existing
+	// projects pick up new or updated skills after a TUI upgrade. User
+	// custom skills under .lingtai/.skills/ are left untouched; only paths
+	// shipped in the embed FS get overwritten.
 	preset.PopulateBundledSkills(lingtaiDir)
 
 	// First run = no config.json in ~/.lingtai-tui/
