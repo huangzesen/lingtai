@@ -18,6 +18,9 @@
 # .addons/ holds the publisher's IMAP/telegram/etc config — recipients
 # configure their own after cloning.
 # .lingtai/.skills/ is intentionally NOT ignored (canonical config).
+# .lingtai/.agora is the agora publication marker — MUST ship so the
+# recipient's TUI recognizes this as a cloned network and runs the
+# rehydration flow instead of the fresh-network wizard.
 .lingtai/.portal/
 .lingtai/.tui-asset/
 .lingtai/.addons/

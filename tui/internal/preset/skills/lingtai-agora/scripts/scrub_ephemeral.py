@@ -28,6 +28,12 @@ specific state:
 Preserved (canonical, durable):
     .lingtai/.skills/             (canonical skills + user-added skills)
 
+Finally, writes an empty marker file at .lingtai/.agora. This is a
+contract with the TUI: on launch, if this marker exists and any agent
+is missing init.json, the TUI should run the rehydration flow (prompt
+the user for per-deployment config, prefilling agent names from each
+.agent.json) instead of the fresh-network wizard.
+
 Mail folders (inbox/outbox/sent/) are left alone — archive_mail.py handles
 them in step 2.
 
@@ -180,6 +186,24 @@ def scrub_project_level(staging_dir: Path, dry_run: bool) -> int:
     return removed
 
 
+def write_agora_marker(staging_dir: Path, dry_run: bool) -> None:
+    """
+    Write an empty .lingtai/.agora marker file.
+
+    This is a contract with the TUI: if this file exists on launch and
+    any agent is missing init.json, the TUI should run its rehydration
+    flow (prompt the user for per-deployment config, prefilling agent
+    names from each .agent.json blueprint) rather than the fresh-network
+    wizard. Presence is the entire signal — contents are irrelevant.
+    """
+    marker = staging_dir / ".lingtai" / ".agora"
+    if dry_run:
+        print(f"  [dry-run] would write marker: {marker}")
+        return
+    marker.touch()
+    print(f"marker: wrote {marker}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -203,6 +227,7 @@ def main() -> int:
             for k, v in stats.items():
                 totals[k] += v
         totals["project_dirs"] = scrub_project_level(staging_dir, args.dry_run)
+        write_agora_marker(staging_dir, args.dry_run)
     except OSError as e:
         print(f"error: I/O failure during processing: {e}", file=sys.stderr)
         return 2

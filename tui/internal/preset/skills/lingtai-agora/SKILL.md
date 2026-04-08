@@ -65,6 +65,8 @@ It also deletes project-level publisher-specific state under `.lingtai/` itself:
 
 `.lingtai/.skills/` is preserved — it holds canonical skills (bundled + user-added), which are part of the network's identity and belong in the published copy.
 
+Finally, the script writes an empty marker file at `.lingtai/.agora`. This is a contract with the recipient's TUI: when the TUI launches and sees this marker, it knows the network was published through agora and should run its rehydration flow (walk each `.agent.json` blueprint and prompt for missing per-deployment config) instead of the fresh-network wizard. The marker ships in the git repo — the canonical `.gitignore` explicitly does not ignore it.
+
 Report the totals to the human. If the script exits nonzero, stop and surface the error — do not proceed.
 
 ## Step 2: Process mail
