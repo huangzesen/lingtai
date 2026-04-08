@@ -467,13 +467,31 @@ func GenerateInitJSONWithOpts(p Preset, agentName, dirName, lingtaiDir, globalDi
 		// the agent's working_dir (<project>/.lingtai/<agent>/), so "../" escapes
 		// the agent dir and "/.addons/<name>/config.json" reaches the project-level
 		// shared addon config directory at <project>/.lingtai/.addons/.
-		addonsField := make(map[string]interface{}, len(opts.Addons))
+		//
+		// Filter: only wire an addon if its config.json already exists on disk.
+		// If a user selects an addon in the wizard but hasn't created the config
+		// file yet (via a setup skill, manual edit, or recipient-side setup
+		// after cloning), we "let it be" — the wizard selection is a no-op
+		// rather than producing a stale entry that makes the kernel emit
+		// "failed to load" system messages on every launch. Once the user
+		// creates the config later, they can re-run /setup to wire it up.
+		addonsField := make(map[string]interface{})
 		for _, name := range opts.Addons {
+			// Absolute path on disk: <lingtaiDir>/.addons/<name>/config.json.
+			// (lingtaiDir is already the .lingtai/ directory, so no leading
+			// ".lingtai/" — that's only in AddonConfigRelPath which is
+			// relative to the project root.)
+			absPath := filepath.Join(lingtaiDir, ".addons", name, "config.json")
+			if _, err := os.Stat(absPath); err != nil {
+				continue // config missing — skip silently
+			}
 			addonsField[name] = map[string]interface{}{
 				"config": AddonConfigPathFromAgent(name),
 			}
 		}
-		initJSON["addons"] = addonsField
+		if len(addonsField) > 0 {
+			initJSON["addons"] = addonsField
+		}
 	}
 
 	// Comment file — only if user specified one
