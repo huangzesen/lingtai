@@ -1,0 +1,5 @@
+{
+  "bot_token_env": "TELEGRAM_BOT_TOKEN",
+  "allowed_users": [123456789],
+  "poll_interval": 1.0
+}

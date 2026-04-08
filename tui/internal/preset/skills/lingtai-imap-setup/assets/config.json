@@ -1,0 +1,14 @@
+{
+  "accounts": [
+    {
+      "email_address": "agent@example.com",
+      "email_password_env": "IMAP_PASSWORD",
+      "imap_host": "imap.gmail.com",
+      "imap_port": 993,
+      "smtp_host": "smtp.gmail.com",
+      "smtp_port": 587,
+      "allowed_senders": ["human@example.com"],
+      "poll_interval": 30
+    }
+  ]
+}

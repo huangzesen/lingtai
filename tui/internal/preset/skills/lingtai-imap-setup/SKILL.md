@@ -1,14 +1,19 @@
+---
+name: lingtai-imap-setup
+description: Configure the IMAP email addon for this agent — read this when the human asks to set up email.
+version: 1.0.0
+---
+
 # IMAP Email Setup
 
 You are helping the human set up IMAP email for this agent. Your job is to **create the config file yourself** — do not just list the steps and ask the human to do it.
 
 ## Rules
 
-- **Find the .env file path** by reading your `init.json` — look for the `env_file` field. Secrets go there, never in config JSON.
-- **Config files go under** `~/.lingtai/.addons/imap/<account>/config.json` where `<account>` is the email address. Each account gets its own directory. Do NOT put config files in the agent's working directory.
-- **Never edit the example template** at `~/.lingtai/.addons/imap/example/config.json` — it is a reference, not a working config.
+- **Secrets go in .env, never in config JSON.** Read your `init.json` to find the `env_file` field, then append secrets there.
+- **Config files go under** `{agentDir}/addons/imap/<account>/config.json` — one directory per email account. Never put configs in the agent's root directory.
 - **Always use the `accounts` array format** — even for a single account. This makes adding more accounts later a simple append.
-- **Activation requires the human** to type `/addon` in the TUI, enter the config path, then `/refresh`. You cannot do this yourself.
+- **Activation:** after creating the config, tell the human to run `/refresh` in the TUI. You cannot activate addons yourself.
 
 ## What You Need From the Human
 
@@ -29,11 +34,11 @@ Once you have the email address and app password:
    ```
    For multiple accounts, use distinct env var names (e.g., `IMAP_PASSWORD_GMAIL`, `IMAP_PASSWORD_UCLA`).
 
-2. **Create the config file** at `~/.lingtai/.addons/imap/<email_address>/config.json`.
-   For example, if the email is `myagent@gmail.com`:
-   `~/.lingtai/.addons/imap/myagent@gmail.com/config.json`
+2. **Create the config file** at `{agentDir}/addons/imap/<email_address>/config.json`.
+   In init.json, reference it as a relative path: `"config": "addons/imap/<email_address>/config.json"`.
+   The path is resolved relative to the agent's working directory (where init.json lives).
 
-   Always use the `accounts` array format:
+   Example config (always use the `accounts` array format, even for a single account):
    ```json
    {
      "accounts": [
@@ -52,30 +57,10 @@ Once you have the email address and app password:
    - Outlook: `imap.outlook.com` / `smtp.outlook.com`
    - If no allowed_senders requested, omit the field entirely.
 
-   **To add another account later**, just append to the `accounts` array:
-   ```json
-   {
-     "accounts": [
-       {
-         "email_address": "agent@gmail.com",
-         "email_password_env": "IMAP_PASSWORD_GMAIL",
-         "imap_host": "imap.gmail.com",
-         "smtp_host": "smtp.gmail.com"
-       },
-       {
-         "email_address": "agent@ucla.edu",
-         "email_password_env": "IMAP_PASSWORD_UCLA",
-         "imap_host": "imap.gmail.com",
-         "smtp_host": "smtp.gmail.com"
-       }
-     ]
-   }
-   ```
+   **To add another account later**, just append to the `accounts` array.
 
-3. **Tell the human** the config is ready and give them the exact path. Ask them to:
-   - Type `/addon` in the TUI
-   - Enter the config path
-   - Then type `/refresh` to activate
+3. **Tell the human** the config is ready and ask them to run `/refresh` in the TUI to activate.
 
-## Reference
-Template with all fields and comments: `~/.lingtai/.addons/imap/example/config.json`
+## Config Reference
+
+See the example config at `skills/lingtai-imap-setup/assets/config.json` for a full reference of all available fields.

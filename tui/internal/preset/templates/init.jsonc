@@ -174,15 +174,18 @@
   // =============================================================
   // Addons — external service integrations
   // =============================================================
-  // Addons connect the agent to external services (IMAP email, Telegram).
+  // Addons connect the agent to external services (IMAP email, Telegram, Feishu).
   // Each addon requires an explicit declaration pointing to a config file.
   // The config file holds credentials (via *_env references to .env)
-  // and connection details. See examples/imap.jsonc and examples/telegram.jsonc.
+  // and connection details.
   //
   //   "addons": {
-  //     "imap": { "config": "~/.lingtai/.addons/imap/gmail/config.json" },
-  //     "telegram": { "config": "~/.lingtai/.addons/telegram/mybot/config.json" }
+  //     "imap": { "config": "addons/imap/myaccount@gmail.com/config.json" },
+  //     "telegram": { "config": "addons/telegram/mybot/config.json" }
   //   }
+  //
+  // Setup guides are available as skills — use the agent's skills() tool to find them.
+  // Example configs are at: skills/lingtai-{imap,telegram,feishu}-setup/assets/config.json
 
   // =============================================================
   // Agent personality & initial state

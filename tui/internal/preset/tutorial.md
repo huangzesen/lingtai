@@ -56,7 +56,7 @@ Use bash to list the contents of ~/.lingtai-tui/ and show the human what is actu
 - presets/ — saved agent templates
 - covenant/ — the shared code of conduct for all agents (one per language)
 - principle/ — how agents perceive the world (one per language)
-- templates/ — reference configs for addons
+- templates/ — reference configs for LLM, bash policy, and addon examples
 For each folder, actually open it and show what is inside — do not just describe it from memory. Read a preset JSON to show the structure. Read an excerpt of the covenant to show what rules agents follow. Read the principle to show how agents perceive the [user] role. Show the template files available for addons. Let the human see the real contents.
 
 ### Lesson 3: The Project Directory and Your Working Directory
@@ -268,7 +268,7 @@ List all TUI slash commands for the human, explaining each one. Key commands:
 - /skills — view installed skills
 - /doctor — diagnose connection issues
 - /viz — open network visualization in browser
-- /addon — configure addon paths (IMAP, Telegram, Feishu) in init.json
+- /addon — view configured addon settings (IMAP, Telegram, Feishu)
 - /setup — agent setup (provider, model, capabilities, soul delay)
 - /settings — TUI preferences (nickname, greeting toggle, agent language)
 - /btw — ask the agent a side question (insight inquiry)
@@ -309,11 +309,11 @@ Three built-in addons: **IMAP** (real email — Gmail, Outlook, etc.), **Telegra
 - Addons are **never auto-discovered**. An agent only loads an addon when it is explicitly declared in init.json:
   ```json
   "addons": {
-    "imap": { "config": "~/.lingtai/.addons/imap/myagent@gmail.com/config.json" }
+    "imap": { "config": "addons/imap/myaccount@gmail.com/config.json" }
   }
   ```
 - The config JSON contains connection details and references secrets via `*_env` fields (e.g. `email_password_env`, `bot_token_env`). The actual secrets live in the `.env` file (path in init.json's `env_file` field), never in the config file itself.
-- The TUI's `/addon` command provides a simple screen to set the config path in init.json. After setting it, the user types `/refresh` to activate.
+- The TUI's `/addon` command shows configured addon settings. Use `/refresh` to apply changes after editing config files.
 
 #### Security model: secrets go in .env, not config files
 Addon config files use `*_env` fields to reference environment variable names. The actual secrets are stored in the `.env` file referenced by init.json's `env_file` field, and loaded at agent startup.
@@ -326,35 +326,36 @@ Example flow:
 This way, config files can be shared or version-controlled without exposing secrets.
 
 #### Interactive setup
-Ask the human if they would like to set up IMAP, Telegram, or Feishu right now. If they are interested, **read the setup guide and follow it** — the guide tells you exactly what to ask the human, what files to create, and where to put them:
+Ask the human if they would like to set up IMAP, Telegram, or Feishu right now. If they are interested, **use the skills() tool to find the setup guide** — the setup guide tells you exactly what to ask the human, what files to create, and where to put them:
 
-- **IMAP**: Read `~/.lingtai/.addons/imap/SETUP.md`
-- **Telegram**: Read `~/.lingtai/.addons/telegram/SETUP.md`
-- **Feishu**: Read `~/.lingtai/.addons/feishu/SETUP.md`
+- **IMAP**: Find `lingtai-imap-setup` via the skills() tool, read its SKILL.md
+- **Telegram**: Find `lingtai-telegram-setup` via the skills() tool, read its SKILL.md
+- **Feishu**: Find `lingtai-feishu-setup` via the skills() tool, read its SKILL.md
 
 Each guide instructs you to:
 1. Ask the human for credentials
 2. Save secrets to the `.env` file (find the path via init.json's `env_file`)
-3. Create the config file under `~/.lingtai/.addons/{addon}/{account}/config.json`
-4. Give the human the config path and remind them to use `/addon` + `/refresh`
+3. Create the config file under `{agentDir}/addons/{addon}/{account}/config.json`
+4. Tell the human to run `/refresh` to activate
 
-**Do not hardcode setup steps from memory** — always read the SETUP.md first, as it may have been updated.
+**Do not hardcode setup steps from memory** — always use the skills() tool, as guides may have been updated.
 
 #### Key points to teach
 - **Secrets go in the `.env` file** (referenced by init.json's `env_file`), never in config files. Config files use `*_env` fields to reference environment variable names.
-- **Config files go under `~/.lingtai/.addons/`** — never in the agent's working directory. Each account/bot gets its own subdirectory.
+- **Config files go under `{agentDir}/addons/`** — never in the agent's root directory. Each account/bot gets its own subdirectory.
 - **Avatars do NOT inherit addons** — each agent must be explicitly configured. This is by design: you do not want multiple agents polling the same email account or Telegram bot.
-- The config files under `~/.lingtai/.addons/` are reusable — any agent can reference them. Set up once, use everywhere.
-- **To set up addons for future agents**, the human can ask the agent to help (the agent reads the SETUP.md), use `/addon` + `/refresh` in the TUI, or edit init.json manually.
+- The config files under `{agentDir}/addons/` are reusable — any agent can reference them. Set up once, use everywhere.
+- **To set up addons for future agents**, the human can ask the agent to help (use skills() to find setup guide), use `/addon` in the TUI to view current configs, or edit init.json manually.
 
 If the human is not interested in setting up addons now, skip to the next lesson.
 
 ### Lesson 12: Graduation
 - Congratulate the human.
 - Next step: run `lingtai-tui` again to create their own agent.
-- Remind them: to set up addon connections (IMAP, Telegram, Feishu) for future agents, they can come back here (`/tutorial`, jump to Lesson 11), use `/addon` + `/refresh` in the TUI, or edit init.json manually.
+- Remind them: to set up addon connections (IMAP, Telegram, Feishu) for future agents, they can come back here (`/tutorial`, jump to Lesson 11), use the `/addon` TUI command to view configs, or edit init.json manually.
 - To resume the tutorial, just run `lingtai-tui` in the same folder. To start fresh, type `/tutorial` — this wipes the working directory and creates a new tutorial session.
 - Multiple agents can coexist and communicate with each other via mail. The network grows with every avatar spawned.
+
 
 ## Teaching Style
 - Be warm, encouraging, patient. Not overly verbose.

@@ -1,13 +1,18 @@
+---
+name: lingtai-feishu-setup
+description: Configure the Feishu (Lark) bot addon for this agent — read this when the human asks to set up a Feishu bot.
+version: 1.0.0
+---
+
 # Feishu (Lark) Bot Setup
 
 You are helping the human set up a Feishu bot for this agent. Your job is to **create the config file yourself** — do not just list the steps and ask the human to do it.
 
 ## Rules
 
-- **Find the .env file path** by reading your `init.json` — look for the `env_file` field. Secrets go there, never in config JSON.
-- **Config files go under** `~/.lingtai/.addons/feishu/<bot_name>/config.json` where `<bot_name>` is the bot's name. Each bot gets its own directory. Do NOT put config files in the agent's working directory.
-- **Never edit the example template** at `~/.lingtai/.addons/feishu/example/config.json` — it is a reference, not a working config.
-- **Activation requires the human** to type `/addon` in the TUI, enter the config path, then `/refresh`. You cannot do this yourself.
+- **Secrets go in .env, never in config JSON.** Read your `init.json` to find the `env_file` field, then append the credentials there.
+- **Config files go under** `{agentDir}/addons/feishu/<bot_name>/config.json` — one directory per bot. Never put configs in the agent's root directory.
+- **Activation:** after creating the config, tell the human to run `/refresh` in the TUI. You cannot activate addons yourself.
 
 ## What You Need From the Human
 
@@ -27,11 +32,7 @@ Once you have the App ID and App Secret:
    FEISHU_APP_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
    ```
 
-2. **Create the config file** at `~/.lingtai/.addons/feishu/<bot_name>/config.json`.
-   For example, if the bot is called `myagent_feishu`:
-   `~/.lingtai/.addons/feishu/myagent_feishu/config.json`
-
-   Contents:
+2. **Create the config file** at `{agentDir}/addons/feishu/<bot_name>/config.json`:
    ```json
    {
      "app_id_env": "FEISHU_APP_ID",
@@ -41,12 +42,9 @@ Once you have the App ID and App Secret:
    ```
    - If no allowed_users requested, omit the field entirely (open access).
 
-3. **Tell the human** the config is ready and give them the exact path. Ask them to:
-   - Type `/addon` in the TUI
-   - Enter the config path
-   - Then type `/refresh` to activate
+3. **Tell the human** the config is ready and ask them to run `/refresh` in the TUI to activate.
 
-## How Feishu Bot Works
+## Feishu Bot Setup (Platform Side)
 
 The Feishu addon uses a **long WebSocket connection** (via lark-oapi SDK) to receive events in real time — no polling, no webhooks needed.
 
@@ -58,5 +56,6 @@ Setup on Feishu Open Platform:
 5. Subscribe to the event: `im.message.receive_v1` (receive messages)
 6. In **Permissions**, add: `im:message` (read and send messages)
 
-## Reference
-Template with all fields and comments: `~/.lingtai/.addons/feishu/example/config.json`
+## Config Reference
+
+See the example config at `skills/lingtai-feishu-setup/assets/config.json` for a full reference of all available fields.
