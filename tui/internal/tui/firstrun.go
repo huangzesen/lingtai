@@ -139,6 +139,7 @@ type FirstRunModel struct {
 	setupMode   bool // true when opened from /setup (skip welcome/bootstrap/tutorial, esc→mail)
 	setupOrchDir  string // current agent dir (setup mode only — overwrites init.json here)
 	setupOrchName string // current agent name (setup mode only — prefills name input)
+	setupLoadedAddonNames []string // addon names loaded from existing init.json (setup mode)
 	// Bootstrap state (venv + assets install)
 	setupDone    bool        // true when bootstrap goroutine finishes
 	setupErr     string      // non-empty if bootstrap failed
@@ -300,6 +301,23 @@ func NewSetupModeModel(baseDir, globalDir, orchDir, orchName string) FirstRunMod
 	m.setupOrchName = orchName
 	m.step = stepPickPreset
 	m.presets, _ = preset.List()
+
+	// Load existing addons from orchestrator's init.json so they are preserved
+	// when the user reaches the capabilities step (enterCapabilities resets addonSelected).
+	if orchDir != "" {
+		initPath := filepath.Join(orchDir, "init.json")
+		if data, err := os.ReadFile(initPath); err == nil {
+			var existing map[string]interface{}
+			if json.Unmarshal(data, &existing) == nil {
+				if addons, ok := existing["addons"].(map[string]interface{}); ok && addons != nil {
+					for name := range addons {
+						m.setupLoadedAddonNames = append(m.setupLoadedAddonNames, name)
+					}
+				}
+			}
+		}
+	}
+
 	return m
 }
 
@@ -1601,10 +1619,21 @@ func (m *FirstRunModel) enterCapabilities() tea.Cmd {
 	m.capOrder = AllCapabilities
 	m.capSelected = map[string]bool{"skills": true}
 	m.capInfos = nil
-	m.addonSelected = map[string]bool{"imap": true, "telegram": true, "feishu": true}
 	m.addonOrder = AllAddons
 	m.addonCursor = 0
 	m.inAddonZone = false
+
+	// In setup mode, preserve the addons already configured in the existing init.json.
+	// Otherwise (fresh first-run), default to all available addons selected.
+	if len(m.setupLoadedAddonNames) > 0 {
+		m.addonSelected = map[string]bool{}
+		for _, name := range m.setupLoadedAddonNames {
+			m.addonSelected[name] = true
+		}
+	} else {
+		m.addonSelected = map[string]bool{"imap": true, "telegram": true, "feishu": true}
+	}
+
 	return m.runCheckCaps()
 }
 

@@ -36,6 +36,7 @@ func BuildNetwork(baseDir string) (Network, error) {
 		avatarEdges = append(avatarEdges, edges...)
 		for _, cd := range childDirs {
 			if !nodeIndex[cd] {
+				cd = RelativizeAddress(cd, baseDir)
 				nodes = append(nodes, AgentNode{
 					Address:    cd,
 					AgentName:  "",

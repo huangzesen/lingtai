@@ -89,3 +89,18 @@ func TestBuildNetwork(t *testing.T) {
 		t.Errorf("idle = %d, want 1", net.Stats.Idle)
 	}
 }
+
+func TestBuildNetwork_AllAddressesRelative(t *testing.T) {
+	base := setupTestNetwork(t)
+
+	net, err := BuildNetwork(base)
+	if err != nil {
+		t.Fatalf("build network: %v", err)
+	}
+
+	for _, n := range net.Nodes {
+		if len(n.Address) > 0 && n.Address[0] == '/' {
+			t.Errorf("node %s has absolute address: %s", n.AgentName, n.Address)
+		}
+	}
+}

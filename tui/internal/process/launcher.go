@@ -73,10 +73,17 @@ func resolvePython(agentDir, fallbackCmd string) string {
 }
 
 // LaunchAgent starts an agent process. lingtaiCmd is the global fallback Python;
-// the agent's init.json venv_path is tried first.
-func LaunchAgent(lingtaiCmd, agentDir string) (*exec.Cmd, error) {
+// the agent's init.json venv_path is tried first. globalDir is used to resolve
+// the runtime venv for addon installation.
+func LaunchAgent(lingtaiCmd, agentDir, globalDir string) (*exec.Cmd, error) {
 	fs.CleanSignals(agentDir)
 	python := resolvePython(agentDir, lingtaiCmd)
+
+	// Install required addons before launch (auto-install on first run or refresh)
+	if err := config.EnsureAddons(globalDir, agentDir); err != nil {
+		return nil, fmt.Errorf("ensure addons: %w", err)
+	}
+
 	cmd := exec.Command(python, "-m", "lingtai", "run", agentDir)
 	// Redirect agent output to a log file instead of the TUI terminal
 	logPath := filepath.Join(agentDir, "logs")

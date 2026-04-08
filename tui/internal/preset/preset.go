@@ -517,6 +517,20 @@ func GenerateInitJSONWithOpts(p Preset, agentName, dirName, lingtaiDir, globalDi
 		soulFile = SoulFlowPath(globalDir, lang)
 	}
 
+	// Load existing init.json addons field so we preserve it across regens.
+	// This is critical for /setup: when the user changes non-addon settings,
+	// the existing addon configuration must not be dropped.
+	var existingAddons map[string]interface{}
+	existingInitPath := filepath.Join(agentDir, "init.json")
+	if existingData, err := os.ReadFile(existingInitPath); err == nil {
+		var existing map[string]interface{}
+		if json.Unmarshal(existingData, &existing) == nil {
+			if addons, ok := existing["addons"].(map[string]interface{}); ok && len(addons) > 0 {
+				existingAddons = addons
+			}
+		}
+	}
+
 	initJSON := map[string]interface{}{
 		"manifest":       manifest,
 		"covenant_file":  covenantFile,
@@ -526,6 +540,9 @@ func GenerateInitJSONWithOpts(p Preset, agentName, dirName, lingtaiDir, globalDi
 		"venv_path":      filepath.Join(globalDir, "runtime", "venv"),
 		"memory":         "",
 		"prompt":         "",
+	}
+	if existingAddons != nil {
+		initJSON["addons"] = existingAddons
 	}
 
 	// Comment file — only if user specified one

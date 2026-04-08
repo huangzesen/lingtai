@@ -270,6 +270,109 @@ func CheckTUIUpgrade(currentVersion string) string {
 	return ""
 }
 
+// EnsureAddons installs addon packages required by an agent before launch.
+// Reads init.json["addons"], detects dev vs release mode, and runs pip install.
+// Package name mapping: imap→lingtai-imap, telegram→lingtai-telegram, feishu→lingtai-feishu.
+func EnsureAddons(globalDir, agentDir string) error {
+	// Read agent's init.json to find declared addons
+	initPath := filepath.Join(agentDir, "init.json")
+	data, err := os.ReadFile(initPath)
+	if err != nil {
+		return nil // no init.json → no addons to install
+	}
+	var init map[string]interface{}
+	if err := json.Unmarshal(data, &init); err != nil {
+		return nil
+	}
+	addonsRaw, ok := init["addons"].(map[string]interface{})
+	if !ok || len(addonsRaw) == 0 {
+		return nil // no addons declared
+	}
+
+	// Build addon name → package name map (internal name → pip package name)
+	packageMap := map[string]string{
+		"imap":    "lingtai-imap",
+		"telegram": "lingtai-telegram",
+		"feishu":  "lingtai-feishu",
+	}
+
+	// Detect dev mode: both lingtai and lingtai-kernel exist as editable installs
+	home, _ := os.UserHomeDir()
+	kernelSrc := filepath.Join(home, "Documents", "GitHub", "lingtai-kernel")
+	lingtaiSrc := filepath.Join(home, "Documents", "GitHub", "lingtai")
+	_, hasKernel := os.Stat(filepath.Join(kernelSrc, "pyproject.toml"))
+	_, hasLingtai := os.Stat(filepath.Join(lingtaiSrc, "pyproject.toml"))
+	devMode := hasKernel == nil && hasLingtai == nil
+
+	venvPath := RuntimeVenvDir(globalDir)
+	uvCmd := findUV()
+
+	for addonName := range addonsRaw {
+		pkgName, hasMapping := packageMap[addonName]
+		if !hasMapping {
+			// No known mapping — skip (may be a third-party addon)
+			continue
+		}
+
+		// Skip if already installed
+		if pipShowInstalled(venvPath, pkgName, uvCmd) {
+			continue
+		}
+
+		var install *exec.Cmd
+		if devMode {
+			// In dev mode, install the addon's editable path from the local lingtai-kernel repo
+			addonSrc := filepath.Join(kernelSrc, "src", "addons", "lingtai_"+addonName)
+			if _, err := os.Stat(addonSrc); err != nil {
+				// Fallback: try lingtai-kernel/src/addons/lingtai_{name}
+				addonSrc = filepath.Join(kernelSrc, "addons", "lingtai_"+addonName)
+			}
+			if uvCmd != "" {
+				install = exec.Command(uvCmd, "pip", "install", "-e", addonSrc, "-p", venvPath)
+			} else {
+				pipCmd := pipBin(venvPath)
+				install = exec.Command(pipCmd, "install", "-e", addonSrc)
+			}
+		} else {
+			// Release mode: install from PyPI
+			if uvCmd != "" {
+				install = exec.Command(uvCmd, "pip", "install", pkgName, "-p", venvPath)
+			} else {
+				pipCmd := pipBin(venvPath)
+				install = exec.Command(pipCmd, "install", pkgName)
+			}
+		}
+
+		install.Stdout = os.Stdout
+		install.Stderr = os.Stderr
+		if err := install.Run(); err != nil {
+			return fmt.Errorf("ensure addons: pip install %s failed: %w", pkgName, err)
+		}
+	}
+
+	return nil
+}
+
+// pipShowInstalled returns true if the named package is already installed in the venv.
+func pipShowInstalled(venvPath, pkgName, uvCmd string) bool {
+	pipCmd := pipBin(venvPath)
+	var cmd *exec.Cmd
+	if uvCmd != "" {
+		cmd = exec.Command(uvCmd, "pip", "show", pkgName, "-p", venvPath)
+	} else {
+		cmd = exec.Command(pipCmd, "show", pkgName)
+	}
+	return cmd.Run() == nil
+}
+
+// pipBin returns the pip executable path for a venv.
+func pipBin(venvPath string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(venvPath, "Scripts", "pip.exe")
+	}
+	return filepath.Join(venvPath, "bin", "pip")
+}
+
 // CheckUpgrade compares installed lingtai version to PyPI latest.
 // Runs pip install --upgrade if a newer version is available.
 // Returns true if an upgrade was performed.

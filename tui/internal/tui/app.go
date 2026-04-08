@@ -203,7 +203,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Launch the agent
 		var launchErr string
 		if a.lingtaiCmd != "" {
-			if _, err := process.LaunchAgent(a.lingtaiCmd, a.orchDir); err != nil {
+			if _, err := process.LaunchAgent(a.lingtaiCmd, a.orchDir, a.globalDir); err != nil {
 				launchErr = i18n.TF("mail.launch_failed", err)
 			}
 		}
@@ -272,7 +272,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		orchDir := filepath.Join(a.projectDir, agentName)
 		var launchErr string
 		if a.lingtaiCmd != "" {
-			if _, err := process.LaunchAgent(a.lingtaiCmd, orchDir); err != nil {
+			if _, err := process.LaunchAgent(a.lingtaiCmd, orchDir, a.globalDir); err != nil {
 				launchErr = i18n.TF("mail.launch_failed", err)
 			}
 		}
@@ -402,14 +402,14 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 					continue
 				}
 				if !fs.IsAlive(agent.WorkingDir, 3.0) && a.lingtaiCmd != "" {
-					process.LaunchAgent(a.lingtaiCmd, agent.WorkingDir)
+					process.LaunchAgent(a.lingtaiCmd, agent.WorkingDir, a.globalDir)
 					count++
 				}
 			}
 			a.mail.AddSystemMessage(i18n.TF("mail.cpr_all", count))
 		} else if a.orchDir != "" && a.lingtaiCmd != "" {
 			if !fs.IsAlive(a.orchDir, 3.0) {
-				process.LaunchAgent(a.lingtaiCmd, a.orchDir)
+				process.LaunchAgent(a.lingtaiCmd, a.orchDir, a.globalDir)
 				a.mail.AddSystemMessage(i18n.TF("mail.cpr", a.orchName))
 			} else {
 				a.mail.AddSystemMessage(i18n.T("mail.cpr_alive"))
@@ -438,7 +438,7 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 				// Wipe conversation history (token ledger is preserved)
 				os.Remove(filepath.Join(a.orchDir, "history", "chat_history.jsonl"))
 				// Relaunch with clean context
-				process.LaunchAgent(a.lingtaiCmd, a.orchDir)
+				process.LaunchAgent(a.lingtaiCmd, a.orchDir, a.globalDir)
 				return refreshDoneMsg{}
 			}
 		}
@@ -455,7 +455,7 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 					if agent.IsHuman {
 						continue
 					}
-					hardRefreshDir(lingtaiCmd, agent.WorkingDir)
+					hardRefreshDir(lingtaiCmd, agent.WorkingDir, projectDir)
 					count++
 				}
 				return refreshAllDoneMsg{count: count}
@@ -554,11 +554,11 @@ func (a *App) hardRefresh() {
 	if a.orchDir == "" || a.lingtaiCmd == "" {
 		return
 	}
-	hardRefreshDir(a.lingtaiCmd, a.orchDir)
+	hardRefreshDir(a.lingtaiCmd, a.orchDir, a.globalDir)
 }
 
 // hardRefreshDir suspends the agent in the given directory and relaunches it.
-func hardRefreshDir(lingtaiCmd, dir string) {
+func hardRefreshDir(lingtaiCmd, dir, globalDir string) {
 	suspendFile := filepath.Join(dir, ".suspend")
 	os.WriteFile(suspendFile, []byte(""), 0o644)
 	lockFile := filepath.Join(dir, ".agent.lock")
@@ -569,7 +569,7 @@ func hardRefreshDir(lingtaiCmd, dir string) {
 		time.Sleep(250 * time.Millisecond)
 	}
 	os.Remove(suspendFile)
-	process.LaunchAgent(lingtaiCmd, dir)
+	process.LaunchAgent(lingtaiCmd, dir, globalDir)
 }
 
 // tryLock is defined in lock_unix.go / lock_windows.go
