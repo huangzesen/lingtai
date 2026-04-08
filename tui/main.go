@@ -193,18 +193,15 @@ func main() {
 		needsFirstRun = true
 	}
 
-	// If 本我 found but not alive, auto-launch it
-	if !needsFirstRun && len(orchestrators) == 1 {
-		orchDir := filepath.Join(lingtaiDir, orchestrators[0])
-		if !fs.IsAlive(orchDir, 2.0) {
-			lingtaiCmd := config.LingtaiCmd(globalDir)
-			if lingtaiCmd != "" {
-				if _, err := process.LaunchAgent(lingtaiCmd, orchDir); err != nil {
-					fmt.Fprintf(os.Stderr, "warning: failed to launch agent: %v\n", err)
-				}
-			}
-		}
-	}
+	// Do NOT auto-relaunch stopped agents on TUI startup. The TUI's job is
+	// to attach to whatever state the agent is in, not to second-guess why
+	// it's stopped. Causes of stopped-at-rest are externally indistinguishable
+	// (deliberate /suspend, crash, kill -9, machine reboot mid-run, …) and
+	// auto-revival overrides the user's last explicit decision (typically
+	// /suspend) without their consent. Users wake stopped agents explicitly
+	// via /cpr or /refresh from inside the TUI. The only place we launch on
+	// startup is the FirstRunDoneMsg handler in app.go, which fires when the
+	// user creates a new agent through the first-run wizard.
 
 	// Launch TUI
 	app := tui.NewApp(globalDir, lingtaiDir, needsFirstRun, orchestrators, tuiCfg)
