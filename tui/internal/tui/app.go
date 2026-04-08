@@ -549,16 +549,20 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 }
 
 // hardRefresh suspends the orchestrator and relaunches it.
-// Used by /rename and /refresh to force a full reload from init.json.
-func (a *App) hardRefresh() {
+// Used by /refresh to force a full reload from init.json.
+// Returns the error from process.LaunchAgent if the relaunch fails.
+func (a *App) hardRefresh() error {
 	if a.orchDir == "" || a.lingtaiCmd == "" {
-		return
+		return nil
 	}
-	hardRefreshDir(a.lingtaiCmd, a.orchDir)
+	return hardRefreshDir(a.lingtaiCmd, a.orchDir)
 }
 
 // hardRefreshDir suspends the agent in the given directory and relaunches it.
-func hardRefreshDir(lingtaiCmd, dir string) {
+// Returns the error from process.LaunchAgent if the relaunch fails. The
+// suspend/wait/unsuspend dance always runs to completion regardless of the
+// final launch outcome — only the launch error itself is propagated.
+func hardRefreshDir(lingtaiCmd, dir string) error {
 	suspendFile := filepath.Join(dir, ".suspend")
 	os.WriteFile(suspendFile, []byte(""), 0o644)
 	lockFile := filepath.Join(dir, ".agent.lock")
@@ -569,7 +573,8 @@ func hardRefreshDir(lingtaiCmd, dir string) {
 		time.Sleep(250 * time.Millisecond)
 	}
 	os.Remove(suspendFile)
-	process.LaunchAgent(lingtaiCmd, dir)
+	_, err := process.LaunchAgent(lingtaiCmd, dir)
+	return err
 }
 
 // tryLock is defined in lock_unix.go / lock_windows.go
