@@ -18,15 +18,15 @@ For each .lingtai/<agent>/ directory, deletes:
     mailbox/schedules/            (future-dated, machine-local)
 
 Also deletes project-level dot-dirs under .lingtai/ that hold publisher-
-local runtime state:
+specific state:
     .lingtai/.portal/             (portal event stream + replay cache — can
                                    be hundreds of MB, regenerated on launch)
     .lingtai/.tui-asset/          (TUI-local cached assets, regenerated)
+    .lingtai/.addons/             (publisher's addon config; recipients
+                                   configure their own addons after cloning)
 
 Preserved (canonical, durable):
     .lingtai/.skills/             (canonical skills + user-added skills)
-    .lingtai/.addons/             (addon config; secrets are env var refs,
-                                   not literal values — safe to ship)
 
 Mail folders (inbox/outbox/sent/) are left alone — archive_mail.py handles
 them in step 2.
@@ -71,12 +71,16 @@ EPHEMERAL_NESTED = [
 ]
 
 # Project-level dot-dirs under .lingtai/ itself (not per-agent). These
-# hold publisher-local runtime state and are regenerated on launch.
-# .lingtai/.skills/ and .lingtai/.addons/ are intentionally excluded —
-# they are canonical configuration that belongs in the published network.
+# hold publisher-specific state: portal event streams, TUI caches, and
+# addon configs (which point at the publisher's accounts and credential
+# env vars). Recipients set up their own addons after cloning.
+# .lingtai/.skills/ is intentionally excluded — it is canonical
+# configuration (bundled + user-added) that belongs in the published
+# network.
 PROJECT_EPHEMERAL_DIRS = [
     ".portal",
     ".tui-asset",
+    ".addons",
 ]
 
 

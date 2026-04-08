@@ -13,11 +13,14 @@
 .lingtai/*/logs/
 .lingtai/*/.git/
 
-# Project-level runtime state (event streams, caches) — regenerated on launch.
+# Project-level publisher-specific state.
 # .portal/topology.jsonl can grow to hundreds of MB and leaks the timeline.
-# .lingtai/.skills/ and .lingtai/.addons/ are intentionally NOT ignored.
+# .addons/ holds the publisher's IMAP/telegram/etc config — recipients
+# configure their own after cloning.
+# .lingtai/.skills/ is intentionally NOT ignored (canonical config).
 .lingtai/.portal/
 .lingtai/.tui-asset/
+.lingtai/.addons/
 
 # ─────────────────────────────────────────────────────────────────────
 # Mail — only archive/ is versioned

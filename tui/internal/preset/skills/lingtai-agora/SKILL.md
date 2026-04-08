@@ -43,11 +43,12 @@ This deletes, for every agent:
 - `.git/` (per-agent time machine — **must** be removed or the outer `git add .` in step 5 will silently skip agent contents)
 - `mailbox/schedules/`
 
-It also deletes project-level runtime state under `.lingtai/` itself:
+It also deletes project-level publisher-specific state under `.lingtai/` itself:
 - `.lingtai/.portal/` (portal event stream + replay cache — `topology.jsonl` can reach hundreds of MB and leaks the timeline)
 - `.lingtai/.tui-asset/` (TUI-local cache, regenerated on launch)
+- `.lingtai/.addons/` (publisher's addon config — points at publisher's IMAP accounts, telegram bots, etc. Recipients configure their own addons after cloning)
 
-`.lingtai/.skills/` and `.lingtai/.addons/` are preserved — they are canonical configuration, not runtime state. Addon configs reference secrets by env var name (e.g. `"email_password_env": "IMAP_PASSWORD"`), not by literal value, so they are safe to ship.
+`.lingtai/.skills/` is preserved — it holds canonical skills (bundled + user-added), which are part of the network's identity and belong in the published copy.
 
 Report the totals to the human. If the script exits nonzero, stop and surface the error — do not proceed.
 
