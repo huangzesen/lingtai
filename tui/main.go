@@ -302,6 +302,37 @@ func notifyLegacyAddonComments(lingtaiDir string) {
 	}
 }
 
+// isAgentDir returns true if entryName under lingtaiDir is a real agent
+// directory (has .agent.json AND .agent.json's admin field is not nil).
+//
+// The human/ placeholder directory has .agent.json with "admin": null,
+// which distinguishes it from all real agents (who have admin as a map,
+// possibly empty). This is the canonical rule used by both invariant
+// checks to avoid counting human as an agent.
+//
+// Returns (isAgent bool, manifest map, err error). manifest is the parsed
+// .agent.json body (useful to callers that need to read other fields like
+// the admin flags for orchestrator detection). If the file is unreadable
+// or unparseable, returns (false, nil, nil) — not an agent.
+func isAgentDir(lingtaiDir, entryName string) (bool, map[string]interface{}, error) {
+	manifestPath := filepath.Join(lingtaiDir, entryName, ".agent.json")
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return false, nil, nil
+	}
+	var manifest map[string]interface{}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return false, nil, nil
+	}
+	// admin == nil (missing or explicit null) means this is the human
+	// placeholder, not an agent.
+	adminRaw, hasAdmin := manifest["admin"]
+	if !hasAdmin || adminRaw == nil {
+		return false, manifest, nil
+	}
+	return true, manifest, nil
+}
+
 // checkInitJSONInvariant enforces the all-or-nothing rule for per-agent
 // init.json files. A healthy network is one of:
 //
@@ -318,7 +349,9 @@ func notifyLegacyAddonComments(lingtaiDir string) {
 // caller (main.go) routes into the rehydration wizard in that case.
 //
 // Dot-prefixed directories under .lingtai/ (.skills/, .portal/, .addons/,
-// .tui-asset/) are helper dirs, not agents, and are skipped.
+// .tui-asset/) are helper dirs and are skipped. The human/ placeholder
+// (which has .agent.json but with admin: null) is also skipped via
+// isAgentDir — it's not an agent, so it doesn't need init.json.
 func checkInitJSONInvariant(lingtaiDir string) (needsRehydration bool, err error) {
 	entries, err := os.ReadDir(lingtaiDir)
 	if err != nil {
@@ -329,12 +362,14 @@ func checkInitJSONInvariant(lingtaiDir string) (needsRehydration bool, err error
 		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			continue
 		}
-		agentDir := filepath.Join(lingtaiDir, entry.Name())
-		// Only consider directories that look like agents (have .agent.json).
-		// Skips "human/" and any other non-agent helper folders.
-		if _, err := os.Stat(filepath.Join(agentDir, ".agent.json")); err != nil {
+		isAgent, _, err := isAgentDir(lingtaiDir, entry.Name())
+		if err != nil {
+			return false, err
+		}
+		if !isAgent {
 			continue
 		}
+		agentDir := filepath.Join(lingtaiDir, entry.Name())
 		initPath := filepath.Join(agentDir, "init.json")
 		if _, err := os.Stat(initPath); err == nil {
 			withInit = append(withInit, entry.Name())
@@ -398,14 +433,12 @@ func checkOrchestratorInvariant(lingtaiDir string) error {
 		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			continue
 		}
-		manifestPath := filepath.Join(lingtaiDir, entry.Name(), ".agent.json")
-		data, err := os.ReadFile(manifestPath)
+		isAgent, manifest, err := isAgentDir(lingtaiDir, entry.Name())
 		if err != nil {
-			continue // not an agent dir (no .agent.json) — skip
+			return err
 		}
-		var manifest map[string]interface{}
-		if err := json.Unmarshal(data, &manifest); err != nil {
-			return fmt.Errorf("\nerror: corrupted network — cannot parse %s: %v\n\nTo recover, run:  lingtai-tui clean\n", manifestPath, err)
+		if !isAgent {
+			continue // not an agent (no .agent.json, or human placeholder)
 		}
 		allAgents = append(allAgents, entry.Name())
 		if tui.IsOrchestrator(manifest) {
@@ -484,13 +517,8 @@ func findOrchestratorBlueprint(lingtaiDir string) (dirName, agentName string) {
 		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			continue
 		}
-		manifestPath := filepath.Join(lingtaiDir, entry.Name(), ".agent.json")
-		data, err := os.ReadFile(manifestPath)
-		if err != nil {
-			continue
-		}
-		var manifest map[string]interface{}
-		if err := json.Unmarshal(data, &manifest); err != nil {
+		isAgent, manifest, err := isAgentDir(lingtaiDir, entry.Name())
+		if err != nil || !isAgent {
 			continue
 		}
 		if !tui.IsOrchestrator(manifest) {
