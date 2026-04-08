@@ -335,56 +335,6 @@ func AddonConfigPathFromAgent(addon string) string {
 	return filepath.Join("..", ".addons", addon, "config.json")
 }
 
-// WriteAddonComment generates comment.md in the agent's directory with skill pointers
-// for selected addons. If userCommentFile is non-empty and exists, its content is prepended.
-// Returns the path to the written file, or "" if no addons selected.
-func WriteAddonComment(agentDir, globalDir string, addons []string, userCommentFile string) string {
-	if len(addons) == 0 {
-		return ""
-	}
-
-	var b strings.Builder
-
-	// Prepend user's existing comment content if any
-	if userCommentFile != "" {
-		if data, err := os.ReadFile(userCommentFile); err == nil {
-			content := strings.TrimSpace(string(data))
-			if content != "" {
-				b.WriteString(content)
-				b.WriteString("\n\n")
-			}
-		}
-	}
-
-	b.WriteString("## Add-ons\n\n")
-	b.WriteString("The following add-ons are declared in init.json but may not have config files yet.\n")
-	b.WriteString("Each addon's config file lives at a **fixed path** — do not try to change it.\n")
-	b.WriteString("When the human asks to set one up, use the skills() tool to find the setup guide,\n")
-	b.WriteString("then read the SKILL.md and help them create the config at the path below.\n")
-	b.WriteString("If an addon fails to load, check that its config file exists at the expected path\n")
-	b.WriteString("and is valid JSON — report back to the human if something is wrong.\n")
-	b.WriteString("After creating or editing a config, remind the human to run /refresh to activate.\n\n")
-
-	for _, addon := range addons {
-		skillName := "lingtai-" + addon + "-setup"
-		skillPath := filepath.Join(globalDir, "skills", skillName, "SKILL.md")
-		configPath := AddonConfigRelPath(addon)
-		b.WriteString("- **" + addon + "**\n")
-		b.WriteString("  - config: `" + configPath + "` (relative to project root)\n")
-		b.WriteString("  - setup guide: `" + skillPath + "`\n")
-	}
-	b.WriteString("\n")
-
-	outPath := filepath.Join(agentDir, "system", "comment.md")
-	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
-		return ""
-	}
-	if err := os.WriteFile(outPath, []byte(b.String()), 0o644); err != nil {
-		return ""
-	}
-	return outPath
-}
-
 // DefaultPreset returns the first built-in preset (minimax).
 func DefaultPreset() Preset {
 	return minimaxPreset()

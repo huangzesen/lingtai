@@ -1038,12 +1038,6 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				if m.setupMode {
 					// Overwrite current agent's init.json in-place
 					dirName := filepath.Base(m.setupOrchDir)
-					if len(selectedAddons) > 0 {
-						commentPath := preset.WriteAddonComment(m.setupOrchDir, m.globalDir, selectedAddons, opts.CommentFile)
-						if commentPath != "" {
-							opts.CommentFile = commentPath
-						}
-					}
 					m.agentName = name
 					if err := preset.GenerateInitJSONWithOpts(p, name, dirName, m.baseDir, m.globalDir, opts); err != nil {
 						m.message = i18n.TF("firstrun.error", err)
@@ -1061,12 +1055,6 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				if _, err := os.Stat(orchDir); err == nil {
 					m.message = i18n.TF("firstrun.dir_exists", dirName)
 					return m, nil
-				}
-				if len(selectedAddons) > 0 {
-					commentPath := preset.WriteAddonComment(orchDir, m.globalDir, selectedAddons, opts.CommentFile)
-					if commentPath != "" {
-						opts.CommentFile = commentPath
-					}
 				}
 				if err := preset.GenerateInitJSONWithOpts(p, m.agentName, dirName, m.baseDir, m.globalDir, opts); err != nil {
 					m.message = i18n.TF("firstrun.error", err)
