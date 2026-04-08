@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────────────────────────────────
+# .lingtai runtime state — regenerated on every launch, never commit
+# ─────────────────────────────────────────────────────────────────────
+.lingtai/*/init.json
+.lingtai/*/.agent.lock
+.lingtai/*/.agent.heartbeat
+.lingtai/*/.agent.history
+.lingtai/*/.suspend
+.lingtai/*/.sleep
+.lingtai/*/.interrupt
+.lingtai/*/.cancel
+.lingtai/*/events.json
+.lingtai/*/logs/
+.lingtai/*/.git/
+
+# ─────────────────────────────────────────────────────────────────────
+# Mail — only archive/ is versioned
+# Inbox/outbox/sent/schedules are transient working state. If you want
+# something to persist across git operations, move it to archive/ first.
+# ─────────────────────────────────────────────────────────────────────
+.lingtai/*/mailbox/inbox/
+.lingtai/*/mailbox/outbox/
+.lingtai/*/mailbox/sent/
+.lingtai/*/mailbox/schedules/
+
+# ─────────────────────────────────────────────────────────────────────
+# Secrets — per-machine, never commit
+# ─────────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+id_rsa
+id_ed25519
+credentials.json
+
+# ─────────────────────────────────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ─────────────────────────────────────────────────────────────────────
+# Editors / OS
+# ─────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
