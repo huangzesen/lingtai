@@ -268,7 +268,7 @@ func populate(globalDir string, fsys embed.FS, root string) {
 
 
 // migrateAddonTemplates copies legacy ~/.lingtai-tui/templates/{imap,telegram}.jsonc
-// to ~/.lingtai-tui/addons/{addon}/example/config.json as plain JSON.
+// to ~/.lingtai/.addons/{addon}/example/config.json as plain JSON.
 // Skips if the target already exists.
 func migrateAddonTemplates(globalDir string) {
 	for _, addon := range []string{"imap", "telegram", "feishu"} {

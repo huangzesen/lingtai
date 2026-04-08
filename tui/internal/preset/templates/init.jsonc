@@ -180,8 +180,8 @@
   // and connection details. See examples/imap.jsonc and examples/telegram.jsonc.
   //
   //   "addons": {
-  //     "imap": { "config": "~/.lingtai-tui/addons/imap/gmail/config.json" },
-  //     "telegram": { "config": "~/.lingtai-tui/addons/telegram/mybot/config.json" }
+  //     "imap": { "config": "~/.lingtai/.addons/imap/gmail/config.json" },
+  //     "telegram": { "config": "~/.lingtai/.addons/telegram/mybot/config.json" }
   //   }
 
   // =============================================================

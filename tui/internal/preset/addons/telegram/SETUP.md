@@ -5,8 +5,8 @@ You are helping the human set up a Telegram bot for this agent. Your job is to *
 ## Rules
 
 - **Find the .env file path** by reading your `init.json` — look for the `env_file` field. Secrets go there, never in config JSON.
-- **Config files go under** `~/.lingtai-tui/addons/telegram/<bot_name>/config.json` where `<bot_name>` is the bot's username. Each bot gets its own directory. Do NOT put config files in the agent's working directory.
-- **Never edit the example template** at `~/.lingtai-tui/addons/telegram/example/config.json` — it is a reference, not a working config.
+- **Config files go under** `~/.lingtai/.addons/telegram/<bot_name>/config.json` where `<bot_name>` is the bot's username. Each bot gets its own directory. Do NOT put config files in the agent's working directory.
+- **Never edit the example template** at `~/.lingtai/.addons/telegram/example/config.json` — it is a reference, not a working config.
 - **Activation requires the human** to type `/addon` in the TUI, enter the config path, then `/refresh`. You cannot do this yourself.
 
 ## What You Need From the Human
@@ -25,9 +25,9 @@ Once you have the bot token:
    TELEGRAM_BOT_TOKEN=<the token they gave you>
    ```
 
-2. **Create the config file** at `~/.lingtai-tui/addons/telegram/<bot_name>/config.json`.
+2. **Create the config file** at `~/.lingtai/.addons/telegram/<bot_name>/config.json`.
    For example, if the bot is called `myagent_bot`:
-   `~/.lingtai-tui/addons/telegram/myagent_bot/config.json`
+   `~/.lingtai/.addons/telegram/myagent_bot/config.json`
 
    Contents:
    ```json
@@ -45,4 +45,4 @@ Once you have the bot token:
    - Then type `/refresh` to activate
 
 ## Reference
-Template with all fields and comments: `~/.lingtai-tui/addons/telegram/example/config.json`
+Template with all fields and comments: `~/.lingtai/.addons/telegram/example/config.json`

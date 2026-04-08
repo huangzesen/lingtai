@@ -5,8 +5,8 @@ You are helping the human set up a Feishu bot for this agent. Your job is to **c
 ## Rules
 
 - **Find the .env file path** by reading your `init.json` — look for the `env_file` field. Secrets go there, never in config JSON.
-- **Config files go under** `~/.lingtai-tui/addons/feishu/<bot_name>/config.json` where `<bot_name>` is the bot's name. Each bot gets its own directory. Do NOT put config files in the agent's working directory.
-- **Never edit the example template** at `~/.lingtai-tui/addons/feishu/example/config.json` — it is a reference, not a working config.
+- **Config files go under** `~/.lingtai/.addons/feishu/<bot_name>/config.json` where `<bot_name>` is the bot's name. Each bot gets its own directory. Do NOT put config files in the agent's working directory.
+- **Never edit the example template** at `~/.lingtai/.addons/feishu/example/config.json` — it is a reference, not a working config.
 - **Activation requires the human** to type `/addon` in the TUI, enter the config path, then `/refresh`. You cannot do this yourself.
 
 ## What You Need From the Human
@@ -27,9 +27,9 @@ Once you have the App ID and App Secret:
    FEISHU_APP_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
    ```
 
-2. **Create the config file** at `~/.lingtai-tui/addons/feishu/<bot_name>/config.json`.
+2. **Create the config file** at `~/.lingtai/.addons/feishu/<bot_name>/config.json`.
    For example, if the bot is called `myagent_feishu`:
-   `~/.lingtai-tui/addons/feishu/myagent_feishu/config.json`
+   `~/.lingtai/.addons/feishu/myagent_feishu/config.json`
 
    Contents:
    ```json
@@ -59,4 +59,4 @@ Setup on Feishu Open Platform:
 6. In **Permissions**, add: `im:message` (read and send messages)
 
 ## Reference
-Template with all fields and comments: `~/.lingtai-tui/addons/feishu/example/config.json`
+Template with all fields and comments: `~/.lingtai/.addons/feishu/example/config.json`

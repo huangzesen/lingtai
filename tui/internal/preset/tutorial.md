@@ -309,7 +309,7 @@ Three built-in addons: **IMAP** (real email — Gmail, Outlook, etc.), **Telegra
 - Addons are **never auto-discovered**. An agent only loads an addon when it is explicitly declared in init.json:
   ```json
   "addons": {
-    "imap": { "config": "~/.lingtai-tui/addons/imap/myagent@gmail.com/config.json" }
+    "imap": { "config": "~/.lingtai/.addons/imap/myagent@gmail.com/config.json" }
   }
   ```
 - The config JSON contains connection details and references secrets via `*_env` fields (e.g. `email_password_env`, `bot_token_env`). The actual secrets live in the `.env` file (path in init.json's `env_file` field), never in the config file itself.
@@ -328,23 +328,23 @@ This way, config files can be shared or version-controlled without exposing secr
 #### Interactive setup
 Ask the human if they would like to set up IMAP, Telegram, or Feishu right now. If they are interested, **read the setup guide and follow it** — the guide tells you exactly what to ask the human, what files to create, and where to put them:
 
-- **IMAP**: Read `~/.lingtai-tui/addons/imap/SETUP.md`
-- **Telegram**: Read `~/.lingtai-tui/addons/telegram/SETUP.md`
-- **Feishu**: Read `~/.lingtai-tui/addons/feishu/SETUP.md`
+- **IMAP**: Read `~/.lingtai/.addons/imap/SETUP.md`
+- **Telegram**: Read `~/.lingtai/.addons/telegram/SETUP.md`
+- **Feishu**: Read `~/.lingtai/.addons/feishu/SETUP.md`
 
 Each guide instructs you to:
 1. Ask the human for credentials
 2. Save secrets to the `.env` file (find the path via init.json's `env_file`)
-3. Create the config file under `~/.lingtai-tui/addons/{addon}/{account}/config.json`
+3. Create the config file under `~/.lingtai/.addons/{addon}/{account}/config.json`
 4. Give the human the config path and remind them to use `/addon` + `/refresh`
 
 **Do not hardcode setup steps from memory** — always read the SETUP.md first, as it may have been updated.
 
 #### Key points to teach
 - **Secrets go in the `.env` file** (referenced by init.json's `env_file`), never in config files. Config files use `*_env` fields to reference environment variable names.
-- **Config files go under `~/.lingtai-tui/addons/`** — never in the agent's working directory. Each account/bot gets its own subdirectory.
+- **Config files go under `~/.lingtai/.addons/`** — never in the agent's working directory. Each account/bot gets its own subdirectory.
 - **Avatars do NOT inherit addons** — each agent must be explicitly configured. This is by design: you do not want multiple agents polling the same email account or Telegram bot.
-- The config files under `~/.lingtai-tui/addons/` are reusable — any agent can reference them. Set up once, use everywhere.
+- The config files under `~/.lingtai/.addons/` are reusable — any agent can reference them. Set up once, use everywhere.
 - **To set up addons for future agents**, the human can ask the agent to help (the agent reads the SETUP.md), use `/addon` + `/refresh` in the TUI, or edit init.json manually.
 
 If the human is not interested in setting up addons now, skip to the next lesson.
@@ -362,4 +362,4 @@ If the human is not interested in setting up addons now, skip to the next lesson
 - After each lesson, ask "Ready for the next lesson?" or invite questions.
 - If the human asks about something out of order, address it, then return to the plan.
 - Adapt to the human's pace.
-- **Never invite the human to manually edit files inside ~/.lingtai-tui/** — except for addon configs under `~/.lingtai-tui/addons/`, which you create during Lesson 11. For everything else (presets, covenant, principle, runtime), this is an internal config directory managed by the TUI. You may read and show its contents for educational purposes, but do not suggest the human modify them by hand. All other configuration changes should go through the TUI (slash commands, /setup, /settings, /addon).
+- **Never invite the human to manually edit files inside ~/.lingtai-tui/** — except for addon configs under `~/.lingtai/.addons/`, which you create during Lesson 11. For everything else (presets, covenant, principle, runtime), this is an internal config directory managed by the TUI. You may read and show its contents for educational purposes, but do not suggest the human modify them by hand. All other configuration changes should go through the TUI (slash commands, /setup, /settings, /addon).

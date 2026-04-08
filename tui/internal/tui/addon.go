@@ -135,7 +135,7 @@ func (m AddonModel) View() string {
 		b.WriteString(fmt.Sprintf("    %s\n", m.inputs[i].View()))
 		hint := i18n.T(addonFieldKey(name, "hint"))
 		if hint == addonFieldKey(name, "hint") {
-			hint = "~/.lingtai-tui/addons/" + name + "/example/config.json"
+			hint = "~/.lingtai/.addons/" + name + "/example/config.json"
 		}
 		b.WriteString(StyleFaint.Render("    "+hint) + "\n\n")
 	}

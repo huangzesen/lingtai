@@ -5,8 +5,8 @@ You are helping the human set up IMAP email for this agent. Your job is to **cre
 ## Rules
 
 - **Find the .env file path** by reading your `init.json` — look for the `env_file` field. Secrets go there, never in config JSON.
-- **Config files go under** `~/.lingtai-tui/addons/imap/<account>/config.json` where `<account>` is the email address. Each account gets its own directory. Do NOT put config files in the agent's working directory.
-- **Never edit the example template** at `~/.lingtai-tui/addons/imap/example/config.json` — it is a reference, not a working config.
+- **Config files go under** `~/.lingtai/.addons/imap/<account>/config.json` where `<account>` is the email address. Each account gets its own directory. Do NOT put config files in the agent's working directory.
+- **Never edit the example template** at `~/.lingtai/.addons/imap/example/config.json` — it is a reference, not a working config.
 - **Always use the `accounts` array format** — even for a single account. This makes adding more accounts later a simple append.
 - **Activation requires the human** to type `/addon` in the TUI, enter the config path, then `/refresh`. You cannot do this yourself.
 
@@ -29,9 +29,9 @@ Once you have the email address and app password:
    ```
    For multiple accounts, use distinct env var names (e.g., `IMAP_PASSWORD_GMAIL`, `IMAP_PASSWORD_UCLA`).
 
-2. **Create the config file** at `~/.lingtai-tui/addons/imap/<email_address>/config.json`.
+2. **Create the config file** at `~/.lingtai/.addons/imap/<email_address>/config.json`.
    For example, if the email is `myagent@gmail.com`:
-   `~/.lingtai-tui/addons/imap/myagent@gmail.com/config.json`
+   `~/.lingtai/.addons/imap/myagent@gmail.com/config.json`
 
    Always use the `accounts` array format:
    ```json
@@ -78,4 +78,4 @@ Once you have the email address and app password:
    - Then type `/refresh` to activate
 
 ## Reference
-Template with all fields and comments: `~/.lingtai-tui/addons/imap/example/config.json`
+Template with all fields and comments: `~/.lingtai/.addons/imap/example/config.json`
