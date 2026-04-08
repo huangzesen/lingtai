@@ -207,6 +207,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case FirstRunDoneMsg:
 		// First-run complete: launch agent and switch to mail.
+		// Reload tuiConfig from disk so any language/settings the wizard
+		// just saved (via SaveTUIConfig) are reflected in the mail model.
+		// Without this, a.tuiConfig still holds the stale values captured
+		// at NewApp time, and the greet prompt would use the OLD language
+		// instead of the one the user just picked on the welcome page.
+		a.tuiConfig = config.LoadTUIConfig(a.globalDir)
 		// Ensure human folder exists before launching — InitProject is
 		// idempotent and prevents the race where the agent tries to
 		// send mail before the human mailbox is ready.
