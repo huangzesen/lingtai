@@ -274,7 +274,9 @@
   "projects.path": "路径",
   "projects.current": "（当前）",
   "hints.projects_nav": "↑↓ 导航  r 刷新  esc 返回",
-  "addon.readonly_desc": "查看已配置的扩展设置。编辑配置文件后输入 /refresh 以生效。",
-  "addon.not_configured": "未配置 — 使用 skills() 查找配置指单",
+  "addon.readonly_desc": "扩展配置文件位于 .lingtai/.addons/<扩展>/config.json —— 本项目所有 Agent 共享。直接编辑文件后 /refresh。",
+  "addon.not_configured": "未配置 —— 让器灵帮你设置（它有对应的 skill）",
+  "addon.parse_error": "配置文件存在，但 JSON 格式无效：%s",
+  "addon.footer_hint": "编辑配置文件后输入 /refresh 以生效",
   "addon.back": "返回"
 }

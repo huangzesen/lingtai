@@ -320,6 +320,21 @@ func GreetPath(globalDir, lang string) string {
 	return filepath.Join(globalDir, "greet", lang, "greet.md")
 }
 
+// AddonConfigRelPath returns the path (relative to the project root) where an
+// addon's config file should live. This is the one place the convention
+// ".lingtai/.addons/<addon>/config.json" is encoded.
+func AddonConfigRelPath(addon string) string {
+	return filepath.Join(".lingtai", ".addons", addon, "config.json")
+}
+
+// AddonConfigPathFromAgent returns the path (relative to an agent's working
+// directory, which is <project>/.lingtai/<agent>/) to an addon's config file.
+// Used in init.json's "addons.<name>.config" field — the kernel resolves these
+// paths against the agent's working_dir.
+func AddonConfigPathFromAgent(addon string) string {
+	return filepath.Join("..", ".addons", addon, "config.json")
+}
+
 // WriteAddonComment generates comment.md in the agent's directory with skill pointers
 // for selected addons. If userCommentFile is non-empty and exists, its content is prepended.
 // Returns the path to the written file, or "" if no addons selected.
@@ -342,15 +357,21 @@ func WriteAddonComment(agentDir, globalDir string, addons []string, userCommentF
 	}
 
 	b.WriteString("## Add-ons\n\n")
-	b.WriteString("The following add-ons are available but not yet configured.\n")
+	b.WriteString("The following add-ons are declared in init.json but may not have config files yet.\n")
+	b.WriteString("Each addon's config file lives at a **fixed path** — do not try to change it.\n")
 	b.WriteString("When the human asks to set one up, use the skills() tool to find the setup guide,\n")
-	b.WriteString("then read the SKILL.md and help them configure it.\n")
-	b.WriteString("After creating the config, remind the human to run /refresh to activate.\n\n")
+	b.WriteString("then read the SKILL.md and help them create the config at the path below.\n")
+	b.WriteString("If an addon fails to load, check that its config file exists at the expected path\n")
+	b.WriteString("and is valid JSON — report back to the human if something is wrong.\n")
+	b.WriteString("After creating or editing a config, remind the human to run /refresh to activate.\n\n")
 
 	for _, addon := range addons {
 		skillName := "lingtai-" + addon + "-setup"
 		skillPath := filepath.Join(globalDir, "skills", skillName, "SKILL.md")
-		b.WriteString("- " + addon + ": " + skillPath + "\n")
+		configPath := AddonConfigRelPath(addon)
+		b.WriteString("- **" + addon + "**\n")
+		b.WriteString("  - config: `" + configPath + "` (relative to project root)\n")
+		b.WriteString("  - setup guide: `" + skillPath + "`\n")
 	}
 	b.WriteString("\n")
 
@@ -371,17 +392,18 @@ func DefaultPreset() Preset {
 
 // AgentOpts holds per-agent configuration values set at creation time.
 type AgentOpts struct {
-	Language      string  // "en", "zh", or "wen"
-	Stamina       float64 // max uptime in seconds
-	ContextLimit  int     // token budget
-	SoulDelay     float64 // seconds between soul cycles
-	MoltPressure  float64 // 0–1 ratio triggering molt
-	Karma         bool    // lifecycle control over other agents
-	Nirvana       bool    // permanent agent destruction
-	CovenantFile  string  // path to covenant file
-	PrincipleFile string  // path to principle file
-	SoulFile      string  // path to soul flow file
-	CommentFile   string  // path to comment file (optional)
+	Language      string   // "en", "zh", or "wen"
+	Stamina       float64  // max uptime in seconds
+	ContextLimit  int      // token budget
+	SoulDelay     float64  // seconds between soul cycles
+	MoltPressure  float64  // 0–1 ratio triggering molt
+	Karma         bool     // lifecycle control over other agents
+	Nirvana       bool     // permanent agent destruction
+	CovenantFile  string   // path to covenant file
+	PrincipleFile string   // path to principle file
+	SoulFile      string   // path to soul flow file
+	CommentFile   string   // path to comment file (optional)
+	Addons        []string // addon names to auto-populate in init.json (e.g. ["imap", "telegram"])
 }
 
 // DefaultAgentOpts returns sensible defaults for agent creation.
@@ -456,7 +478,8 @@ func GenerateInitJSONWithOpts(p Preset, agentName, dirName, lingtaiDir, globalDi
 
 	// Load existing init.json addons field so we preserve it across regens.
 	// This is critical for /setup: when the user changes non-addon settings,
-	// the existing addon configuration must not be dropped.
+	// the existing addon configuration must not be dropped. User edits
+	// always win over opts.Addons — opts only seeds the field on first creation.
 	var existingAddons map[string]interface{}
 	existingInitPath := filepath.Join(agentDir, "init.json")
 	if existingData, err := os.ReadFile(existingInitPath); err == nil {
@@ -479,7 +502,21 @@ func GenerateInitJSONWithOpts(p Preset, agentName, dirName, lingtaiDir, globalDi
 		"prompt":         "",
 	}
 	if existingAddons != nil {
+		// Preserve user-edited addon config (takes precedence over opts.Addons)
 		initJSON["addons"] = existingAddons
+	} else if len(opts.Addons) > 0 {
+		// First-creation: seed init.json.addons from opts, pointing each declared
+		// addon to its fixed-by-convention config path. The path is relative to
+		// the agent's working_dir (<project>/.lingtai/<agent>/), so "../" escapes
+		// the agent dir and "/.addons/<name>/config.json" reaches the project-level
+		// shared addon config directory at <project>/.lingtai/.addons/.
+		addonsField := make(map[string]interface{}, len(opts.Addons))
+		for _, name := range opts.Addons {
+			addonsField[name] = map[string]interface{}{
+				"config": AddonConfigPathFromAgent(name),
+			}
+		}
+		initJSON["addons"] = addonsField
 	}
 
 	// Comment file — only if user specified one

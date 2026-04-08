@@ -1,18 +1,31 @@
 ---
 name: lingtai-telegram-setup
 description: Configure the Telegram bot addon for this agent — read this when the human asks to set up a Telegram bot.
-version: 1.0.0
+version: 2.0.0
 ---
 
 # Telegram Bot Setup
 
 You are helping the human set up a Telegram bot for this agent. Your job is to **create the config file yourself** — do not just list the steps and ask the human to do it.
 
+## Fixed-by-Convention Path
+
+**The Telegram config file lives at a single fixed location, shared by all agents in this project:**
+
+```
+.lingtai/.addons/telegram/config.json   (relative to project root)
+```
+
+- **Do not try to change this path.** The TUI and the kernel both expect it exactly here.
+- The file is shared across all agents in the same project.
+- Telegram supports one bot per config file. If you need multiple bots per project, that's currently not supported by a single shared config — ask the human whether they really need this before proceeding.
+- From your agent's working directory, the relative path written in `init.json` is `../.addons/telegram/config.json`. You should not need to edit `init.json` — it was pre-populated when the agent was created.
+
 ## Rules
 
-- **Secrets go in .env, never in config JSON.** Read your `init.json` to find the `env_file` field, then append the bot token there.
-- **Config files go under** `{agentDir}/addons/telegram/<bot_name>/config.json` — one directory per bot. Never put configs in the agent's root directory.
-- **Activation:** after creating the config, tell the human to run `/refresh` in the TUI. You cannot activate addons yourself.
+- **Secrets go in .env, never in config JSON.** Read your `init.json` to find the `env_file` field, then append the bot token there. Reference it from `config.json` via `bot_token_env`.
+- **Activation:** after creating or editing the config, tell the human to run `/refresh` in the TUI. You cannot activate addons yourself.
+- **Troubleshooting:** if the addon fails to load, check that `.lingtai/.addons/telegram/config.json` exists, is valid JSON, and the referenced env vars are set in `.env`. Report back to the human with the specific problem.
 
 ## What You Need From the Human
 
@@ -30,7 +43,7 @@ Once you have the bot token:
    TELEGRAM_BOT_TOKEN=<the token they gave you>
    ```
 
-2. **Create the config file** at `{agentDir}/addons/telegram/<bot_name>/config.json`:
+2. **Create the config file** at `.lingtai/.addons/telegram/config.json` relative to the project root:
    ```json
    {
      "bot_token_env": "TELEGRAM_BOT_TOKEN",
@@ -40,7 +53,7 @@ Once you have the bot token:
    ```
    - If no allowed_users requested, omit the field entirely (open access).
 
-3. **Tell the human** the config is ready and ask them to run `/refresh` in the TUI to activate.
+3. **Tell the human** the config is ready at `.lingtai/.addons/telegram/config.json` and ask them to run `/refresh` in the TUI to activate.
 
 ## Config Reference
 

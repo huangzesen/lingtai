@@ -486,7 +486,7 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 	case "addon":
 		if a.orchDir != "" {
 			a.currentView = appViewAddon
-			a.addon = NewAddonModel(a.orchDir)
+			a.addon = NewAddonModel(a.projectDir)
 			return a, tea.Batch(a.addon.Init(), a.sendSize())
 		}
 		return a, nil
@@ -624,7 +624,7 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 	case "addon":
 		if a.orchDir != "" {
 			a.currentView = appViewAddon
-			a.addon = NewAddonModel(a.orchDir)
+			a.addon = NewAddonModel(a.projectDir)
 			return a, tea.Batch(a.addon.Init(), a.sendSize())
 		}
 		return a, nil

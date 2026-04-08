@@ -1031,6 +1031,10 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 						selectedAddons = append(selectedAddons, name)
 					}
 				}
+				// Seed init.json addons from user's selection. GenerateInitJSONWithOpts
+				// will auto-populate init.json["addons"] with fixed-convention config
+				// paths unless an existing init.json already has a user-edited addons field.
+				opts.Addons = selectedAddons
 				if m.setupMode {
 					// Overwrite current agent's init.json in-place
 					dirName := filepath.Base(m.setupOrchDir)

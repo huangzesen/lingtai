@@ -274,7 +274,9 @@
   "projects.path": "径",
   "projects.current": "（此）",
   "hints.projects_nav": "↑↓ 择  r 刷新  esc 返",
-  "addon.readonly_desc": "查看已配置的扩展设置。编辑配置文件后输入 /refresh 以生效。",
-  "addon.not_configured": "未配置 — 使用 skills() 查找配置指单",
-  "addon.back": "返回"
+  "addon.readonly_desc": "外法之簿藏于 .lingtai/.addons/<法>/config.json —— 本境诸灵共享。径改其文，而后 /refresh。",
+  "addon.not_configured": "未立 —— 请器灵相助（其有术可循）",
+  "addon.parse_error": "簿在而 JSON 不工：%s",
+  "addon.footer_hint": "改其文而 /refresh 以行之",
+  "addon.back": "返"
 }

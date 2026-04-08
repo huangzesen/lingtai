@@ -306,14 +306,15 @@ Remind the human of the design philosophy from Lesson 4: all lifecycle managemen
 Three built-in addons: **IMAP** (real email — Gmail, Outlook, etc.), **Telegram** (bot), and **Feishu** (Lark bot via long WebSocket).
 
 #### How addons work
-- Addons are **never auto-discovered**. An agent only loads an addon when it is explicitly declared in init.json:
+- Addons are **never auto-discovered**. An agent only loads an addon when it is explicitly declared in init.json. When you create an agent and select addons, the TUI pre-populates init.json for you with fixed-by-convention config paths:
   ```json
   "addons": {
-    "imap": { "config": "addons/imap/myaccount@gmail.com/config.json" }
+    "imap": { "config": "../.addons/imap/config.json" }
   }
   ```
+  The `../.addons/...` path resolves to `<project>/.lingtai/.addons/<addon>/config.json` — a project-level location shared by all agents in the same project. You shouldn't need to edit init.json's addons field manually.
 - The config JSON contains connection details and references secrets via `*_env` fields (e.g. `email_password_env`, `bot_token_env`). The actual secrets live in the `.env` file (path in init.json's `env_file` field), never in the config file itself.
-- The TUI's `/addon` command shows configured addon settings. Use `/refresh` to apply changes after editing config files.
+- The TUI's `/addon` command shows all addon configs for the current project. Use `/refresh` to apply changes after editing config files.
 
 #### Security model: secrets go in .env, not config files
 Addon config files use `*_env` fields to reference environment variable names. The actual secrets are stored in the `.env` file referenced by init.json's `env_file` field, and loaded at agent startup.
@@ -335,17 +336,17 @@ Ask the human if they would like to set up IMAP, Telegram, or Feishu right now. 
 Each guide instructs you to:
 1. Ask the human for credentials
 2. Save secrets to the `.env` file (find the path via init.json's `env_file`)
-3. Create the config file under `{agentDir}/addons/{addon}/{account}/config.json`
+3. Create the config file at the **fixed path** `.lingtai/.addons/<addon>/config.json` (relative to project root). This location is shared across all agents in the project.
 4. Tell the human to run `/refresh` to activate
 
 **Do not hardcode setup steps from memory** — always use the skills() tool, as guides may have been updated.
 
 #### Key points to teach
 - **Secrets go in the `.env` file** (referenced by init.json's `env_file`), never in config files. Config files use `*_env` fields to reference environment variable names.
-- **Config files go under `{agentDir}/addons/`** — never in the agent's root directory. Each account/bot gets its own subdirectory.
-- **Avatars do NOT inherit addons** — each agent must be explicitly configured. This is by design: you do not want multiple agents polling the same email account or Telegram bot.
-- The config files under `{agentDir}/addons/` are reusable — any agent can reference them. Set up once, use everywhere.
-- **To set up addons for future agents**, the human can ask the agent to help (use skills() to find setup guide), use `/addon` in the TUI to view current configs, or edit init.json manually.
+- **Config files live at `.lingtai/.addons/<addon>/config.json`** (relative to project root) — a single fixed location per addon, shared across all agents in the project. For multi-account addons (e.g. IMAP), use the `accounts` array inside the single config.json — never per-account subdirectories.
+- **The path is fixed by convention.** Don't try to put the config elsewhere or change the path in init.json. The TUI pre-populates init.json with the correct path on agent creation.
+- **Avatars do NOT inherit addons** — each agent must be explicitly declared with an addon in its init.json. But because configs are project-shared, once you set up IMAP for one agent, any other agent can declare `imap` and immediately use the same config.
+- **To set up addons for future agents**, the human can ask the agent to help (use skills() to find setup guide), use `/addon` in the TUI to view current configs, or edit the config file at `.lingtai/.addons/<addon>/config.json` directly.
 
 If the human is not interested in setting up addons now, skip to the next lesson.
 

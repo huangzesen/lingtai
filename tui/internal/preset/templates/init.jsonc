@@ -176,13 +176,25 @@
   // =============================================================
   // Addons connect the agent to external services (IMAP email, Telegram, Feishu).
   // Each addon requires an explicit declaration pointing to a config file.
-  // The config file holds credentials (via *_env references to .env)
-  // and connection details.
+  // The config file holds connection details and references secrets via
+  // *_env fields. Actual secrets live in the .env file (see env_file above).
+  //
+  // Config files live at a fixed, project-shared location:
+  //
+  //   <project>/.lingtai/.addons/<addon>/config.json
+  //
+  // In this init.json file (which sits at <project>/.lingtai/<agent>/init.json),
+  // the path is expressed relative to the agent's working directory with "../":
   //
   //   "addons": {
-  //     "imap": { "config": "addons/imap/myaccount@gmail.com/config.json" },
-  //     "telegram": { "config": "addons/telegram/mybot/config.json" }
+  //     "imap":     { "config": "../.addons/imap/config.json" },
+  //     "telegram": { "config": "../.addons/telegram/config.json" },
+  //     "feishu":   { "config": "../.addons/feishu/config.json" }
   //   }
+  //
+  // This path is FIXED BY CONVENTION — the TUI auto-populates it when you
+  // select addons during agent creation. Do not change it. For multi-account
+  // addons (IMAP), use the "accounts" array inside the single config.json.
   //
   // Setup guides are available as skills — use the agent's skills() tool to find them.
   // Example configs are at: skills/lingtai-{imap,telegram,feishu}-setup/assets/config.json

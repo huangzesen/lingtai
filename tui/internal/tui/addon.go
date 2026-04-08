@@ -16,21 +16,27 @@ import (
 type AddonSavedMsg struct{}
 
 // AddonModel is the /addon view — read-only display of configured addons.
-// Scans {agentDir}/addons/{addon}/{account}/config.json for each addon.
+// Reads from {lingtaiDir}/.addons/{addon}/config.json, a project-level
+// shared location (one config file per addon, multi-account via accounts array).
 type AddonModel struct {
-	orchDir string
-	width   int
-	height  int
-	// addonConfigs maps addon name → (account → JSON string)
-	addonConfigs map[string]map[string]string
-	// selectedAddon is the addon whose JSON is expanded (empty = none)
-	selectedAddon string
+	lingtaiDir string // <project>/.lingtai/ directory
+	width      int
+	height     int
+	// addonConfigs maps addon name → JSON file content (or "" if missing/unreadable)
+	addonConfigs map[string]string
+	// addonErrors maps addon name → error message (e.g. "not found", "parse error")
+	addonErrors map[string]string
 }
 
-func NewAddonModel(orchDir string) AddonModel {
+// NewAddonModel constructs the /addon view. lingtaiDir is the project's .lingtai/
+// directory (parent of all agent dirs). Addon configs live at
+// lingtaiDir/.addons/<addon>/config.json.
+func NewAddonModel(lingtaiDir string) AddonModel {
+	configs, errs := readAddonConfigs(lingtaiDir)
 	return AddonModel{
-		orchDir:      orchDir,
-		addonConfigs: readAddonConfigs(orchDir),
+		lingtaiDir:   lingtaiDir,
+		addonConfigs: configs,
+		addonErrors:  errs,
 	}
 }
 
@@ -47,9 +53,6 @@ func (m AddonModel) Update(msg tea.Msg) (AddonModel, tea.Cmd) {
 		switch msg.String() {
 		case "esc":
 			return m, func() tea.Msg { return AddonSavedMsg{} }
-		case "enter":
-			// Toggle expand/collapse on the addon at current cursor position
-			return m, nil
 		}
 	}
 	return m, nil
@@ -74,67 +77,77 @@ func (m AddonModel) View() string {
 	b.WriteString(StyleSubtle.Render("  "+i18n.T("addon.readonly_desc")) + "\n\n")
 
 	// Addon list
-	hasAny := false
 	for _, name := range AllAddons {
-		accounts := m.addonConfigs[name]
-		hasAny = accounts != nil && len(accounts) > 0
 		label := strings.ToUpper(name[:1]) + name[1:]
-		b.WriteString("  " + StyleTitle.Render(label) + "\n")
+		configPath := addonConfigRelPath(name)
+		b.WriteString("  " + StyleTitle.Render(label) + StyleFaint.Render("  "+configPath) + "\n")
 
-		if !hasAny {
-			b.WriteString("    " + StyleFaint.Render(i18n.T("addon.not_configured")) + "\n\n")
-		} else {
-			for account, jsonContent := range accounts {
-				b.WriteString("    " + StyleAccent.Render(account) + ":\n")
-				// Pretty-print the JSON
-				pretty := prettyJSON(jsonContent)
-				for _, line := range strings.Split(pretty, "\n") {
-					b.WriteString("      " + line + "\n")
-				}
-				b.WriteString("\n")
-			}
+		if errMsg, bad := m.addonErrors[name]; bad {
+			b.WriteString("    " + StyleFaint.Render(errMsg) + "\n\n")
+			continue
 		}
+
+		content, ok := m.addonConfigs[name]
+		if !ok || content == "" {
+			b.WriteString("    " + StyleFaint.Render(i18n.T("addon.not_configured")) + "\n\n")
+			continue
+		}
+
+		// Pretty-print the JSON
+		pretty := prettyJSON(content)
+		for _, line := range strings.Split(strings.TrimRight(pretty, "\n"), "\n") {
+			b.WriteString("    " + line + "\n")
+		}
+		b.WriteString("\n")
 	}
 
 	// Footer
 	b.WriteString(strings.Repeat("─", m.width) + "\n")
-	b.WriteString(StyleFaint.Render("  /refresh to apply changes after config edits") + "\n")
+	b.WriteString(StyleFaint.Render("  "+i18n.T("addon.footer_hint")) + "\n")
 
 	return b.String()
 }
 
-// readAddonConfigs scans {agentDir}/addons/{addon}/{account}/config.json for all addons.
-// Returns map[addon]map[account]jsonString.
-func readAddonConfigs(orchDir string) map[string]map[string]string {
-	result := make(map[string]map[string]string)
-	if orchDir == "" {
-		return result
+// addonConfigRelPath returns the canonical path (relative to project root) for
+// an addon's config file. This is the only place the convention is defined —
+// all other code uses this helper.
+func addonConfigRelPath(addon string) string {
+	return filepath.Join(".lingtai", ".addons", addon, "config.json")
+}
+
+// AddonConfigPath returns the absolute path to an addon's config file, given
+// the project's .lingtai/ directory. Exported for use by other packages.
+func AddonConfigPath(lingtaiDir, addon string) string {
+	return filepath.Join(lingtaiDir, ".addons", addon, "config.json")
+}
+
+// readAddonConfigs reads {lingtaiDir}/.addons/{addon}/config.json for each
+// known addon. Returns (configs, errors): configs holds addon→JSON-content
+// for successful reads, errors holds addon→error-message for files that
+// exist but couldn't be parsed. Addons with no file at all appear in neither map.
+func readAddonConfigs(lingtaiDir string) (map[string]string, map[string]string) {
+	configs := make(map[string]string)
+	errs := make(map[string]string)
+	if lingtaiDir == "" {
+		return configs, errs
 	}
 
 	for _, addon := range AllAddons {
-		addonBase := filepath.Join(orchDir, "addons", addon)
-		entries, err := os.ReadDir(addonBase)
+		configPath := AddonConfigPath(lingtaiDir, addon)
+		data, err := os.ReadFile(configPath)
 		if err != nil {
+			// File missing or unreadable — not an error, just "not configured"
 			continue
 		}
-		accountMap := make(map[string]string)
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
-			}
-			account := entry.Name()
-			configPath := filepath.Join(addonBase, account, "config.json")
-			data, err := os.ReadFile(configPath)
-			if err != nil {
-				continue
-			}
-			accountMap[account] = string(data)
+		// Validate it parses as JSON; if not, report as an error
+		var probe any
+		if jerr := json.Unmarshal(data, &probe); jerr != nil {
+			errs[addon] = i18n.TF("addon.parse_error", jerr.Error())
+			continue
 		}
-		if len(accountMap) > 0 {
-			result[addon] = accountMap
-		}
+		configs[addon] = string(data)
 	}
-	return result
+	return configs, errs
 }
 
 // prettyJSON returns a formatted (indented) JSON string, or the original on error.
