@@ -54,11 +54,53 @@ func TestCalcHeight_MaxSix(t *testing.T) {
 
 func TestCalcHeight_CJK(t *testing.T) {
 	m := newTestInput(40) // textarea width = 30
-	// 20 CJK chars = 40 visual columns, should wrap on 30-col textarea
-	m.textarea.SetValue(strings.Repeat("你", 20))
+	// 20 CJK chars × 2 visual cols each = 40 visual cols
+	// 40 / 30 = ceil(1.33) = 2 visual lines
+	m.textarea.SetValue(strings.Repeat("\u4f60", 20))
 	h := m.calcHeight()
-	if h < 2 {
-		t.Errorf("CJK wrapping on 30-col textarea: expected height >= 2, got %d", h)
+	if h != 2 {
+		t.Errorf("CJK wrapping on 30-col textarea: expected height 2, got %d", h)
+	}
+}
+
+func TestVisualLineCount_Basic(t *testing.T) {
+	// Empty string → 1 line
+	if h := visualLineCount("", 30); h != 1 {
+		t.Errorf("empty: expected 1, got %d", h)
+	}
+	// Short line fits in width → 1 line
+	if h := visualLineCount("hello", 30); h != 1 {
+		t.Errorf("short: expected 1, got %d", h)
+	}
+	// Exact fit → 1 line
+	if h := visualLineCount("abcdefghij", 10); h != 1 {
+		t.Errorf("exact fit: expected 1, got %d", h)
+	}
+	// Overflow by 1 → 2 lines
+	if h := visualLineCount("abcdefghijk", 10); h != 2 {
+		t.Errorf("overflow 1: expected 2, got %d", h)
+	}
+	// 20 CJK chars × 2 cols = 40 cols, / 30 → ceil(1.33) = 2
+	if h := visualLineCount(strings.Repeat("\u4f60", 20), 30); h != 2 {
+		t.Errorf("20 CJK on 30-col: expected 2, got %d", h)
+	}
+	// 20 CJK chars × 2 cols = 40 cols, / 20 → ceil(2.0) = 2
+	if h := visualLineCount(strings.Repeat("\u4f60", 20), 20); h != 2 {
+		t.Errorf("20 CJK on 20-col: expected 2, got %d", h)
+	}
+	// 35 CJK chars × 2 cols = 70 cols, / 30 → ceil(2.34) = 3
+	if h := visualLineCount(strings.Repeat("\u4f60", 35), 30); h != 3 {
+		t.Errorf("35 CJK on 30-col: expected 3, got %d", h)
+	}
+}
+
+func TestVisualLineCount_Multiline(t *testing.T) {
+	// Two logical lines: first wraps to 2, second fits → total 3
+	m := newTestInput(40)
+	m.textarea.SetValue(strings.Repeat("\u4f60", 20) + "\nhi")
+	h := m.calcHeight()
+	if h != 3 {
+		t.Errorf("multiline CJK: expected 3, got %d", h)
 	}
 }
 

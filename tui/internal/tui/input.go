@@ -9,6 +9,7 @@ import (
 	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/rivo/uniseg"
 
 	"github.com/anthropics/lingtai-tui/i18n"
 )
@@ -241,16 +242,40 @@ func (m *InputModel) autoWrap() {
 	}
 }
 
-// calcHeight returns the number of display lines.
+// visualLineCount returns the number of visual (wrapped) lines for a string
+// in a textarea of the given maxWidth columns, accounting for CJK characters
+// that occupy 2 terminal columns each.
+func visualLineCount(value string, maxWidth int) int {
+	if value == "" || maxWidth <= 0 {
+		return 1
+	}
+	lines := strings.Split(value, "\n")
+	total := 0
+	for _, line := range lines {
+		vw := uniseg.StringWidth(line)
+		if vw == 0 {
+			total++
+			continue
+		}
+		total += (vw + maxWidth - 1) / maxWidth
+	}
+	if total < 1 {
+		return 1
+	}
+	return total
+}
+
+// calcHeight returns the number of display lines, accounting for soft wrapping.
 func (m *InputModel) calcHeight() int {
 	val := m.textarea.Value()
 	if val == "" {
 		return 1
 	}
-	total := len(strings.Split(val, "\n"))
-	if total < 1 {
-		total = 1
+	taWidth := m.textarea.Width()
+	if taWidth <= 0 {
+		taWidth = 40
 	}
+	total := visualLineCount(val, taWidth)
 	if total > 6 {
 		total = 6
 	}
