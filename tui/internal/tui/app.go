@@ -207,11 +207,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case FirstRunDoneMsg:
 		// First-run complete: launch agent and switch to mail.
-		// Reload tuiConfig from disk so any language/settings the wizard
-		// just saved (via SaveTUIConfig) are reflected in the mail model.
-		// Without this, a.tuiConfig still holds the stale values captured
-		// at NewApp time, and the greet prompt would use the OLD language
-		// instead of the one the user just picked on the welcome page.
+		// Reload tuiConfig from disk so any settings the wizard saved
+		// (theme, mail page size, greeting toggle, insights) are
+		// reflected downstream. a.tuiConfig was captured at NewApp time
+		// and is otherwise stale after the wizard's SaveTUIConfig calls.
+		// Note: the greet prompt itself now reads language from the
+		// orchestrator's init.json directly (see buildGreetPrompt), so
+		// this reload no longer fixes the greet-language bug on its own
+		// — but the other fields still need to be fresh.
 		a.tuiConfig = config.LoadTUIConfig(a.globalDir)
 		// Ensure human folder exists before launching — InitProject is
 		// idempotent and prevents the race where the agent tries to

@@ -352,8 +352,32 @@ func (m *MailModel) buildMessages() {
 
 // buildGreetPrompt reads the greet template, replaces placeholders, and returns
 // the final prompt string. Returns "" if the template file is missing.
+//
+// The greet language is sourced from the orchestrator's init.json manifest
+// (manifest.language), NOT from the TUI user's language preference. The
+// greet is a message *to the agent*, and should speak in the agent's own
+// language — which may differ from the TUI's UI language (a user can
+// prefer an English UI while running a wen-speaking network, for example).
+// If the manifest read fails, falls back to m.greetLang (the TUI config
+// value captured at NewMailModel time) so behavior stays defined in edge
+// cases like a missing or malformed init.json.
 func (m *MailModel) buildGreetPrompt() string {
-	path := preset.GreetPath(m.globalDir, m.greetLang)
+	// Soul delay AND language both come from the orchestrator's init.json.
+	// Read once so we don't parse the file twice.
+	lang := m.greetLang
+	soulDelay := "unknown"
+	if m.orchestrator != "" {
+		if manifest, err := fs.ReadInitManifest(m.orchestrator); err == nil {
+			if l, ok := manifest["language"].(string); ok && l != "" {
+				lang = l
+			}
+			if sd, ok := manifest["soul_delay"]; ok {
+				soulDelay = fmt.Sprintf("%v", sd)
+			}
+		}
+	}
+
+	path := preset.GreetPath(m.globalDir, lang)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return ""
@@ -361,7 +385,7 @@ func (m *MailModel) buildGreetPrompt() string {
 	prompt := string(data)
 	prompt = strings.ReplaceAll(prompt, "{{time}}", time.Now().Format("2006-01-02 15:04"))
 	prompt = strings.ReplaceAll(prompt, "{{addr}}", m.humanAddr)
-	prompt = strings.ReplaceAll(prompt, "{{lang}}", m.greetLang)
+	prompt = strings.ReplaceAll(prompt, "{{lang}}", lang)
 	// Location from human's .agent.json
 	loc := ""
 	humanNode, err := fs.ReadAgent(m.humanDir)
@@ -382,15 +406,6 @@ func (m *MailModel) buildGreetPrompt() string {
 		loc = "unknown"
 	}
 	prompt = strings.ReplaceAll(prompt, "{{location}}", loc)
-	// Soul delay from agent's init.json
-	soulDelay := "unknown"
-	if m.orchestrator != "" {
-		if manifest, err := fs.ReadInitManifest(m.orchestrator); err == nil {
-			if sd, ok := manifest["soul_delay"]; ok {
-				soulDelay = fmt.Sprintf("%v", sd)
-			}
-		}
-	}
 	prompt = strings.ReplaceAll(prompt, "{{soul_delay}}", soulDelay)
 	return prompt
 }
