@@ -158,11 +158,11 @@ func TestLangFallbackChain(t *testing.T) {
 		lang string
 		want []string
 	}{
-		{"wen", []string{"wen", "zh", "en", ""}},
-		{"zh", []string{"zh", "en", ""}},
+		{"wen", []string{"wen", ""}},
+		{"zh", []string{"zh", ""}},
 		{"en", []string{"en", ""}},
 		{"", []string{""}},
-		{"fr", []string{"fr", "en", ""}},
+		{"fr", []string{"fr", ""}},
 	}
 	for _, tt := range tests {
 		got := langFallbackChain(tt.lang)
@@ -178,39 +178,28 @@ func TestLangFallbackChain(t *testing.T) {
 	}
 }
 
-func TestResolveGreetPath_WenFallsBackToZh(t *testing.T) {
+func TestResolveGreetPath_FallsBackToRoot(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "zh"), 0o755)
-	os.WriteFile(filepath.Join(dir, "zh", "greet.md"), []byte("zh greet"), 0o644)
+	// Only root exists — wen user gets root, not zh or en
+	os.WriteFile(filepath.Join(dir, "greet.md"), []byte("root greet"), 0o644)
 
 	got := ResolveGreetPath(dir, "wen")
-	want := filepath.Join(dir, "zh", "greet.md")
+	want := filepath.Join(dir, "greet.md")
 	if got != want {
-		t.Errorf("ResolveGreetPath wen→zh fallback, got %q, want %q", got, want)
+		t.Errorf("ResolveGreetPath wen→root fallback, got %q, want %q", got, want)
 	}
 }
 
-func TestResolveGreetPath_ZhFallsBackToEn(t *testing.T) {
+func TestResolveSkillDir_FallsBackToRoot(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "en"), 0o755)
-	os.WriteFile(filepath.Join(dir, "en", "greet.md"), []byte("en greet"), 0o644)
-
-	got := ResolveGreetPath(dir, "zh")
-	want := filepath.Join(dir, "en", "greet.md")
-	if got != want {
-		t.Errorf("ResolveGreetPath zh→en fallback, got %q, want %q", got, want)
-	}
-}
-
-func TestResolveSkillDir_WenFallsBackToZh(t *testing.T) {
-	dir := t.TempDir()
-	zhDir := filepath.Join(dir, "skills", "my-skill", "zh")
-	os.MkdirAll(zhDir, 0o755)
-	os.WriteFile(filepath.Join(zhDir, "SKILL.md"), []byte("---\nname: my-skill\n---\n"), 0o644)
+	// Only root SKILL.md — wen user gets root
+	rootDir := filepath.Join(dir, "skills", "my-skill")
+	os.MkdirAll(rootDir, 0o755)
+	os.WriteFile(filepath.Join(rootDir, "SKILL.md"), []byte("---\nname: my-skill\n---\n"), 0o644)
 
 	got := ResolveSkillDir(dir, "my-skill", "wen")
-	if got != zhDir {
-		t.Errorf("ResolveSkillDir wen→zh fallback = %q, want %q", got, zhDir)
+	if got != rootDir {
+		t.Errorf("ResolveSkillDir wen→root fallback = %q, want %q", got, rootDir)
 	}
 }
 

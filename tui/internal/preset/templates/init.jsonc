@@ -217,6 +217,10 @@
   "covenant": "You are a helpful assistant.",
   // Or use a file: "covenant_file": "covenant.md"
 
+  // Procedures — operational knowledge (e.g. molt checklist).
+  // Protected prompt section, persists as system/procedures.md.
+  // Or use a file: "procedures_file": "procedures.md"
+
   // Initial memory — pre-loaded into system/memory.md.
   // The agent can edit this via the eigen intrinsic.
   "memory": "",

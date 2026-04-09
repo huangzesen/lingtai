@@ -19,6 +19,9 @@ var covenantFS embed.FS
 //go:embed all:principle
 var principleFS embed.FS
 
+//go:embed all:procedures
+var proceduresFS embed.FS
+
 //go:embed all:templates
 var templatesFS embed.FS
 
@@ -243,6 +246,11 @@ func PrinciplePath(globalDir, lang string) string {
 	return filepath.Join(globalDir, "principle", lang, "principle.md")
 }
 
+// ProceduresPath returns the absolute path to the procedures file for a language.
+func ProceduresPath(globalDir, lang string) string {
+	return filepath.Join(globalDir, "procedures", lang, "procedures.md")
+}
+
 // populate mirrors an embedded FS subtree to globalDir, skipping existing files.
 func populate(globalDir string, fsys embed.FS, root string) {
 	fs.WalkDir(fsys, root, func(path string, d fs.DirEntry, err error) error {
@@ -266,6 +274,7 @@ func populate(globalDir string, fsys embed.FS, root string) {
 func Bootstrap(globalDir string) error {
 	populate(globalDir, covenantFS, "covenant")
 	populate(globalDir, principleFS, "principle")
+	populate(globalDir, proceduresFS, "procedures")
 	populate(globalDir, soulFS, "soul")
 	populate(globalDir, templatesFS, "templates")
 	populate(globalDir, recipeAssetsFS, "recipe_assets")
@@ -352,9 +361,10 @@ type AgentOpts struct {
 	MoltPressure  float64  // 0–1 ratio triggering molt
 	Karma         bool     // lifecycle control over other agents
 	Nirvana       bool     // permanent agent destruction
-	CovenantFile  string   // path to covenant file
-	PrincipleFile string   // path to principle file
-	SoulFile      string   // path to soul flow file
+	CovenantFile   string   // path to covenant file
+	PrincipleFile  string   // path to principle file
+	ProceduresFile string   // path to procedures file
+	SoulFile       string   // path to soul flow file
 	CommentFile   string   // path to comment file (optional)
 	Addons        []string // addon names to auto-populate in init.json (e.g. ["imap", "telegram"])
 }
@@ -424,6 +434,10 @@ func GenerateInitJSONWithOpts(p Preset, agentName, dirName, lingtaiDir, globalDi
 	if principleFile == "" {
 		principleFile = PrinciplePath(globalDir, lang)
 	}
+	proceduresFile := opts.ProceduresFile
+	if proceduresFile == "" {
+		proceduresFile = ProceduresPath(globalDir, lang)
+	}
 	soulFile := opts.SoulFile
 	if soulFile == "" {
 		soulFile = SoulFlowPath(globalDir, lang)
@@ -445,10 +459,11 @@ func GenerateInitJSONWithOpts(p Preset, agentName, dirName, lingtaiDir, globalDi
 	}
 
 	initJSON := map[string]interface{}{
-		"manifest":       manifest,
-		"covenant_file":  covenantFile,
-		"principle_file": principleFile,
-		"soul_file":      soulFile,
+		"manifest":         manifest,
+		"covenant_file":    covenantFile,
+		"principle_file":   principleFile,
+		"procedures_file":  proceduresFile,
+		"soul_file":        soulFile,
 		"env_file":       config.EnvFilePath(globalDir),
 		"venv_path":      filepath.Join(globalDir, "runtime", "venv"),
 		"memory":         "",

@@ -49,22 +49,13 @@ func ResolveCommentPath(recipeDir, lang string) string {
 }
 
 // langFallbackChain returns the ordered list of languages to try for a given
-// lang. The convention is: wen → zh → en → root (""). This ensures that
-// classical Chinese falls back to simplified Chinese before English, and
-// every language ultimately falls back to a root-level file.
+// lang. The rule is simple: try <lang> first, then root. Root is mandatory
+// and serves as the universal fallback for all languages.
 func langFallbackChain(lang string) []string {
-	switch lang {
-	case "wen":
-		return []string{"wen", "zh", "en", ""}
-	case "zh":
-		return []string{"zh", "en", ""}
-	case "en":
-		return []string{"en", ""}
-	case "":
+	if lang == "" {
 		return []string{""}
-	default:
-		return []string{lang, "en", ""}
 	}
+	return []string{lang, ""}
 }
 
 func resolveRecipeFile(recipeDir, lang, filename string) string {

@@ -566,6 +566,24 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		a.currentView = appViewProjects
 		a.projects = NewAgoraModel(a.globalDir, a.projectDir)
 		return a, tea.Batch(a.projects.Init(), a.sendSize())
+	case "molt":
+		if a.orchDir == "" {
+			return a, nil
+		}
+		if !fs.IsAlive(a.orchDir, 3.0) {
+			a.mail.AddSystemMessage(i18n.T("mail.btw_suspended"))
+			return a, nil
+		}
+		// Send in agent's language, not TUI language
+		lang := "en"
+		if manifest, err := fs.ReadInitManifest(a.orchDir); err == nil {
+			if l, ok := manifest["language"].(string); ok && l != "" {
+				lang = l
+			}
+		}
+		fs.WritePrompt(a.orchDir, i18n.TIn(lang, "molt.mandatory_prompt"))
+		a.mail.AddSystemMessage(i18n.T("mail.molt_sent"))
+		return a, nil
 	case "insights":
 		if a.orchDir != "" {
 			if !fs.IsAlive(a.orchDir, 3.0) {

@@ -50,6 +50,23 @@ func TF(key string, args ...any) string {
 	return fmt.Sprintf(T(key), args...)
 }
 
+// TIn looks up a key in a specific locale without changing global state.
+// Falls back to the current TUI locale if the requested locale is unavailable.
+func TIn(locale, key string) string {
+	data, err := localeFS.ReadFile(locale + ".json")
+	if err != nil {
+		return T(key)
+	}
+	var m map[string]string
+	if err := json.Unmarshal(data, &m); err != nil {
+		return T(key)
+	}
+	if s, ok := m[key]; ok {
+		return s
+	}
+	return key
+}
+
 func Lang() string {
 	mu.RLock()
 	defer mu.RUnlock()
