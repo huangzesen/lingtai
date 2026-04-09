@@ -25,11 +25,8 @@ var templatesFS embed.FS
 //go:embed all:soul
 var soulFS embed.FS
 
-//go:embed all:greet
-var greetFS embed.FS
-
-//go:embed tutorial.md
-var tutorialMD []byte
+//go:embed all:recipe_assets
+var recipeAssetsFS embed.FS
 
 //go:embed all:skills
 var skillsFS embed.FS
@@ -270,13 +267,22 @@ func Bootstrap(globalDir string) error {
 	populate(globalDir, covenantFS, "covenant")
 	populate(globalDir, principleFS, "principle")
 	populate(globalDir, soulFS, "soul")
-	populate(globalDir, greetFS, "greet")
 	populate(globalDir, templatesFS, "templates")
-	// Tutorial comment file — now in tutorial/ subfolder
-	tutorialDir := filepath.Join(globalDir, "tutorial")
-	os.MkdirAll(tutorialDir, 0o755)
-	tutorialPath := filepath.Join(tutorialDir, "tutorial.md")
-	os.WriteFile(tutorialPath, tutorialMD, 0o644)
+	populate(globalDir, recipeAssetsFS, "recipe_assets")
+	// Rename recipe_assets -> recipes at the target path.
+	// Unlike other populate() calls (which are merge-skip), recipes are
+	// refreshed wholesale on every launch — the TUI manages this content,
+	// users should not edit bundled recipe files.
+	src := filepath.Join(globalDir, "recipe_assets")
+	dst := filepath.Join(globalDir, "recipes")
+	if _, err := os.Stat(src); err == nil {
+		if err := os.RemoveAll(dst); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to remove old recipes dir: %v\n", err)
+		}
+		if err := os.Rename(src, dst); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to rename recipe_assets to recipes: %v\n", err)
+		}
+	}
 	return EnsureDefault()
 }
 
@@ -312,19 +318,9 @@ func CovenantPath(globalDir, lang string) string {
 	return filepath.Join(globalDir, "covenant", lang, "covenant.md")
 }
 
-// TutorialCommentPath returns the absolute path to the tutorial comment file.
-func TutorialCommentPath(globalDir string) string {
-	return filepath.Join(globalDir, "tutorial", "tutorial.md")
-}
-
 // SoulFlowPath returns the absolute path to the soul flow file for a language.
 func SoulFlowPath(globalDir, lang string) string {
 	return filepath.Join(globalDir, "soul", lang, "soul-flow.md")
-}
-
-// GreetPath returns the absolute path to the greet prompt file for a language.
-func GreetPath(globalDir, lang string) string {
-	return filepath.Join(globalDir, "greet", lang, "greet.md")
 }
 
 // AddonConfigRelPath returns the path (relative to the project root) where an
@@ -534,75 +530,6 @@ func GenerateInitJSONWithOpts(p Preset, agentName, dirName, lingtaiDir, globalDi
 
 	return nil
 }
-
-// GenerateTutorialInit creates a tutorial agent's init.json at {lingtaiDir}/tutorial/.
-// The tutorial agent has a pre-defined name ("guide"), hardcoded lifecycle params,
-// and a detailed comment (system prompt) that instructs it to teach the human step by step.
-func GenerateTutorialInit(p Preset, lingtaiDir, globalDir, lang string) error {
-	agentDir := filepath.Join(lingtaiDir, "tutorial")
-	if err := os.MkdirAll(agentDir, 0o755); err != nil {
-		return fmt.Errorf("create tutorial dir: %w", err)
-	}
-
-	// Build manifest — inherit capabilities from the preset
-	manifest := make(map[string]interface{})
-	manifest["agent_name"] = "guide"
-	if lang == "" {
-		lang = "en"
-	}
-	manifest["language"] = lang
-	if llm, ok := p.Manifest["llm"]; ok {
-		manifest["llm"] = llm
-	}
-	if caps, ok := p.Manifest["capabilities"]; ok {
-		manifest["capabilities"] = caps
-	}
-	manifest["admin"] = map[string]interface{}{"karma": true}
-	manifest["soul"] = map[string]interface{}{"delay": 999999}
-	manifest["stamina"] = 36000
-	manifest["context_limit"] = 200000
-	manifest["molt_pressure"] = 0.8
-	manifest["molt_prompt"] = ""
-	manifest["max_turns"] = 100
-	manifest["streaming"] = false
-
-	initJSON := map[string]interface{}{
-		"manifest":       manifest,
-		"covenant_file":  CovenantPath(globalDir, lang),
-		"principle_file": PrinciplePath(globalDir, lang),
-		"soul_file":      SoulFlowPath(globalDir, lang),
-		"env_file":       config.EnvFilePath(globalDir),
-		"comment_file":   TutorialCommentPath(globalDir),
-		"venv_path":      filepath.Join(globalDir, "runtime", "venv"),
-		"memory":         "",
-		"prompt":         "",
-	}
-
-	data, err := json.MarshalIndent(initJSON, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal tutorial init.json: %w", err)
-	}
-
-	if err := os.WriteFile(filepath.Join(agentDir, "init.json"), data, 0o644); err != nil {
-		return fmt.Errorf("write tutorial init.json: %w", err)
-	}
-
-	// Create .agent.json and mailbox dirs (same as GenerateInitJSONWithOpts)
-	agentManifest := map[string]interface{}{
-		"agent_name": "guide",
-		"address":    "tutorial",
-		"state":      "",
-		"admin":      map[string]interface{}{"karma": true},
-	}
-	for _, sub := range []string{"mailbox/inbox", "mailbox/sent", "mailbox/archive"} {
-		os.MkdirAll(filepath.Join(agentDir, sub), 0o755)
-	}
-	mdata, _ := json.MarshalIndent(agentManifest, "", "  ")
-	os.WriteFile(filepath.Join(agentDir, ".agent.json"), mdata, 0o644)
-
-	return nil
-}
-
 
 // CapabilityIcons returns emoji icons for enabled capabilities in a preset.
 func (p Preset) CapabilityIcons() string {

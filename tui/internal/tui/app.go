@@ -27,7 +27,6 @@ const (
 	appViewProps
 	appViewAddon
 	appViewDoctor
-	appViewTutorial
 	appViewNirvana
 	appViewSkills
 	appViewProjects
@@ -45,17 +44,18 @@ type App struct {
 	firstRun    FirstRunModel
 	addon       AddonModel
 	doctor      DoctorModel
-	tutorial    TutorialConfirmModel
 	nirvana     NirvanaModel
 
-	globalDir     string
-	projectDir    string // .lingtai/ directory
-	orchDir       string // full path to orchestrator dir
-	orchName      string
-	lingtaiCmd    string
-	width         int
-	height        int
-	tuiConfig   config.TUIConfig
+	globalDir       string
+	projectDir      string // .lingtai/ directory
+	orchDir         string // full path to orchestrator dir
+	orchName        string
+	lingtaiCmd      string
+	width           int
+	height          int
+	tuiConfig       config.TUIConfig
+	pendingRecipe   string
+	pendingCustomDir string
 }
 
 func humanAddr(projectDir string) string {
@@ -89,7 +89,7 @@ func NewApp(globalDir, projectDir string, needsFirstRun bool, orchestrators []st
 		if rehydrateOrchDir != "" && rehydrateOrchName != "" {
 			app.firstRun = NewRehydrateModel(projectDir, globalDir, rehydrateOrchDir, rehydrateOrchName, hasPresets)
 		} else {
-			app.firstRun = NewFirstRunModel(projectDir, globalDir, hasPresets)
+			app.firstRun = NewFirstRunModel(projectDir, globalDir, hasPresets, "")
 		}
 	} else {
 		// Determine orchestrator
@@ -125,7 +125,7 @@ func NewApp(globalDir, projectDir string, needsFirstRun bool, orchestrators []st
 		app.currentView = appViewMail
 		humanDir := filepath.Join(projectDir, "human")
 		addr := humanAddr(projectDir)
-		app.mail = NewMailModel(humanDir, addr, projectDir, app.orchDir, app.orchName, tuiCfg.MailPageSize, tuiCfg.Greeting, globalDir, tuiCfg.Language, tuiCfg.Insights)
+		app.mail = NewMailModel(humanDir, addr, projectDir, app.orchDir, app.orchName, tuiCfg.MailPageSize, globalDir, tuiCfg.Language, tuiCfg.Insights)
 
 	}
 
@@ -162,8 +162,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.addon, cmd = a.addon.Update(msg)
 		case appViewDoctor:
 			a.doctor, cmd = a.doctor.Update(msg)
-		case appViewTutorial:
-			a.tutorial, cmd = a.tutorial.Update(msg)
 		case appViewNirvana:
 			a.nirvana, cmd = a.nirvana.Update(msg)
 		case appViewSkills:
@@ -208,13 +206,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case FirstRunDoneMsg:
 		// First-run complete: launch agent and switch to mail.
 		// Reload tuiConfig from disk so any settings the wizard saved
-		// (theme, mail page size, greeting toggle, insights) are
-		// reflected downstream. a.tuiConfig was captured at NewApp time
-		// and is otherwise stale after the wizard's SaveTUIConfig calls.
-		// Note: the greet prompt itself now reads language from the
-		// orchestrator's init.json directly (see buildGreetPrompt), so
-		// this reload no longer fixes the greet-language bug on its own
-		// — but the other fields still need to be fresh.
+		// (theme, mail page size, insights) are reflected downstream.
+		// a.tuiConfig was captured at NewApp time and is otherwise stale
+		// after the wizard's SaveTUIConfig calls.
 		a.tuiConfig = config.LoadTUIConfig(a.globalDir)
 		// Ensure human folder exists before launching — InitProject is
 		// idempotent and prevents the race where the agent tries to
@@ -223,7 +217,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.currentView = appViewMail
 			humanDir := filepath.Join(a.projectDir, "human")
 			addr := humanAddr(a.projectDir)
-			a.mail = NewMailModel(humanDir, addr, a.projectDir, "", "", a.tuiConfig.MailPageSize, false, a.globalDir, a.tuiConfig.Language, a.tuiConfig.Insights)
+			a.mail = NewMailModel(humanDir, addr, a.projectDir, "", "", a.tuiConfig.MailPageSize, a.globalDir, a.tuiConfig.Language, a.tuiConfig.Insights)
 			a.mail.AddSystemMessage(i18n.TF("mail.launch_failed", err))
 			return a, tea.Batch(a.mail.Init(), a.sendSize())
 		}
@@ -240,23 +234,19 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.currentView = appViewMail
 		humanDir := filepath.Join(a.projectDir, "human")
 		addr := humanAddr(a.projectDir)
-		a.mail = NewMailModel(humanDir, addr, a.projectDir, a.orchDir, a.orchName, a.tuiConfig.MailPageSize, a.tuiConfig.Greeting, a.globalDir, a.tuiConfig.Language, a.tuiConfig.Insights)
+		a.mail = NewMailModel(humanDir, addr, a.projectDir, a.orchDir, a.orchName, a.tuiConfig.MailPageSize, a.globalDir, a.tuiConfig.Language, a.tuiConfig.Insights)
 
 		if launchErr != "" {
 			a.mail.messages = append(a.mail.messages, ChatMessage{From: i18n.T("mail.system_sender"), Body: launchErr, Type: "mail"})
 		}
 		return a, tea.Batch(a.mail.Init(), a.sendSize())
 
-	case TutorialConfirmDoneMsg:
-		// Tutorial confirmed: .lingtai/ has been wiped and rebuilt
-		a.orchDir = msg.OrchDir
-		a.orchName = msg.OrchName
-		a.currentView = appViewMail
-		humanDir := filepath.Join(a.projectDir, "human")
-		addr := humanAddr(a.projectDir)
-		a.mail = NewMailModel(humanDir, addr, a.projectDir, a.orchDir, a.orchName, a.tuiConfig.MailPageSize, false, a.globalDir, a.tuiConfig.Language, a.tuiConfig.Insights)
-
-		return a, tea.Batch(a.mail.Init(), a.sendSize())
+	case RecipeFreshStartMsg:
+		a.pendingRecipe = msg.Recipe
+		a.pendingCustomDir = msg.CustomDir
+		a.currentView = appViewNirvana
+		a.nirvana = NewNirvanaModel(a.projectDir)
+		return a, tea.Batch(a.nirvana.Init(), a.sendSize())
 
 	case NirvanaDoneMsg:
 		// Nirvana complete: .lingtai/ wiped, go to first-run.
@@ -267,7 +257,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.orchName = ""
 		a.currentView = appViewFirstRun
 		hasPresets := preset.HasAny()
-		a.firstRun = NewFirstRunModel(a.projectDir, a.globalDir, hasPresets)
+		preselected := a.pendingRecipe
+		a.pendingRecipe = ""
+		pendingCustom := a.pendingCustomDir
+		a.pendingCustomDir = ""
+		a.firstRun = NewFirstRunModel(a.projectDir, a.globalDir, hasPresets, preselected)
+		if preselected == preset.RecipeCustom && pendingCustom != "" {
+			a.firstRun.recipeCustomInput.SetValue(pendingCustom)
+		}
 		return a, tea.Batch(a.firstRun.Init(), a.sendSize())
 
 	case AddonSavedMsg:
@@ -310,7 +307,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.currentView = appViewMail
 		humanDir := filepath.Join(a.projectDir, "human")
 		addr := humanAddr(a.projectDir)
-		a.mail = NewMailModel(humanDir, addr, a.projectDir, a.orchDir, a.orchName, a.tuiConfig.MailPageSize, a.tuiConfig.Greeting, a.globalDir, a.tuiConfig.Language, a.tuiConfig.Insights)
+		a.mail = NewMailModel(humanDir, addr, a.projectDir, a.orchDir, a.orchName, a.tuiConfig.MailPageSize, a.globalDir, a.tuiConfig.Language, a.tuiConfig.Insights)
 
 		if launchErr != "" {
 			a.mail.messages = append(a.mail.messages, ChatMessage{From: i18n.T("mail.system_sender"), Body: launchErr, Type: "mail"})
@@ -360,10 +357,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case appViewDoctor:
 		updated, cmd := a.doctor.Update(msg)
 		a.doctor = updated
-		return a, cmd
-	case appViewTutorial:
-		updated, cmd := a.tutorial.Update(msg)
-		a.tutorial = updated
 		return a, cmd
 	case appViewNirvana:
 		updated, cmd := a.nirvana.Update(msg)
@@ -531,10 +524,6 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 			return a, tea.Batch(a.addon.Init(), a.sendSize())
 		}
 		return a, nil
-	case "tutorial":
-		a.currentView = appViewTutorial
-		a.tutorial = NewTutorialConfirmModel(a.projectDir, a.globalDir, a.lingtaiCmd, a.tuiConfig.Language)
-		return a, tea.Batch(a.tutorial.Init(), a.sendSize())
 	case "setup":
 		a.currentView = appViewFirstRun
 		a.firstRun = NewSetupModeModel(a.projectDir, a.globalDir, a.orchDir, a.orchName)
@@ -644,6 +633,15 @@ func (a App) sendSize() tea.Cmd {
 	return func() tea.Msg { return tea.WindowSizeMsg{Width: w, Height: h} }
 }
 
+// RecipeFreshStartMsg is emitted from stepRecipeSwapConfirm when the user
+// chooses "Fresh start (wipe .lingtai/ and reconfigure)". The app routes
+// this to NirvanaModel and stores the recipe so post-nirvana first-run
+// can pre-select it.
+type RecipeFreshStartMsg struct {
+	Recipe    string
+	CustomDir string
+}
+
 type refreshDoneMsg struct{ err error }
 type refreshAllDoneMsg struct {
 	count    int
@@ -696,7 +694,7 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 		return a, nil
 	case "welcome":
 		a.currentView = appViewFirstRun
-		a.firstRun = NewFirstRunModel(a.projectDir, a.globalDir, true)
+		a.firstRun = NewFirstRunModel(a.projectDir, a.globalDir, true, "")
 		a.firstRun.welcomeOnly = true
 		return a, tea.Batch(a.firstRun.Init(), a.sendSize())
 	}
@@ -720,8 +718,6 @@ func (a App) View() tea.View {
 		content = a.addon.View()
 	case appViewDoctor:
 		content = a.doctor.View()
-	case appViewTutorial:
-		content = a.tutorial.View()
 	case appViewNirvana:
 		content = a.nirvana.View()
 	case appViewSkills:

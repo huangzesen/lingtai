@@ -102,12 +102,6 @@ func NewSettingsModel(globalDir, projectDir, orchDir string, tuiCfg config.TUICo
 		}
 	}
 
-	greetingOptions := []string{"off", "on"}
-	greetingCurrent := 1 // default on
-	if !tuiCfg.Greeting {
-		greetingCurrent = 0
-	}
-
 	themeOptions := ThemeNames()
 	themeCurrent := 0
 	for i, t := range themeOptions {
@@ -157,7 +151,6 @@ func NewSettingsModel(globalDir, projectDir, orchDir string, tuiCfg config.TUICo
 	fields := []SettingField{
 		{Key: "language", Label: "settings.language", Options: langOptions, Current: langCurrent},
 		{Key: "mail_page_size", Label: "settings.mail_page_size", Options: pageSizeOptions, Current: pageSizeCurrent},
-		{Key: "greeting", Label: "settings.greeting", Options: greetingOptions, Current: greetingCurrent},
 		{Key: "theme", Label: "settings.theme", Options: themeOptions, Current: themeCurrent},
 		{Key: "insights", Label: "settings.insights", Options: insightsOptions, Current: insightsCurrent},
 		{Key: "agent_lang", Label: "settings.agent_lang", Options: agentLangOptions, Current: agentLangCurrent},
@@ -286,8 +279,6 @@ func (m *SettingsModel) applyField(f *SettingField) tea.Cmd {
 			fmt.Sscanf(val, "%d", &size)
 			m.tuiConfig.MailPageSize = size
 		}
-	case "greeting":
-		m.tuiConfig.Greeting = val == "on"
 	case "insights":
 		m.tuiConfig.Insights = val == "on"
 	case "theme":
@@ -422,7 +413,7 @@ func (m SettingsModel) View() string {
 
 		// Show display-friendly value
 		displayVal := value
-		if f.Key == "greeting" || f.Key == "insights" || (f.Key == "mail_page_size" && value == "unlimited") {
+		if f.Key == "insights" || (f.Key == "mail_page_size" && value == "unlimited") {
 			displayVal = i18n.T("settings." + value)
 		} else if f.Key == "theme" {
 			displayVal = i18n.T("theme." + value)

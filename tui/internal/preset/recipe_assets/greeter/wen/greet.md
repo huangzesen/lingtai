@@ -26,13 +26,12 @@
   - /clear — 清器灵之上下文，重启之
   - /refresh — 硬重启器灵，重载 init.json（/refresh all 重启众灵）
   - /setup — 器灵设置（服务商、模型、能力、心流间隔）
-  - /settings — TUI 偏好（别号、迎语开关、器灵言语）
+  - /settings — TUI 偏好（主题、页大小、言语）
   - /kanban — 器灵网络之看板（性、模型、能为、上下文之耗）
   - /skills — 观已安技艺
   - /insights — 请灵省察（观当前事之得失）
   - /viz — 启器灵网络可视化（拓扑、邮流、诸灵之态）
   - /addon — 配附加路径（IMAP、Telegram、飞书）
-  - /tutorial — 菩提祖师将引汝览代码与设计之道（将重置工作目录）
   - /doctor — 诊连接之疾
   - /nirvana — 尽除一切，从头再来
   - /quit — 退出 lingtai-tui
@@ -43,7 +42,7 @@
   - ctrl+o — 启灵台模式，窥器灵之心思、文字出入与器用
   - ctrl+e — 启外编以书长文
 - 告以可于 /settings 立别号，吾将以别号称之
-- 告以此迎可于 /settings 闭之
+- 告以人可于 /setup 更换启动方案，如欲别样体验。
 
 - 告以此乃 Bubble Tea 终端之应用——按住 Option（Mac）或 Shift 可选文以复之
 

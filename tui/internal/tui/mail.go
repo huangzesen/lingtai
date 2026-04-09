@@ -16,7 +16,6 @@ import (
 
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/fs"
-	"github.com/anthropics/lingtai-tui/internal/preset"
 )
 
 // unlimitedPageSize is the effective page size when the user selects "unlimited".
@@ -129,9 +128,6 @@ type MailModel struct {
 	lastBannerLines  int
 	pendingMessage   string // full text from editor, sent on Enter
 	globalDir      string // ~/.lingtai-tui/
-	greetEnabled   bool   // from settings
-	greetChecked   bool   // true after first refresh check
-	greetLang      string // current language
 	wasActive      bool   // true if previous refresh was ACTIVE
 	quoteIdx       int    // which quote to show (advances on each ACTIVE transition)
 	pulseTick      int    // pulse animation counter while ACTIVE
@@ -144,7 +140,7 @@ type MailModel struct {
 	insightsEnabled bool   // from settings — show insight events
 }
 
-func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pageSize int, greeting bool, globalDir, lang string, insights bool) MailModel {
+func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pageSize int, globalDir, lang string, insights bool) MailModel {
 	input := NewInputModel(humanDir)
 	input.textarea.Focus()
 	palette := NewPaletteModel()
@@ -171,8 +167,6 @@ func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pageSi
 		cache:        fs.NewMailCache(humanDir),
 		pageSize:     pageSize,
 		globalDir:      globalDir,
-		greetEnabled:    greeting,
-		greetLang:       lang,
 		quoteIdx:          -1,
 		insightsEnabled:    insights,
 		dismissedInsights: make(map[string]bool),
@@ -350,66 +344,6 @@ func (m *MailModel) buildMessages() {
 	m.messages = chatMsgs
 }
 
-// buildGreetPrompt reads the greet template, replaces placeholders, and returns
-// the final prompt string. Returns "" if the template file is missing.
-//
-// The greet language is sourced from the orchestrator's init.json manifest
-// (manifest.language), NOT from the TUI user's language preference. The
-// greet is a message *to the agent*, and should speak in the agent's own
-// language — which may differ from the TUI's UI language (a user can
-// prefer an English UI while running a wen-speaking network, for example).
-// If the manifest read fails, falls back to m.greetLang (the TUI config
-// value captured at NewMailModel time) so behavior stays defined in edge
-// cases like a missing or malformed init.json.
-func (m *MailModel) buildGreetPrompt() string {
-	// Soul delay AND language both come from the orchestrator's init.json.
-	// Read once so we don't parse the file twice.
-	lang := m.greetLang
-	soulDelay := "unknown"
-	if m.orchestrator != "" {
-		if manifest, err := fs.ReadInitManifest(m.orchestrator); err == nil {
-			if l, ok := manifest["language"].(string); ok && l != "" {
-				lang = l
-			}
-			if sd, ok := manifest["soul_delay"]; ok {
-				soulDelay = fmt.Sprintf("%v", sd)
-			}
-		}
-	}
-
-	path := preset.GreetPath(m.globalDir, lang)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	prompt := string(data)
-	prompt = strings.ReplaceAll(prompt, "{{time}}", time.Now().Format("2006-01-02 15:04"))
-	prompt = strings.ReplaceAll(prompt, "{{addr}}", m.humanAddr)
-	prompt = strings.ReplaceAll(prompt, "{{lang}}", lang)
-	// Location from human's .agent.json
-	loc := ""
-	humanNode, err := fs.ReadAgent(m.humanDir)
-	if err == nil && humanNode.Location != nil {
-		parts := []string{}
-		if humanNode.Location.City != "" {
-			parts = append(parts, humanNode.Location.City)
-		}
-		if humanNode.Location.Region != "" {
-			parts = append(parts, humanNode.Location.Region)
-		}
-		if humanNode.Location.Country != "" {
-			parts = append(parts, humanNode.Location.Country)
-		}
-		loc = strings.Join(parts, ", ")
-	}
-	if loc == "" {
-		loc = "unknown"
-	}
-	prompt = strings.ReplaceAll(prompt, "{{location}}", loc)
-	prompt = strings.ReplaceAll(prompt, "{{soul_delay}}", soulDelay)
-	return prompt
-}
-
 func (m MailModel) Init() tea.Cmd {
 	return tea.Batch(
 		m.input.Init(),
@@ -501,15 +435,6 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 				m.inquiryState = "taken"
 			default:
 				m.inquiryState = ""
-			}
-		}
-		// Auto-greet: on first refresh, if history is empty, write .prompt
-		if !m.greetChecked {
-			m.greetChecked = true
-			if m.greetEnabled && len(m.messages) == 0 && m.orchestrator != "" {
-				if prompt := m.buildGreetPrompt(); prompt != "" {
-					fs.WritePrompt(m.orchestrator, prompt)
-				}
 			}
 		}
 		if m.ready {

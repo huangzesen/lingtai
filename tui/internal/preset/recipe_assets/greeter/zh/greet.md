@@ -26,13 +26,12 @@
   - /clear — 清空器灵上下文窗口并重启
   - /refresh — 硬重启器灵，重新加载 init.json（/refresh all 全部重启）
   - /setup — 器灵设置（服务商、模型、能力、心流间隔）
-  - /settings — TUI 偏好设置（昵称、问候开关、器灵语言）
+  - /settings — TUI 偏好设置（主题、页面大小、语言）
   - /kanban — 器灵网络看板（属性、LLM 配置、能力、上下文用量）
   - /skills — 查看已安装技能
   - /insights — 请求器灵洞察（对当前任务的观察与建议）
   - /viz — 打开器灵网络可视化（拓扑、邮件流向、器灵状态）
   - /addon — 配置附加路径（IMAP、Telegram、飞书）
-  - /tutorial — 菩提祖师将带你了解代码和设计理念（会重置工作目录）
   - /doctor — 诊断连接问题
   - /nirvana — 清除一切，从头开始
   - /quit — 退出 lingtai-tui
@@ -43,7 +42,7 @@
   - ctrl+o — 切换灵台模式，查看器灵的内心活动、文本输入输出和工具调用
   - ctrl+e — 打开外部编辑器，方便撰写长消息
 - 提及可在 /settings 中设置昵称，你会以昵称称呼他们
-- 提及此问候可在 /settings 中关闭
+- 提及用户可通过 /setup 更换启动方案，如果他们想要不同的体验。
 
 - 提及这是一个 Bubble Tea 终端应用——按住 Option（Mac）或 Shift 可选择和复制文本
 

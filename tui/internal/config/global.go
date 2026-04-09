@@ -34,11 +34,10 @@ type Config struct {
 
 // TUIConfig holds global TUI preferences at ~/.lingtai-tui/tui_config.json.
 type TUIConfig struct {
-	Language       string `json:"language"`
-	MailPageSize   int    `json:"mail_page_size"`
-	Greeting       bool   `json:"greeting"`
-	Theme          string `json:"theme,omitempty"` // theme name: "ink-dark" (default), etc.
-	Insights       bool   `json:"insights"`
+	Language     string `json:"language"`
+	MailPageSize int    `json:"mail_page_size"`
+	Theme        string `json:"theme,omitempty"` // theme name: "ink-dark" (default), etc.
+	Insights     bool   `json:"insights"`
 }
 
 // DefaultTUIConfig returns sensible defaults.
@@ -46,7 +45,6 @@ func DefaultTUIConfig() TUIConfig {
 	return TUIConfig{
 		Language:     "en",
 		MailPageSize: 100,
-		Greeting:     true,
 		Insights:     false,
 	}
 }
@@ -66,10 +64,6 @@ func LoadTUIConfig(globalDir string) TUIConfig {
 	}
 	if tc.MailPageSize > 0 && tc.MailPageSize < 100 {
 		tc.MailPageSize = 100 // migrate old values below minimum
-	}
-	// Greeting defaults to true when absent from JSON.
-	if !strings.Contains(string(data), `"greeting"`) {
-		tc.Greeting = true
 	}
 	// Insights defaults to false when absent from JSON.
 	// No override needed — zero value of bool is false.
@@ -154,8 +148,4 @@ func providerToEnvKey(provider string) string {
 	}
 }
 
-// MarkTutorialDone writes a .tutorial marker to the global dir.
-func MarkTutorialDone(globalDir string) {
-	os.WriteFile(filepath.Join(globalDir, ".tutorial"), []byte("done\n"), 0o644)
-}
 
