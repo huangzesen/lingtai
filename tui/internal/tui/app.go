@@ -46,14 +46,16 @@ type App struct {
 	doctor      DoctorModel
 	nirvana     NirvanaModel
 
-	globalDir     string
-	projectDir    string // .lingtai/ directory
-	orchDir       string // full path to orchestrator dir
-	orchName      string
-	lingtaiCmd    string
-	width         int
-	height        int
-	tuiConfig   config.TUIConfig
+	globalDir       string
+	projectDir      string // .lingtai/ directory
+	orchDir         string // full path to orchestrator dir
+	orchName        string
+	lingtaiCmd      string
+	width           int
+	height          int
+	tuiConfig       config.TUIConfig
+	pendingRecipe   string
+	pendingCustomDir string
 }
 
 func humanAddr(projectDir string) string {
@@ -243,6 +245,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, tea.Batch(a.mail.Init(), a.sendSize())
 
+	case RecipeFreshStartMsg:
+		a.pendingRecipe = msg.Recipe
+		a.pendingCustomDir = msg.CustomDir
+		a.currentView = appViewNirvana
+		a.nirvana = NewNirvanaModel(a.projectDir)
+		return a, tea.Batch(a.nirvana.Init(), a.sendSize())
+
 	case NirvanaDoneMsg:
 		// Nirvana complete: .lingtai/ wiped, go to first-run.
 		// Re-init project to recreate the human folder so agents can
@@ -252,7 +261,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.orchName = ""
 		a.currentView = appViewFirstRun
 		hasPresets := preset.HasAny()
-		a.firstRun = NewFirstRunModel(a.projectDir, a.globalDir, hasPresets, "")
+		preselected := a.pendingRecipe
+		a.pendingRecipe = ""
+		pendingCustom := a.pendingCustomDir
+		a.pendingCustomDir = ""
+		a.firstRun = NewFirstRunModel(a.projectDir, a.globalDir, hasPresets, preselected)
+		if preselected == preset.RecipeCustom && pendingCustom != "" {
+			a.firstRun.recipeCustomInput.SetValue(pendingCustom)
+		}
 		return a, tea.Batch(a.firstRun.Init(), a.sendSize())
 
 	case AddonSavedMsg:
