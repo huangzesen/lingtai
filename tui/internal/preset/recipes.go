@@ -68,6 +68,30 @@ func resolveRecipeFile(recipeDir, lang, filename string) string {
 	return ""
 }
 
+// ResolveSkillDir returns the absolute path to a skill directory within a
+// recipe, applying the per-lang fallback rule:
+//  1. <recipeDir>/skills/<skillName>/<lang>/SKILL.md exists → return that dir
+//  2. <recipeDir>/skills/<skillName>/SKILL.md exists → return that dir
+//  3. empty string (no match)
+func ResolveSkillDir(recipeDir, skillName, lang string) string {
+	if recipeDir == "" {
+		return ""
+	}
+	base := filepath.Join(recipeDir, "skills", skillName)
+	// 1. Try lang-specific
+	if lang != "" {
+		langDir := filepath.Join(base, lang)
+		if info, err := os.Stat(filepath.Join(langDir, "SKILL.md")); err == nil && !info.IsDir() {
+			return langDir
+		}
+	}
+	// 2. Try root
+	if info, err := os.Stat(filepath.Join(base, "SKILL.md")); err == nil && !info.IsDir() {
+		return base
+	}
+	return ""
+}
+
 // ValidateCustomDir checks that a user-supplied custom recipe folder exists and
 // is a directory. Returns a human-readable error on failure.
 //
