@@ -168,11 +168,130 @@ For hard matches, the human has two options:
 1. **Redact and retry.** Edit the flagged file(s) in the staging copy to remove the secret, then re-run `privacy_scan.py`. Loop until clean.
 2. **False positive override.** The human explicitly states "that's not a real secret, proceed anyway". Only accept this if they are specific about which match they're overriding. Do not accept a blanket "ignore all warnings".
 
-**Do not proceed to step 5 with unresolved hard matches.** The consequence of shipping a real API key to GitHub is an irreversible privacy incident — there is no cleanup, only key rotation.
+**Do not proceed to step 5 or 6 with unresolved hard matches.** The consequence of shipping a real API key to GitHub is an irreversible privacy incident — there is no cleanup, only key rotation.
 
-## Step 5: git init + commit
+## Step 5: Create a launch recipe for recipients (optional but recommended)
 
-Once steps 1–4 are clean:
+A **launch recipe** controls what the orchestrator says and how it behaves when someone clones this network and runs it for the first time. It lives at `.lingtai-recipe/` in the project root — a convention the TUI discovers automatically during setup.
+
+A recipe has two files:
+
+- **`greet.md`** — the first message the orchestrator sends to the new user. This is about **proactiveness**: setting the tone, introducing the network, offering to guide the user. Think of it as the elevator pitch spoken by the agent itself.
+
+- **`comment.md`** — persistent behavioral instructions injected into the orchestrator's system prompt on every turn. This is about **constraints and guidance**: what the orchestrator should do, what topics to cover, what order to follow, what to avoid. This is the detailed playbook — the equivalent of the tutorial system's `tutorial.md`, but tailored to this specific network's purpose.
+
+**Both files are optional.** If `.lingtai-recipe/` is absent or empty, recipients pick from the TUI's built-in recipes (greeter, plain, tutorial, etc.) during their setup wizard. Including a recipe means you've pre-packaged the ideal first experience for your network.
+
+### 5a. Discuss the recipe with the human
+
+Ask:
+
+> "Do you want to include a launch recipe? This controls what the orchestrator says to someone who clones your network for the first time. I can draft a welcome message (`greet.md`) and behavioral instructions (`comment.md`) based on what this network does. What would you like recipients to experience on their first launch?"
+
+If the human says **no** or **skip**: move on to Step 6. No `.lingtai-recipe/` is created.
+
+If **yes**: discuss what the network is for, who the audience is, and what the orchestrator should do on first contact. Use the existing mail archive, agent names, and `.agent.json` blueprints in the staging copy to understand the network's purpose. Then draft both files.
+
+### 5b. Draft greet.md
+
+Write the first-contact message. This should:
+
+- Introduce the network and its purpose in 2–4 sentences
+- Offer to guide the user ("Ready to get started?" / "What would you like to explore first?")
+- Be warm but not overly long — this is a `.prompt`, the agent speaks it once
+
+**Available placeholders** — the TUI substitutes these at setup time with the recipient's own values:
+
+| Placeholder | Replaced with | Example |
+|---|---|---|
+| `{{time}}` | Current date and time (YYYY-MM-DD HH:MM) | `2026-04-09 14:30` |
+| `{{addr}}` | The human's email address in the network | `human` |
+| `{{lang}}` | The language selected during setup | `en`, `zh`, `wen` |
+| `{{location}}` | The human's location (from their .agent.json) | `Los Angeles, California, US` |
+| `{{soul_delay}}` | Seconds between the orchestrator's soul cycles | `120` |
+
+These are optional — use them only where natural. `{{time}}` and `{{lang}}` are the most useful. `{{location}}` may be `unknown` if the recipient hasn't set up location.
+
+**Example:**
+
+```
+Welcome to the OpenClaw Explainer Network! It's {{time}}.
+
+I'm the lead orchestrator of a team of 10 agents that can walk you through the OpenClaw legal dataset — case structure, citation format, judicial opinions, and more.
+
+Let me know what you'd like to explore, or say "start from the beginning" and I'll take you through it step by step.
+```
+
+### 5c. Draft comment.md
+
+Write the behavioral playbook. This is injected into the orchestrator's system prompt persistently (every turn, not just the first message). It should:
+
+- Describe the orchestrator's role in 1–2 sentences
+- List the topics or steps the orchestrator should guide the user through (numbered if sequential, bulleted if unordered)
+- Describe how to interact with other agents in the network (if applicable — e.g., "delegate legal citation questions to the `citation-agent`")
+- Set constraints (what NOT to do, what to avoid, tone guidelines)
+- Be as detailed as needed — this is a system prompt section, not a user-facing message. Longer is fine if the guidance is substantive.
+
+**No placeholder substitution** is performed on `comment.md` — it is read by the kernel as-is. Write it as plain prose.
+
+**Example:**
+
+```
+You are the lead orchestrator of the OpenClaw Explainer Network.
+
+Your job is to guide new users through the OpenClaw legal dataset. Walk them
+through these topics in order, one at a time, confirming understanding before
+moving on:
+
+1. What OpenClaw is — a structured dataset of US court opinions
+2. Case structure — how opinions are organized (parties, docket, citations)
+3. Citation format — Bluebook style, parallel citations
+4. Searching — how to find cases by topic, citation, or party name
+5. Cross-references — how cases cite each other, citation networks
+6. Practical exercises — the user picks a legal question and you walk them
+   through finding and reading the relevant cases
+
+When the user asks about citation details, delegate to `citation-agent` via
+email. When they ask about case search, delegate to `search-agent`.
+
+Always be patient. Explain legal terminology when you use it. If the user
+seems lost, offer to go back a step rather than pushing forward.
+
+Do not generate legal advice. You explain the dataset and how to read it —
+you do not interpret the law.
+```
+
+### 5d. Write the files
+
+```bash
+mkdir -p ~/lingtai-agora/projects/<name>/.lingtai-recipe
+```
+
+Write `greet.md` and `comment.md` to that directory. Show the human both files and ask for review:
+
+> "Here's the launch recipe I've drafted. The greet is what the orchestrator will say first; the comment shapes its ongoing behavior. Want to edit either one?"
+
+If the human wants changes, edit and re-show. Iterate until they're satisfied.
+
+### 5e. Multi-language recipes (optional)
+
+If the network is intended for a specific language audience, you can create per-language subdirectories:
+
+```
+.lingtai-recipe/
+  en/
+    greet.md
+    comment.md
+  zh/
+    greet.md
+    comment.md
+```
+
+The TUI tries `<lang>/greet.md` first, then falls back to `greet.md` at the root. For most networks, a single root-level pair is sufficient. Only suggest per-language subdirectories if the human mentions a multi-language audience.
+
+## Step 6: git init + commit
+
+Once steps 1–5 are clean:
 
 ```bash
 cd ~/lingtai-agora/projects/<name>/
@@ -187,9 +306,9 @@ Show the human `git status` output so they see exactly what will be committed. A
 git commit -m "Initial snapshot: <name>"
 ```
 
-Report the staging path. The network is now a clean local git repo, ready for step 6.
+Report the staging path. The network is now a clean local git repo, ready for step 7.
 
-## Step 6: Publish to GitHub (optional)
+## Step 7: Publish to GitHub (optional)
 
 Check whether the `gh` CLI is installed and authenticated:
 
