@@ -550,6 +550,19 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		a.projects = NewProjectsModel(a.globalDir, a.projectDir)
 		return a, tea.Batch(a.projects.Init(), a.sendSize())
 	case "agora":
+		if args == "publish" {
+			if a.orchDir == "" {
+				a.mail.AddSystemMessage(i18n.T("agora.no_agent"))
+				return a, nil
+			}
+			if !fs.IsAlive(a.orchDir, 3.0) {
+				a.mail.AddSystemMessage(i18n.T("mail.btw_suspended"))
+				return a, nil
+			}
+			fs.WritePrompt(a.orchDir, i18n.T("agora.publish_prompt"))
+			a.mail.AddSystemMessage(i18n.T("agora.publish_sent"))
+			return a, nil
+		}
 		a.currentView = appViewProjects
 		a.projects = NewAgoraModel(a.globalDir, a.projectDir)
 		return a, tea.Batch(a.projects.Init(), a.sendSize())
