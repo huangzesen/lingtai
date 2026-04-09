@@ -1884,6 +1884,25 @@ func (m FirstRunModel) viewWelcome() string {
 	content.WriteString(centerText(poemStyle.Render(i18n.T("welcome.poem_line1")), m.width) + "\n")
 	content.WriteString(centerText(poemStyle.Render(i18n.T("welcome.poem_line2")), m.width) + "\n\n\n")
 
+	// Imported network banner (rehydration mode only)
+	if m.rehydrateMode {
+		bannerStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
+		// Count agent dirs in .lingtai/ (non-dot, non-human dirs with .agent.json)
+		agentCount := 0
+		if entries, err := os.ReadDir(m.baseDir); err == nil {
+			for _, e := range entries {
+				if !e.IsDir() || strings.HasPrefix(e.Name(), ".") || e.Name() == "human" {
+					continue
+				}
+				if _, err := os.Stat(filepath.Join(m.baseDir, e.Name(), ".agent.json")); err == nil {
+					agentCount++
+				}
+			}
+		}
+		banner := i18n.TF("welcome.network_found", agentCount, m.rehydrateOrchName)
+		content.WriteString(centerText(bannerStyle.Render(banner), m.width) + "\n\n")
+	}
+
 	// Language selector
 	for i, label := range langLabels {
 		style := lipgloss.NewStyle().Foreground(ColorText)
@@ -2549,6 +2568,10 @@ func (m FirstRunModel) viewRecipeSwapConfirm() string {
 	return b.String()
 }
 
+// recipeWidePaneThreshold is the terminal width at or above which the
+// recipe picker shows a side pane with file previews.
+const recipeWidePaneThreshold = 90
+
 func (m FirstRunModel) viewRecipe() string {
 	var b strings.Builder
 
@@ -2556,6 +2579,7 @@ func (m FirstRunModel) viewRecipe() string {
 	b.WriteString("\n  " + titleStyle.Render(i18n.T("recipe.title")) + "\n\n")
 	b.WriteString("  " + i18n.T("recipe.hint") + "\n\n")
 
+	var leftBlock strings.Builder
 	for i := 0; i < 5; i++ {
 		name := recipeIdxToName(i)
 		cursor := "  "
@@ -2566,17 +2590,41 @@ func (m FirstRunModel) viewRecipe() string {
 		}
 		label := i18n.T("recipe.name." + name)
 		desc := i18n.T("recipe.desc." + name)
-		b.WriteString(cursor + style.Render(label) + "\n")
-		b.WriteString("    " + StyleFaint.Render(desc) + "\n")
+		leftBlock.WriteString(cursor + style.Render(label) + "\n")
+		leftBlock.WriteString("    " + StyleFaint.Render(desc) + "\n")
 	}
 
 	if m.recipeIdx == 4 { // custom
-		b.WriteString("\n  " + i18n.T("recipe.custom_path") + "\n")
-		b.WriteString("  " + m.recipeCustomInput.View() + "\n")
+		leftBlock.WriteString("\n  " + i18n.T("recipe.custom_path") + "\n")
+		leftBlock.WriteString("  " + m.recipeCustomInput.View() + "\n")
 		if m.recipeCustomErr != "" {
 			errStyle := lipgloss.NewStyle().Foreground(ColorSuspended)
-			b.WriteString("  " + errStyle.Render(m.recipeCustomErr) + "\n")
+			leftBlock.WriteString("  " + errStyle.Render(m.recipeCustomErr) + "\n")
 		}
+	}
+
+	wide := m.width >= recipeWidePaneThreshold
+	if wide {
+		leftWidth := 50
+		paneWidth := m.width - leftWidth - 6
+		if paneWidth > 50 {
+			paneWidth = 50
+		}
+		if paneWidth < 25 {
+			wide = false
+		} else {
+			pane := m.renderRecipeSidePane(paneWidth)
+			if pane != "" {
+				paneIndented := "  │ " + strings.ReplaceAll(pane, "\n", "\n  │ ")
+				combined := lipgloss.JoinHorizontal(lipgloss.Top, leftBlock.String(), paneIndented)
+				b.WriteString(combined + "\n")
+			} else {
+				wide = false
+			}
+		}
+	}
+	if !wide {
+		b.WriteString(leftBlock.String())
 	}
 
 	b.WriteString("\n" + StyleFaint.Render(
@@ -2584,6 +2632,76 @@ func (m FirstRunModel) viewRecipe() string {
 			"  [Enter] "+i18n.T("welcome.confirm")+
 			"  [Esc] "+i18n.T("firstrun.back")) + "\n")
 	return b.String()
+}
+
+// renderRecipeSidePane renders a preview of the greet.md and comment.md files
+// for the currently selected recipe. Returns empty string if nothing to show.
+func (m FirstRunModel) renderRecipeSidePane(paneWidth int) string {
+	langs := []string{"en", "zh", "wen"}
+	lang := langs[m.agentLangIdx]
+	recipeName := recipeIdxToName(m.recipeIdx)
+
+	// Resolve the recipe directory.
+	var recipeDir string
+	switch recipeName {
+	case preset.RecipeCustom:
+		recipeDir = m.recipeCustomInput.Value()
+		if recipeDir == "" {
+			return ""
+		}
+	default:
+		recipeDir = preset.RecipeDir(m.globalDir, recipeName)
+	}
+
+	greetPath := preset.ResolveGreetPath(recipeDir, lang)
+	commentPath := preset.ResolveCommentPath(recipeDir, lang)
+
+	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorSubtle)
+	const previewLines = 6
+
+	var b strings.Builder
+
+	// greet.md preview
+	b.WriteString(labelStyle.Render("── "+i18n.T("recipe.preview_greet")+" ──") + "\n")
+	b.WriteString(recipeFilePreview(greetPath, paneWidth, previewLines) + "\n\n")
+
+	// comment.md preview
+	b.WriteString(labelStyle.Render("── "+i18n.T("recipe.preview_comment")+" ──") + "\n")
+	b.WriteString(recipeFilePreview(commentPath, paneWidth, previewLines) + "\n")
+	return strings.TrimRight(b.String(), "\n")
+}
+
+// recipeFilePreview reads the first N lines of a file and returns them
+// wrapped to paneWidth. Returns a placeholder if the file is missing or empty.
+func recipeFilePreview(path string, paneWidth, maxLines int) string {
+	if path == "" {
+		return StyleFaint.Render(i18n.T("recipe.preview_not_found"))
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return StyleFaint.Render(i18n.T("recipe.preview_not_found"))
+	}
+	content := strings.TrimSpace(string(data))
+	if content == "" {
+		return StyleFaint.Render(i18n.T("recipe.preview_empty"))
+	}
+
+	lines := strings.SplitN(content, "\n", maxLines+1)
+	truncated := len(lines) > maxLines
+	if truncated {
+		lines = lines[:maxLines]
+	}
+
+	var out strings.Builder
+	for _, line := range lines {
+		for _, wrapped := range wrapLine(line, paneWidth) {
+			out.WriteString(StyleFaint.Render(wrapped) + "\n")
+		}
+	}
+	if truncated {
+		out.WriteString(StyleFaint.Render("…") + "\n")
+	}
+	return strings.TrimRight(out.String(), "\n")
 }
 
 // performRecipeSave executes the full save for the chosen recipe and the

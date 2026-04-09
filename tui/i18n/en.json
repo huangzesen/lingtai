@@ -87,6 +87,7 @@
   "welcome.installing": "Setting up runtime...",
   "welcome.ready": "Ready",
   "welcome.setup_failed": "Setup failed: %s",
+  "welcome.network_found": "Imported network detected — %d agents found (orchestrator: %s)",
   "common.quit": "quit",
   "editor_warn.title": "Open Editor",
   "editor_warn.editor_is": "Opening: %s",
@@ -315,5 +316,9 @@
   "recipe.swap_inplace_desc": "Update the comment file and queue a new greet. Existing network preserved.",
   "recipe.swap_fresh": "Fresh start (wipe .lingtai/ and reconfigure)",
   "recipe.swap_fresh_desc": "Destroy the current network and start over with the new recipe. Irreversible.",
-  "recipe.swap_cancel": "Cancel"
+  "recipe.swap_cancel": "Cancel",
+  "recipe.preview_greet": "greet.md",
+  "recipe.preview_comment": "comment.md",
+  "recipe.preview_not_found": "(not found)",
+  "recipe.preview_empty": "(empty)"
 }
