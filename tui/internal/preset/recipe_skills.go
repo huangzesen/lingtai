@@ -130,15 +130,11 @@ func PruneStaleSkillSymlinks(lingtaiDir string) {
 		return
 	}
 	for _, e := range entries {
-		path := filepath.Join(skillsDir, e.Name())
-		info, err := os.Lstat(path)
-		if err != nil {
-			continue
-		}
-		if info.Mode()&os.ModeSymlink == 0 {
+		if e.Type()&os.ModeSymlink == 0 {
 			continue // not a symlink — leave it alone
 		}
-		// Check if target exists
+		path := filepath.Join(skillsDir, e.Name())
+		// Check if target exists (os.Stat follows symlinks)
 		if _, err := os.Stat(path); err != nil {
 			// Broken symlink — remove
 			os.Remove(path)
