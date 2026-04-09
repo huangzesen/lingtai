@@ -53,6 +53,7 @@ func SaveRecipeState(lingtaiDir string, state RecipeState) error {
 	// Atomic write: temp file + rename
 	tmpPath := recipeStatePath(lingtaiDir) + ".tmp"
 	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
+		os.Remove(tmpPath) // best-effort cleanup of partial write
 		return fmt.Errorf("write recipe state tmp: %w", err)
 	}
 	if err := os.Rename(tmpPath, recipeStatePath(lingtaiDir)); err != nil {
