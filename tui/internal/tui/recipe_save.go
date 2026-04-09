@@ -78,6 +78,29 @@ func substituteGreetPlaceholders(template, humanAddr, humanDir, lang, soulDelay 
 			}
 		}
 	}
+	// If location is still unknown (first run, cache empty), try resolving
+	// synchronously. ResolveLocation has a 5-second timeout built in.
+	if loc == "unknown" {
+		if resolved, err := fs.ResolveLocation(); err == nil {
+			parts := []string{}
+			if resolved.City != "" {
+				parts = append(parts, resolved.City)
+			}
+			if resolved.Region != "" {
+				parts = append(parts, resolved.Region)
+			}
+			if resolved.Country != "" {
+				parts = append(parts, resolved.Country)
+			}
+			if len(parts) > 0 {
+				loc = strings.Join(parts, ", ")
+			}
+			// Also persist it to human's .agent.json so next time it's cached
+			if humanDir != "" {
+				go fs.UpdateHumanLocation(humanDir)
+			}
+		}
+	}
 	out = strings.ReplaceAll(out, "{{location}}", loc)
 	return out
 }
