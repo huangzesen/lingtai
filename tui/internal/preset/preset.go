@@ -277,15 +277,18 @@ func Bootstrap(globalDir string) error {
 	populate(globalDir, templatesFS, "templates")
 	populate(globalDir, recipeAssetsFS, "recipe_assets")
 	// Rename recipe_assets -> recipes at the target path.
-	// populate() mirrors the embed root name; we want ~/.lingtai-tui/recipes/
-	// not ~/.lingtai-tui/recipe_assets/.
+	// Unlike other populate() calls (which are merge-skip), recipes are
+	// refreshed wholesale on every launch — the TUI manages this content,
+	// users should not edit bundled recipe files.
 	src := filepath.Join(globalDir, "recipe_assets")
 	dst := filepath.Join(globalDir, "recipes")
 	if _, err := os.Stat(src); err == nil {
-		// If dst already exists (previous launch), refresh its contents by
-		// removing and re-populating — same as other bootstrap assets.
-		os.RemoveAll(dst)
-		os.Rename(src, dst)
+		if err := os.RemoveAll(dst); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to remove old recipes dir: %v\n", err)
+		}
+		if err := os.Rename(src, dst); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to rename recipe_assets to recipes: %v\n", err)
+		}
 	}
 	// Tutorial comment file — now in tutorial/ subfolder
 	tutorialDir := filepath.Join(globalDir, "tutorial")
