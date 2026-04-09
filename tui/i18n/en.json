@@ -288,10 +288,14 @@
   "skills.select_hint": "No skills installed",
   "hints.skills_nav": "↑↓ navigate  r refresh  esc back",
   "palette.projects": "Browse registered projects",
+  "palette.agora": "Browse published networks",
   "projects.title": "Projects",
   "projects.registered": "Registered",
   "projects.none": "No projects registered",
   "projects.select_hint": "No projects registered",
+  "agora.title": "Agora — Published Networks",
+  "agora.published": "Published",
+  "agora.none": "No published networks found in ~/lingtai-agora/projects/",
   "projects.section_agents": "Agents",
   "projects.section_network": "Network",
   "projects.path": "Path",
@@ -320,5 +324,8 @@
   "recipe.preview_greet": "greet.md",
   "recipe.preview_comment": "comment.md",
   "recipe.preview_not_found": "(not found)",
-  "recipe.preview_empty": "(empty)"
+  "recipe.preview_empty": "(empty)",
+  "recipe.preview": "preview",
+  "recipe.preview_switch": "switch file",
+  "recipe.local_found": "✓ Found .lingtai-recipe/ — auto-selected Custom"
 }

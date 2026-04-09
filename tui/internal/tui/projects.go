@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -22,10 +23,19 @@ type projectEntry struct {
 	Current bool           // true if this is the TUI's current project
 }
 
+// projectSource determines where the projects list comes from.
+type projectSource int
+
+const (
+	projectSourceRegistry projectSource = iota // registered projects from config
+	projectSourceAgora                         // published networks from ~/lingtai-agora/projects/
+)
+
 // ProjectsModel is a two-panel view: project list (left) + agent details (right).
 type ProjectsModel struct {
 	globalDir  string
 	projectDir string // current TUI project's .lingtai/ directory
+	source     projectSource
 	width      int
 	height     int
 
@@ -41,6 +51,16 @@ func NewProjectsModel(globalDir, projectDir string) ProjectsModel {
 	return ProjectsModel{
 		globalDir:  globalDir,
 		projectDir: projectDir,
+		source:     projectSourceRegistry,
+	}
+}
+
+// NewAgoraModel creates a ProjectsModel that scans ~/lingtai-agora/projects/.
+func NewAgoraModel(globalDir, projectDir string) ProjectsModel {
+	return ProjectsModel{
+		globalDir:  globalDir,
+		projectDir: projectDir,
+		source:     projectSourceAgora,
 	}
 }
 
@@ -55,7 +75,12 @@ const (
 )
 
 func (m ProjectsModel) loadData() tea.Msg {
-	paths := config.LoadAndPrune(m.globalDir)
+	var paths []string
+	if m.source == projectSourceAgora {
+		paths = scanAgoraProjects()
+	} else {
+		paths = config.LoadAndPrune(m.globalDir)
+	}
 	currentProject := filepath.Dir(m.projectDir) // .lingtai/ → parent
 
 	var projects []projectEntry
@@ -72,6 +97,32 @@ func (m ProjectsModel) loadData() tea.Msg {
 		projects = append(projects, entry)
 	}
 	return projectsLoadMsg{projects: projects}
+}
+
+// scanAgoraProjects returns paths to all directories under ~/lingtai-agora/projects/
+// that contain a .lingtai/ subdirectory.
+func scanAgoraProjects() []string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	agoraDir := filepath.Join(home, "lingtai-agora", "projects")
+	entries, err := os.ReadDir(agoraDir)
+	if err != nil {
+		return nil
+	}
+	var paths []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		p := filepath.Join(agoraDir, e.Name())
+		// Only include if it has .lingtai/ (is a valid published network)
+		if info, err := os.Stat(filepath.Join(p, ".lingtai")); err == nil && info.IsDir() {
+			paths = append(paths, p)
+		}
+	}
+	return paths
 }
 
 func (m ProjectsModel) Init() tea.Cmd { return m.loadData }
@@ -201,11 +252,17 @@ func (m ProjectsModel) renderLeft(maxW int) string {
 
 	var lines []string
 	lines = append(lines, "")
-	lines = append(lines, "  "+sectionStyle.Render(i18n.T("projects.registered")))
+	sectionKey := "projects.registered"
+	emptyKey := "projects.none"
+	if m.source == projectSourceAgora {
+		sectionKey = "agora.published"
+		emptyKey = "agora.none"
+	}
+	lines = append(lines, "  "+sectionStyle.Render(i18n.T(sectionKey)))
 	lines = append(lines, "")
 
 	if len(m.projects) == 0 {
-		lines = append(lines, "  "+StyleFaint.Render(i18n.T("projects.none")))
+		lines = append(lines, "  "+StyleFaint.Render(i18n.T(emptyKey)))
 	}
 
 	for i, proj := range m.projects {
@@ -319,7 +376,11 @@ func (m ProjectsModel) renderRight(maxW int) string {
 }
 
 func (m ProjectsModel) View() string {
-	title := StyleTitle.Render("  "+i18n.T("projects.title")) + "\n" + strings.Repeat("\u2500", m.width)
+	titleKey := "projects.title"
+	if m.source == projectSourceAgora {
+		titleKey = "agora.title"
+	}
+	title := StyleTitle.Render("  "+i18n.T(titleKey)) + "\n" + strings.Repeat("\u2500", m.width)
 
 	scrollHint := ""
 	if m.ready && !m.viewport.AtBottom() {

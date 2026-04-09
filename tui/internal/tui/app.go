@@ -549,6 +549,10 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		a.currentView = appViewProjects
 		a.projects = NewProjectsModel(a.globalDir, a.projectDir)
 		return a, tea.Batch(a.projects.Init(), a.sendSize())
+	case "agora":
+		a.currentView = appViewProjects
+		a.projects = NewAgoraModel(a.globalDir, a.projectDir)
+		return a, tea.Batch(a.projects.Init(), a.sendSize())
 	case "insights":
 		if a.orchDir != "" {
 			if !fs.IsAlive(a.orchDir, 3.0) {
@@ -684,6 +688,10 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 	case "projects":
 		a.currentView = appViewProjects
 		a.projects = NewProjectsModel(a.globalDir, a.projectDir)
+		return a, tea.Batch(a.projects.Init(), a.sendSize())
+	case "agora":
+		a.currentView = appViewProjects
+		a.projects = NewAgoraModel(a.globalDir, a.projectDir)
 		return a, tea.Batch(a.projects.Init(), a.sendSize())
 	case "addon":
 		if a.orchDir != "" {
