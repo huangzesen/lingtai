@@ -64,3 +64,4 @@ lingtai-tui
 .chat_history.json
 _telegram_agent/
 
+.worktrees
