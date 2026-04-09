@@ -80,12 +80,12 @@ func ValidateCustomDir(dir string) error {
 	info, err := os.Stat(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("custom recipe folder does not exist: %s", dir)
+			return fmt.Errorf("custom recipe folder does not exist: %q", dir)
 		}
 		return fmt.Errorf("cannot access custom recipe folder: %w", err)
 	}
 	if !info.IsDir() {
-		return fmt.Errorf("custom recipe path is not a directory: %s", dir)
+		return fmt.Errorf("custom recipe path is not a directory: %q", dir)
 	}
 	return nil
 }

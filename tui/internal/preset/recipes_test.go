@@ -21,7 +21,7 @@ func TestBundledRecipes(t *testing.T) {
 
 func TestRecipeDir(t *testing.T) {
 	got := RecipeDir("/home/user/.lingtai-tui", "greeter")
-	want := "/home/user/.lingtai-tui/recipes/greeter"
+	want := filepath.Join("/home/user/.lingtai-tui", "recipes", "greeter")
 	if got != want {
 		t.Errorf("RecipeDir = %q, want %q", got, want)
 	}
@@ -59,6 +59,24 @@ func TestResolveGreetPath_Empty(t *testing.T) {
 	}
 }
 
+func TestResolveGreetPath_EmptyLang(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "greet.md"), []byte("root greet"), 0o644)
+
+	got := ResolveGreetPath(dir, "")
+	want := filepath.Join(dir, "greet.md")
+	if got != want {
+		t.Errorf("ResolveGreetPath empty lang = %q, want %q", got, want)
+	}
+}
+
+func TestResolveGreetPath_EmptyRecipeDir(t *testing.T) {
+	got := ResolveGreetPath("", "en")
+	if got != "" {
+		t.Errorf("ResolveGreetPath empty recipeDir = %q, want empty", got)
+	}
+}
+
 func TestResolveCommentPath_SameRules(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "zh"), 0o755)
@@ -68,6 +86,17 @@ func TestResolveCommentPath_SameRules(t *testing.T) {
 	want := filepath.Join(dir, "zh", "comment.md")
 	if got != want {
 		t.Errorf("ResolveCommentPath = %q, want %q", got, want)
+	}
+}
+
+func TestResolveCommentPath_FallbackToRoot(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "comment.md"), []byte("root comment"), 0o644)
+
+	got := ResolveCommentPath(dir, "en")
+	want := filepath.Join(dir, "comment.md")
+	if got != want {
+		t.Errorf("ResolveCommentPath fallback to root, got %q, want %q", got, want)
 	}
 }
 
