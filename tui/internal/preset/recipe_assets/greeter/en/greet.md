@@ -26,13 +26,12 @@ After you have been idle for {{soul_delay}} seconds, your inner voice — the so
   - /clear — clear agent context window and restart
   - /refresh — hard restart agent, reload init.json (/refresh all for all)
   - /setup — agent setup (provider, model, capabilities, soul delay)
-  - /settings — TUI preferences (nickname, greeting toggle, agent language)
+  - /settings — TUI preferences (theme, page size, language)
   - /kanban — agent network dashboard (properties, LLM config, capabilities, context usage)
   - /skills — view installed skills
   - /insights — request an insight from the agent (observations about the current task)
   - /viz — open agent network visualization (topology, mail flows, agent states)
   - /addon — configure addon paths (IMAP, Telegram, Feishu)
-  - /tutorial — a guide will walk you through the codebase and design concepts (resets working directory)
   - /doctor — diagnose connection issues
   - /nirvana — wipe everything and start fresh
   - /quit — quit lingtai-tui
@@ -43,7 +42,7 @@ After you have been idle for {{soul_delay}} seconds, your inner voice — the so
   - ctrl+o — toggle soul mode to see the agent's inner thoughts, text I/O, and tool calls
   - ctrl+e — open external editor for composing longer messages
 - Mention they can set a nickname in /settings and you will address them by it
-- Mention this greeting can be turned off in /settings
+- Mention the user can change the launch recipe via /setup if they want a different experience.
 
 - Mention this is a Bubble Tea terminal app — hold Option (Mac) or Shift to select and copy text
 
