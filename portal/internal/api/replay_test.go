@@ -240,6 +240,76 @@ func TestLoadChunk_FromCache(t *testing.T) {
 	}
 }
 
+// TestBuildManifest_SingleHourAfterRebuild reproduces the bug where networks
+// with < 1 hour of history lose all frames after a rebuild. The rebuild handler
+// caches every hour (including the last) as .json.gz but truncates topology.jsonl
+// to just the last frame. buildManifest must trust the cached .json.gz for the
+// last hour rather than re-scanning the now-truncated JSONL.
+func TestBuildManifest_SingleHourAfterRebuild(t *testing.T) {
+	dir := t.TempDir()
+	topologyPath := filepath.Join(dir, ".portal", "topology.jsonl")
+	replayDir := filepath.Join(dir, ".portal", "replay", "chunks")
+
+	net := fs.Network{
+		Nodes:        []fs.AgentNode{{Address: "a", State: "ACTIVE"}},
+		AvatarEdges:  []fs.AvatarEdge{},
+		ContactEdges: []fs.ContactEdge{},
+		MailEdges:    []fs.MailEdge{},
+		Stats:        fs.NetworkStats{Active: 1},
+	}
+
+	// Write 4 frames within a single hour bucket
+	for _, ts := range []int64{3600000, 3603000, 3606000, 3609000} {
+		AppendTopologyAt(topologyPath, net, ts)
+	}
+
+	// Simulate what the rebuild handler does:
+	// 1. Cache the chunk as .json.gz (rebuild caches ALL hours including last)
+	os.MkdirAll(replayDir, 0o755)
+	frames := make([]fs.TapeFrame, 4)
+	for i, ts := range []int64{3600000, 3603000, 3606000, 3609000} {
+		frames[i] = fs.TapeFrame{T: ts, Net: net}
+	}
+	chunk := deltaEncode(frames, defaultKeyframeInterval)
+	cachePath := filepath.Join(replayDir, "3600000.json.gz")
+	if err := writeChunkCache(cachePath, chunk); err != nil {
+		t.Fatal(err)
+	}
+
+	// 2. Write manifest with one chunk
+	manifest := ReplayManifest{
+		TapeStart: 3600000,
+		TapeEnd:   3609000,
+		Chunks:    []ChunkInfo{{Start: 3600000, End: 3609000, Frames: 4}},
+	}
+	mdata, _ := json.Marshal(manifest)
+	os.WriteFile(filepath.Join(replayDir, "manifest.json"), mdata, 0o644)
+
+	// 3. Truncate topology.jsonl to just the last frame (as rebuild does)
+	lastFrame := frames[3]
+	line, _ := json.Marshal(lastFrame)
+	os.WriteFile(topologyPath, append(line, '\n'), 0o644)
+
+	// Now buildManifest should still report 4 frames, not 1
+	m, err := buildManifest(topologyPath, replayDir)
+	if err != nil {
+		t.Fatalf("buildManifest: %v", err)
+	}
+
+	if len(m.Chunks) != 1 {
+		t.Fatalf("len(Chunks) = %d, want 1", len(m.Chunks))
+	}
+	if m.Chunks[0].Frames != 4 {
+		t.Errorf("Chunks[0].Frames = %d, want 4 (got truncated JSONL data instead of cached chunk)", m.Chunks[0].Frames)
+	}
+	if m.TapeStart != 3600000 {
+		t.Errorf("TapeStart = %d, want 3600000", m.TapeStart)
+	}
+	if m.TapeEnd != 3609000 {
+		t.Errorf("TapeEnd = %d, want 3609000", m.TapeEnd)
+	}
+}
+
 func TestManifestHandler(t *testing.T) {
 	dir := t.TempDir()
 	baseDir := filepath.Join(dir, "base")

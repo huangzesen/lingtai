@@ -232,12 +232,21 @@ func buildManifest(topologyPath, replayDir string) (ReplayManifest, error) {
 
 	// 2. Determine where to start scanning the JSONL
 	// We need to re-scan from the start of the last cached chunk
-	// (it may have been the "current" hour that has grown since last build)
+	// (it may have been the "current" hour that has grown since last build).
+	// However, if the last cached chunk already has a .json.gz on disk
+	// (e.g. written by a rebuild), trust it and only scan after it.
 	var scanFrom int64
 	var fixedChunks []ChunkInfo // chunks we trust (completed hours)
 	if hasCached {
-		// All chunks except the last are immutable — trust them
-		fixedChunks = cached.Chunks[:len(cached.Chunks)-1]
+		lastCached := cached.Chunks[len(cached.Chunks)-1]
+		lastCachePath := filepath.Join(replayDir, strconv.FormatInt(lastCached.Start, 10)+".json.gz")
+		if _, err := os.Stat(lastCachePath); err == nil {
+			// Last chunk has a cache file — trust all chunks
+			fixedChunks = cached.Chunks
+		} else {
+			// Last chunk has no cache — drop it for re-scan from JSONL
+			fixedChunks = cached.Chunks[:len(cached.Chunks)-1]
+		}
 		if len(fixedChunks) > 0 {
 			scanFrom = fixedChunks[len(fixedChunks)-1].Start + hourMs
 		}
