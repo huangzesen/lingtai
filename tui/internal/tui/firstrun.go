@@ -11,8 +11,10 @@ import (
 
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/glamour"
 
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/config"
@@ -203,7 +205,14 @@ type FirstRunModel struct {
 	recipeCustomErr   string          // validation error message
 	currentRecipe     string          // loaded from .tui-asset/.recipe in setup mode
 	currentCustomDir  string          // loaded from .tui-asset/.recipe in setup mode
-	preselectedRecipe string          // set by constructor for post-nirvana fresh start
+	preselectedRecipe  string          // set by constructor for post-nirvana fresh start
+	localRecipeDir     string          // non-empty if .lingtai-recipe/ found in project root
+
+	// Recipe preview sub-view (reuses skills-style two-panel layout)
+	recipePreview       bool            // true when in preview mode
+	recipePreviewFile   int             // 0=greet.md, 1=comment.md
+	recipePreviewVP     viewport.Model  // scrollable content pane
+	recipePreviewReady  bool            // viewport initialized
 
 	// Pending save state (captured at end of stepAgentNameDir, consumed by stepRecipe)
 	pendingAgentOpts preset.AgentOpts
@@ -344,6 +353,7 @@ func NewFirstRunModel(baseDir, globalDir string, hasPresets bool, preselectedRec
 	projectDir := filepath.Dir(baseDir)
 	if local := preset.ProjectLocalRecipeDir(projectDir); local != "" {
 		m.recipeCustomInput.SetValue(local)
+		m.localRecipeDir = local
 	}
 
 	// Set recipe cursor from preselectedRecipe
@@ -498,6 +508,11 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 		m.principleInput.SetWidth(inputWidth)
 		m.soulFlowInput.SetWidth(inputWidth)
 		m.commentInput.SetWidth(inputWidth)
+		if m.recipePreviewReady {
+			m.recipePreviewVP.SetWidth(m.width)
+			m.recipePreviewVP.SetHeight(m.height - 4) // header + footer
+			m.syncRecipePreviewContent()
+		}
 		return m, nil
 
 	case bootstrapProgressMsg:
@@ -612,6 +627,14 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 			}
 		}
 		return m, textinput.Blink
+
+	case tea.MouseWheelMsg:
+		if m.step == stepRecipe && m.recipePreview && m.recipePreviewReady {
+			var cmd tea.Cmd
+			m.recipePreviewVP, cmd = m.recipePreviewVP.Update(msg)
+			return m, cmd
+		}
+		return m, nil
 
 	case tea.KeyPressMsg:
 		switch m.step {
@@ -1258,6 +1281,25 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 
 
 		case stepRecipe:
+			// Recipe preview sub-view: intercept all keys
+			if m.recipePreview {
+				switch msg.String() {
+				case "ctrl+o", "esc":
+					m.recipePreview = false
+					return m, nil
+				case "tab":
+					m.recipePreviewFile = 1 - m.recipePreviewFile
+					m.syncRecipePreviewContent()
+					return m, nil
+				case "ctrl+c":
+					return m, tea.Quit
+				default:
+					var cmd tea.Cmd
+					m.recipePreviewVP, cmd = m.recipePreviewVP.Update(msg)
+					return m, cmd
+				}
+			}
+
 			switch msg.String() {
 			case "up":
 				if m.recipeIdx > 0 {
@@ -1281,6 +1323,9 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				} else {
 					m.recipeCustomInput.Blur()
 				}
+				return m, nil
+			case "ctrl+o":
+				m.enterRecipePreview()
 				return m, nil
 			case "esc":
 				m.step = stepAgentNameDir
@@ -1814,6 +1859,9 @@ func (m FirstRunModel) View() string {
 			"  [Esc] "+i18n.T("firstrun.back")) + "\n")
 
 	case stepRecipe:
+		if m.recipePreview {
+			return m.viewRecipePreview()
+		}
 		return m.viewRecipe()
 
 	case stepRecipeSwapConfirm:
@@ -2480,31 +2528,31 @@ func (m FirstRunModel) presetNeedsKey(p preset.Preset) bool {
 
 func recipeNameToIdx(name string) int {
 	switch name {
-	case preset.RecipePlain:
+	case preset.RecipeGreeter:
 		return 1
-	case preset.RecipeAdaptive:
+	case preset.RecipePlain:
 		return 2
 	case preset.RecipeTutorial:
 		return 3
 	case preset.RecipeCustom:
 		return 4
 	default:
-		return 0 // greeter
+		return 0 // adaptive (default)
 	}
 }
 
 func recipeIdxToName(idx int) string {
 	switch idx {
 	case 1:
-		return preset.RecipePlain
+		return preset.RecipeGreeter
 	case 2:
-		return preset.RecipeAdaptive
+		return preset.RecipePlain
 	case 3:
 		return preset.RecipeTutorial
 	case 4:
 		return preset.RecipeCustom
 	default:
-		return preset.RecipeGreeter
+		return preset.RecipeAdaptive
 	}
 }
 
@@ -2577,10 +2625,21 @@ func (m FirstRunModel) viewRecipe() string {
 
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorAgent)
 	b.WriteString("\n  " + titleStyle.Render(i18n.T("recipe.title")) + "\n\n")
-	b.WriteString("  " + i18n.T("recipe.hint") + "\n\n")
+	b.WriteString("  " + i18n.T("recipe.hint") + "\n")
+	if m.localRecipeDir != "" {
+		foundStyle := lipgloss.NewStyle().Foreground(ColorActive)
+		b.WriteString("  " + foundStyle.Render(i18n.T("recipe.local_found")) + "\n")
+	}
+	b.WriteString("\n")
 
 	var leftBlock strings.Builder
+	recommendedStyle := lipgloss.NewStyle().Foreground(ColorAgent)
+	leftBlock.WriteString("  " + recommendedStyle.Render(i18n.T("recipe.recommended")) + "\n")
 	for i := 0; i < 5; i++ {
+		// Separator between adaptive (recommended) and the rest
+		if i == 1 {
+			leftBlock.WriteString("\n  " + StyleFaint.Render(i18n.T("recipe.others")) + "\n")
+		}
 		name := recipeIdxToName(i)
 		cursor := "  "
 		style := lipgloss.NewStyle().Foreground(ColorText)
@@ -2629,6 +2688,7 @@ func (m FirstRunModel) viewRecipe() string {
 
 	b.WriteString("\n" + StyleFaint.Render(
 		"  ↑↓ "+i18n.T("welcome.select_lang")+
+			"  [Ctrl+O] "+i18n.T("recipe.preview")+
 			"  [Enter] "+i18n.T("welcome.confirm")+
 			"  [Esc] "+i18n.T("firstrun.back")) + "\n")
 	return b.String()
@@ -2702,6 +2762,115 @@ func recipeFilePreview(path string, paneWidth, maxLines int) string {
 		out.WriteString(StyleFaint.Render("…") + "\n")
 	}
 	return strings.TrimRight(out.String(), "\n")
+}
+
+// ── Recipe preview (full-screen scrollable view) ───────────────────
+
+// enterRecipePreview initializes the viewport and enters preview mode.
+func (m *FirstRunModel) enterRecipePreview() {
+	m.recipePreview = true
+	m.recipePreviewFile = 0 // start with greet.md
+	if !m.recipePreviewReady {
+		m.recipePreviewVP = viewport.New()
+		m.recipePreviewVP.SetWidth(m.width)
+		m.recipePreviewVP.SetHeight(m.height - 4)
+		m.recipePreviewReady = true
+	}
+	m.syncRecipePreviewContent()
+}
+
+// syncRecipePreviewContent updates the viewport with the current file's content.
+func (m *FirstRunModel) syncRecipePreviewContent() {
+	if !m.recipePreviewReady {
+		return
+	}
+	langs := []string{"en", "zh", "wen"}
+	lang := langs[m.agentLangIdx]
+	recipeName := recipeIdxToName(m.recipeIdx)
+
+	var recipeDir string
+	switch recipeName {
+	case preset.RecipeCustom:
+		recipeDir = m.recipeCustomInput.Value()
+	default:
+		recipeDir = preset.RecipeDir(m.globalDir, recipeName)
+	}
+
+	var filePath string
+	if m.recipePreviewFile == 0 {
+		filePath = preset.ResolveGreetPath(recipeDir, lang)
+	} else {
+		filePath = preset.ResolveCommentPath(recipeDir, lang)
+	}
+
+	content := m.renderRecipeFileContent(filePath)
+	m.recipePreviewVP.SetContent(content)
+	m.recipePreviewVP.GotoTop()
+}
+
+// renderRecipeFileContent renders a markdown file for the viewport using glamour.
+func (m FirstRunModel) renderRecipeFileContent(path string) string {
+	if path == "" {
+		return "\n  " + StyleFaint.Render(i18n.T("recipe.preview_not_found"))
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "\n  " + StyleFaint.Render(i18n.T("recipe.preview_not_found"))
+	}
+	text := strings.TrimSpace(string(data))
+	if text == "" {
+		return "\n  " + StyleFaint.Render(i18n.T("recipe.preview_empty"))
+	}
+
+	contentWidth := m.width - 4
+	if contentWidth < 40 {
+		contentWidth = 40
+	}
+	r, err := glamour.NewTermRenderer(
+		glamour.WithStandardStyle(ActiveTheme().GlamourStyle),
+		glamour.WithWordWrap(contentWidth),
+	)
+	if err == nil {
+		if rendered, rerr := r.Render(text); rerr == nil {
+			return rendered
+		}
+	}
+
+	// Fallback: plain text
+	return "\n  " + lipgloss.NewStyle().Width(contentWidth).Render(text)
+}
+
+// viewRecipePreview renders the full-screen preview with header, viewport, footer.
+func (m FirstRunModel) viewRecipePreview() string {
+	fileLabels := []string{i18n.T("recipe.preview_greet"), i18n.T("recipe.preview_comment")}
+	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
+	unselectedStyle := StyleFaint
+
+	// Header: tab bar for greet.md / comment.md
+	var header strings.Builder
+	header.WriteString("  ")
+	for i, label := range fileLabels {
+		if i == m.recipePreviewFile {
+			header.WriteString(selectedStyle.Render("[ " + label + " ]"))
+		} else {
+			header.WriteString(unselectedStyle.Render("  " + label + "  "))
+		}
+		if i < len(fileLabels)-1 {
+			header.WriteString("  ")
+		}
+	}
+
+	titleBar := header.String() + "\n" + strings.Repeat("─", m.width)
+
+	scrollHint := ""
+	if m.recipePreviewReady && !m.recipePreviewVP.AtBottom() {
+		scrollHint = " " + RuneBullet + " ↑↓/pgup/pgdn scroll"
+	}
+	footer := strings.Repeat("─", m.width) + "\n" +
+		StyleFaint.Render("  [Tab] "+i18n.T("recipe.preview_switch")+
+			"  [Ctrl+O] "+i18n.T("firstrun.back")+scrollHint)
+
+	return titleBar + "\n" + m.recipePreviewVP.View() + "\n" + footer
 }
 
 // performRecipeSave executes the full save for the chosen recipe and the

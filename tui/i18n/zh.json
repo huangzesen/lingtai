@@ -301,6 +301,8 @@
   "hints.projects_nav": "↑↓ 导航  r 刷新  esc 返回",
   "recipe.title": "选择启动配方",
   "recipe.hint": "配方决定了协调者在启动时说什么、如何表现。",
+  "recipe.recommended": "推荐",
+  "recipe.others": "其他配方",
   "recipe.name.greeter": "问候者",
   "recipe.desc.greeter": "标准欢迎。协调者会问候你并帮助你处理任何需求。",
   "recipe.name.plain": "朴素",

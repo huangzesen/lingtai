@@ -306,6 +306,8 @@
   "hints.projects_nav": "↑↓ navigate  r refresh  esc back",
   "recipe.title": "Choose a launch recipe",
   "recipe.hint": "Recipes shape what your orchestrator says and how it behaves on launch.",
+  "recipe.recommended": "Recommended",
+  "recipe.others": "Other recipes",
   "recipe.name.greeter": "Greeter",
   "recipe.desc.greeter": "Standard welcome. Your orchestrator greets you and helps with whatever you need.",
   "recipe.name.plain": "Plain",

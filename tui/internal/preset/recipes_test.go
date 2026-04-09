@@ -8,7 +8,7 @@ import (
 
 func TestBundledRecipes(t *testing.T) {
 	got := BundledRecipes()
-	want := []string{RecipeGreeter, RecipePlain, RecipeAdaptive, RecipeTutorial}
+	want := []string{RecipeAdaptive, RecipeGreeter, RecipePlain, RecipeTutorial}
 	if len(got) != len(want) {
 		t.Fatalf("BundledRecipes len = %d, want %d", len(got), len(want))
 	}

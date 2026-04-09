@@ -18,10 +18,10 @@ const (
 )
 
 // BundledRecipes returns the four built-in recipe names in picker display order.
-// Custom is not included — it is handled separately in the picker because it
-// requires a user-supplied directory.
+// Adaptive is first (recommended default). Custom is not included — it is
+// handled separately in the picker because it requires a user-supplied directory.
 func BundledRecipes() []string {
-	return []string{RecipeGreeter, RecipePlain, RecipeAdaptive, RecipeTutorial}
+	return []string{RecipeAdaptive, RecipeGreeter, RecipePlain, RecipeTutorial}
 }
 
 // RecipeDir returns the absolute directory for a bundled recipe under the
