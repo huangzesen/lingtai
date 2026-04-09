@@ -170,27 +170,25 @@ For hard matches, the human has two options:
 
 **Do not proceed to step 5 or 6 with unresolved hard matches.** The consequence of shipping a real API key to GitHub is an irreversible privacy incident — there is no cleanup, only key rotation.
 
-## Step 5: Create a launch recipe for recipients (optional but recommended)
+## Step 5: Create a launch recipe for recipients
 
 A **launch recipe** controls what the orchestrator says and how it behaves when someone clones this network and runs it for the first time. It lives at `.lingtai-recipe/` in the project root — a convention the TUI discovers automatically during setup.
 
 A recipe has two files:
 
-- **`greet.md`** — the first message the orchestrator sends to the new user. This is about **proactiveness**: setting the tone, introducing the network, offering to guide the user. Think of it as the elevator pitch spoken by the agent itself.
+- **`greet.md`** (required) — the first message the orchestrator sends to the new user. This is about **proactiveness**: setting the tone, introducing the network, offering to guide the user. Think of it as the elevator pitch spoken by the agent itself. **This file is mandatory for publishing** — every published network must greet its new user.
 
-- **`comment.md`** — persistent behavioral instructions injected into the orchestrator's system prompt on every turn. This is about **constraints and guidance**: what the orchestrator should do, what topics to cover, what order to follow, what to avoid. This is the detailed playbook — the equivalent of the tutorial system's `tutorial.md`, but tailored to this specific network's purpose.
-
-**Both files are optional.** If `.lingtai-recipe/` is absent or empty, recipients pick from the TUI's built-in recipes (greeter, plain, tutorial, etc.) during their setup wizard. Including a recipe means you've pre-packaged the ideal first experience for your network.
+- **`comment.md`** (optional) — persistent behavioral instructions injected into the orchestrator's system prompt on every turn. This is about **constraints and guidance**: what the orchestrator should do, what topics to cover, what order to follow, what to avoid. This is the detailed playbook — the equivalent of the tutorial system's `tutorial.md`, but tailored to this specific network's purpose.
 
 ### 5a. Discuss the recipe with the human
 
 Ask:
 
-> "Do you want to include a launch recipe? This controls what the orchestrator says to someone who clones your network for the first time. I can draft a welcome message (`greet.md`) and behavioral instructions (`comment.md`) based on what this network does. What would you like recipients to experience on their first launch?"
+> "Every published network needs a welcome message for new users. I'll draft a `greet.md` — the first thing your orchestrator will say to someone who clones this network. I can also draft a `comment.md` with detailed behavioral instructions if you'd like. What is this network for, and what should a new user experience on their first launch?"
 
-If the human says **no** or **skip**: move on to Step 6. No `.lingtai-recipe/` is created.
+Discuss what the network is for, who the audience is, and what the orchestrator should do on first contact. Use the existing mail archive, agent names, and `.agent.json` blueprints in the staging copy to understand the network's purpose. Then draft the files.
 
-If **yes**: discuss what the network is for, who the audience is, and what the orchestrator should do on first contact. Use the existing mail archive, agent names, and `.agent.json` blueprints in the staging copy to understand the network's purpose. Then draft both files.
+**Do not skip this step.** A published network without a greet is a bad first impression — the recipient sets up the network and gets silence. Always create at least `greet.md`.
 
 ### 5b. Draft greet.md
 
@@ -198,6 +196,7 @@ Write the first-contact message. This should:
 
 - Introduce the network and its purpose in 2–4 sentences
 - Offer to guide the user ("Ready to get started?" / "What would you like to explore first?")
+- **Include a reminder to wake up all agents**: tell the user to type `/cpr all` to start the full network. After rehydration, only the orchestrator is launched — the other agents are ready but sleeping. This line is mandatory.
 - Be warm but not overly long — this is a `.prompt`, the agent speaks it once
 
 **Available placeholders** — the TUI substitutes these at setup time with the recipient's own values:
@@ -219,7 +218,7 @@ Welcome to the OpenClaw Explainer Network! It's {{time}}.
 
 I'm the lead orchestrator of a team of 10 agents that can walk you through the OpenClaw legal dataset — case structure, citation format, judicial opinions, and more.
 
-Let me know what you'd like to explore, or say "start from the beginning" and I'll take you through it step by step.
+To wake up the full team, type /cpr all — right now only I'm running. Once everyone is online, let me know what you'd like to explore, or say "start from the beginning" and I'll take you through it step by step.
 ```
 
 ### 5c. Draft comment.md
