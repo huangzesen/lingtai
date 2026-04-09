@@ -1198,6 +1198,12 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 
 				m.step = stepRecipe
 				m.message = ""
+				// Focus custom input if pre-selected to custom
+				if m.recipeIdx == 4 {
+					m.recipeCustomInput.Focus()
+				} else {
+					m.recipeCustomInput.Blur()
+				}
 				return m, nil
 			case "esc":
 				m.step = stepCapabilities
@@ -1242,11 +1248,22 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					m.recipeIdx--
 					m.recipeCustomErr = ""
 				}
+				// Focus/blur the custom input based on selection
+				if m.recipeIdx == 4 {
+					m.recipeCustomInput.Focus()
+				} else {
+					m.recipeCustomInput.Blur()
+				}
 				return m, nil
 			case "down":
 				if m.recipeIdx < 4 {
 					m.recipeIdx++
 					m.recipeCustomErr = ""
+				}
+				if m.recipeIdx == 4 {
+					m.recipeCustomInput.Focus()
+				} else {
+					m.recipeCustomInput.Blur()
 				}
 				return m, nil
 			case "esc":
