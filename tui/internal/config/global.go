@@ -154,8 +154,4 @@ func providerToEnvKey(provider string) string {
 	}
 }
 
-// MarkTutorialDone writes a .tutorial marker to the global dir.
-func MarkTutorialDone(globalDir string) {
-	os.WriteFile(filepath.Join(globalDir, ".tutorial"), []byte("done\n"), 0o644)
-}
 

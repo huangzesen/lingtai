@@ -27,7 +27,6 @@ const (
 	appViewProps
 	appViewAddon
 	appViewDoctor
-	appViewTutorial
 	appViewNirvana
 	appViewSkills
 	appViewProjects
@@ -45,7 +44,6 @@ type App struct {
 	firstRun    FirstRunModel
 	addon       AddonModel
 	doctor      DoctorModel
-	tutorial    TutorialConfirmModel
 	nirvana     NirvanaModel
 
 	globalDir     string
@@ -162,8 +160,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.addon, cmd = a.addon.Update(msg)
 		case appViewDoctor:
 			a.doctor, cmd = a.doctor.Update(msg)
-		case appViewTutorial:
-			a.tutorial, cmd = a.tutorial.Update(msg)
 		case appViewNirvana:
 			a.nirvana, cmd = a.nirvana.Update(msg)
 		case appViewSkills:
@@ -245,17 +241,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if launchErr != "" {
 			a.mail.messages = append(a.mail.messages, ChatMessage{From: i18n.T("mail.system_sender"), Body: launchErr, Type: "mail"})
 		}
-		return a, tea.Batch(a.mail.Init(), a.sendSize())
-
-	case TutorialConfirmDoneMsg:
-		// Tutorial confirmed: .lingtai/ has been wiped and rebuilt
-		a.orchDir = msg.OrchDir
-		a.orchName = msg.OrchName
-		a.currentView = appViewMail
-		humanDir := filepath.Join(a.projectDir, "human")
-		addr := humanAddr(a.projectDir)
-		a.mail = NewMailModel(humanDir, addr, a.projectDir, a.orchDir, a.orchName, a.tuiConfig.MailPageSize, false, a.globalDir, a.tuiConfig.Language, a.tuiConfig.Insights)
-
 		return a, tea.Batch(a.mail.Init(), a.sendSize())
 
 	case NirvanaDoneMsg:
@@ -360,10 +345,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case appViewDoctor:
 		updated, cmd := a.doctor.Update(msg)
 		a.doctor = updated
-		return a, cmd
-	case appViewTutorial:
-		updated, cmd := a.tutorial.Update(msg)
-		a.tutorial = updated
 		return a, cmd
 	case appViewNirvana:
 		updated, cmd := a.nirvana.Update(msg)
@@ -531,10 +512,6 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 			return a, tea.Batch(a.addon.Init(), a.sendSize())
 		}
 		return a, nil
-	case "tutorial":
-		a.currentView = appViewTutorial
-		a.tutorial = NewTutorialConfirmModel(a.projectDir, a.globalDir, a.lingtaiCmd, a.tuiConfig.Language)
-		return a, tea.Batch(a.tutorial.Init(), a.sendSize())
 	case "setup":
 		a.currentView = appViewFirstRun
 		a.firstRun = NewSetupModeModel(a.projectDir, a.globalDir, a.orchDir, a.orchName)
@@ -720,8 +697,6 @@ func (a App) View() tea.View {
 		content = a.addon.View()
 	case appViewDoctor:
 		content = a.doctor.View()
-	case appViewTutorial:
-		content = a.tutorial.View()
 	case appViewNirvana:
 		content = a.nirvana.View()
 	case appViewSkills:
