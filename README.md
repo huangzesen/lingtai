@@ -33,7 +33,7 @@ brew install huangzesen/lingtai/lingtai-tui
 lingtai-tui
 ```
 
-The TUI bootstraps everything — Python runtime, dependencies, and a guided tutorial on first launch. Type `/tutorial` anytime to revisit the guide. Use a **dark terminal** for the best experience. Text selection: hold **Option** (macOS/iTerm2) or **Shift** (Windows Terminal/Linux). Ctrl+E opens an external editor.
+The TUI bootstraps everything — Python runtime, dependencies, and a guided setup on first launch. Choose the **Adaptive** recipe (recommended) for progressive feature discovery, or **Tutorial** for a step-by-step walkthrough. Use a **dark terminal** for the best experience. Text selection: hold **Option** (macOS/iTerm2) or **Shift** (Windows Terminal/Linux). Ctrl+E opens an external editor.
 
 <details>
 <summary><b>First time? Install Homebrew first</b></summary>
