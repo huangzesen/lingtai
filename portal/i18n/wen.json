@@ -1,5 +1,5 @@
 {
-  "app.brand": "灵台 器灵",
+  "app.brand": "灵台相阵",
   "app.loading": "载入中...",
   "app.title": "灵台",
   "error.agent_crashed": "器灵崩，检 %s",
@@ -66,7 +66,7 @@
   "firstrun.tutorial_start": "入门",
   "firstrun.tutorial_skip": "略过",
   "firstrun.welcome": "迎入山门",
-  "welcome.title": "灵台 器灵",
+  "welcome.title": "灵台相阵",
   "welcome.poem_line1": "灵台方寸山 斜月三星洞",
   "welcome.poem_line2": "闻道菩提下 一心化万相",
   "welcome.confirm": "定",

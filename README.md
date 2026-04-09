@@ -2,7 +2,7 @@
 
 <img src="docs/assets/network-demo.gif" alt="Agent network growing — one soul spawning avatars that communicate and multiply" width="100%">
 
-# Lingtai Agent
+# Lingtai Orchestration
 
 **Agent Genesis — an Agent OS that gifts life**
 
