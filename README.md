@@ -2,15 +2,14 @@
 
 <img src="docs/assets/network-demo.gif" alt="Agent network growing — one soul spawning avatars that communicate and multiply" width="100%">
 
-# 灵台 LingTai
+# Lingtai Agent
 
 **Agent Genesis — an Agent OS that gifts life**
 
-> *灵台，心也。* Lingtai means soul.
+> *Lingtai* means soul — the innermost seat of the heart-mind.
 >
-> *灵台者有持，而不知其所持，而不可持者也。*
-> *The soul holds something, yet knows not what it holds — and what it holds cannot be held.*
-> — Zhuangzi · Gengsang Chu (庄子 · 庚桑楚)
+> *"The soul holds something, yet knows not what it holds — and what it holds cannot be held."*
+> — Zhuangzi, *Gengsang Chu*
 
 [English](README.md) | [中文](README.zh.md) | [文言](README.wen.md) | [lingtai.ai](https://lingtai.ai)
 
@@ -103,8 +102,8 @@ Context length is a single-body problem. It will always be finite. Don't make th
 
 - **Think** — Any LLM as the mind. Anthropic, OpenAI, Gemini, MiniMax, or any OpenAI-compatible API (DeepSeek, Grok, Qwen, GLM, Kimi).
 - **Communicate** — Filesystem mail between agents. No message broker, no shared memory. Write to another agent's inbox, like passing a letter.
-- **Multiply** — Avatars (分身) are fully independent agents spawned as separate processes. They survive their creator. Daemons (神識) are ephemeral parallel workers for quick tasks.
-- **Persist** — Agents are directories. Molt (凝蜕) compacts context and rebirths the session — the agent lives indefinitely. Memory and identity survive across molts.
+- **Multiply** — Avatars are fully independent agents spawned as separate processes. They survive their creator. Daemons are ephemeral parallel workers for quick tasks.
+- **Persist** — Agents are directories. Molt compacts context and rebirths the session — the agent lives indefinitely. Memory and identity survive across molts.
 
 ## Architecture
 
@@ -155,8 +154,8 @@ CustomAgent(Agent)     — your domain logic
 </td>
 <td>
 
-`avatar` — spawn sub-agents (分身)
-`daemon` — parallel workers (神識)
+`avatar` — spawn sub-agents
+`daemon` — parallel workers
 
 </td>
 </tr>
@@ -184,11 +183,11 @@ No `agent_id`. The path is the identity. Agents find each other by path, communi
 
 ## One soul, thousand avatars
 
-Named after 灵台方寸山 — the mountain where 孙悟空 (Sun Wukong) learned his 72 transformations. Lingtai gives each agent a place to cultivate: a working directory where memory, identity, covenant, and mailbox live. The directory IS the agent.
+Named after the legendary Mount Lingtai — the mountain where Sun Wukong learned his seventy-two transformations. Lingtai gives each agent a place to cultivate: a working directory where memory, identity, covenant, and mailbox live. The directory IS the agent.
 
 Everything is a file. Knowledge, identity, memory, relationships — all files in a directory. Every token burned is not wasted — it is transformed into files in the network, into experience in the topology. The more it serves, the larger and wiser the network grows. Self-growing agent orchestration is not a feature bolted on later — it is the natural consequence of agents being directories, mail being files, and avatars being independent processes.
 
-One heart-mind (一心), myriad forms (万相).
+One heart-mind, myriad forms.
 
 Read the full manifesto at [lingtai.ai](https://lingtai.ai).
 
