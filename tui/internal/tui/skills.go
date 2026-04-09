@@ -93,7 +93,13 @@ func scanSkills(skillsDir string) ([]skillEntry, []skillProblem) {
 	var problems []skillProblem
 
 	for _, e := range entries {
-		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+		if strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		// Use os.Stat (follows symlinks) instead of e.IsDir() so that
+		// symlinked skill directories from recipes are discovered.
+		info, err := os.Stat(filepath.Join(skillsDir, e.Name()))
+		if err != nil || !info.IsDir() {
 			continue
 		}
 		skillFile := filepath.Join(skillsDir, e.Name(), "SKILL.md")
