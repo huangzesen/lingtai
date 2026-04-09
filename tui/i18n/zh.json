@@ -306,7 +306,7 @@
   "recipe.name.plain": "朴素",
   "recipe.desc.plain": "静默启动。无问候，无注释。适合高级用户。",
   "recipe.name.adaptive": "自适应",
-  "recipe.desc.adaptive": "预留给未来的引导内容。目前与'朴素'行为相同。",
+  "recipe.desc.adaptive": "简洁问候。功能在使用过程中逐步介绍。",
   "recipe.name.tutorial": "教程",
   "recipe.desc.tutorial": "协调者会一个概念一个概念地教你 lingtai 的用法。",
   "recipe.name.custom": "自定义",

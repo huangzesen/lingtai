@@ -311,7 +311,7 @@
   "recipe.name.plain": "Plain",
   "recipe.desc.plain": "Silent launch. No greeting, no comment. For power users.",
   "recipe.name.adaptive": "Adaptive",
-  "recipe.desc.adaptive": "Reserved for future onboarding content. Currently behaves like plain.",
+  "recipe.desc.adaptive": "Minimal greeting. Features revealed progressively as you work.",
   "recipe.name.tutorial": "Tutorial",
   "recipe.desc.tutorial": "Your orchestrator teaches you how lingtai works, one concept at a time.",
   "recipe.name.custom": "Custom",
