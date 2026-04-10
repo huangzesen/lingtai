@@ -42,14 +42,24 @@ func setupSecretary(baseDir, globalDir, orchDirName string) error {
 	manifest["soul"] = map[string]interface{}{"delay": 9999999}
 	manifest["admin"] = map[string]interface{}{"karma": false, "nirvana": false}
 
-	// Strip avatar capability
+	// Whitelist capabilities — secretary needs file I/O, bash (for briefing
+	// skill scripts), psyche, library, and skills. All multi-modal (vision,
+	// talk, draw, listen, compose, video), network (avatar, web_search,
+	// web_read, daemon), and other capabilities are stripped.
+	kept := map[string]bool{
+		"file": true, "bash": true, "email": true,
+		"psyche": true, "library": true, "skills": true,
+	}
 	if caps, ok := manifest["capabilities"].(map[string]interface{}); ok {
-		delete(caps, "avatar")
+		for name := range caps {
+			if !kept[name] {
+				delete(caps, name)
+			}
+		}
 	}
 
-	// Set secretary recipe files
+	// Set secretary recipe files (no procedures override — inherits system-wide)
 	initJSON["covenant_file"] = filepath.Join(recipeDir, "covenant.md")
-	initJSON["procedures_file"] = filepath.Join(recipeDir, "procedures.md")
 	initJSON["comment_file"] = filepath.Join(recipeDir, "comment.md")
 
 	// No brief for the secretary itself

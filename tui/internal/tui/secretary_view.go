@@ -109,8 +109,9 @@ func (m SecretaryModel) Update(msg tea.Msg) (SecretaryModel, tea.Cmd) {
 					return m.kanban.loadData()
 				}
 			}
-			// Already set up — suspend and relaunch
+			// Already set up — suspend, write .prompt (wake-up call), and relaunch
 			return m, func() tea.Msg {
+				fs.WritePrompt(secAgentDir, secretary.GreetContent())
 				hardRefreshDir(m.lingtaiCmd, secAgentDir)
 				return m.kanban.loadData()
 			}

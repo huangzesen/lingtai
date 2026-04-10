@@ -66,11 +66,6 @@ func CovenantPath(globalDir string) string {
 	return filepath.Join(ProjectDir(globalDir), "recipe", "covenant.md")
 }
 
-// ProceduresPath returns the path to the procedures.md file after populating assets.
-func ProceduresPath(globalDir string) string {
-	return filepath.Join(ProjectDir(globalDir), "recipe", "procedures.md")
-}
-
 // SkillDir returns the path to the briefing skill directory after populating assets.
 func SkillDir(globalDir string) string {
 	return filepath.Join(ProjectDir(globalDir), "recipe", "skills", "briefing")

@@ -32,7 +32,6 @@ func TestRecipeDir(t *testing.T) {
 		"greet.md",
 		"comment.md",
 		"covenant.md",
-		"procedures.md",
 		"skills/briefing/SKILL.md",
 	} {
 		path := filepath.Join(dir, file)
