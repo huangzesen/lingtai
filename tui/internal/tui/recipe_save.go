@@ -18,7 +18,7 @@ func applyRecipe(
 	recipeName, customDir, lang, soulDelay string,
 ) error {
 	var recipeDir string
-	if recipeName == preset.RecipeCustom {
+	if recipeName == preset.RecipeCustom || recipeName == preset.RecipeImported {
 		recipeDir = customDir
 	} else {
 		recipeDir = preset.RecipeDir(globalDir, recipeName)
@@ -34,7 +34,7 @@ func applyRecipe(
 	}
 
 	state := preset.RecipeState{Recipe: recipeName}
-	if recipeName == preset.RecipeCustom {
+	if recipeName == preset.RecipeCustom || recipeName == preset.RecipeImported {
 		state.CustomDir = customDir
 	}
 	return preset.SaveRecipeState(lingtaiDir, state)
@@ -44,7 +44,7 @@ func applyRecipe(
 // caller to set on AgentOpts.CommentFile.
 func resolveRecipeComment(globalDir, recipeName, customDir, lang string) string {
 	var recipeDir string
-	if recipeName == preset.RecipeCustom {
+	if recipeName == preset.RecipeCustom || recipeName == preset.RecipeImported {
 		recipeDir = customDir
 	} else {
 		recipeDir = preset.RecipeDir(globalDir, recipeName)
