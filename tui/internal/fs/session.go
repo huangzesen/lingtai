@@ -27,27 +27,32 @@ type SessionEntry struct {
 // SessionCache is an append-only cache backed by session.jsonl.
 // It incrementally tails three data sources and appends new entries.
 type SessionCache struct {
-	path       string          // human/logs/session.jsonl
-	entries    []SessionEntry  // in-memory mirror of all entries
-	mailSeen   map[string]bool // mail dedup key (from|ts) already written
-	eventsOff  int64           // byte offset in events.jsonl
-	inquiryOff int64           // byte offset in soul_inquiry.jsonl
+	path        string          // human/logs/session.jsonl
+	entries     []SessionEntry  // in-memory mirror of all entries
+	mailSeen    map[string]bool // mail dedup key (from|ts) already written
+	eventsOff   int64           // byte offset in events.jsonl
+	inquiryOff  int64           // byte offset in soul_inquiry.jsonl
+	projectPath string          // absolute path of the project directory (parent of .lingtai/)
+	lastHour    time.Time       // hour (truncated) of the most recent entry
+	briefBase   string          // base dir for brief output (default: ~/.lingtai-tui)
 }
 
 // NewSessionCache opens (or creates) session.jsonl and loads existing entries
 // into memory. Source file offsets are set to end-of-file so only new entries
 // are appended going forward.
-func NewSessionCache(humanDir string) *SessionCache {
+func NewSessionCache(humanDir string, projectPath string) *SessionCache {
 	logsDir := filepath.Join(humanDir, "logs")
 	os.MkdirAll(logsDir, 0o755)
 	path := filepath.Join(logsDir, "session.jsonl")
 
+	home, _ := os.UserHomeDir()
 	sc := &SessionCache{
-		path:     path,
-		mailSeen: make(map[string]bool),
+		path:        path,
+		mailSeen:    make(map[string]bool),
+		projectPath: projectPath,
+		briefBase:   filepath.Join(home, ".lingtai-tui"),
 	}
 
-	// Load existing entries.
 	sc.loadExisting()
 	return sc
 }
@@ -72,15 +77,37 @@ func (sc *SessionCache) loadExisting() {
 			sc.mailSeen[e.From+"|"+e.Ts] = true
 		}
 	}
+
+	// Set lastHour from the final entry.
+	if len(sc.entries) > 0 {
+		if t, err := time.Parse(time.RFC3339, sc.entries[len(sc.entries)-1].Ts); err == nil {
+			sc.lastHour = t.Truncate(time.Hour)
+		}
+	}
 }
 
 func (sc *SessionCache) append(entries ...SessionEntry) {
 	if len(entries) == 0 {
 		return
 	}
+
+	// Check for hour boundary crossings before appending.
+	for _, e := range entries {
+		t, err := time.Parse(time.RFC3339, e.Ts)
+		if err != nil {
+			continue
+		}
+		entryHour := t.Truncate(time.Hour)
+		if !sc.lastHour.IsZero() && entryHour.After(sc.lastHour) {
+			// Hour boundary crossed — dump all completed hours.
+			sc.dumpHours(sc.lastHour, entryHour)
+		}
+		sc.lastHour = entryHour
+	}
+
 	sc.entries = append(sc.entries, entries...)
 
-	// Append to file (open, write, close each time).
+	// Append to file.
 	f, err := os.OpenFile(sc.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return
@@ -90,6 +117,30 @@ func (sc *SessionCache) append(entries ...SessionEntry) {
 	enc.SetEscapeHTML(false)
 	for _, e := range entries {
 		_ = enc.Encode(e)
+	}
+}
+
+// dumpHours dumps all completed hours from fromHour up to (but not including) toHour.
+func (sc *SessionCache) dumpHours(fromHour, toHour time.Time) {
+	if sc.projectPath == "" {
+		return
+	}
+	hash := projectHash(sc.projectPath)
+	histDir := filepath.Join(sc.briefBase, "brief", hash, "history")
+
+	for h := fromHour; h.Before(toHour); h = h.Add(time.Hour) {
+		// Collect entries for this hour.
+		var hourEntries []SessionEntry
+		for _, e := range sc.entries {
+			t, err := time.Parse(time.RFC3339, e.Ts)
+			if err != nil {
+				continue
+			}
+			if t.Truncate(time.Hour).Equal(h) {
+				hourEntries = append(hourEntries, e)
+			}
+		}
+		dumpCompletedHour(hourEntries, h, histDir)
 	}
 }
 

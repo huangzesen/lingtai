@@ -205,3 +205,45 @@ func TestDumpCompletedHourEmpty(t *testing.T) {
 		t.Fatal("empty hour should not produce a file")
 	}
 }
+
+func TestSessionCacheHourBoundaryDump(t *testing.T) {
+	dir := t.TempDir()
+	humanDir := filepath.Join(dir, "human")
+	os.MkdirAll(filepath.Join(humanDir, "logs"), 0o755)
+
+	// Use a known project path so we can predict the dump directory.
+	projectPath := "/test/project"
+	hash := projectHash(projectPath)
+	histDir := filepath.Join(dir, "brief", hash, "history")
+
+	// Create cache with overridden briefBase for testing.
+	sc := NewSessionCache(humanDir, projectPath)
+	sc.briefBase = dir // override ~/.lingtai-tui to temp dir for testing
+
+	// Append entries in hour 14.
+	sc.append(SessionEntry{Ts: "2026-04-10T14:02:00Z", Type: "mail", From: "human", To: "agent", Body: "Hi"})
+	sc.append(SessionEntry{Ts: "2026-04-10T14:30:00Z", Type: "thinking", Body: "Hmm..."})
+
+	// No dump yet — still in hour 14.
+	if _, err := os.Stat(filepath.Join(histDir, "2026-04-10-14.md")); !os.IsNotExist(err) {
+		t.Fatal("should not dump before hour boundary")
+	}
+
+	// Append entry in hour 15 — should trigger dump of hour 14.
+	sc.append(SessionEntry{Ts: "2026-04-10T15:01:00Z", Type: "mail", From: "agent", To: "human", Body: "Hello"})
+
+	data, err := os.ReadFile(filepath.Join(histDir, "2026-04-10-14.md"))
+	if err != nil {
+		t.Fatalf("hour 14 markdown not created: %v", err)
+	}
+	if !strings.Contains(string(data), "Hi") {
+		t.Fatal("missing mail entry in dump")
+	}
+	if !strings.Contains(string(data), "[thinking] Hmm...") {
+		t.Fatal("missing thinking entry in dump")
+	}
+	// The hour-15 entry should NOT be in the hour-14 dump.
+	if strings.Contains(string(data), "Hello") {
+		t.Fatal("hour-15 entry should not be in hour-14 dump")
+	}
+}
