@@ -49,6 +49,7 @@ func setupSecretary(baseDir, globalDir, orchDirName string) error {
 	kept := map[string]bool{
 		"file": true, "bash": true, "email": true,
 		"psyche": true, "library": true, "skills": true,
+		"web_search": true, "web_read": true,
 	}
 	if caps, ok := manifest["capabilities"].(map[string]interface{}); ok {
 		for name := range caps {
