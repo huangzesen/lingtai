@@ -200,13 +200,15 @@ type FirstRunModel struct {
 	inAddonZone   bool            // true when cursor is in addon section
 
 	// Recipe picker state (stepRecipe)
-	recipeIdx         int             // cursor in recipe list (0..4: greeter, plain, adaptive, tutorial, custom)
+	recipeIdx         int             // cursor in recipe list (0..4 or 0..5 if imported)
 	recipeCustomInput textinput.Model // folder path input for custom recipe
 	recipeCustomErr   string          // validation error message
 	currentRecipe     string          // loaded from .tui-asset/.recipe in setup mode
 	currentCustomDir  string          // loaded from .tui-asset/.recipe in setup mode
 	preselectedRecipe  string          // set by constructor for post-nirvana fresh start
 	localRecipeDir     string          // non-empty if .lingtai-recipe/ found in project root
+	importedRecipe    *preset.RecipeInfo // non-nil if .lingtai-recipe/ has valid recipe.json
+	importedRecipeDir string             // path to .lingtai-recipe/ (only when importedRecipe != nil)
 
 	// Recipe preview sub-view (reuses skills-style two-panel layout)
 	recipePreview       bool            // true when in preview mode
@@ -348,16 +350,30 @@ func NewFirstRunModel(baseDir, globalDir string, hasPresets bool, preselectedRec
 		preselectedRecipe: preselectedRecipe,
 	}
 
-	// Pre-fill custom path from project-local convention.
+	// Detect project-local .lingtai-recipe/ directory.
 	// The projectDir is one level up from baseDir (.lingtai/).
 	projectDir := filepath.Dir(baseDir)
 	if local := preset.ProjectLocalRecipeDir(projectDir); local != "" {
-		m.recipeCustomInput.SetValue(local)
-		m.localRecipeDir = local
+		lang := "en"
+		if m.pendingAgentOpts.Language != "" {
+			lang = m.pendingAgentOpts.Language
+		}
+		if info, err := preset.LoadRecipeInfo(local, lang); err == nil {
+			m.importedRecipe = &info
+			m.importedRecipeDir = local
+		} else {
+			// Has .lingtai-recipe/ but no valid recipe.json — fallback to custom pre-fill
+			m.localRecipeDir = local
+			m.recipeCustomInput.SetValue(local)
+		}
 	}
 
-	// Set recipe cursor from preselectedRecipe
-	m.recipeIdx = recipeNameToIdx(preselectedRecipe)
+	// Default to imported recipe if detected and no explicit preselection
+	if m.importedRecipe != nil && preselectedRecipe == "" {
+		m.recipeIdx = 0
+	} else {
+		m.recipeIdx = m.recipeNameToIdx(preselectedRecipe)
+	}
 
 	return m
 }
@@ -393,7 +409,7 @@ func NewSetupModeModel(baseDir, globalDir, orchDir, orchName string) FirstRunMod
 	m.currentRecipe = state.Recipe
 	m.currentCustomDir = state.CustomDir
 	m.preselectedRecipe = state.Recipe
-	m.recipeIdx = recipeNameToIdx(state.Recipe)
+	m.recipeIdx = m.recipeNameToIdx(state.Recipe)
 	if state.Recipe == preset.RecipeCustom && state.CustomDir != "" {
 		m.recipeCustomInput.SetValue(state.CustomDir)
 	}
@@ -1238,7 +1254,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				m.step = stepRecipe
 				m.message = ""
 				// Focus custom input if pre-selected to custom
-				if m.recipeIdx == 4 {
+				if m.recipeIdxToName(m.recipeIdx) == preset.RecipeCustom {
 					m.recipeCustomInput.Focus()
 				} else {
 					m.recipeCustomInput.Blur()
@@ -1307,18 +1323,18 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					m.recipeCustomErr = ""
 				}
 				// Focus/blur the custom input based on selection
-				if m.recipeIdx == 4 {
+				if m.recipeIdx == m.recipeMaxIdx() {
 					m.recipeCustomInput.Focus()
 				} else {
 					m.recipeCustomInput.Blur()
 				}
 				return m, nil
 			case "down":
-				if m.recipeIdx < 4 {
+				if m.recipeIdx < m.recipeMaxIdx() {
 					m.recipeIdx++
 					m.recipeCustomErr = ""
 				}
-				if m.recipeIdx == 4 {
+				if m.recipeIdx == m.recipeMaxIdx() {
 					m.recipeCustomInput.Focus()
 				} else {
 					m.recipeCustomInput.Blur()
@@ -1334,9 +1350,11 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 			case "ctrl+c":
 				return m, tea.Quit
 			case "enter":
-				recipeName := recipeIdxToName(m.recipeIdx)
+				recipeName := m.recipeIdxToName(m.recipeIdx)
 				customDir := ""
-				if recipeName == preset.RecipeCustom {
+				if recipeName == preset.RecipeImported {
+					customDir = m.importedRecipeDir
+				} else if recipeName == preset.RecipeCustom {
 					customDir = m.recipeCustomInput.Value()
 					if err := preset.ValidateCustomDir(customDir); err != nil {
 						m.recipeCustomErr = err.Error()
@@ -1356,7 +1374,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				// First-run or unchanged recipe: save directly
 				return m.performRecipeSave(recipeName, customDir)
 			default:
-				if m.recipeIdx == 4 { // custom selected -- forward to input
+				if m.recipeIdxToName(m.recipeIdx) == preset.RecipeCustom { // custom selected -- forward to input
 					var cmd tea.Cmd
 					m.recipeCustomInput, cmd = m.recipeCustomInput.Update(msg)
 					return m, cmd
@@ -1456,7 +1474,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				m.commentInput, cmd = m.commentInput.Update(msg)
 			}
 		case stepRecipe:
-			if m.recipeIdx == 4 {
+			if m.recipeIdxToName(m.recipeIdx) == preset.RecipeCustom {
 				m.recipeCustomInput, cmd = m.recipeCustomInput.Update(msg)
 			}
 		case stepAPIKey:
@@ -2526,22 +2544,46 @@ func (m FirstRunModel) presetNeedsKey(p preset.Preset) bool {
 	return m.needsKey(provider)
 }
 
-func recipeNameToIdx(name string) int {
+func (m FirstRunModel) hasImportedRecipe() bool {
+	return m.importedRecipe != nil
+}
+
+func (m FirstRunModel) recipeMaxIdx() int {
+	if m.hasImportedRecipe() {
+		return 5
+	}
+	return 4
+}
+
+func (m FirstRunModel) recipeNameToIdx(name string) int {
+	offset := 0
+	if m.hasImportedRecipe() {
+		if name == preset.RecipeImported {
+			return 0
+		}
+		offset = 1
+	}
 	switch name {
 	case preset.RecipeGreeter:
-		return 1
+		return 1 + offset
 	case preset.RecipePlain:
-		return 2
+		return 2 + offset
 	case preset.RecipeTutorial:
-		return 3
+		return 3 + offset
 	case preset.RecipeCustom:
-		return 4
+		return 4 + offset
 	default:
-		return 0 // adaptive (default)
+		return offset // adaptive
 	}
 }
 
-func recipeIdxToName(idx int) string {
+func (m FirstRunModel) recipeIdxToName(idx int) string {
+	if m.hasImportedRecipe() {
+		if idx == 0 {
+			return preset.RecipeImported
+		}
+		idx--
+	}
 	switch idx {
 	case 1:
 		return preset.RecipeGreeter
@@ -2563,7 +2605,7 @@ func recipeChanged(oldRecipe, oldCustomDir, newRecipe, newCustomDir string) bool
 	if oldRecipe != newRecipe {
 		return true
 	}
-	if oldRecipe == preset.RecipeCustom && oldCustomDir != newCustomDir {
+	if (oldRecipe == preset.RecipeCustom || oldRecipe == preset.RecipeImported) && oldCustomDir != newCustomDir {
 		return true
 	}
 	return false
@@ -2626,24 +2668,40 @@ func (m FirstRunModel) viewRecipe() string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorAgent)
 	b.WriteString("\n  " + titleStyle.Render(i18n.T("recipe.title")) + "\n\n")
 	b.WriteString("  " + i18n.T("recipe.hint") + "\n")
-	if m.localRecipeDir != "" {
-		foundStyle := lipgloss.NewStyle().Foreground(ColorActive)
-		b.WriteString("  " + foundStyle.Render(i18n.T("recipe.local_found")) + "\n")
-	}
 	b.WriteString("\n")
 
 	var leftBlock strings.Builder
-	recommendedStyle := lipgloss.NewStyle().Foreground(ColorAgent)
-	leftBlock.WriteString("  " + recommendedStyle.Render(i18n.T("recipe.recommended")) + "\n")
-	for i := 0; i < 5; i++ {
-		// Separator between adaptive (recommended) and the rest
-		if i == 1 {
-			leftBlock.WriteString("\n  " + StyleFaint.Render(i18n.T("recipe.others")) + "\n")
-		}
-		name := recipeIdxToName(i)
+
+	// Render imported recipe slot (if detected)
+	if m.hasImportedRecipe() {
+		importedIdx := 0
 		cursor := "  "
 		style := lipgloss.NewStyle().Foreground(ColorText)
-		if i == m.recipeIdx {
+		if importedIdx == m.recipeIdx {
+			cursor = "> "
+			style = lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
+		}
+		importedStyle := lipgloss.NewStyle().Foreground(ColorActive)
+		leftBlock.WriteString("  " + importedStyle.Render(i18n.T("recipe.imported")) + "\n")
+		leftBlock.WriteString(cursor + style.Render(m.importedRecipe.Name) + "\n")
+		if m.importedRecipe.Description != "" {
+			leftBlock.WriteString("    " + StyleFaint.Render(m.importedRecipe.Description) + "\n")
+		}
+		leftBlock.WriteString("\n  " + StyleFaint.Render("────") + "\n")
+	}
+
+	// Render bundled recipes
+	recommendedStyle := lipgloss.NewStyle().Foreground(ColorAgent)
+	leftBlock.WriteString("  " + recommendedStyle.Render(i18n.T("recipe.recommended")) + "\n")
+	for bi, name := range preset.BundledRecipes() {
+		idx := m.recipeNameToIdx(name)
+		// Separator between adaptive (recommended) and the rest
+		if bi == 1 {
+			leftBlock.WriteString("\n  " + StyleFaint.Render(i18n.T("recipe.others")) + "\n")
+		}
+		cursor := "  "
+		style := lipgloss.NewStyle().Foreground(ColorText)
+		if idx == m.recipeIdx {
 			cursor = "> "
 			style = lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
 		}
@@ -2653,7 +2711,22 @@ func (m FirstRunModel) viewRecipe() string {
 		leftBlock.WriteString("    " + StyleFaint.Render(desc) + "\n")
 	}
 
-	if m.recipeIdx == 4 { // custom
+	// Render custom entry
+	{
+		customIdx := m.recipeMaxIdx()
+		cursor := "  "
+		style := lipgloss.NewStyle().Foreground(ColorText)
+		if customIdx == m.recipeIdx {
+			cursor = "> "
+			style = lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
+		}
+		label := i18n.T("recipe.name." + preset.RecipeCustom)
+		desc := i18n.T("recipe.desc." + preset.RecipeCustom)
+		leftBlock.WriteString(cursor + style.Render(label) + "\n")
+		leftBlock.WriteString("    " + StyleFaint.Render(desc) + "\n")
+	}
+
+	if m.recipeIdxToName(m.recipeIdx) == preset.RecipeCustom {
 		leftBlock.WriteString("\n  " + i18n.T("recipe.custom_path") + "\n")
 		leftBlock.WriteString("  " + m.recipeCustomInput.View() + "\n")
 		if m.recipeCustomErr != "" {
@@ -2699,11 +2772,13 @@ func (m FirstRunModel) viewRecipe() string {
 func (m FirstRunModel) renderRecipeSidePane(paneWidth int) string {
 	langs := []string{"en", "zh", "wen"}
 	lang := langs[m.agentLangIdx]
-	recipeName := recipeIdxToName(m.recipeIdx)
+	recipeName := m.recipeIdxToName(m.recipeIdx)
 
 	// Resolve the recipe directory.
 	var recipeDir string
 	switch recipeName {
+	case preset.RecipeImported:
+		recipeDir = m.importedRecipeDir
 	case preset.RecipeCustom:
 		recipeDir = m.recipeCustomInput.Value()
 		if recipeDir == "" {
@@ -2786,10 +2861,12 @@ func (m *FirstRunModel) syncRecipePreviewContent() {
 	}
 	langs := []string{"en", "zh", "wen"}
 	lang := langs[m.agentLangIdx]
-	recipeName := recipeIdxToName(m.recipeIdx)
+	recipeName := m.recipeIdxToName(m.recipeIdx)
 
 	var recipeDir string
 	switch recipeName {
+	case preset.RecipeImported:
+		recipeDir = m.importedRecipeDir
 	case preset.RecipeCustom:
 		recipeDir = m.recipeCustomInput.Value()
 	default:
