@@ -331,6 +331,7 @@
   "recipe.preview": "览",
   "recipe.preview_switch": "换文",
   "recipe.local_found": "✓ 得 .lingtai-recipe/ — 已自取「自拟」",
+  "recipe.imported": "已导入",
   "addon.readonly_desc": "外法之簿藏于 .lingtai/.addons/<法>/config.json —— 本境诸灵共享。径改其文，而后 /refresh。",
   "addon.not_configured": "未立 —— 请器灵相助（其有术可循）",
   "addon.parse_error": "簿在而 JSON 不工：%s",
