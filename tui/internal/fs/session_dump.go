@@ -111,3 +111,27 @@ func dumpCompletedHour(entries []SessionEntry, hour time.Time, historyDir string
 	os.MkdirAll(historyDir, 0o755)
 	os.WriteFile(path, []byte(content), 0o644)
 }
+
+// DumpAllHours groups entries by hour and writes each hour's markdown to
+// historyDir. Unlike the runtime dumpHours (capped at 24h), this processes
+// all entries — used by the migration to backfill full history.
+func DumpAllHours(entries []SessionEntry, historyDir string) {
+	if len(entries) == 0 {
+		return
+	}
+
+	// Group entries by truncated hour.
+	hours := make(map[time.Time][]SessionEntry)
+	for _, e := range entries {
+		t, err := time.Parse(time.RFC3339, e.Ts)
+		if err != nil {
+			continue
+		}
+		h := t.Truncate(time.Hour)
+		hours[h] = append(hours[h], e)
+	}
+
+	for hour, hourEntries := range hours {
+		dumpCompletedHour(hourEntries, hour, historyDir)
+	}
+}
