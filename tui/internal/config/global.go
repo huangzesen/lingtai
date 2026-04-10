@@ -143,6 +143,8 @@ func providerToEnvKey(provider string) string {
 	switch provider {
 	case "minimax":
 		return "MINIMAX_API_KEY"
+	case "zhipu":
+		return "ZHIPU_API_KEY"
 	default:
 		return "LLM_API_KEY"
 	}

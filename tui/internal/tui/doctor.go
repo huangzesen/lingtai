@@ -415,6 +415,14 @@ func providerProbeConfig(provider, apiKey, baseURL string) (string, map[string]s
 			"x-api-key":         apiKey,
 			"anthropic-version": "2023-06-01",
 		}
+	case "zhipu":
+		base := "https://open.bigmodel.cn/api/coding/paas/v4"
+		if baseURL != "" {
+			base = strings.TrimRight(baseURL, "/")
+		}
+		return base + "/models", map[string]string{
+			"Authorization": "Bearer " + apiKey,
+		}
 	case "custom":
 		if baseURL == "" {
 			return "", nil

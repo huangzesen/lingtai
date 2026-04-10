@@ -46,6 +46,8 @@ Go + Bubble Tea terminal interface. Key facts:
 
 Versioned, append-only, forward-only migration system. Each migration is a file `m<NNN>_<name>.go` exporting a function `func migrate<Name>(lingtaiDir string) error`. Register it in `migrate.go` by appending to the `migrations` slice and bumping `CurrentVersion`. Migrations run once per project at TUI launch (version tracked in `.lingtai/meta.json`). They can read global state (`globalTUIDir()` helper) but receive the project's `.lingtai/` dir as input. Print warnings directly with `fmt.Println` — no i18n needed since migrations run before the TUI renders.
 
+**IMPORTANT: The TUI and portal share the same `meta.json` version space but have separate migration registries.** When adding migrations to the TUI, you MUST also bump `CurrentVersion` in `portal/internal/migrate/migrate.go` and register no-op stubs for TUI-specific migrations. Otherwise the portal refuses to open any project the TUI has already touched.
+
 ### Portal (`portal/`)
 
 Go server with an embedded web frontend. Key facts:

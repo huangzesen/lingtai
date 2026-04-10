@@ -27,6 +27,7 @@ var providers = []struct {
 	nameKey string // i18n key for display name
 }{
 	{"minimax", "setup.provider_minimax"},
+	{"zhipu", "setup.provider_zhipu"},
 	{"custom", "setup.provider_custom"},
 }
 
