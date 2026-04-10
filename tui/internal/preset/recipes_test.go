@@ -77,6 +77,42 @@ func TestResolveGreetPath_EmptyRecipeDir(t *testing.T) {
 	}
 }
 
+func TestResolveCovenantPath_LangSpecific(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "en"), 0o755)
+	want := filepath.Join(dir, "en", "covenant.md")
+	os.WriteFile(want, []byte("test covenant"), 0o644)
+	got := ResolveCovenantPath(dir, "en")
+	if got != want {
+		t.Errorf("ResolveCovenantPath prefers lang-specific, got %q, want %q", got, want)
+	}
+}
+
+func TestResolveCovenantPath_FallbackToRoot(t *testing.T) {
+	dir := t.TempDir()
+	want := filepath.Join(dir, "covenant.md")
+	os.WriteFile(want, []byte("root covenant"), 0o644)
+	got := ResolveCovenantPath(dir, "en")
+	if got != want {
+		t.Errorf("ResolveCovenantPath fallback to root, got %q, want %q", got, want)
+	}
+}
+
+func TestResolveCovenantPath_Empty(t *testing.T) {
+	dir := t.TempDir()
+	got := ResolveCovenantPath(dir, "en")
+	if got != "" {
+		t.Errorf("ResolveCovenantPath empty dir = %q, want empty string", got)
+	}
+}
+
+func TestResolveCovenantPath_EmptyRecipeDir(t *testing.T) {
+	got := ResolveCovenantPath("", "en")
+	if got != "" {
+		t.Errorf("ResolveCovenantPath empty recipeDir = %q, want empty", got)
+	}
+}
+
 func TestResolveCommentPath_SameRules(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "zh"), 0o755)

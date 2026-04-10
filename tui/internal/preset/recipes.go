@@ -81,6 +81,13 @@ func ResolveCommentPath(recipeDir, lang string) string {
 	return resolveRecipeFile(recipeDir, lang, "comment.md")
 }
 
+// ResolveCovenantPath returns the absolute path to the covenant file for a
+// recipe directory and language, using the same fallback rule as ResolveGreetPath.
+// Returns empty string if the recipe does not provide a covenant override.
+func ResolveCovenantPath(recipeDir, lang string) string {
+	return resolveRecipeFile(recipeDir, lang, "covenant.md")
+}
+
 // langFallbackChain returns the ordered list of languages to try for a given
 // lang. The rule is simple: try <lang> first, then root. Root is mandatory
 // and serves as the universal fallback for all languages.
