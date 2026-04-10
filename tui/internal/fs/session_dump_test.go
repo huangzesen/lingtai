@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestProjectHash(t *testing.T) {
@@ -130,5 +131,77 @@ func TestRenderInsightEntry(t *testing.T) {
 	}
 	if !strings.Contains(got2, "The user seems to value...") {
 		t.Fatal("missing body")
+	}
+}
+
+func TestRenderHourMarkdown(t *testing.T) {
+	hour, _ := time.Parse(time.RFC3339, "2026-04-10T14:00:00Z")
+	entries := []SessionEntry{
+		{Ts: "2026-04-10T14:02:00Z", Type: "mail", From: "human", To: "agent", Subject: "hello", Body: "Hi there"},
+		{Ts: "2026-04-10T14:03:00Z", Type: "thinking", Body: "Let me consider..."},
+		{Ts: "2026-04-10T14:05:00Z", Type: "insight", Body: "The user prefers..."},
+	}
+	got := renderHourMarkdown(entries, hour)
+	if !strings.HasPrefix(got, "# Session — 2026-04-10 14:00–15:00 UTC\n") {
+		t.Fatalf("bad header, got:\n%s", got)
+	}
+	if !strings.Contains(got, "**human** 14:02 → agent │ Re: hello") {
+		t.Fatal("missing mail entry")
+	}
+	if !strings.Contains(got, "[thinking] Let me consider...") {
+		t.Fatal("missing thinking entry")
+	}
+	if !strings.Contains(got, "★ insight") {
+		t.Fatal("missing insight entry")
+	}
+}
+
+func TestDumpCompletedHour(t *testing.T) {
+	dir := t.TempDir()
+	hour, _ := time.Parse(time.RFC3339, "2026-04-10T14:00:00Z")
+	entries := []SessionEntry{
+		{Ts: "2026-04-10T14:02:00Z", Type: "mail", From: "human", To: "agent", Body: "Hi"},
+	}
+
+	// First dump — file should be created.
+	dumpCompletedHour(entries, hour, dir)
+	path := filepath.Join(dir, "2026-04-10-14.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("file not created: %v", err)
+	}
+	if !strings.Contains(string(data), "Hi") {
+		t.Fatal("missing content")
+	}
+
+	// Second dump with same content — file should not be rewritten.
+	info1, _ := os.Stat(path)
+	modTime1 := info1.ModTime()
+	dumpCompletedHour(entries, hour, dir)
+	info2, _ := os.Stat(path)
+	if info2.ModTime() != modTime1 {
+		t.Fatal("identical content should not rewrite file")
+	}
+
+	// Third dump with different content — file should be rewritten.
+	entries2 := []SessionEntry{
+		{Ts: "2026-04-10T14:02:00Z", Type: "mail", From: "human", To: "agent", Body: "Changed"},
+	}
+	dumpCompletedHour(entries2, hour, dir)
+	data2, _ := os.ReadFile(path)
+	if !strings.Contains(string(data2), "Changed") {
+		t.Fatal("content should have been updated")
+	}
+}
+
+func TestDumpCompletedHourEmpty(t *testing.T) {
+	dir := t.TempDir()
+	hour, _ := time.Parse(time.RFC3339, "2026-04-10T14:00:00Z")
+
+	// Empty entries — no file created.
+	dumpCompletedHour(nil, hour, dir)
+	path := filepath.Join(dir, "2026-04-10-14.md")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatal("empty hour should not produce a file")
 	}
 }

@@ -62,3 +62,47 @@ func renderInsightEntry(e SessionEntry) string {
 	b.WriteString("---\n")
 	return b.String()
 }
+
+// renderHourMarkdown renders a slice of entries for one hour into a markdown document.
+func renderHourMarkdown(entries []SessionEntry, hour time.Time) string {
+	var b strings.Builder
+	nextHour := hour.Add(time.Hour)
+	b.WriteString(fmt.Sprintf("# Session — %s %s–%s UTC\n\n",
+		hour.Format("2006-01-02"),
+		hour.Format("15:04"),
+		nextHour.Format("15:04"),
+	))
+	for _, e := range entries {
+		switch e.Type {
+		case "mail":
+			b.WriteString(renderMailEntry(e))
+		case "insight":
+			b.WriteString(renderInsightEntry(e))
+		default:
+			b.WriteString(renderEventEntry(e))
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// dumpCompletedHour renders entries for the given hour to markdown and writes
+// to historyDir/YYYY-MM-DD-HH.md — but only if the content differs from the
+// existing file (or the file does not exist). Empty entries produce no file.
+func dumpCompletedHour(entries []SessionEntry, hour time.Time, historyDir string) {
+	if len(entries) == 0 {
+		return
+	}
+	content := renderHourMarkdown(entries, hour)
+	filename := hour.Format("2006-01-02-15") + ".md"
+	path := filepath.Join(historyDir, filename)
+
+	// Compare with existing file.
+	existing, err := os.ReadFile(path)
+	if err == nil && string(existing) == content {
+		return // identical — no rewrite
+	}
+
+	os.MkdirAll(historyDir, 0o755)
+	os.WriteFile(path, []byte(content), 0o644)
+}
