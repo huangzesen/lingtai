@@ -17,9 +17,9 @@ func projectHash(projectPath string) string {
 	return hex.EncodeToString(sum[:])[:12]
 }
 
-// briefHistoryDir returns <base>/brief/<hash>/history/.
+// briefHistoryDir returns <base>/brief/projects/<hash>/history/.
 func briefHistoryDir(base, hash string) string {
-	return filepath.Join(base, "brief", hash, "history")
+	return filepath.Join(base, "brief", "projects", hash, "history")
 }
 
 // renderMailEntry renders a mail SessionEntry to markdown.

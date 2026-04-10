@@ -26,7 +26,7 @@ func TestBriefHistoryDir(t *testing.T) {
 	hash := "abcdef012345"
 	base := "/tmp/test-tui"
 	dir := briefHistoryDir(base, hash)
-	want := filepath.Join(base, "brief", hash, "history")
+	want := filepath.Join(base, "brief", "projects", hash, "history")
 	if dir != want {
 		t.Fatalf("briefHistoryDir = %q, want %q", dir, want)
 	}
@@ -213,7 +213,7 @@ func TestSessionCacheMultiHourDump(t *testing.T) {
 
 	projectPath := "/test/multi"
 	hash := projectHash(projectPath)
-	histDir := filepath.Join(dir, "brief", hash, "history")
+	histDir := filepath.Join(dir, "brief", "projects", hash, "history")
 
 	sc := NewSessionCache(humanDir, projectPath)
 	sc.briefBase = dir
@@ -258,7 +258,7 @@ func TestSessionCacheIdempotentDump(t *testing.T) {
 
 	projectPath := "/test/idempotent"
 	hash := projectHash(projectPath)
-	histDir := filepath.Join(dir, "brief", hash, "history")
+	histDir := filepath.Join(dir, "brief", "projects", hash, "history")
 
 	sc := NewSessionCache(humanDir, projectPath)
 	sc.briefBase = dir
@@ -305,7 +305,7 @@ func TestSessionCacheHourBoundaryDump(t *testing.T) {
 	// Use a known project path so we can predict the dump directory.
 	projectPath := "/test/project"
 	hash := projectHash(projectPath)
-	histDir := filepath.Join(dir, "brief", hash, "history")
+	histDir := filepath.Join(dir, "brief", "projects", hash, "history")
 
 	// Create cache with overridden briefBase for testing.
 	sc := NewSessionCache(humanDir, projectPath)
