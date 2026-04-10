@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -138,6 +137,7 @@ type MailModel struct {
 	showEditorWarn  bool   // one-time vim warning overlay
 	editorWarnText  string // text to pass to editor after warning
 	insightsEnabled bool   // from settings — show insight events
+	sessionCache   *fs.SessionCache // append-only session log
 }
 
 func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pageSize int, globalDir, lang string, insights bool) MailModel {
@@ -154,7 +154,7 @@ func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pageSi
 	if pageSize <= 0 {
 		pageSize = unlimitedPageSize
 	}
-	return MailModel{
+	m := MailModel{
 		humanDir:     humanDir,
 		humanAddr:    humanAddr,
 		baseDir:      baseDir,
@@ -170,7 +170,10 @@ func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pageSi
 		quoteIdx:          -1,
 		insightsEnabled:    insights,
 		dismissedInsights: make(map[string]bool),
+		sessionCache:      fs.NewSessionCache(humanDir),
 	}
+	m.sessionCache.SetSourceOffsets(orchDir)
+	return m
 }
 
 // syncViewportHeight recalculates viewport height from current input/palette/banner size.
@@ -270,78 +273,70 @@ func (m MailModel) orchDisplayName() string {
 	return m.orchName
 }
 
-// buildMessages converts cached MailMessages to ChatMessages, merges with
-// events if verbose, and sorts chronologically.
+// buildMessages refreshes the session cache from all sources, then builds
+// the display message list filtered by verbose level and insights settings.
 func (m *MailModel) buildMessages() {
-	chatMsgs := make([]ChatMessage, 0, len(m.cache.Messages))
-	humanName := m.humanName()
-	for _, msg := range m.cache.Messages {
-		parts := strings.Split(msg.From, "/")
-		fromName := parts[len(parts)-1]
-		isFromMe := msg.From == m.humanAddr || fromName == "human"
-		// Use sender's identity from the message envelope when available
-		displayFrom := fromName
-		if !isFromMe {
-			if nick, ok := msg.Identity["nickname"].(string); ok && nick != "" {
-				displayFrom = nick
-			} else if name, ok := msg.Identity["agent_name"].(string); ok && name != "" {
-				displayFrom = name
-			}
+	// Ingest new entries from all sources into session.jsonl.
+	m.sessionCache.Refresh(m.cache, m.humanAddr, m.orchestrator, m.orchDisplayName())
+
+	// Build filtered view from the session cache.
+	allEntries := m.sessionCache.Entries()
+	chatMsgs := make([]ChatMessage, 0, len(allEntries))
+
+	for _, e := range allEntries {
+		if !m.shouldShow(e) {
+			continue
 		}
-		isFromOrch := !isFromMe && (msg.From == m.orchAddr || msg.From == m.orchestrator)
-		cm := ChatMessage{
-			From:        displayFrom,
-			To:          m.orchDisplayName(),
-			Subject:     msg.Subject,
-			Body:        msg.Message,
-			Timestamp:   msg.ReceivedAt,
-			IsFromMe:    isFromMe,
-			IsFromOrch:  isFromOrch,
-			Type:        "mail",
-			Attachments: msg.Attachments,
-		}
-		if isFromMe {
-			cm.From = humanName
-		} else {
-			cm.To = humanName
-		}
-		chatMsgs = append(chatMsgs, cm)
+		chatMsgs = append(chatMsgs, sessionEntryToChatMessage(e, m.humanAddr))
 	}
 
-	// If verbose, read events
-	if m.verbose != verboseOff && m.orchestrator != "" {
-		eventsPath := filepath.Join(m.orchestrator, "logs", "events.jsonl")
-		extended := m.verbose == verboseExtended
-		events := ReadEvents(eventsPath, extended)
-		chatMsgs = append(chatMsgs, events...)
-	}
-
-	// Read insight events independently of verbose mode
-	if m.insightsEnabled && m.orchestrator != "" {
-		eventsPath := filepath.Join(m.orchestrator, "logs", "events.jsonl")
-		insights := ReadInsightEvents(eventsPath)
-		chatMsgs = append(chatMsgs, insights...)
-	}
-
-	// Read human inquiry results from soul_inquiry.jsonl.
-	// Not gated by insightsEnabled — /btw is a direct human action, always shown.
-	if m.orchestrator != "" {
-		inquiryPath := filepath.Join(m.orchestrator, "logs", "soul_inquiry.jsonl")
-		inquiries := ReadSoulInquiries(inquiryPath)
-		chatMsgs = append(chatMsgs, inquiries...)
-	}
-
-	// Sort by timestamp
-	sort.Slice(chatMsgs, func(i, j int) bool {
-		return chatMsgs[i].Timestamp < chatMsgs[j].Timestamp
-	})
-	// Restore dismissed state for insights
+	// Restore dismissed state for insights.
 	for i := range chatMsgs {
 		if chatMsgs[i].Type == "insight" && m.dismissedInsights[chatMsgs[i].Timestamp] {
 			chatMsgs[i].Dismissed = true
 		}
 	}
 	m.messages = chatMsgs
+}
+
+// shouldShow returns whether a session entry should be displayed given the
+// current verbose level and insights settings.
+func (m *MailModel) shouldShow(e fs.SessionEntry) bool {
+	switch e.Type {
+	case "mail":
+		return true
+	case "thinking", "diary", "text_input", "text_output":
+		return m.verbose >= verboseThinking
+	case "tool_call", "tool_result":
+		return m.verbose >= verboseExtended
+	case "insight":
+		// Human /btw inquiries (source "human") are always shown.
+		if e.Source == "human" {
+			return true
+		}
+		// Auto-insight events and other insight sources are gated by insightsEnabled.
+		return m.insightsEnabled
+	}
+	return false
+}
+
+// sessionEntryToChatMessage converts a SessionEntry to a ChatMessage for rendering.
+func sessionEntryToChatMessage(e fs.SessionEntry, humanAddr string) ChatMessage {
+	cm := ChatMessage{
+		From:        e.From,
+		To:          e.To,
+		Subject:     e.Subject,
+		Body:        e.Body,
+		Timestamp:   e.Ts,
+		Type:        e.Type,
+		Attachments: e.Attachments,
+		Question:    e.Question,
+	}
+	if e.Type == "mail" {
+		cm.IsFromMe = e.From == "human"
+		cm.IsFromOrch = !cm.IsFromMe
+	}
+	return cm
 }
 
 func (m MailModel) Init() tea.Cmd {
