@@ -17,10 +17,9 @@ func projectHash(projectPath string) string {
 	return hex.EncodeToString(sum[:])[:12]
 }
 
-// briefHistoryDir returns ~/.lingtai-tui/brief/<hash>/history/.
-func briefHistoryDir(hash string) string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".lingtai-tui", "brief", hash, "history")
+// briefHistoryDir returns <base>/brief/<hash>/history/.
+func briefHistoryDir(base, hash string) string {
+	return filepath.Join(base, "brief", hash, "history")
 }
 
 // renderMailEntry renders a mail SessionEntry to markdown.

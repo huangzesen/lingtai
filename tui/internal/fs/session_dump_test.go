@@ -24,9 +24,9 @@ func TestProjectHash(t *testing.T) {
 
 func TestBriefHistoryDir(t *testing.T) {
 	hash := "abcdef012345"
-	dir := briefHistoryDir(hash)
-	home, _ := os.UserHomeDir()
-	want := filepath.Join(home, ".lingtai-tui", "brief", hash, "history")
+	base := "/tmp/test-tui"
+	dir := briefHistoryDir(base, hash)
+	want := filepath.Join(base, "brief", hash, "history")
 	if dir != want {
 		t.Fatalf("briefHistoryDir = %q, want %q", dir, want)
 	}
