@@ -206,6 +206,97 @@ func TestDumpCompletedHourEmpty(t *testing.T) {
 	}
 }
 
+func TestSessionCacheMultiHourDump(t *testing.T) {
+	dir := t.TempDir()
+	humanDir := filepath.Join(dir, "human")
+	os.MkdirAll(filepath.Join(humanDir, "logs"), 0o755)
+
+	projectPath := "/test/multi"
+	hash := projectHash(projectPath)
+	histDir := filepath.Join(dir, "brief", hash, "history")
+
+	sc := NewSessionCache(humanDir, projectPath)
+	sc.briefBase = dir
+
+	// Hour 10 entries.
+	sc.append(SessionEntry{Ts: "2026-04-10T10:05:00Z", Type: "mail", From: "human", To: "agent", Body: "Morning"})
+
+	// Hour 11 entries — triggers dump of hour 10.
+	sc.append(SessionEntry{Ts: "2026-04-10T11:00:00Z", Type: "mail", From: "agent", To: "human", Body: "Hi"})
+
+	// Hour 12 entry — triggers dump of hour 11.
+	sc.append(SessionEntry{Ts: "2026-04-10T12:00:00Z", Type: "thinking", Body: "thinking..."})
+
+	// Verify hour 10 dump exists.
+	data10, err := os.ReadFile(filepath.Join(histDir, "2026-04-10-10.md"))
+	if err != nil {
+		t.Fatalf("hour 10 dump missing: %v", err)
+	}
+	if !strings.Contains(string(data10), "Morning") {
+		t.Fatal("hour 10 missing content")
+	}
+
+	// Verify hour 11 dump exists.
+	data11, err := os.ReadFile(filepath.Join(histDir, "2026-04-10-11.md"))
+	if err != nil {
+		t.Fatalf("hour 11 dump missing: %v", err)
+	}
+	if !strings.Contains(string(data11), "Hi") {
+		t.Fatal("hour 11 missing content")
+	}
+
+	// Hour 12 not yet dumped (no boundary crossed).
+	if _, err := os.Stat(filepath.Join(histDir, "2026-04-10-12.md")); !os.IsNotExist(err) {
+		t.Fatal("hour 12 should not be dumped yet")
+	}
+}
+
+func TestSessionCacheIdempotentDump(t *testing.T) {
+	dir := t.TempDir()
+	humanDir := filepath.Join(dir, "human")
+	os.MkdirAll(filepath.Join(humanDir, "logs"), 0o755)
+
+	projectPath := "/test/idempotent"
+	hash := projectHash(projectPath)
+	histDir := filepath.Join(dir, "brief", hash, "history")
+
+	sc := NewSessionCache(humanDir, projectPath)
+	sc.briefBase = dir
+
+	sc.append(SessionEntry{Ts: "2026-04-10T14:02:00Z", Type: "mail", From: "human", To: "agent", Body: "Hi"})
+	sc.append(SessionEntry{Ts: "2026-04-10T15:00:00Z", Type: "mail", From: "agent", To: "human", Body: "Next"})
+
+	path14 := filepath.Join(histDir, "2026-04-10-14.md")
+	info1, _ := os.Stat(path14)
+	modTime1 := info1.ModTime()
+
+	// Create a new cache from the same session.jsonl — simulates TUI restart.
+	sc2 := NewSessionCache(humanDir, projectPath)
+	sc2.briefBase = dir
+
+	// Append another hour-15 entry + hour-16 entry to trigger dump of hour 15.
+	sc2.append(SessionEntry{Ts: "2026-04-10T15:30:00Z", Type: "thinking", Body: "hmm"})
+	sc2.append(SessionEntry{Ts: "2026-04-10T16:00:00Z", Type: "mail", From: "human", To: "agent", Body: "Later"})
+
+	// Hour 14 file should NOT be rewritten (identical content).
+	info2, _ := os.Stat(path14)
+	if info2.ModTime() != modTime1 {
+		t.Fatal("hour 14 should not have been rewritten")
+	}
+
+	// Hour 15 should now exist.
+	data15, err := os.ReadFile(filepath.Join(histDir, "2026-04-10-15.md"))
+	if err != nil {
+		t.Fatalf("hour 15 dump missing: %v", err)
+	}
+	if !strings.Contains(string(data15), "Next") {
+		t.Fatal("hour 15 missing mail entry")
+	}
+	if !strings.Contains(string(data15), "[thinking] hmm") {
+		t.Fatal("hour 15 missing thinking entry")
+	}
+}
+
 func TestSessionCacheHourBoundaryDump(t *testing.T) {
 	dir := t.TempDir()
 	humanDir := filepath.Join(dir, "human")
