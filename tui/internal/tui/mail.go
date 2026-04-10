@@ -170,7 +170,7 @@ func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pageSi
 		quoteIdx:          -1,
 		insightsEnabled:    insights,
 		dismissedInsights: make(map[string]bool),
-		sessionCache:      fs.NewSessionCache(humanDir),
+		sessionCache:      fs.NewSessionCache(humanDir, filepath.Dir(baseDir)),
 	}
 	m.sessionCache.SetSourceOffsets(orchDir)
 	return m
