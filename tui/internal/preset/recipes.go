@@ -88,6 +88,13 @@ func ResolveCovenantPath(recipeDir, lang string) string {
 	return resolveRecipeFile(recipeDir, lang, "covenant.md")
 }
 
+// ResolveProceduresPath returns the absolute path to the procedures file for a
+// recipe directory and language, using the same fallback rule as ResolveGreetPath.
+// Returns empty string if the recipe does not provide a procedures override.
+func ResolveProceduresPath(recipeDir, lang string) string {
+	return resolveRecipeFile(recipeDir, lang, "procedures.md")
+}
+
 // langFallbackChain returns the ordered list of languages to try for a given
 // lang. The rule is simple: try <lang> first, then root. Root is mandatory
 // and serves as the universal fallback for all languages.

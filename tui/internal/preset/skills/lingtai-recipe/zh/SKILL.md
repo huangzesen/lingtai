@@ -18,10 +18,12 @@ my-recipe/
     greet.md
     comment.md
     covenant.md           # 可选 — 覆盖系统级公约
+    procedures.md         # 可选 — 覆盖系统级程序
   zh/
     greet.md
     comment.md
     covenant.md           # 可选
+    procedures.md         # 可选
   skills/                 # 可选：配方附带技能
     my-skill/
       en/
@@ -32,7 +34,7 @@ my-recipe/
         SKILL.md
 ```
 
-## 四个组件
+## 五个组件
 
 ### 1. `greet.md` — 首次接触
 
@@ -78,7 +80,18 @@ my-recipe/
 - 如果不存在，使用系统级公约（行为不变）
 - 遵循与 greet.md 和 comment.md 相同的国际化回退规则
 
-### 4. `skills/` — 配方附带技能
+### 4. `procedures.md` — 程序覆盖（可选）
+
+覆盖系统级程序（`~/.lingtai-tui/procedures/<lang>/procedures.md`）。当配方包含此文件时，使用配方的程序代替全局程序。
+
+**用途：** 某些配方需要不同的操作程序。例如，工具型智能体可能需要简化或完全不同的程序。
+
+**规则：**
+- 无占位符——静态文本
+- 如果不存在，使用系统级程序（行为不变）
+- 遵循与 greet.md 和 comment.md 相同的国际化回退规则
+
+### 5. `skills/` — 配方附带技能
 
 可选。随配方一起分发的技能，TUI 启动时自动链接到 `.lingtai/.skills/`。
 
@@ -115,7 +128,7 @@ version: 1.0.0
 
 ## 国际化回退规则
 
-所有配方文件（greet.md、comment.md、covenant.md、技能目录）使用相同的解析规则：
+所有配方文件（greet.md、comment.md、covenant.md、procedures.md、技能目录）使用相同的解析规则：
 
 1. 尝试 `<lang>/` — 语言特定版本
 2. 回退到根目录

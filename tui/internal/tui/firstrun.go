@@ -3070,13 +3070,17 @@ func (m FirstRunModel) performRecipeSave(recipeName, customDir string) (FirstRun
 		lang = "en"
 	}
 
-	// Resolve comment and covenant paths from recipe
+	// Resolve comment, covenant, and procedures paths from recipe
 	commentPath := resolveRecipeComment(m.globalDir, recipeName, customDir, lang)
 	covenantPath := resolveRecipeCovenant(m.globalDir, recipeName, customDir, lang)
+	proceduresPath := resolveRecipeProcedures(m.globalDir, recipeName, customDir, lang)
 	opts := m.pendingAgentOpts
 	opts.CommentFile = commentPath
 	if covenantPath != "" {
 		opts.CovenantFile = covenantPath
+	}
+	if proceduresPath != "" {
+		opts.ProceduresFile = proceduresPath
 	}
 
 	p := m.presets[m.cursor]
