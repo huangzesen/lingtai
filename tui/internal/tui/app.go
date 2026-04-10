@@ -573,12 +573,12 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		return a, a.sendSize()
 	case "secretary":
 		a.currentView = appViewSecretary
-		a.secretary = NewSecretaryModel(a.globalDir, a.projectDir)
+		a.secretary = NewSecretaryModel(a.globalDir, a.projectDir, a.lingtaiCmd)
 		return a, tea.Batch(a.secretary.Init(), a.sendSize())
 	case "projects":
 		// Alias: open secretary view at projects tab
 		a.currentView = appViewSecretary
-		a.secretary = NewSecretaryModelAt(a.globalDir, a.projectDir, 1)
+		a.secretary = NewSecretaryModelAt(a.globalDir, a.projectDir, a.lingtaiCmd, 1)
 		return a, tea.Batch(a.secretary.Init(), a.sendSize())
 	case "agora":
 		if args == "publish" {
@@ -751,12 +751,12 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 		return a, a.sendSize()
 	case "secretary":
 		a.currentView = appViewSecretary
-		a.secretary = NewSecretaryModel(a.globalDir, a.projectDir)
+		a.secretary = NewSecretaryModel(a.globalDir, a.projectDir, a.lingtaiCmd)
 		return a, tea.Batch(a.secretary.Init(), a.sendSize())
 	case "projects":
 		// Alias: open secretary view at projects tab
 		a.currentView = appViewSecretary
-		a.secretary = NewSecretaryModelAt(a.globalDir, a.projectDir, 1)
+		a.secretary = NewSecretaryModelAt(a.globalDir, a.projectDir, a.lingtaiCmd, 1)
 		return a, tea.Batch(a.secretary.Init(), a.sendSize())
 	case "agora":
 		a.currentView = appViewProjects

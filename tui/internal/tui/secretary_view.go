@@ -25,21 +25,22 @@ type SecretaryModel struct {
 	projects ProjectsModel
 	kanban   PropsModel
 
-	globalDir  string
-	projectDir string
-	width      int
-	height     int
+	globalDir   string
+	projectDir  string
+	lingtaiCmd  string
+	width       int
+	height      int
 }
 
 // SecretaryCloseMsg is sent when the user exits the secretary view.
 type SecretaryCloseMsg struct{}
 
-func NewSecretaryModel(globalDir, projectDir string) SecretaryModel {
-	return NewSecretaryModelAt(globalDir, projectDir, 0)
+func NewSecretaryModel(globalDir, projectDir, lingtaiCmd string) SecretaryModel {
+	return NewSecretaryModelAt(globalDir, projectDir, lingtaiCmd, 0)
 }
 
 // NewSecretaryModelAt creates a SecretaryModel starting at the given mode.
-func NewSecretaryModelAt(globalDir, projectDir string, startMode int) SecretaryModel {
+func NewSecretaryModelAt(globalDir, projectDir, lingtaiCmd string, startMode int) SecretaryModel {
 	briefs := buildSecretaryBriefs(globalDir, projectDir)
 	secLingtaiDir := secretary.LingtaiDir(globalDir)
 	secAgentDir := secretary.AgentDir(globalDir)
@@ -53,6 +54,7 @@ func NewSecretaryModelAt(globalDir, projectDir string, startMode int) SecretaryM
 		kanban:     kanban,
 		globalDir:  globalDir,
 		projectDir: projectDir,
+		lingtaiCmd: lingtaiCmd,
 	}
 }
 
@@ -80,6 +82,16 @@ func (m SecretaryModel) Update(msg tea.Msg) (SecretaryModel, tea.Cmd) {
 				m.mode = 2
 			}
 			return m, nil
+		case "ctrl+r":
+			// Refresh (suspend + relaunch) the secretary agent
+			if m.lingtaiCmd == "" {
+				return m, nil
+			}
+			secAgentDir := secretary.AgentDir(m.globalDir)
+			return m, func() tea.Msg {
+				hardRefreshDir(m.lingtaiCmd, secAgentDir)
+				return m.kanban.loadData()
+			}
 		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
