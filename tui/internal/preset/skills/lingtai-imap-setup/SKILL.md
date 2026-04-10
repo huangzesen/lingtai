@@ -74,4 +74,4 @@ Once you have the email address and app password:
 
 ## Config Reference
 
-See the example config at `skills/lingtai-imap-setup/assets/config.json` for a full reference of all available fields.
+See the example config at `.lingtai/.skills/lingtai-imap-setup/assets/config.json` for a full reference of all available fields.

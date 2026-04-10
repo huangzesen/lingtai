@@ -42,6 +42,10 @@ Go + Bubble Tea terminal interface. Key facts:
 - Communicates with running agents via filesystem only: reads `.lingtai/` metadata, heartbeat files, and signal files inside each agent working directory
 - Agent discovery uses `lingtai_kernel.handshake` conventions (`is_agent`, `is_alive` checks on working directories)
 
+### Migrations (`tui/internal/migrate/`)
+
+Versioned, append-only, forward-only migration system. Each migration is a file `m<NNN>_<name>.go` exporting a function `func migrate<Name>(lingtaiDir string) error`. Register it in `migrate.go` by appending to the `migrations` slice and bumping `CurrentVersion`. Migrations run once per project at TUI launch (version tracked in `.lingtai/meta.json`). They can read global state (`globalTUIDir()` helper) but receive the project's `.lingtai/` dir as input. Print warnings directly with `fmt.Println` — no i18n needed since migrations run before the TUI renders.
+
 ### Portal (`portal/`)
 
 Go server with an embedded web frontend. Key facts:
