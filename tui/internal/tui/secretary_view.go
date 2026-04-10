@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/anthropics/lingtai-tui/internal/fs"
+	"github.com/anthropics/lingtai-tui/internal/process"
 	"github.com/anthropics/lingtai-tui/internal/secretary"
 )
 
@@ -28,6 +29,7 @@ type SecretaryModel struct {
 
 	globalDir   string
 	projectDir  string
+	orchDir     string
 	lingtaiCmd  string
 	width       int
 	height      int
@@ -36,12 +38,15 @@ type SecretaryModel struct {
 // SecretaryCloseMsg is sent when the user exits the secretary view.
 type SecretaryCloseMsg struct{}
 
-func NewSecretaryModel(globalDir, projectDir, lingtaiCmd string) SecretaryModel {
-	return NewSecretaryModelAt(globalDir, projectDir, lingtaiCmd, 0)
+// secretaryStatusMsg reports errors from async secretary setup/launch.
+type secretaryStatusMsg struct{ err error }
+
+func NewSecretaryModel(globalDir, projectDir, orchDir, lingtaiCmd string) SecretaryModel {
+	return NewSecretaryModelAt(globalDir, projectDir, orchDir, lingtaiCmd, 0)
 }
 
 // NewSecretaryModelAt creates a SecretaryModel starting at the given mode.
-func NewSecretaryModelAt(globalDir, projectDir, lingtaiCmd string, startMode int) SecretaryModel {
+func NewSecretaryModelAt(globalDir, projectDir, orchDir, lingtaiCmd string, startMode int) SecretaryModel {
 	briefs := buildSecretaryBriefs(globalDir, projectDir)
 	secLingtaiDir := secretary.LingtaiDir(globalDir)
 	secAgentDir := secretary.AgentDir(globalDir)
@@ -55,6 +60,7 @@ func NewSecretaryModelAt(globalDir, projectDir, lingtaiCmd string, startMode int
 		kanban:     kanban,
 		globalDir:  globalDir,
 		projectDir: projectDir,
+		orchDir:    orchDir,
 		lingtaiCmd: lingtaiCmd,
 	}
 }
@@ -84,11 +90,26 @@ func (m SecretaryModel) Update(msg tea.Msg) (SecretaryModel, tea.Cmd) {
 			}
 			return m, nil
 		case "ctrl+r":
-			// Refresh (suspend + relaunch) the secretary agent
+			// Launch or refresh the secretary agent
 			if m.lingtaiCmd == "" {
 				return m, nil
 			}
 			secAgentDir := secretary.AgentDir(m.globalDir)
+			initPath := filepath.Join(secAgentDir, "init.json")
+			if _, err := os.Stat(initPath); err != nil {
+				// Secretary not set up — set it up and launch
+				orchDirName := filepath.Base(m.orchDir)
+				return m, func() tea.Msg {
+					if err := setupSecretary(m.projectDir, m.globalDir, orchDirName); err != nil {
+						return secretaryStatusMsg{err: err}
+					}
+					if _, err := process.LaunchAgent(m.lingtaiCmd, secAgentDir); err != nil {
+						return secretaryStatusMsg{err: err}
+					}
+					return m.kanban.loadData()
+				}
+			}
+			// Already set up — suspend and relaunch
 			return m, func() tea.Msg {
 				hardRefreshDir(m.lingtaiCmd, secAgentDir)
 				return m.kanban.loadData()
@@ -110,6 +131,9 @@ func (m SecretaryModel) Update(msg tea.Msg) (SecretaryModel, tea.Cmd) {
 		if msg.View == "mail" {
 			return m, func() tea.Msg { return SecretaryCloseMsg{} }
 		}
+	case secretaryStatusMsg:
+		// Setup/launch error — just log it (visible in status header as "suspended")
+		return m, nil
 	case projectsLoadMsg:
 		// Always route to projects child regardless of active mode
 		m.projects, _ = m.projects.Update(msg)
