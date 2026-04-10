@@ -1,6 +1,7 @@
 package preset
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,7 +16,39 @@ const (
 	RecipeAdaptive = "adaptive"
 	RecipeTutorial = "tutorial"
 	RecipeCustom   = "custom"
+	RecipeImported = "imported"
 )
+
+// RecipeInfo holds the metadata from a recipe's recipe.json manifest.
+type RecipeInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+// LoadRecipeInfo reads recipe.json from a recipe directory, resolved via the
+// standard i18n fallback (<lang>/recipe.json → recipe.json). Returns an error
+// if the file is not found, unparseable, or has an empty name.
+func LoadRecipeInfo(recipeDir, lang string) (RecipeInfo, error) {
+	if recipeDir == "" {
+		return RecipeInfo{}, fmt.Errorf("empty recipe directory")
+	}
+	path := resolveRecipeFile(recipeDir, lang, "recipe.json")
+	if path == "" {
+		return RecipeInfo{}, fmt.Errorf("recipe.json not found in %s", recipeDir)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return RecipeInfo{}, fmt.Errorf("read recipe.json: %w", err)
+	}
+	var info RecipeInfo
+	if err := json.Unmarshal(data, &info); err != nil {
+		return RecipeInfo{}, fmt.Errorf("parse recipe.json: %w", err)
+	}
+	if info.Name == "" {
+		return RecipeInfo{}, fmt.Errorf("recipe.json has empty name in %s", recipeDir)
+	}
+	return info, nil
+}
 
 // BundledRecipes returns the four built-in recipe names in picker display order.
 // Adaptive is first (recommended default). Custom is not included — it is

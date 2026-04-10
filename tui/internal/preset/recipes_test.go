@@ -255,3 +255,85 @@ func TestResolveSkillDir_EmptyLang(t *testing.T) {
 		t.Errorf("ResolveSkillDir empty lang = %q, want %q", got, skillDir)
 	}
 }
+
+func TestLoadRecipeInfo_Valid(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "recipe.json"), []byte(`{"name":"Test Recipe","description":"A test"}`), 0o644)
+
+	info, err := LoadRecipeInfo(dir, "en")
+	if err != nil {
+		t.Fatalf("LoadRecipeInfo error: %v", err)
+	}
+	if info.Name != "Test Recipe" {
+		t.Errorf("Name = %q, want %q", info.Name, "Test Recipe")
+	}
+	if info.Description != "A test" {
+		t.Errorf("Description = %q, want %q", info.Description, "A test")
+	}
+}
+
+func TestLoadRecipeInfo_LangSpecific(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "recipe.json"), []byte(`{"name":"Root","description":"root"}`), 0o644)
+	os.MkdirAll(filepath.Join(dir, "zh"), 0o755)
+	os.WriteFile(filepath.Join(dir, "zh", "recipe.json"), []byte(`{"name":"中文名","description":"中文描述"}`), 0o644)
+
+	info, err := LoadRecipeInfo(dir, "zh")
+	if err != nil {
+		t.Fatalf("LoadRecipeInfo error: %v", err)
+	}
+	if info.Name != "中文名" {
+		t.Errorf("Name = %q, want %q", info.Name, "中文名")
+	}
+}
+
+func TestLoadRecipeInfo_FallbackToRoot(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "recipe.json"), []byte(`{"name":"Root Name","description":"root"}`), 0o644)
+
+	info, err := LoadRecipeInfo(dir, "wen")
+	if err != nil {
+		t.Fatalf("LoadRecipeInfo error: %v", err)
+	}
+	if info.Name != "Root Name" {
+		t.Errorf("Name = %q, want %q", info.Name, "Root Name")
+	}
+}
+
+func TestLoadRecipeInfo_Missing(t *testing.T) {
+	dir := t.TempDir()
+	_, err := LoadRecipeInfo(dir, "en")
+	if err == nil {
+		t.Errorf("LoadRecipeInfo should error when recipe.json missing")
+	}
+}
+
+func TestLoadRecipeInfo_EmptyName(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "recipe.json"), []byte(`{"name":"","description":"has desc"}`), 0o644)
+
+	_, err := LoadRecipeInfo(dir, "en")
+	if err == nil {
+		t.Errorf("LoadRecipeInfo should error when name is empty")
+	}
+}
+
+func TestLoadRecipeInfo_ExtraFieldsIgnored(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "recipe.json"), []byte(`{"name":"Test","description":"d","version":"1.0","author":"me"}`), 0o644)
+
+	info, err := LoadRecipeInfo(dir, "en")
+	if err != nil {
+		t.Fatalf("LoadRecipeInfo error: %v", err)
+	}
+	if info.Name != "Test" {
+		t.Errorf("Name = %q, want %q", info.Name, "Test")
+	}
+}
+
+func TestLoadRecipeInfo_EmptyDir(t *testing.T) {
+	_, err := LoadRecipeInfo("", "en")
+	if err == nil {
+		t.Errorf("LoadRecipeInfo should error on empty dir")
+	}
+}
