@@ -7,11 +7,6 @@ import (
 	"sort"
 	"strings"
 
-	tea "charm.land/bubbletea/v2"
-	"charm.land/bubbles/v2/viewport"
-	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/glamour"
-
 	"github.com/anthropics/lingtai-tui/i18n"
 )
 
@@ -29,38 +24,6 @@ type skillProblem struct {
 	Folder string
 	Reason string
 }
-
-// SkillsModel is a two-panel view: skill list (left) + SKILL.md content (right).
-type SkillsModel struct {
-	skillsDir string // .lingtai/.skills/
-	width     int
-	height    int
-
-	skills   []skillEntry
-	problems []skillProblem
-	cursor   int
-
-	// Right panel viewport for SKILL.md content
-	viewport viewport.Model
-	ready    bool
-}
-
-func NewSkillsModel(projectDir string) SkillsModel {
-	return SkillsModel{
-		skillsDir: filepath.Join(projectDir, ".skills"),
-	}
-}
-
-// skillsLoadMsg carries scan results.
-type skillsLoadMsg struct {
-	skills   []skillEntry
-	problems []skillProblem
-}
-
-const (
-	skillsHeaderLines = 2
-	skillsFooterLines = 2
-)
 
 // ── Frontmatter parser ──────────────────────────────────────────────
 
@@ -137,227 +100,54 @@ func scanSkills(skillsDir string) ([]skillEntry, []skillProblem) {
 	return skills, problems
 }
 
-// ── Tea lifecycle ───────────────────────────────────────────────────
+// buildSkillEntries converts scan results into MarkdownEntry items for the
+// markdown viewer. Bundled (non-symlink) skills go under "Skills", symlinked
+// skills under "Imported", and broken folders under "Problems".
+func buildSkillEntries(skillsDir string, skills []skillEntry, problems []skillProblem) []MarkdownEntry {
+	var entries []MarkdownEntry
 
-func (m SkillsModel) loadData() tea.Msg {
-	skills, problems := scanSkills(m.skillsDir)
-	return skillsLoadMsg{skills: skills, problems: problems}
-}
-
-func (m SkillsModel) Init() tea.Cmd { return m.loadData }
-
-func (m SkillsModel) Update(msg tea.Msg) (SkillsModel, tea.Cmd) {
-	var cmd tea.Cmd
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		vpHeight := m.height - skillsHeaderLines - skillsFooterLines
-		if vpHeight < 1 {
-			vpHeight = 1
-		}
-		if !m.ready {
-			m.viewport = viewport.New()
-			m.viewport.SetWidth(m.width)
-			m.viewport.SetHeight(vpHeight)
-			m.ready = true
+	var bundled, imported []skillEntry
+	for _, sk := range skills {
+		dir := filepath.Dir(sk.Path)
+		info, err := os.Lstat(dir)
+		if err == nil && info.Mode()&os.ModeSymlink != 0 {
+			imported = append(imported, sk)
 		} else {
-			m.viewport.SetWidth(m.width)
-			m.viewport.SetHeight(vpHeight)
-		}
-		m.syncViewportContent()
-
-	case skillsLoadMsg:
-		m.skills = msg.skills
-		m.problems = msg.problems
-		if m.cursor >= len(m.skills) {
-			m.cursor = max(0, len(m.skills)-1)
-		}
-		m.syncViewportContent()
-
-	case tea.MouseWheelMsg:
-		m.viewport, cmd = m.viewport.Update(msg)
-		return m, cmd
-
-	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "esc", "q":
-			return m, func() tea.Msg { return ViewChangeMsg{View: "mail"} }
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-				m.syncViewportContent()
-			}
-			return m, nil
-		case "down", "j":
-			if m.cursor < len(m.skills)-1 {
-				m.cursor++
-				m.syncViewportContent()
-			}
-			return m, nil
-		case "r":
-			return m, m.loadData
-		default:
-			m.viewport, cmd = m.viewport.Update(msg)
-			return m, cmd
-		}
-	}
-	return m, nil
-}
-
-// ── Rendering ───────────────────────────────────────────────────────
-
-func (m *SkillsModel) syncViewportContent() {
-	if !m.ready {
-		return
-	}
-	content := m.renderBody()
-	m.viewport.SetContent(content)
-}
-
-func (m SkillsModel) renderBody() string {
-	leftW := m.width / 3
-	if leftW < 25 {
-		leftW = 25
-	}
-	if leftW > 40 {
-		leftW = 40
-	}
-	rightW := m.width - leftW - 1
-	if rightW < 20 {
-		rightW = 20
-	}
-	// Safety
-	if leftW+1+rightW > m.width && m.width > 1 {
-		rightW = m.width - leftW - 1
-		if rightW < 0 {
-			rightW = 0
+			bundled = append(bundled, sk)
 		}
 	}
 
-	leftContent := m.renderLeft(leftW)
-	rightContent := m.renderRight(rightW)
-
-	leftLines := strings.Split(leftContent, "\n")
-	rightLines := strings.Split(rightContent, "\n")
-
-	// Pad to equal length
-	vpHeight := m.height - skillsHeaderLines - skillsFooterLines
-	if vpHeight < 1 {
-		vpHeight = 1
-	}
-	for len(leftLines) < vpHeight {
-		leftLines = append(leftLines, "")
-	}
-	for len(rightLines) < vpHeight {
-		rightLines = append(rightLines, "")
-	}
-	for len(leftLines) < len(rightLines) {
-		leftLines = append(leftLines, "")
-	}
-	for len(rightLines) < len(leftLines) {
-		rightLines = append(rightLines, "")
-	}
-
-	sep := lipgloss.NewStyle().Foreground(ColorTextFaint).Render("│")
-
-	var body strings.Builder
-	for i := 0; i < len(leftLines); i++ {
-		l := padToWidth(leftLines[i], leftW)
-		body.WriteString(l + sep + rightLines[i] + "\n")
-	}
-	return strings.TrimRight(body.String(), "\n")
-}
-
-func (m SkillsModel) renderLeft(maxW int) string {
-	nameStyle := lipgloss.NewStyle().Foreground(ColorText)
-	selectedStyle := lipgloss.NewStyle().Foreground(ColorAccent).Bold(true)
-	versionStyle := lipgloss.NewStyle().Foreground(ColorTextDim)
-	warnStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#e5c07b"))
-	sectionStyle := lipgloss.NewStyle().Foreground(ColorAccent).Bold(true)
-
-	var lines []string
-	lines = append(lines, "")
-	lines = append(lines, "  "+sectionStyle.Render(i18n.T("skills.installed")))
-	lines = append(lines, "")
-
-	if len(m.skills) == 0 && len(m.problems) == 0 {
-		lines = append(lines, "  "+StyleFaint.Render(i18n.T("skills.none")))
-	}
-
-	for i, sk := range m.skills {
-		marker := "  "
-		style := nameStyle
-		if i == m.cursor {
-			marker = "> "
-			style = selectedStyle
-		}
-		ver := ""
+	for _, sk := range bundled {
+		label := sk.Name
 		if sk.Version != "" {
-			ver = " " + versionStyle.Render(sk.Version)
+			label += " " + sk.Version
 		}
-		lines = append(lines, "  "+marker+style.Render(sk.Name)+ver)
+		entries = append(entries, MarkdownEntry{
+			Label: label,
+			Group: i18n.T("skills.installed"),
+			Path:  sk.Path,
+		})
 	}
 
-	if len(m.problems) > 0 {
-		lines = append(lines, "")
-		lines = append(lines, "  "+warnStyle.Render(i18n.T("skills.problems")))
-		lines = append(lines, "")
-		for _, p := range m.problems {
-			lines = append(lines, "  "+warnStyle.Render("  "+p.Folder))
-			lines = append(lines, "  "+StyleFaint.Render("  "+p.Reason))
+	for _, sk := range imported {
+		label := sk.Name
+		if sk.Version != "" {
+			label += " " + sk.Version
 		}
+		entries = append(entries, MarkdownEntry{
+			Label: label,
+			Group: i18n.T("recipe.imported"),
+			Path:  sk.Path,
+		})
 	}
 
-	return strings.Join(lines, "\n")
-}
-
-func (m SkillsModel) renderRight(maxW int) string {
-	if len(m.skills) == 0 {
-		return "\n  " + StyleFaint.Render(i18n.T("skills.select_hint"))
-	}
-	if m.cursor >= len(m.skills) {
-		return ""
+	for _, p := range problems {
+		entries = append(entries, MarkdownEntry{
+			Label:   p.Folder,
+			Group:   i18n.T("skills.problems"),
+			Content: p.Reason,
+		})
 	}
 
-	sk := m.skills[m.cursor]
-
-	// Strip frontmatter before rendering
-	body := sk.Body
-	if loc := fmRe.FindStringIndex(body); loc != nil {
-		body = body[loc[1]:]
-	}
-
-	// Render markdown
-	r, err := glamour.NewTermRenderer(
-		glamour.WithStandardStyle(ActiveTheme().GlamourStyle),
-		glamour.WithWordWrap(maxW-2),
-	)
-	if err == nil {
-		if rendered, rerr := r.Render(body); rerr == nil {
-			return "\n" + rendered
-		}
-	}
-
-	// Fallback: plain text wrap
-	wrapped := lipgloss.NewStyle().Width(maxW - 2).Render(body)
-	var lines []string
-	lines = append(lines, "")
-	for _, line := range strings.Split(wrapped, "\n") {
-		lines = append(lines, " "+line)
-	}
-	return strings.Join(lines, "\n")
-}
-
-func (m SkillsModel) View() string {
-	title := StyleTitle.Render("  "+i18n.T("skills.title")) + "\n" + strings.Repeat("\u2500", m.width)
-
-	scrollHint := ""
-	if m.ready && !m.viewport.AtBottom() {
-		scrollHint = " " + RuneBullet + " pgup/pgdn scroll"
-	}
-	footer := strings.Repeat("\u2500", m.width) + "\n" +
-		StyleFaint.Render("  "+i18n.T("hints.skills_nav")+scrollHint)
-
-	return title + "\n" + m.viewport.View() + "\n" + footer
+	return entries
 }

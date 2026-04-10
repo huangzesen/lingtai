@@ -333,7 +333,7 @@
   "recipe.preview_comment": "comment.md",
   "recipe.preview_not_found": "(not found)",
   "recipe.preview_empty": "(empty)",
-  "recipe.preview": "preview",
+  "recipe.preview": "Recipe Preview",
   "recipe.preview_switch": "switch file",
   "recipe.local_found": "✓ Found .lingtai-recipe/ — auto-selected Custom",
   "recipe.imported": "Imported"

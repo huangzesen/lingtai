@@ -39,7 +39,7 @@ type App struct {
 	setup       SetupModel
 	settings    SettingsModel
 	props       PropsModel
-	skills      SkillsModel
+	skills      MarkdownViewerModel
 	projects    ProjectsModel
 	firstRun    FirstRunModel
 	addon       AddonModel
@@ -177,6 +177,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ViewChangeMsg:
 		return a.switchToView(msg.View)
+
+	case MarkdownViewerCloseMsg:
+		a.currentView = appViewMail
+		return a, a.sendSize()
 
 	case doctorResultMsg:
 		if a.currentView == appViewDoctor {
@@ -543,8 +547,10 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		return a, tea.Batch(a.props.Init(), a.sendSize())
 	case "skills":
 		a.currentView = appViewSkills
-		a.skills = NewSkillsModel(a.projectDir)
-		return a, tea.Batch(a.skills.Init(), a.sendSize())
+		skillsDir := filepath.Join(a.projectDir, ".skills")
+		sk, prob := scanSkills(skillsDir)
+		a.skills = NewMarkdownViewer(buildSkillEntries(skillsDir, sk, prob), i18n.T("skills.title"))
+		return a, a.sendSize()
 	case "projects":
 		a.currentView = appViewProjects
 		a.projects = NewProjectsModel(a.globalDir, a.projectDir)
@@ -714,8 +720,10 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 		return a, tea.Batch(a.props.Init(), a.sendSize())
 	case "skills":
 		a.currentView = appViewSkills
-		a.skills = NewSkillsModel(a.projectDir)
-		return a, tea.Batch(a.skills.Init(), a.sendSize())
+		skillsDir := filepath.Join(a.projectDir, ".skills")
+		sk, prob := scanSkills(skillsDir)
+		a.skills = NewMarkdownViewer(buildSkillEntries(skillsDir, sk, prob), i18n.T("skills.title"))
+		return a, a.sendSize()
 	case "projects":
 		a.currentView = appViewProjects
 		a.projects = NewProjectsModel(a.globalDir, a.projectDir)

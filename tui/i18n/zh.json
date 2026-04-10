@@ -328,7 +328,7 @@
   "recipe.preview_comment": "comment.md",
   "recipe.preview_not_found": "（未找到）",
   "recipe.preview_empty": "（空）",
-  "recipe.preview": "预览",
+  "recipe.preview": "配方预览",
   "recipe.preview_switch": "切换文件",
   "recipe.local_found": "✓ 检测到 .lingtai-recipe/ — 已自动选择"自定义"",
   "recipe.imported": "已导入",

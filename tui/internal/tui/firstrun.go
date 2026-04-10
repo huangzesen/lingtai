@@ -11,10 +11,8 @@ import (
 
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/textinput"
-	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/glamour"
 
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/config"
@@ -215,11 +213,8 @@ type FirstRunModel struct {
 	importedRecipe    *preset.RecipeInfo // non-nil if .lingtai-recipe/ has valid recipe.json
 	importedRecipeDir string             // path to .lingtai-recipe/ (only when importedRecipe != nil)
 
-	// Recipe preview sub-view (reuses skills-style two-panel layout)
-	recipePreview       bool            // true when in preview mode
-	recipePreviewFile   int             // 0=greet.md, 1=comment.md
-	recipePreviewVP     viewport.Model  // scrollable content pane
-	recipePreviewReady  bool            // viewport initialized
+	// Recipe viewer (Ctrl+O from recipe picker)
+	recipeViewer *MarkdownViewerModel
 
 	// Pending save state (captured at end of stepAgentNameDir, consumed by stepRecipe)
 	pendingAgentOpts preset.AgentOpts
@@ -514,6 +509,25 @@ func (m FirstRunModel) runBootstrap(ch chan<- string) tea.Cmd {
 }
 
 func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
+	// Delegate to recipe viewer if active
+	if m.recipeViewer != nil {
+		switch msg := msg.(type) {
+		case MarkdownViewerCloseMsg:
+			m.recipeViewer = nil
+			return m, nil
+		case tea.WindowSizeMsg:
+			updated, cmd := m.recipeViewer.Update(msg)
+			m.recipeViewer = &updated
+			m.width = msg.Width
+			m.height = msg.Height
+			return m, cmd
+		default:
+			updated, cmd := m.recipeViewer.Update(msg)
+			m.recipeViewer = &updated
+			return m, cmd
+		}
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -529,11 +543,6 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 		m.principleInput.SetWidth(inputWidth)
 		m.soulFlowInput.SetWidth(inputWidth)
 		m.commentInput.SetWidth(inputWidth)
-		if m.recipePreviewReady {
-			m.recipePreviewVP.SetWidth(m.width)
-			m.recipePreviewVP.SetHeight(m.height - 4) // header + footer
-			m.syncRecipePreviewContent()
-		}
 		return m, nil
 
 	case bootstrapProgressMsg:
@@ -650,11 +659,6 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 		return m, textinput.Blink
 
 	case tea.MouseWheelMsg:
-		if m.step == stepRecipe && m.recipePreview && m.recipePreviewReady {
-			var cmd tea.Cmd
-			m.recipePreviewVP, cmd = m.recipePreviewVP.Update(msg)
-			return m, cmd
-		}
 		return m, nil
 
 	case tea.KeyPressMsg:
@@ -1368,25 +1372,6 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 
 
 		case stepRecipe:
-			// Recipe preview sub-view: intercept all keys
-			if m.recipePreview {
-				switch msg.String() {
-				case "ctrl+o", "esc":
-					m.recipePreview = false
-					return m, nil
-				case "tab":
-					m.recipePreviewFile = 1 - m.recipePreviewFile
-					m.syncRecipePreviewContent()
-					return m, nil
-				case "ctrl+c":
-					return m, tea.Quit
-				default:
-					var cmd tea.Cmd
-					m.recipePreviewVP, cmd = m.recipePreviewVP.Update(msg)
-					return m, cmd
-				}
-			}
-
 			switch msg.String() {
 			case "up":
 				if m.recipeIdx > 0 {
@@ -1412,7 +1397,16 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				}
 				return m, nil
 			case "ctrl+o":
-				m.enterRecipePreview()
+				recipeDir := m.resolveCurrentRecipeDir()
+				if recipeDir == "" {
+					return m, nil
+				}
+				entries := buildRecipeEntries(recipeDir)
+				if len(entries) == 0 {
+					return m, nil
+				}
+				viewer := NewMarkdownViewer(entries, i18n.T("recipe.preview"))
+				m.recipeViewer = &viewer
 				return m, nil
 			case "esc":
 				m.step = stepAgentNameDir
@@ -1989,8 +1983,8 @@ func (m FirstRunModel) View() string {
 			"  [Esc] "+i18n.T("firstrun.back")) + "\n")
 
 	case stepRecipe:
-		if m.recipePreview {
-			return m.viewRecipePreview()
+		if m.recipeViewer != nil {
+			return m.recipeViewer.View()
 		}
 		return m.viewRecipe()
 
@@ -2770,10 +2764,6 @@ func (m FirstRunModel) viewRecipeSwapConfirm() string {
 	return b.String()
 }
 
-// recipeWidePaneThreshold is the terminal width at or above which the
-// recipe picker shows a side pane with file previews.
-const recipeWidePaneThreshold = 90
-
 func (m FirstRunModel) viewRecipe() string {
 	var b strings.Builder
 
@@ -2847,29 +2837,7 @@ func (m FirstRunModel) viewRecipe() string {
 		}
 	}
 
-	wide := m.width >= recipeWidePaneThreshold
-	if wide {
-		leftWidth := 50
-		paneWidth := m.width - leftWidth - 6
-		if paneWidth > 50 {
-			paneWidth = 50
-		}
-		if paneWidth < 25 {
-			wide = false
-		} else {
-			pane := m.renderRecipeSidePane(paneWidth)
-			if pane != "" {
-				paneIndented := "  │ " + strings.ReplaceAll(pane, "\n", "\n  │ ")
-				combined := lipgloss.JoinHorizontal(lipgloss.Top, leftBlock.String(), paneIndented)
-				b.WriteString(combined + "\n")
-			} else {
-				wide = false
-			}
-		}
-	}
-	if !wide {
-		b.WriteString(leftBlock.String())
-	}
+	b.WriteString(leftBlock.String())
 
 	b.WriteString("\n" + StyleFaint.Render(
 		"  ↑↓ "+i18n.T("welcome.select_lang")+
@@ -2879,187 +2847,108 @@ func (m FirstRunModel) viewRecipe() string {
 	return b.String()
 }
 
-// renderRecipeSidePane renders a preview of the greet.md and comment.md files
-// for the currently selected recipe. Returns empty string if nothing to show.
-func (m FirstRunModel) renderRecipeSidePane(paneWidth int) string {
-	langs := []string{"en", "zh", "wen"}
-	lang := langs[m.agentLangIdx]
+// resolveCurrentRecipeDir returns the filesystem path for the currently
+// selected recipe, or "" if not resolvable.
+func (m FirstRunModel) resolveCurrentRecipeDir() string {
 	recipeName := m.recipeIdxToName(m.recipeIdx)
-
-	// Resolve the recipe directory.
-	var recipeDir string
 	switch recipeName {
 	case preset.RecipeImported:
-		recipeDir = m.importedRecipeDir
+		return m.importedRecipeDir
 	case preset.RecipeCustom:
-		recipeDir = m.recipeCustomInput.Value()
-		if recipeDir == "" {
+		dir := m.recipeCustomInput.Value()
+		if dir == "" {
 			return ""
 		}
+		if err := preset.ValidateCustomDir(dir); err != nil {
+			return ""
+		}
+		return dir
 	default:
-		recipeDir = preset.RecipeDir(m.globalDir, recipeName)
+		return preset.RecipeDir(m.globalDir, recipeName)
 	}
-
-	greetPath := preset.ResolveGreetPath(recipeDir, lang)
-	commentPath := preset.ResolveCommentPath(recipeDir, lang)
-
-	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorSubtle)
-	const previewLines = 6
-
-	var b strings.Builder
-
-	// greet.md preview
-	b.WriteString(labelStyle.Render("── "+i18n.T("recipe.preview_greet")+" ──") + "\n")
-	b.WriteString(recipeFilePreview(greetPath, paneWidth, previewLines) + "\n\n")
-
-	// comment.md preview
-	b.WriteString(labelStyle.Render("── "+i18n.T("recipe.preview_comment")+" ──") + "\n")
-	b.WriteString(recipeFilePreview(commentPath, paneWidth, previewLines) + "\n")
-	return strings.TrimRight(b.String(), "\n")
 }
 
-// recipeFilePreview reads the first N lines of a file and returns them
-// wrapped to paneWidth. Returns a placeholder if the file is missing or empty.
-func recipeFilePreview(path string, paneWidth, maxLines int) string {
-	if path == "" {
-		return StyleFaint.Render(i18n.T("recipe.preview_not_found"))
+// buildRecipeEntries scans a recipe directory and returns MarkdownEntry items
+// for the markdown viewer. Discovers all lang variants of greet.md, comment.md,
+// recipe.json, and skills.
+func buildRecipeEntries(recipeDir string) []MarkdownEntry {
+	if recipeDir == "" {
+		return nil
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return StyleFaint.Render(i18n.T("recipe.preview_not_found"))
-	}
-	content := strings.TrimSpace(string(data))
-	if content == "" {
-		return StyleFaint.Render(i18n.T("recipe.preview_empty"))
-	}
+	var entries []MarkdownEntry
 
-	lines := strings.SplitN(content, "\n", maxLines+1)
-	truncated := len(lines) > maxLines
-	if truncated {
-		lines = lines[:maxLines]
-	}
-
-	var out strings.Builder
-	for _, line := range lines {
-		for _, wrapped := range wrapLine(line, paneWidth) {
-			out.WriteString(StyleFaint.Render(wrapped) + "\n")
+	addFile := func(filename, group string) {
+		// Root version
+		rootPath := filepath.Join(recipeDir, filename)
+		if info, err := os.Stat(rootPath); err == nil && !info.IsDir() {
+			entries = append(entries, MarkdownEntry{
+				Label: filename,
+				Group: group,
+				Path:  rootPath,
+			})
+		}
+		// Lang variants
+		dirEntries, err := os.ReadDir(recipeDir)
+		if err != nil {
+			return
+		}
+		for _, e := range dirEntries {
+			if !e.IsDir() || strings.HasPrefix(e.Name(), ".") || e.Name() == "skills" {
+				continue
+			}
+			langPath := filepath.Join(recipeDir, e.Name(), filename)
+			if info, err := os.Stat(langPath); err == nil && !info.IsDir() {
+				entries = append(entries, MarkdownEntry{
+					Label: filename + " (" + e.Name() + ")",
+					Group: group,
+					Path:  langPath,
+				})
+			}
 		}
 	}
-	if truncated {
-		out.WriteString(StyleFaint.Render("…") + "\n")
-	}
-	return strings.TrimRight(out.String(), "\n")
-}
 
-// ── Recipe preview (full-screen scrollable view) ───────────────────
+	addFile("greet.md", "greet.md")
+	addFile("comment.md", "comment.md")
+	addFile("recipe.json", "recipe.json")
 
-// enterRecipePreview initializes the viewport and enters preview mode.
-func (m *FirstRunModel) enterRecipePreview() {
-	m.recipePreview = true
-	m.recipePreviewFile = 0 // start with greet.md
-	if !m.recipePreviewReady {
-		m.recipePreviewVP = viewport.New()
-		m.recipePreviewVP.SetWidth(m.width)
-		m.recipePreviewVP.SetHeight(m.height - 4)
-		m.recipePreviewReady = true
-	}
-	m.syncRecipePreviewContent()
-}
-
-// syncRecipePreviewContent updates the viewport with the current file's content.
-func (m *FirstRunModel) syncRecipePreviewContent() {
-	if !m.recipePreviewReady {
-		return
-	}
-	langs := []string{"en", "zh", "wen"}
-	lang := langs[m.agentLangIdx]
-	recipeName := m.recipeIdxToName(m.recipeIdx)
-
-	var recipeDir string
-	switch recipeName {
-	case preset.RecipeImported:
-		recipeDir = m.importedRecipeDir
-	case preset.RecipeCustom:
-		recipeDir = m.recipeCustomInput.Value()
-	default:
-		recipeDir = preset.RecipeDir(m.globalDir, recipeName)
-	}
-
-	var filePath string
-	if m.recipePreviewFile == 0 {
-		filePath = preset.ResolveGreetPath(recipeDir, lang)
-	} else {
-		filePath = preset.ResolveCommentPath(recipeDir, lang)
-	}
-
-	content := m.renderRecipeFileContent(filePath)
-	m.recipePreviewVP.SetContent(content)
-	m.recipePreviewVP.GotoTop()
-}
-
-// renderRecipeFileContent renders a markdown file for the viewport using glamour.
-func (m FirstRunModel) renderRecipeFileContent(path string) string {
-	if path == "" {
-		return "\n  " + StyleFaint.Render(i18n.T("recipe.preview_not_found"))
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "\n  " + StyleFaint.Render(i18n.T("recipe.preview_not_found"))
-	}
-	text := strings.TrimSpace(string(data))
-	if text == "" {
-		return "\n  " + StyleFaint.Render(i18n.T("recipe.preview_empty"))
-	}
-
-	contentWidth := m.width - 4
-	if contentWidth < 40 {
-		contentWidth = 40
-	}
-	r, err := glamour.NewTermRenderer(
-		glamour.WithStandardStyle(ActiveTheme().GlamourStyle),
-		glamour.WithWordWrap(contentWidth),
-	)
+	// Skills
+	skillsRoot := filepath.Join(recipeDir, "skills")
+	skillDirs, err := os.ReadDir(skillsRoot)
 	if err == nil {
-		if rendered, rerr := r.Render(text); rerr == nil {
-			return rendered
+		for _, sd := range skillDirs {
+			if !sd.IsDir() || strings.HasPrefix(sd.Name(), ".") {
+				continue
+			}
+			skillName := sd.Name()
+			rootSkill := filepath.Join(skillsRoot, skillName, "SKILL.md")
+			if info, err := os.Stat(rootSkill); err == nil && !info.IsDir() {
+				entries = append(entries, MarkdownEntry{
+					Label: skillName + "/SKILL.md",
+					Group: i18n.T("skills.title"),
+					Path:  rootSkill,
+				})
+			}
+			langDirs, err := os.ReadDir(filepath.Join(skillsRoot, skillName))
+			if err != nil {
+				continue
+			}
+			for _, ld := range langDirs {
+				if !ld.IsDir() || strings.HasPrefix(ld.Name(), ".") {
+					continue
+				}
+				langSkill := filepath.Join(skillsRoot, skillName, ld.Name(), "SKILL.md")
+				if info, err := os.Stat(langSkill); err == nil && !info.IsDir() {
+					entries = append(entries, MarkdownEntry{
+						Label: skillName + "/SKILL.md (" + ld.Name() + ")",
+						Group: i18n.T("skills.title"),
+						Path:  langSkill,
+					})
+				}
+			}
 		}
 	}
 
-	// Fallback: plain text
-	return "\n  " + lipgloss.NewStyle().Width(contentWidth).Render(text)
-}
-
-// viewRecipePreview renders the full-screen preview with header, viewport, footer.
-func (m FirstRunModel) viewRecipePreview() string {
-	fileLabels := []string{i18n.T("recipe.preview_greet"), i18n.T("recipe.preview_comment")}
-	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
-	unselectedStyle := StyleFaint
-
-	// Header: tab bar for greet.md / comment.md
-	var header strings.Builder
-	header.WriteString("  ")
-	for i, label := range fileLabels {
-		if i == m.recipePreviewFile {
-			header.WriteString(selectedStyle.Render("[ " + label + " ]"))
-		} else {
-			header.WriteString(unselectedStyle.Render("  " + label + "  "))
-		}
-		if i < len(fileLabels)-1 {
-			header.WriteString("  ")
-		}
-	}
-
-	titleBar := header.String() + "\n" + strings.Repeat("─", m.width)
-
-	scrollHint := ""
-	if m.recipePreviewReady && !m.recipePreviewVP.AtBottom() {
-		scrollHint = " " + RuneBullet + " ↑↓/pgup/pgdn scroll"
-	}
-	footer := strings.Repeat("─", m.width) + "\n" +
-		StyleFaint.Render("  [Tab] "+i18n.T("recipe.preview_switch")+
-			"  [Ctrl+O] "+i18n.T("firstrun.back")+scrollHint)
-
-	return titleBar + "\n" + m.recipePreviewVP.View() + "\n" + footer
+	return entries
 }
 
 // performRecipeSave executes the full save for the chosen recipe and the
