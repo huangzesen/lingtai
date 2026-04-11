@@ -219,6 +219,7 @@ func minimaxPreset() Preset {
 }
 
 func zhipuPreset() Preset {
+	zp := map[string]interface{}{"provider": "zhipu", "api_key_env": "ZHIPU_API_KEY"}
 	return Preset{
 		Name:        "zhipu",
 		Description: "Zhipu GLM Coding Plan — OpenAI-compatible",
@@ -230,8 +231,9 @@ func zhipuPreset() Preset {
 			},
 			"capabilities": map[string]interface{}{
 				"file": e(), "email": e(), "bash": map[string]interface{}{"yolo": true},
-				"web_search": e(), "psyche": e(), "library": e(),
-				"web_read": e(), "avatar": e(), "daemon": e(),
+				"web_search": zp, "psyche": e(), "library": e(),
+				"vision": zp, "web_read": zp,
+				"avatar": e(), "daemon": e(),
 				"listen": e(), "skills": e(),
 			},
 			"admin":     map[string]interface{}{"karma": true},

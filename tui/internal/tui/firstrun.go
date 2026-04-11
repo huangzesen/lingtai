@@ -586,13 +586,17 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 		p := m.presets[m.cursor]
 		provider := m.getPresetProvider(p)
 		// Backfill capabilities not returned by check-caps so they're toggleable.
-		// For custom/openrouter providers, skip MiniMax-only media capabilities
-		// (vision, talk, draw, compose, video) — they cause errors.
-		minimaxOnly := map[string]bool{"vision": true, "talk": true, "draw": true, "compose": true, "video": true}
+		// Skip media capabilities that require provider-specific integrations.
+		// MiniMax supports all media caps. Zhipu supports vision (Z.AI MCP).
+		// Custom/other providers get none of the media caps.
+		mediaCaps := map[string]bool{"vision": true, "talk": true, "draw": true, "compose": true, "video": true}
 		for _, name := range m.capOrder {
 			if _, ok := m.capInfos[name]; !ok {
-				if (provider == "custom" || provider == "zhipu") && minimaxOnly[name] {
-					continue
+				if mediaCaps[name] && provider != "minimax" {
+					// Zhipu gets vision via Z.AI MCP server
+					if !(provider == "zhipu" && name == "vision") {
+						continue
+					}
 				}
 				m.capInfos[name] = capInfo{}
 			}
