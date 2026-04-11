@@ -51,10 +51,10 @@ func LoadRecipeInfo(recipeDir, lang string) (RecipeInfo, error) {
 }
 
 // BundledRecipes returns the four built-in recipe names in picker display order.
-// Adaptive is first (recommended default). Custom is not included — it is
+// Greeter is first (recommended default). Custom is not included — it is
 // handled separately in the picker because it requires a user-supplied directory.
 func BundledRecipes() []string {
-	return []string{RecipeAdaptive, RecipeGreeter, RecipePlain, RecipeTutorial}
+	return []string{RecipeGreeter, RecipeAdaptive, RecipePlain, RecipeTutorial}
 }
 
 // RecipeDir returns the absolute directory for a bundled recipe under the

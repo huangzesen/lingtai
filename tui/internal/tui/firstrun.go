@@ -2701,7 +2701,7 @@ func (m FirstRunModel) recipeNameToIdx(name string) int {
 		offset = 1
 	}
 	switch name {
-	case preset.RecipeGreeter:
+	case preset.RecipeAdaptive:
 		return 1 + offset
 	case preset.RecipePlain:
 		return 2 + offset
@@ -2710,7 +2710,7 @@ func (m FirstRunModel) recipeNameToIdx(name string) int {
 	case preset.RecipeCustom:
 		return 4 + offset
 	default:
-		return offset // adaptive
+		return offset // greeter (default)
 	}
 }
 
@@ -2723,7 +2723,7 @@ func (m FirstRunModel) recipeIdxToName(idx int) string {
 	}
 	switch idx {
 	case 1:
-		return preset.RecipeGreeter
+		return preset.RecipeAdaptive
 	case 2:
 		return preset.RecipePlain
 	case 3:
@@ -2731,7 +2731,7 @@ func (m FirstRunModel) recipeIdxToName(idx int) string {
 	case 4:
 		return preset.RecipeCustom
 	default:
-		return preset.RecipeAdaptive
+		return preset.RecipeGreeter
 	}
 }
 
