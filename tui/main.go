@@ -211,6 +211,24 @@ func main() {
 
 	orchestrators := tui.DetectOrchestrators(lingtaiDir)
 
+	// Reconcile needsFirstRun with actual orchestrator state.
+	// If there are zero orchestrators, force first-run. This catches the
+	// "user ran `lingtai-tui clean` and relaunched in the same folder"
+	// case: clean removed .lingtai/, so the invariant checks at the top
+	// of main() were skipped (they only run if .lingtai/ already exists),
+	// but process.InitProject then recreated an empty .lingtai/ with only
+	// human/ inside. Without this fallback, a returning user (global
+	// config.json exists, so needsFirstRun would otherwise be false) would
+	// reach NewApp with no orchestrator to launch.
+	if len(orchestrators) == 0 {
+		needsFirstRun = true
+	} else if needsFirstRun && !needsRehydration {
+		// Existing orchestrators found in .lingtai/ but global config is
+		// missing (e.g. user deleted ~/.lingtai-tui). The agents are real
+		// and must not be duplicated — skip the first-run wizard.
+		needsFirstRun = false
+	}
+
 	if !needsFirstRun {
 		// Returning user — ensure runtime + assets (fast no-ops if already exist)
 		if config.NeedsVenv(globalDir) {
@@ -234,18 +252,6 @@ func main() {
 		go fs.UpdateHumanLocation(humanDir)
 	}
 	// If needsFirstRun: welcome page goroutine handles everything
-
-	// If there are zero orchestrators, force first-run. This catches the
-	// "user ran `lingtai-tui clean` and relaunched in the same folder"
-	// case: clean removed .lingtai/, so the invariant checks at the top
-	// of main() were skipped (they only run if .lingtai/ already exists),
-	// but process.InitProject then recreated an empty .lingtai/ with only
-	// human/ inside. Without this fallback, a returning user (global
-	// config.json exists, so needsFirstRun would otherwise be false) would
-	// reach NewApp with no orchestrator to launch.
-	if len(orchestrators) == 0 {
-		needsFirstRun = true
-	}
 
 	// Do NOT auto-relaunch stopped agents on TUI startup. The TUI's job is
 	// to attach to whatever state the agent is in, not to second-guess why
