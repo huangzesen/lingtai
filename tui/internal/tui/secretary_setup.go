@@ -42,29 +42,31 @@ func setupSecretary(baseDir, globalDir, orchDirName string) error {
 	manifest["soul"] = map[string]interface{}{"delay": 9999999}
 	manifest["admin"] = map[string]interface{}{"karma": false, "nirvana": false}
 
-	// Whitelist capabilities — secretary needs file I/O, bash (for briefing
-	// skill scripts), psyche, library, and skills. All multi-modal (vision,
-	// talk, draw, listen, compose, video), network (avatar, web_search,
-	// web_read, daemon), and other capabilities are stripped.
-	kept := map[string]bool{
-		"file": true, "bash": true, "email": true,
-		"psyche": true, "library": true, "skills": true,
-		"web_search": true, "web_read": true, "daemon": true,
+	// Build secretary capabilities from scratch. The secretary has a fixed set
+	// of capabilities regardless of what the orchestrator has. We only inherit
+	// per-capability config (e.g. provider overrides) from the orchestrator
+	// where the capability exists in both.
+	secretaryCaps := map[string]interface{}{
+		"file": map[string]interface{}{}, "bash": map[string]interface{}{},
+		"email": map[string]interface{}{}, "psyche": map[string]interface{}{},
+		"library": map[string]interface{}{"library_limit": 100},
+		"skills": map[string]interface{}{},
+		"web_search": map[string]interface{}{}, "web_read": map[string]interface{}{},
+		"daemon": map[string]interface{}{},
 	}
-	if caps, ok := manifest["capabilities"].(map[string]interface{}); ok {
-		for name := range caps {
-			if !kept[name] {
-				delete(caps, name)
+	// Inherit per-capability config from orchestrator where applicable
+	if orchCaps, ok := manifest["capabilities"].(map[string]interface{}); ok {
+		for name, cfg := range orchCaps {
+			if _, needed := secretaryCaps[name]; needed {
+				secretaryCaps[name] = cfg
 			}
 		}
-		// Secretary uses library as a working scratchpad for drafts across molts.
-		// Raise the limit from default 20 to 100.
-		if lib, ok := caps["library"].(map[string]interface{}); ok {
+		// Ensure library_limit is always raised for secretary
+		if lib, ok := secretaryCaps["library"].(map[string]interface{}); ok {
 			lib["library_limit"] = 100
-		} else {
-			caps["library"] = map[string]interface{}{"library_limit": 100}
 		}
 	}
+	manifest["capabilities"] = secretaryCaps
 
 	// Set secretary recipe files (no procedures override — inherits system-wide)
 	initJSON["covenant_file"] = filepath.Join(recipeDir, "covenant.md")

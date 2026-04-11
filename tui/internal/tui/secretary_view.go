@@ -89,15 +89,21 @@ func (m SecretaryModel) Update(msg tea.Msg) (SecretaryModel, tea.Cmd) {
 				m.mode = 2
 			}
 			return m, nil
-		case "ctrl+r":
-			// Launch or refresh the secretary agent
+		case "ctrl+s":
+			// Suspend the secretary agent
+			secAgentDir := secretary.AgentDir(m.globalDir)
+			suspendFile := filepath.Join(secAgentDir, ".suspend")
+			os.WriteFile(suspendFile, []byte(""), 0o644)
+			return m, func() tea.Msg { return m.kanban.loadData() }
+		case "ctrl+b":
+			// Force a briefing cycle — write a .prompt and ensure secretary is running
 			if m.lingtaiCmd == "" {
 				return m, nil
 			}
 			secAgentDir := secretary.AgentDir(m.globalDir)
 			initPath := filepath.Join(secAgentDir, "init.json")
 			if _, err := os.Stat(initPath); err != nil {
-				// Secretary not set up — set it up and launch
+				// Not set up — full setup + launch
 				orchDirName := filepath.Base(m.orchDir)
 				return m, func() tea.Msg {
 					if err := setupSecretary(m.projectDir, m.globalDir, orchDirName); err != nil {
@@ -109,8 +115,27 @@ func (m SecretaryModel) Update(msg tea.Msg) (SecretaryModel, tea.Cmd) {
 					return m.kanban.loadData()
 				}
 			}
-			// Already set up — suspend, write .prompt (wake-up call), and relaunch
+			// Write a briefing prompt and relaunch if needed
 			return m, func() tea.Msg {
+				prompt := "[system] The human has requested an immediate briefing. " +
+					"Run the briefing skill now — skip scheduling and process all pending history."
+				fs.WritePrompt(secAgentDir, prompt)
+				if !fs.IsAlive(secAgentDir, 3.0) {
+					hardRefreshDir(m.lingtaiCmd, secAgentDir)
+				}
+				return m.kanban.loadData()
+			}
+		case "ctrl+r":
+			// Re-setup secretary (syncs LLM provider from orchestrator) and relaunch
+			if m.lingtaiCmd == "" {
+				return m, nil
+			}
+			orchDirName := filepath.Base(m.orchDir)
+			secAgentDir := secretary.AgentDir(m.globalDir)
+			return m, func() tea.Msg {
+				if err := setupSecretary(m.projectDir, m.globalDir, orchDirName); err != nil {
+					return secretaryStatusMsg{err: err}
+				}
 				fs.WritePrompt(secAgentDir, secretary.GreetContent())
 				hardRefreshDir(m.lingtaiCmd, secAgentDir)
 				return m.kanban.loadData()
@@ -195,7 +220,9 @@ func (m SecretaryModel) renderStatusHeader() string {
 
 	modeHints := []string{"briefs", "projects", "kanban"}
 	modeLabel := modeHints[m.mode]
-	center := StyleFaint.Render("[" + modeLabel + "]  ctrl+t toggle  ctrl+k kanban  ctrl+r refresh")
+	center := StyleFaint.Render("["+modeLabel+"]") +
+		"  " + StyleAccent.Render("ctrl+b") + StyleFaint.Render(" force brief") +
+		"  " + StyleFaint.Render("ctrl+r refresh  ctrl+s suspend  ctrl+t toggle  ctrl+k kanban")
 
 	leftW := lipgloss.Width(left)
 	centerW := lipgloss.Width(center)

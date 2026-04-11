@@ -173,6 +173,8 @@
   "settings.local": "此地",
   "settings.nickname": "别号",
   "settings.nickname_hint": "器灵将以此号称汝",
+  "settings.brief": "简报",
+  "settings.brief_desc": "将秘书简报载入器灵系统提示。需 /refresh 方生效。",
   "settings.agent_lang": "器灵言",
   "settings.agent_lang_hint": "改后 /refresh",
   "settings.agent_name": "器灵名",

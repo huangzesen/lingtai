@@ -18,6 +18,12 @@ import (
 // Settings holds per-project preferences at .lingtai/human/settings.json.
 type Settings struct {
 	Orchestrator string `json:"orchestrator,omitempty"`
+	Brief        *bool  `json:"brief,omitempty"` // nil or true = enabled, false = disabled
+}
+
+// BriefEnabled returns whether the brief section is enabled for this project.
+func (s Settings) BriefEnabled() bool {
+	return s.Brief == nil || *s.Brief
 }
 
 // LoadSettings reads per-project settings from .lingtai/human/settings.json.
@@ -148,11 +154,20 @@ func NewSettingsModel(globalDir, projectDir, orchDir string, tuiCfg config.TUICo
 		}
 	}
 
+	// Brief toggle — per-project
+	briefOptions := []string{"on", "off"}
+	briefCurrent := 0 // default on
+	localSettings := LoadSettings(projectDir)
+	if !localSettings.BriefEnabled() {
+		briefCurrent = 1
+	}
+
 	fields := []SettingField{
 		{Key: "language", Label: "settings.language", Options: langOptions, Current: langCurrent},
 		{Key: "mail_page_size", Label: "settings.mail_page_size", Options: pageSizeOptions, Current: pageSizeCurrent},
 		{Key: "theme", Label: "settings.theme", Options: themeOptions, Current: themeCurrent},
 		{Key: "insights", Label: "settings.insights", Options: insightsOptions, Current: insightsCurrent},
+		{Key: "brief", Label: "settings.brief", Options: briefOptions, Current: briefCurrent},
 		{Key: "agent_lang", Label: "settings.agent_lang", Options: agentLangOptions, Current: agentLangCurrent},
 	}
 
@@ -287,6 +302,9 @@ func (m *SettingsModel) applyField(f *SettingField) tea.Cmd {
 	case "agent_lang":
 		m.saveAgentLang(val)
 		return nil // don't save TUI config — this writes to init.json
+	case "brief":
+		m.saveBrief(val == "on")
+		return nil // don't save TUI config — this writes to per-project settings + init.json
 	}
 	config.SaveTUIConfig(m.globalDir, m.tuiConfig)
 	return nil
@@ -376,6 +394,45 @@ func (m *SettingsModel) saveAgentLang(lang string) {
 	}
 }
 
+func (m *SettingsModel) saveBrief(enabled bool) {
+	// Persist to per-project settings
+	s := LoadSettings(m.projectDir)
+	s.Brief = &enabled
+	SaveSettings(m.projectDir, s)
+
+	if m.orchDir == "" {
+		return
+	}
+
+	// Update init.json: add or remove brief_file
+	initPath := filepath.Join(m.orchDir, "init.json")
+	data, err := os.ReadFile(initPath)
+	if err != nil {
+		return
+	}
+	var initData map[string]interface{}
+	if err := json.Unmarshal(data, &initData); err != nil {
+		return
+	}
+
+	projectPath := filepath.Dir(m.projectDir) // .lingtai/ → project root
+	briefPath := fs.BriefFilePath(m.globalDir, projectPath)
+
+	if enabled {
+		initData["brief_file"] = briefPath
+	} else {
+		delete(initData, "brief_file")
+		delete(initData, "brief")
+		// Also remove system/brief.md so the kernel doesn't fall back to it
+		systemBrief := filepath.Join(m.orchDir, "system", "brief.md")
+		os.Remove(systemBrief)
+	}
+
+	if out, err := json.MarshalIndent(initData, "", "  "); err == nil {
+		os.WriteFile(initPath, out, 0o644)
+	}
+}
+
 func (m SettingsModel) View() string {
 	var b strings.Builder
 
@@ -401,7 +458,7 @@ func (m SettingsModel) View() string {
 	sectionStyle := lipgloss.NewStyle().Foreground(ColorAccent).Bold(true)
 	for i, f := range m.fields {
 		// Insert "Local" section header before agent fields
-		if f.Key == "agent_lang" {
+		if f.Key == "brief" {
 			b.WriteString("\n  " + sectionStyle.Render(i18n.T("settings.local")) + "\n")
 		}
 		cursor := "  "
@@ -413,7 +470,7 @@ func (m SettingsModel) View() string {
 
 		// Show display-friendly value
 		displayVal := value
-		if f.Key == "insights" || (f.Key == "mail_page_size" && value == "unlimited") {
+		if f.Key == "insights" || f.Key == "brief" || (f.Key == "mail_page_size" && value == "unlimited") {
 			displayVal = i18n.T("settings." + value)
 		} else if f.Key == "theme" {
 			displayVal = i18n.T("theme." + value)

@@ -178,6 +178,8 @@
   "settings.local": "Local",
   "settings.nickname": "Nickname",
   "settings.nickname_hint": "agents will address you by this name",
+  "settings.brief": "Brief",
+  "settings.brief_desc": "Inject secretary briefs into agent system prompt. Requires /refresh to take effect.",
   "settings.agent_lang": "Agent language",
   "settings.agent_lang_hint": "change then /refresh",
   "settings.agent_name": "Agent name",

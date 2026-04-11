@@ -1,7 +1,7 @@
 ---
 name: briefing
 description: Scan session history dumps and produce profile, journal, and brief files. Invoke this skill at the start of every briefing cycle.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Briefing Skill
@@ -24,7 +24,7 @@ You maintain three files that give AI agents context about their human and the p
 - Preferences — tools, languages, frameworks they favor
 - Working patterns — when they work, how they structure sessions, how they delegate
 
-**Target: 200–500 words.** This is injected into every agent's prompt — keep it tight.
+**Hard limit: 5,000 tokens.** This is injected into every agent's prompt — keep it tight. You MUST verify the token count after every write (see Token Verification below).
 
 ### journal.md — What's happening in this project?
 
@@ -41,7 +41,7 @@ You maintain three files that give AI agents context about their human and the p
 - Active agents — who is in the network, what they specialize in
 - Pending items — what is unfinished, blocked, or planned next
 
-**Target: 500–2000 words.** Scale with project complexity. Every token counts.
+**Hard limit: 20,000 tokens.** Scale with project complexity. Every token counts. You MUST verify the token count after every write (see Token Verification below).
 
 ### brief.md — The combined briefing
 
@@ -50,6 +50,70 @@ You maintain three files that give AI agents context about their human and the p
 **Consumer:** Injected into agents via the `brief_file` field in init.json.
 
 **Purpose:** This is the actual file agents read. It is simply `profile.md + journal.md` concatenated. You write profile and journal separately (because profile is universal), then construct brief mechanically.
+
+## Token Verification
+
+After EVERY write to profile.md or journal.md, verify the token count:
+
+```bash
+python3 -c "
+from lingtai_kernel.token_counter import count_tokens
+content = open('<file_path>').read()
+tokens = count_tokens(content)
+print(f'{tokens} tokens')
+assert tokens <= <LIMIT>, f'OVER LIMIT: {tokens} > <LIMIT}'
+"
+```
+
+Where `<LIMIT>` is 5000 for profile.md and 20000 for journal.md.
+
+If the file exceeds its limit, you MUST rewrite it immediately — trim less important content until it fits. Do not proceed to the next step until the token count is under the limit.
+
+## Git Operations
+
+Every write to profile.md or journal.md MUST be followed by a git commit in the brief directory. This provides a versioned history of how the briefing evolves.
+
+```bash
+cd ~/.lingtai-tui/brief
+git add -A
+git commit -m "briefing: update <file> for <project-name>"
+```
+
+If the brief directory is not a git repo yet, initialize it first:
+
+```bash
+cd ~/.lingtai-tui/brief
+git init
+git add -A
+git commit -m "briefing: initial commit"
+```
+
+The sequence for every file write is: **write → verify tokens → git commit**. Never skip the commit.
+
+## Memory Append — Reference Workbench
+
+During consolidation, you need the current profile and journal visible while synthesizing updates. Use `psyche(memory, append)` to pin them as read-only reference:
+
+**Before starting consolidation for a project:**
+
+```
+psyche(memory, append, files=["~/.lingtai-tui/brief/profile.md", "~/.lingtai-tui/brief/projects/<hash>/journal.md"])
+```
+
+This loads both files into your memory as read-only reference. They appear under a `📎 Reference (read-only)` section in your memory — you can see them while working but they are not part of memory.md.
+
+**After consolidation is complete:**
+
+```
+psyche(memory, append, files=[])
+```
+
+Clear the workbench to free context space.
+
+**Rules:**
+- Always pin profile + the CURRENT project's journal before rewriting that project's journal.
+- Process one project at a time. Pin → rewrite journal → verify tokens → git commit → construct brief → unpin → next project.
+- The pinned files are refreshed on every memory load, so after you write the updated journal, the reference still shows the OLD version until you re-pin. This is fine — you should unpin after writing, not re-pin.
 
 ## Working Order
 
@@ -202,20 +266,22 @@ If all caught up and no drafts: schedule hourly cycle and go idle.
 
 Process ONE project at a time. For each project that has drafts:
 
-**8a.** Load drafts for this project:
+**8a.** Pin current profile + this project's journal as reference:
+
+```
+psyche(memory, append, files=["~/.lingtai-tui/brief/profile.md", "~/.lingtai-tui/brief/projects/<hash>/journal.md"])
+```
+
+This loads both into your memory as read-only reference. You can now see the current state while writing the update.
+
+**8b.** Load drafts for this project:
 
 ```
 library(filter, pattern="draft:<project-name>:")
 library(view, ids=[<list of draft IDs for this project>])
 ```
 
-**8b.** Read the existing journal:
-
-```bash
-cat ~/.lingtai-tui/brief/projects/<hash>/journal.md 2>/dev/null || echo "(no journal yet)"
-```
-
-**8c.** Write the updated journal — synthesize all drafts + existing journal into the current state:
+**8c.** Write the updated journal — a COMPLETE REWRITE synthesizing all drafts + existing journal into the current state. Do not patch — rewrite the entire file from scratch:
 
 ```bash
 cat > ~/.lingtai-tui/brief/projects/<hash>/journal.md << 'JOURNAL_EOF'
@@ -240,20 +306,45 @@ cat > ~/.lingtai-tui/brief/projects/<hash>/journal.md << 'JOURNAL_EOF'
 JOURNAL_EOF
 ```
 
-**8d.** Delete the consolidated drafts:
+**8d.** Verify token count and git commit:
+
+```bash
+python3 -c "
+import os
+from lingtai_kernel.token_counter import count_tokens
+content = open(os.path.expanduser('~/.lingtai-tui/brief/projects/<hash>/journal.md')).read()
+tokens = count_tokens(content)
+print(f'{tokens} tokens')
+assert tokens <= 20000, f'OVER LIMIT: {tokens} > 20000'
+"
+```
+
+```bash
+cd ~/.lingtai-tui/brief && git add -A && git commit -m "briefing: update journal for <project-name>"
+```
+
+If over limit, rewrite to trim. Do not proceed until under 20,000 tokens.
+
+**8e.** Delete the consolidated drafts:
 
 ```
 library(delete, ids=[<draft IDs just consolidated>])
 ```
 
-**8e.** Repeat for the next project with drafts.
+**8f.** Clear the reference workbench:
+
+```
+psyche(memory, append, files=[])
+```
+
+**8g.** Repeat for the next project with drafts.
 
 ### Step 9: Update Profile
 
-After all project journals are written, consider the profile. Read it:
+After all project journals are written, consider the profile. Pin it as reference:
 
-```bash
-cat ~/.lingtai-tui/brief/profile.md 2>/dev/null || echo "(no profile yet)"
+```
+psyche(memory, append, files=["~/.lingtai-tui/brief/profile.md"])
 ```
 
 Only update if your drafts revealed something NEW about the human that applies universally:
@@ -262,7 +353,7 @@ Only update if your drafts revealed something NEW about the human that applies u
 - A preference showing across multiple projects
 - A correction to something you previously wrote
 
-If updating:
+If updating, do a COMPLETE REWRITE — not a patch:
 
 ```bash
 cat > ~/.lingtai-tui/brief/profile.md << 'PROFILE_EOF'
@@ -270,14 +361,43 @@ cat > ~/.lingtai-tui/brief/profile.md << 'PROFILE_EOF'
 PROFILE_EOF
 ```
 
+Verify token count and git commit:
+
+```bash
+python3 -c "
+import os
+from lingtai_kernel.token_counter import count_tokens
+content = open(os.path.expanduser('~/.lingtai-tui/brief/profile.md')).read()
+tokens = count_tokens(content)
+print(f'{tokens} tokens')
+assert tokens <= 5000, f'OVER LIMIT: {tokens} > 5000'
+"
+```
+
+```bash
+cd ~/.lingtai-tui/brief && git add -A && git commit -m "briefing: update profile"
+```
+
+If over limit, rewrite to trim. Do not proceed until under 5,000 tokens.
+
+Clear the workbench:
+
+```
+psyche(memory, append, files=[])
+```
+
 ### Step 10: Construct Briefs
 
-For EACH project that had its journal updated, reconstruct the brief:
+For EACH project that had its journal updated, reconstruct the brief and commit:
 
 ```bash
 cat ~/.lingtai-tui/brief/profile.md > ~/.lingtai-tui/brief/projects/<hash>/brief.md
 echo -e "\n---\n" >> ~/.lingtai-tui/brief/projects/<hash>/brief.md
 cat ~/.lingtai-tui/brief/projects/<hash>/journal.md >> ~/.lingtai-tui/brief/projects/<hash>/brief.md
+```
+
+```bash
+cd ~/.lingtai-tui/brief && git add -A && git commit -m "briefing: construct brief for <project-name>"
 ```
 
 ### Step 11: Record Final State
