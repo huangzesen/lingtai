@@ -126,6 +126,19 @@ func main() {
 		}
 	}
 
+	// Check for phantom processes in the secretary's network too.
+	secProjectDir := filepath.Join(globalDir, "secretary")
+	if _, err := os.Stat(filepath.Join(secProjectDir, ".lingtai")); err == nil {
+		self, _ := os.Executable()
+		out, _ := exec.Command(self, "list", secProjectDir).Output()
+		if len(out) > 0 && strings.Contains(string(out), "[PHANTOM]") {
+			fmt.Println("Secretary has phantom processes:")
+			fmt.Print(string(out))
+			fmt.Printf("Run: lingtai-tui purge %s\n", secProjectDir)
+			os.Exit(1)
+		}
+	}
+
 	// Rehydration state: set below if the network needs rehydration (cloned
 	// agora network with no init.json files but an intact .agent.json blueprint).
 	var needsRehydration bool

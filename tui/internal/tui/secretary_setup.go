@@ -143,8 +143,9 @@ func setupSecretary(baseDir, globalDir, orchDirName string) error {
 		return fmt.Errorf("write secretary init.json: %w", err)
 	}
 
-	// Symlink briefing skill into secretary's skills dir
-	skillsDir := filepath.Join(agentDir, ".skills")
+	// Symlink briefing skill into the network-level .skills/ dir
+	// (.lingtai/.skills/ — sibling to agent dirs, not inside the agent dir)
+	skillsDir := filepath.Join(lingtaiDir, ".skills")
 	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
 		return fmt.Errorf("create secretary skills dir: %w", err)
 	}

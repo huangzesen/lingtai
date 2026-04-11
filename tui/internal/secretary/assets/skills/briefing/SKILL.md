@@ -248,10 +248,10 @@ Briefing state:
 
 ### Step 7: Schedule Next Cycle or Consolidate
 
-If there are still pending files for ANY project: schedule a 5-minute follow-up and go idle.
+If there are still pending files for ANY project: send yourself an immediate follow-up and go idle.
 
 ```
-email(send, address=secretary, message="continue briefing", delay=300)
+email(send, address=secretary, message="continue briefing")
 ```
 
 If ALL projects have pending=0 AND any project has drafts>0: proceed to **Consolidation Steps** below.
@@ -425,7 +425,7 @@ Then go idle.
 
 ## First Run
 
-On your first cycle, there may be many history files from migration backfill. Do NOT try to read them all. Process them one at a time — the 5-minute follow-up schedule works through the backlog. Consolidation happens only when all files are processed.
+On your first cycle, there may be many history files from migration backfill. Do NOT try to read them all. Process them one at a time — the immediate follow-up works through the backlog quickly. Consolidation happens only when all files are processed.
 
 ## Molt Preparation
 
