@@ -705,11 +705,17 @@ func hardRefreshDir(lingtaiCmd, dir string) error {
 	suspendFile := filepath.Join(dir, ".suspend")
 	os.WriteFile(suspendFile, []byte(""), 0o644)
 	lockFile := filepath.Join(dir, ".agent.lock")
-	for i := 0; i < 40; i++ { // 40 × 250ms = 10s max
+	locked := true
+	for i := 0; i < 120; i++ { // 120 × 500ms = 60s max
 		if tryLock(lockFile) {
+			locked = false
 			break
 		}
-		time.Sleep(250 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
+	}
+	if locked {
+		// Process likely died without releasing lock — clean up
+		os.Remove(lockFile)
 	}
 	os.Remove(suspendFile)
 	_, err := process.LaunchAgent(lingtaiCmd, dir)
