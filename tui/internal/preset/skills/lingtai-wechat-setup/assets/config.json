@@ -1,0 +1,6 @@
+{
+  "base_url": "https://ilinkai.weixin.qq.com",
+  "cdn_base_url": "https://novac2c.cdn.weixin.qq.com/c2c",
+  "poll_interval": 1.0,
+  "allowed_users": []
+}
