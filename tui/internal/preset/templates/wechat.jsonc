@@ -1,0 +1,33 @@
+// =============================================================
+// WeChat — wechat.json
+// =============================================================
+// Point to this file from init.json:
+//   "addons": { "wechat": { "config": "path/to/this/config.json" } }
+//
+// Setup:
+//   1. Create this config file at .lingtai/.addons/wechat/config.json
+//   2. Run the login command to scan a QR code with your phone:
+//      python -c "from lingtai.addons.wechat.login import cli_login; cli_login('.lingtai/.addons/wechat')"
+//   3. Run /refresh in the TUI to activate
+//
+// Unlike other addons, WeChat uses QR-code login — no static
+// credentials needed. The bot_token is saved automatically to
+// .lingtai/.addons/wechat/credentials.json after scanning.
+//
+// =============================================================
+{
+  // iLink Bot API base URL (Tencent's official gateway).
+  // Override only for testing or if Tencent changes the endpoint.
+  "base_url": "https://ilinkai.weixin.qq.com",
+
+  // CDN base URL for media uploads and downloads.
+  "cdn_base_url": "https://novac2c.cdn.weixin.qq.com/c2c",
+
+  // Seconds between long-poll retries.
+  // The server-side long-poll timeout is 35s; this controls retry spacing.
+  "poll_interval": 1.0,
+
+  // Optional: restrict to specific WeChat user IDs.
+  // Omit or leave empty for open access (anyone can message).
+  // "allowed_users": ["wxid_abc123@im.wechat"]
+}
