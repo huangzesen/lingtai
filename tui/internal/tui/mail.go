@@ -172,7 +172,10 @@ func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pageSi
 		dismissedInsights: make(map[string]bool),
 		sessionCache:      fs.NewSessionCache(humanDir, filepath.Dir(baseDir)),
 	}
-	m.sessionCache.SetSourceOffsets(orchDir)
+	// Refresh mail cache before rebuild so mail entries are included.
+	m.cache = m.cache.Refresh()
+	// Build session.jsonl fresh from all sources, sorted by timestamp.
+	m.sessionCache.RebuildFromSources(m.cache, humanAddr, orchDir, m.orchDisplayName())
 	return m
 }
 

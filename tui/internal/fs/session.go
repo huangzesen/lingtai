@@ -2,13 +2,13 @@
 package fs
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 )
 
@@ -36,11 +36,12 @@ type SessionCache struct {
 	projectPath string          // absolute path of the project directory (parent of .lingtai/)
 	lastHour    time.Time       // hour (truncated) of the most recent entry
 	briefBase   string          // base dir for brief output (default: ~/.lingtai-tui)
+	rebuilding  bool            // true during RebuildFromSources — suppress file writes
 }
 
 // NewSessionCache opens (or creates) session.jsonl and loads existing entries
-// into memory. Source file offsets are set to end-of-file so only new entries
-// are appended going forward.
+// into memory. For the TUI mail view, call RebuildFromSources immediately
+// after to rebuild from the canonical data sources (mail, events, inquiries).
 func NewSessionCache(humanDir string, projectPath string) *SessionCache {
 	logsDir := filepath.Join(humanDir, "logs")
 	os.MkdirAll(logsDir, 0o755)
@@ -53,7 +54,6 @@ func NewSessionCache(humanDir string, projectPath string) *SessionCache {
 		projectPath: projectPath,
 		briefBase:   filepath.Join(home, ".lingtai-tui"),
 	}
-
 	sc.loadExisting()
 	return sc
 }
@@ -65,25 +65,89 @@ func (sc *SessionCache) loadExisting() {
 	}
 	defer f.Close()
 
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	for scanner.Scan() {
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return
+	}
+	for len(data) > 0 {
+		idx := bytes.IndexByte(data, '\n')
+		if idx < 0 {
+			break
+		}
+		line := data[:idx]
+		data = data[idx+1:]
+		if len(line) == 0 {
+			continue
+		}
 		var e SessionEntry
-		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
+		if err := json.Unmarshal(line, &e); err != nil {
 			continue
 		}
 		sc.entries = append(sc.entries, e)
-		// Rebuild mailSeen from existing mail entries.
 		if e.Type == "mail" {
 			sc.mailSeen[e.From+"|"+e.Ts] = true
 		}
 	}
 
-	// Set lastHour from the final entry.
 	if len(sc.entries) > 0 {
 		if t, err := time.Parse(time.RFC3339, sc.entries[len(sc.entries)-1].Ts); err == nil {
 			sc.lastHour = t.Truncate(time.Hour)
 		}
+	}
+}
+
+// RebuildFromSources reads all three data sources from scratch, merges and
+// sorts them chronologically, writes session.jsonl, and sets offsets to EOF
+// so subsequent Refresh calls only append new entries.
+func (sc *SessionCache) RebuildFromSources(cache MailCache, humanAddr, orchDir, orchName string) {
+	// Clear any prior state and suppress file writes during ingest
+	// (we'll write the sorted result in one shot at the end).
+	sc.entries = nil
+	sc.mailSeen = make(map[string]bool)
+	sc.eventsOff = 0
+	sc.inquiryOff = 0
+	sc.rebuilding = true
+
+	// Ingest everything from offset 0.
+	sc.IngestMail(cache, humanAddr, orchDir, orchName)
+	sc.IngestEvents(orchDir)
+	sc.IngestInquiries(orchDir)
+
+	sc.rebuilding = false
+
+	// Sort by unix timestamp.
+	sort.SliceStable(sc.entries, func(i, j int) bool {
+		return tsToUnix(sc.entries[i].Ts) < tsToUnix(sc.entries[j].Ts)
+	})
+
+	// Write sorted session.jsonl in one shot.
+	sc.rewriteFile()
+
+	// Set offsets to EOF so Refresh only tails new entries.
+	if orchDir != "" {
+		sc.eventsOff = fileSize(filepath.Join(orchDir, "logs", "events.jsonl"))
+		sc.inquiryOff = fileSize(filepath.Join(orchDir, "logs", "soul_inquiry.jsonl"))
+	}
+
+	// Set lastHour from the final entry.
+	if len(sc.entries) > 0 {
+		if t, err := time.Parse(time.RFC3339Nano, sc.entries[len(sc.entries)-1].Ts); err == nil {
+			sc.lastHour = t.Truncate(time.Hour)
+		}
+	}
+}
+
+// rewriteFile overwrites session.jsonl with the current in-memory entries.
+func (sc *SessionCache) rewriteFile() {
+	f, err := os.Create(sc.path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	enc := json.NewEncoder(f)
+	enc.SetEscapeHTML(false)
+	for _, e := range sc.entries {
+		_ = enc.Encode(e)
 	}
 }
 
@@ -92,21 +156,26 @@ func (sc *SessionCache) append(entries ...SessionEntry) {
 		return
 	}
 
-	// Check for hour boundary crossings before appending.
+	sc.entries = append(sc.entries, entries...)
+
+	// During RebuildFromSources, skip file writes and hour dumps —
+	// we'll write the sorted result in one shot at the end.
+	if sc.rebuilding {
+		return
+	}
+
+	// Check for hour boundary crossings.
 	for _, e := range entries {
-		t, err := time.Parse(time.RFC3339, e.Ts)
-		if err != nil {
+		t := ParseSessionTs(e.Ts)
+		if t.IsZero() {
 			continue
 		}
 		entryHour := t.Truncate(time.Hour)
 		if !sc.lastHour.IsZero() && entryHour.After(sc.lastHour) {
-			// Hour boundary crossed — dump all completed hours.
 			sc.dumpHours(sc.lastHour, entryHour)
 		}
 		sc.lastHour = entryHour
 	}
-
-	sc.entries = append(sc.entries, entries...)
 
 	// Append to file.
 	f, err := os.OpenFile(sc.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
@@ -426,15 +495,26 @@ func (sc *SessionCache) Refresh(cache MailCache, humanAddr, orchDir, orchName st
 	sc.IngestInquiries(orchDir)
 }
 
-// SetSourceOffsets seeks source file offsets to end-of-file.
-// Call this after loading an existing session.jsonl on startup so we only
-// read new entries going forward.
-func (sc *SessionCache) SetSourceOffsets(orchDir string) {
-	if orchDir == "" {
-		return
+// tsToUnix converts a session timestamp string to Unix seconds (float64).
+// Handles both RFC3339Nano ("...T07:08:26.1279Z") and RFC3339 ("...T07:08:26Z").
+func tsToUnix(s string) float64 {
+	t := ParseSessionTs(s)
+	if t.IsZero() {
+		return 0
 	}
-	sc.eventsOff = fileSize(filepath.Join(orchDir, "logs", "events.jsonl"))
-	sc.inquiryOff = fileSize(filepath.Join(orchDir, "logs", "soul_inquiry.jsonl"))
+	return float64(t.UnixNano()) / 1e9
+}
+
+// ParseSessionTs parses a session entry timestamp, trying RFC3339Nano first
+// (handles fractional seconds from mail) then RFC3339 (whole seconds from events).
+func ParseSessionTs(s string) time.Time {
+	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
+		return t
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t
+	}
+	return time.Time{}
 }
 
 func fileSize(path string) int64 {
