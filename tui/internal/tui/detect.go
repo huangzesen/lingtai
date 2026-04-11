@@ -34,12 +34,11 @@ func DetectOrchestrators(baseDir string) []string {
 	return orchestrators
 }
 
-// PropagateOrchestratorLLM reads the orchestrator's init.json and copies its
-// manifest.llm config to every other agent's init.json in the same .lingtai/
-// network. All agents share the same LLM provider within a local network.
-// Skips directories that are not agents (no init.json).
-func PropagateOrchestratorLLM(baseDir, orchDir string) error {
-	// Read orchestrator's LLM config
+// PropagateOrchestratorConfig reads the orchestrator's init.json and copies
+// its LLM config and capabilities to every other agent in the .lingtai/
+// network. Admin privileges and addons are stripped from non-orchestrators.
+// Skips directories that are not agents (no init.json) and "human".
+func PropagateOrchestratorConfig(baseDir, orchDir string) error {
 	orchInitPath := filepath.Join(orchDir, "init.json")
 	orchData, err := os.ReadFile(orchInitPath)
 	if err != nil {
@@ -57,25 +56,25 @@ func PropagateOrchestratorLLM(baseDir, orchDir string) error {
 	if orchLLM == nil {
 		return nil
 	}
+	orchCaps, _ := orchManifest["capabilities"].(map[string]interface{})
 	orchEnvFile, _ := orchInit["env_file"].(string)
 
-	// Walk all agent dirs in baseDir
 	entries, err := os.ReadDir(baseDir)
 	if err != nil {
 		return nil
 	}
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() || entry.Name() == "human" {
 			continue
 		}
 		agentDir := filepath.Join(baseDir, entry.Name())
 		if agentDir == orchDir {
-			continue // skip the orchestrator itself
+			continue
 		}
 		initPath := filepath.Join(agentDir, "init.json")
 		data, err := os.ReadFile(initPath)
 		if err != nil {
-			continue // not an agent or no init.json
+			continue
 		}
 		var initJSON map[string]interface{}
 		if err := json.Unmarshal(data, &initJSON); err != nil {
@@ -85,12 +84,25 @@ func PropagateOrchestratorLLM(baseDir, orchDir string) error {
 		if manifest == nil {
 			continue
 		}
+
 		// Replace LLM config
 		manifest["llm"] = orchLLM
-		// Sync env_file so the agent can resolve api_key_env
+
+		// Replace capabilities — strip admin and addons
+		if orchCaps != nil {
+			capsCopy := make(map[string]interface{}, len(orchCaps))
+			for k, v := range orchCaps {
+				capsCopy[k] = v
+			}
+			manifest["capabilities"] = capsCopy
+		}
+		manifest["admin"] = map[string]interface{}{"karma": false, "nirvana": false}
+		delete(initJSON, "addons")
+
 		if orchEnvFile != "" {
 			initJSON["env_file"] = orchEnvFile
 		}
+
 		out, err := json.MarshalIndent(initJSON, "", "  ")
 		if err != nil {
 			continue

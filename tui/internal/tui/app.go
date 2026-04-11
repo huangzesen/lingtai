@@ -257,7 +257,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.orchDir = msg.OrchDir
 		a.orchName = msg.OrchName
 		// Propagate LLM config to all agents in the network
-		PropagateOrchestratorLLM(a.projectDir, a.orchDir)
+		PropagateOrchestratorConfig(a.projectDir, a.orchDir)
 		// Launch the agent
 		var launchErr string
 		if a.lingtaiCmd != "" {
