@@ -164,7 +164,7 @@ Contents cover:
 - Skills subdirectory structure and naming convention
 - `SKILL.md` frontmatter requirements (`name`, `description`, `version`)
 - How to test locally: point `/setup` custom recipe at your directory
-- How to publish: `/agora publish` packages the recipe with skills automatically
+- How to export: `/export network` packages the recipe with skills automatically
 
 ## 7. Call Sites
 

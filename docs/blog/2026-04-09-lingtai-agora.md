@@ -74,7 +74,7 @@ Two new commands in the palette:
 
 - **`/agora`** — browse all your published networks. Same two-panel view as `/projects`, but scanning `~/lingtai-agora/networks/` instead of the registry. See agent counts, states, and network stats at a glance.
 
-- **`/export network`** — kick off the publishing flow. The TUI writes a prompt to your orchestrator asking it to use the `lingtai-agora` skill. The agent reaches out to you via email and walks you through the process.
+- **`/export network`** — kick off the publishing flow. The TUI writes a prompt to your orchestrator asking it to use the `lingtai-export-network` skill. The agent reaches out to you via email and walks you through the process.
 
 ## Try it
 
@@ -89,4 +89,4 @@ The network IS the product. Now you can ship it.
 
 ---
 
-*Lingtai Agora ships in lingtai-tui v0.4.37. The `/agora` browser, `/agora publish` command, launch recipes, and the 7-step publishing skill are all included. No kernel changes required.*
+*Lingtai Agora ships in lingtai-tui v0.4.37. The `/agora` browser, `/export network` and `/export recipe` commands, launch recipes, and the 7-step export skill are all included. No kernel changes required.*
