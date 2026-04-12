@@ -369,6 +369,23 @@ func PopulateBundledSkills(lingtaiDir string) {
 		}
 		return nil
 	})
+
+	// Clean up skills removed or renamed between TUI versions.
+	// Only non-symlink directories are removed (symlinks are recipe-managed).
+	removedSkills := []string{
+		"lingtai-agora", // renamed to lingtai-export-network in v0.4.40
+	}
+	for _, name := range removedSkills {
+		p := filepath.Join(skillsDir, name)
+		info, err := os.Lstat(p)
+		if err != nil {
+			continue // doesn't exist — nothing to do
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			continue // symlink — managed by recipe_skills.go, leave it
+		}
+		os.RemoveAll(p)
+	}
 }
 
 // CovenantPath returns the absolute path to the covenant file for a language.
