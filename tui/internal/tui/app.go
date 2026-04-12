@@ -712,7 +712,7 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 			secHumanDir := filepath.Join(secLingtaiDir, "human")
 			a.secretaryMail = NewMailModel(secHumanDir, "human", secLingtaiDir, secAgentDir, "secretary", a.tuiConfig.MailPageSize, a.globalDir, a.tuiConfig.Language, a.tuiConfig.Insights)
 			a.secretaryMail.brandOverride = i18n.T("app.brand_secretary")
-			a.secretaryMail.palette.ExcludeCommands("viz", "addon", "setup", "agora", "nirvana")
+			a.secretaryMail.palette.ExcludeCommands("viz", "addon", "setup", "agora", "export", "nirvana")
 			return a, tea.Batch(a.secretaryMail.Init(), a.sendSize())
 		}
 		// Re-entry — reuse existing state, just restart ticks
@@ -735,22 +735,30 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 		}
 		return a, a.sendSize()
 	case "agora":
-		if args == "publish" {
-			if a.orchDir == "" {
-				addMsg(i18n.T("agora.no_agent"))
-				return a, nil
-			}
-			if !fs.IsAlive(a.orchDir, 3.0) {
-				addMsg(i18n.T("mail.btw_suspended"))
-				return a, nil
-			}
-			fs.WritePrompt(a.orchDir, i18n.T("agora.publish_prompt"))
-			addMsg(i18n.T("agora.publish_sent"))
-			return a, nil
-		}
 		a.currentView = appViewProjects
 		a.projects = NewAgoraModel(a.globalDir, a.projectDir)
 		return a, tea.Batch(a.projects.Init(), a.sendSize())
+	case "export":
+		if args != "network" && args != "recipe" {
+			addMsg(i18n.T("export.help"))
+			return a, nil
+		}
+		if a.orchDir == "" {
+			addMsg(i18n.T("export.no_agent"))
+			return a, nil
+		}
+		if !fs.IsAlive(a.orchDir, 3.0) {
+			addMsg(i18n.T("mail.btw_suspended"))
+			return a, nil
+		}
+		if args == "network" {
+			fs.WritePrompt(a.orchDir, i18n.T("export.network_prompt"))
+			addMsg(i18n.T("export.network_sent"))
+		} else {
+			fs.WritePrompt(a.orchDir, i18n.T("export.recipe_prompt"))
+			addMsg(i18n.T("export.recipe_sent"))
+		}
+		return a, nil
 	case "molt":
 		if targetDir == "" {
 			return a, nil
@@ -932,7 +940,7 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 		secHumanDir := filepath.Join(secLingtaiDir, "human")
 		a.secretaryMail = NewMailModel(secHumanDir, "human", secLingtaiDir, secAgentDir, "secretary", a.tuiConfig.MailPageSize, a.globalDir, a.tuiConfig.Language, a.tuiConfig.Insights)
 		a.secretaryMail.brandOverride = i18n.T("app.brand_secretary")
-		a.secretaryMail.palette.ExcludeCommands("viz", "addon", "setup", "agora", "nirvana")
+		a.secretaryMail.palette.ExcludeCommands("viz", "addon", "setup", "agora", "export", "nirvana")
 		a.inSecretaryView = true
 		a.currentView = appViewMail
 		return a, tea.Batch(a.secretaryMail.Init(), a.sendSize())

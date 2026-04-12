@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/anthropics/lingtai-tui/i18n"
@@ -17,7 +20,8 @@ type PaletteSelectMsg struct {
 // Command represents a slash command in the palette.
 type Command struct {
 	Name        string // e.g. "manage"
-	Description string // i18n key for description
+	Description string // i18n key for short description (shown in palette)
+	Detail      string // i18n key for detailed description (shown in greeting, commands.json)
 }
 
 // PaletteModel is the command palette overlay.
@@ -40,28 +44,59 @@ func NewPaletteModel() PaletteModel {
 // DefaultCommands returns all slash commands.
 func DefaultCommands() []Command {
 	return []Command{
-		{Name: "btw", Description: "palette.btw"},
-		{Name: "sleep", Description: "palette.sleep"},
-		{Name: "suspend", Description: "palette.suspend"},
-		{Name: "cpr", Description: "palette.cpr"},
-		{Name: "clear", Description: "palette.clear"},
-		{Name: "refresh", Description: "palette.refresh"},
-		{Name: "doctor", Description: "palette.doctor"},
-		{Name: "viz", Description: "palette.viz"},
-		{Name: "addon", Description: "palette.addon"},
-		{Name: "setup", Description: "palette.setup"},
-		{Name: "settings", Description: "palette.settings"},
-		{Name: "kanban", Description: "palette.kanban"},
-		{Name: "projects", Description: "palette.projects"},
-		{Name: "agora", Description: "palette.agora"},
-		{Name: "skills", Description: "palette.skills"},
-		{Name: "insights", Description: "palette.insights"},
-		{Name: "secretary", Description: "palette.secretary"},
-		{Name: "brief", Description: "palette.brief"},
-		{Name: "molt", Description: "palette.molt"},
-		{Name: "nirvana", Description: "palette.nirvana"},
-		{Name: "quit", Description: "palette.quit"},
+		{Name: "btw", Description: "palette.btw", Detail: "cmd.btw"},
+		{Name: "sleep", Description: "palette.sleep", Detail: "cmd.sleep"},
+		{Name: "suspend", Description: "palette.suspend", Detail: "cmd.suspend"},
+		{Name: "cpr", Description: "palette.cpr", Detail: "cmd.cpr"},
+		{Name: "clear", Description: "palette.clear", Detail: "cmd.clear"},
+		{Name: "refresh", Description: "palette.refresh", Detail: "cmd.refresh"},
+		{Name: "doctor", Description: "palette.doctor", Detail: "cmd.doctor"},
+		{Name: "viz", Description: "palette.viz", Detail: "cmd.viz"},
+		{Name: "addon", Description: "palette.addon", Detail: "cmd.addon"},
+		{Name: "setup", Description: "palette.setup", Detail: "cmd.setup"},
+		{Name: "settings", Description: "palette.settings", Detail: "cmd.settings"},
+		{Name: "kanban", Description: "palette.kanban", Detail: "cmd.kanban"},
+		{Name: "projects", Description: "palette.projects", Detail: "cmd.projects"},
+		{Name: "agora", Description: "palette.agora", Detail: "cmd.agora"},
+		{Name: "export", Description: "palette.export"},
+		{Name: "skills", Description: "palette.skills", Detail: "cmd.skills"},
+		{Name: "insights", Description: "palette.insights", Detail: "cmd.insights"},
+		{Name: "secretary", Description: "palette.secretary", Detail: "cmd.secretary"},
+		{Name: "brief", Description: "palette.brief", Detail: "cmd.brief"},
+		{Name: "molt", Description: "palette.molt", Detail: "cmd.molt"},
+		{Name: "nirvana", Description: "palette.nirvana", Detail: "cmd.nirvana"},
+		{Name: "quit", Description: "palette.quit", Detail: "cmd.quit"},
 	}
+}
+
+// ExportCommandsJSON writes ~/.lingtai-tui/commands.json with all slash
+// commands and their descriptions resolved in every locale.
+func ExportCommandsJSON(globalDir string) {
+	type cmdEntry struct {
+		Name   string            `json:"name"`
+		Brief  map[string]string `json:"brief"`
+		Detail map[string]string `json:"detail"`
+	}
+
+	langs := []string{"en", "zh", "wen"}
+	cmds := DefaultCommands()
+	entries := make([]cmdEntry, 0, len(cmds))
+
+	for _, cmd := range cmds {
+		briefs := make(map[string]string, len(langs))
+		details := make(map[string]string, len(langs))
+		for _, lang := range langs {
+			briefs[lang] = i18n.TIn(lang, cmd.Description)
+			details[lang] = i18n.TIn(lang, cmd.Detail)
+		}
+		entries = append(entries, cmdEntry{Name: cmd.Name, Brief: briefs, Detail: details})
+	}
+
+	data, err := json.MarshalIndent(entries, "", "  ")
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(filepath.Join(globalDir, "commands.json"), data, 0o644)
 }
 
 // ExcludeCommands removes the named commands from the palette.
