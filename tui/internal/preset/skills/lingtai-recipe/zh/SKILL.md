@@ -144,4 +144,4 @@ version: 1.0.0
 
 ## 如何发布配方
 
-运行 `/agora publish` 时，发布流程包含在项目根目录创建 `.lingtai-recipe/` 启动配方的步骤。该配方随网络一起发布，克隆者会自动使用。
+运行 `/export network`（或仅导出配方时用 `/export recipe`）时，导出流程包含在项目根目录创建 `.lingtai-recipe/` 启动配方的步骤。该配方随网络一起发布，克隆者会自动使用。

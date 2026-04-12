@@ -167,7 +167,7 @@ All types follow the same directory structure and rules.
 
 ## How to Publish a Recipe
 
-When you run `/agora publish`, the publishing flow includes a step to create a launch recipe at `.lingtai-recipe/` in the project root. This recipe travels with the published network and is automatically used by recipients who clone it.
+When you run `/export network` (or `/export recipe` for a recipe-only export), the export flow includes a step to create a launch recipe at `.lingtai-recipe/` in the project root. This recipe travels with the published network and is automatically used by recipients who clone it.
 
 ## Testing
 

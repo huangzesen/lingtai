@@ -24,7 +24,7 @@ Do not dump information. Instead, watch what the human is doing and suggest the 
 | `/viz` | When avatars are spawned or the network grows — "the network is growing — try /viz to see the topology, mail flows, and agent states in your browser" |
 | `/addon` | When the human mentions external messaging (email, Telegram, Feishu) — "you can connect me to external services via /addon" |
 | `/projects` | When the human mentions other projects or switching context — "/projects lets you browse all your registered lingtai projects" |
-| `/agora` | When the human mentions sharing or publishing their network — "/agora shows your published networks, and /agora publish starts the publishing flow" |
+| `/export` | When the human mentions sharing or publishing their network — "/export network exports the full network, and /export recipe exports just the launch recipe" |
 | `/doctor` | When the human reports connectivity or startup issues — "/doctor can diagnose what's wrong" |
 | `/nirvana` | Only when the human explicitly wants to start completely over — "/nirvana wipes everything — use with caution" |
 | `/quit` | When the human wants to exit — "remember, /quit closes the TUI but I keep running unless you /suspend all first" |

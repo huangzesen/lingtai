@@ -12,7 +12,7 @@ For each nested repo found, reports:
     - remote origin URL (if any)
 
 This script ONLY reports — it never modifies anything. The agent running
-the lingtai-agora skill is responsible for discussing each finding with
+the lingtai-export-network skill is responsible for discussing each finding with
 the human and taking action (typically adding the directory to .gitignore
 or stripping the inner .git to inline the contents).
 
