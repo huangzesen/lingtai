@@ -76,6 +76,9 @@ const (
 // zhipuCodingModels lists models available on the Zhipu GLM Coding Plan.
 var zhipuCodingModels = []string{"GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-Air"}
 
+// codexModels lists models available via Codex OAuth.
+var codexModels = []string{"gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex"}
+
 // capInfo holds provider metadata for a single capability (from check-caps).
 type capInfo struct {
 	Providers []string `json:"providers"`
@@ -186,6 +189,9 @@ type FirstRunModel struct {
 	minimaxModel      int               // 0=highspeed, 1=standard
 	zhipuRegion       int               // 0=china, 1=international
 	zhipuModel        int               // 0=GLM-5.1, 1=GLM-5-Turbo, 2=GLM-4.7, 3=GLM-4.5-Air
+	codexModel        int               // 0=gpt-5.4, 1=gpt-5.4-mini, 2=gpt-5.3-codex
+	codexEmail        string            // set after successful OAuth login
+	codexLoggingIn    bool              // true while waiting for browser callback
 	customCompat      int               // 0=openai, 1=anthropic
 	selectedProvider  string            // provider of currently selected preset
 	existingKeys      map[string]string // loaded from Config.Keys
@@ -591,6 +597,18 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 		m.setupErr = msg.err
 		return m, nil
 
+	case CodexOAuthDoneMsg:
+		m.codexLoggingIn = false
+		if msg.Err != nil {
+			m.message = fmt.Sprintf("Login failed: %v", msg.Err)
+			return m, nil
+		}
+		authPath := filepath.Join(m.globalDir, "codex-auth.json")
+		data, _ := json.MarshalIndent(msg.Tokens, "", "  ")
+		os.WriteFile(authPath, data, 0o600)
+		m.codexEmail = msg.Tokens.Email
+		return m, nil
+
 	case rehydrateDoneMsg:
 		m.rehydrateWorkers = msg.workers
 		m.rehydrateErr = msg.err
@@ -861,6 +879,19 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 								}
 							}
 						}
+					} else if provider == "codex" {
+						m.presetKeyInput.Blur()
+						m.codexModel = 0
+						m.codexEmail = ""
+						m.codexLoggingIn = false
+						// Check for existing login
+						authPath := filepath.Join(m.globalDir, "codex-auth.json")
+						if data, err := os.ReadFile(authPath); err == nil {
+							var tokens CodexTokens
+							if json.Unmarshal(data, &tokens) == nil && tokens.Email != "" {
+								m.codexEmail = tokens.Email
+							}
+						}
 					} else {
 						m.presetKeyInput.Focus()
 					}
@@ -901,6 +932,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 			isCustom := m.selectedProvider == "custom"
 			isMinimax := m.selectedProvider == "minimax"
 			isZhipu := m.selectedProvider == "zhipu"
+			isCodex := m.selectedProvider == "codex"
 			fieldCount := 1 // default: key only
 			if isCustom {
 				fieldCount = 5 // compat + endpoint + model + key + name
@@ -910,6 +942,9 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 			}
 			if isZhipu {
 				fieldCount = 3 // region + model + key
+			}
+			if isCodex {
+				fieldCount = 1
 			}
 			switch msg.String() {
 			case "ctrl+e":
@@ -945,9 +980,13 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				m.step = stepPickPreset
 				return m, nil
 			case "up":
-				if isCustom || isMinimax || isZhipu {
+				if isCustom || isMinimax || isZhipu || isCodex {
 					m.presetKeyFieldIdx = (m.presetKeyFieldIdx - 1 + fieldCount) % fieldCount
 					if (isMinimax || isZhipu) && m.presetKeyFieldIdx < 2 {
+						m.presetKeyInput.Blur()
+						return m, nil
+					}
+					if isCodex {
 						m.presetKeyInput.Blur()
 						return m, nil
 					}
@@ -955,9 +994,13 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				}
 				return m, nil
 			case "down", "tab":
-				if isCustom || isMinimax || isZhipu {
+				if isCustom || isMinimax || isZhipu || isCodex {
 					m.presetKeyFieldIdx = (m.presetKeyFieldIdx + 1) % fieldCount
 					if (isMinimax || isZhipu) && m.presetKeyFieldIdx < 2 {
+						m.presetKeyInput.Blur()
+						return m, nil
+					}
+					if isCodex {
 						m.presetKeyInput.Blur()
 						return m, nil
 					}
@@ -965,6 +1008,15 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				}
 				return m, nil
 			case "left", "right":
+				// Cycle model for codex
+				if isCodex && m.presetKeyFieldIdx == 0 {
+					if msg.String() == "right" {
+						m.codexModel = (m.codexModel + 1) % len(codexModels)
+					} else {
+						m.codexModel = (m.codexModel + len(codexModels) - 1) % len(codexModels)
+					}
+					return m, nil
+				}
 				// Toggle region for minimax
 				if isMinimax && m.presetKeyFieldIdx == 0 {
 					m.minimaxRegion = 1 - m.minimaxRegion
@@ -1072,13 +1124,39 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					}
 					newPresetName = name
 				}
-				if key != "" {
-					m.existingKeys[m.selectedProvider] = key
-					cfg, _ := config.LoadConfig(m.globalDir)
-					cfg.Keys = m.existingKeys
-					config.SaveConfig(m.globalDir, cfg)
-				} else if m.existingKeys[m.selectedProvider] == "" {
-					return m, nil
+				if isCodex {
+					if m.codexLoggingIn {
+						return m, nil
+					}
+					if m.codexEmail == "" {
+						m.codexLoggingIn = true
+						oauthCh := startOAuthFlow()
+						return m, func() tea.Msg {
+							result := <-oauthCh
+							return result
+						}
+					}
+					p := m.presets[m.cursor]
+					model := codexModels[m.codexModel]
+					clone := preset.Clone(p, "codex_oauth")
+					if llm, ok := clone.Manifest["llm"].(map[string]interface{}); ok {
+						llm["model"] = model
+					}
+					if err := preset.Save(clone); err != nil {
+						m.message = i18n.TF("firstrun.error", err)
+						return m, nil
+					}
+					newPresetName = "codex_oauth"
+				}
+				if !isCodex {
+					if key != "" {
+						m.existingKeys[m.selectedProvider] = key
+						cfg, _ := config.LoadConfig(m.globalDir)
+						cfg.Keys = m.existingKeys
+						config.SaveConfig(m.globalDir, cfg)
+					} else if m.existingKeys[m.selectedProvider] == "" {
+						return m, nil
+					}
 				}
 				// Reload presets and find the newly created one
 				m.presets, _ = preset.List()
@@ -1760,6 +1838,35 @@ func (m FirstRunModel) View() string {
 				"  [Ctrl+E] editor (allows pasting)"+
 				"  [Enter] "+i18n.T("setup.save")+
 				"  [Esc] "+i18n.T("setup.back")) + "\n")
+		} else if m.selectedProvider == "codex" {
+			var modelLabels []string
+			for i, name := range codexModels {
+				if i == m.codexModel {
+					modelLabels = append(modelLabels, "● "+name)
+				} else {
+					modelLabels = append(modelLabels, "○ "+name)
+				}
+			}
+			modelStyle := lipgloss.NewStyle()
+			if m.presetKeyFieldIdx == 0 {
+				modelStyle = modelStyle.Bold(true).Foreground(ColorAccent)
+			}
+			b.WriteString("  " + i18n.T("presets.model") + ":   " + modelStyle.Render(strings.Join(modelLabels, "  ")) + "\n\n")
+
+			if m.codexLoggingIn {
+				b.WriteString("  " + StyleSubtle.Render(i18n.T("codex.logging_in")) + "\n")
+			} else if m.codexEmail != "" {
+				okStyle := lipgloss.NewStyle().Foreground(ColorActive)
+				b.WriteString("  " + okStyle.Render("✓ "+i18n.TF("codex.logged_in", m.codexEmail)) + "\n\n")
+				b.WriteString(StyleFaint.Render("  [Enter] "+i18n.T("setup.save")+
+					"  [←→] "+i18n.T("firstrun.toggle_region")+
+					"  [Esc] "+i18n.T("setup.back")) + "\n")
+			} else {
+				b.WriteString("  " + i18n.T("codex.press_enter") + "\n\n")
+				b.WriteString(StyleFaint.Render("  [Enter] "+i18n.T("codex.open_browser")+
+					"  [←→] "+i18n.T("firstrun.toggle_region")+
+					"  [Esc] "+i18n.T("setup.back")) + "\n")
+			}
 		} else {
 			b.WriteString("  " + i18n.T("setup.api_key_label") + " " + m.presetKeyInput.View() + "\n\n")
 			b.WriteString(StyleFaint.Render("  [Enter] "+i18n.T("setup.save")+
@@ -2556,8 +2663,8 @@ func (m *FirstRunModel) enterAgentNameDir(p preset.Preset) {
 // focusedPresetKeyInput returns a pointer to the currently focused text input
 // in the preset key step, or nil if the current field is a selector (no text).
 func (m *FirstRunModel) focusedPresetKeyInput() *textinput.Model {
-	if m.selectedProvider == "minimax" || m.selectedProvider == "zhipu" {
-		// minimax/zhipu key field (idx 2) is a textarea — handled separately
+	if m.selectedProvider == "minimax" || m.selectedProvider == "zhipu" || m.selectedProvider == "codex" {
+		// minimax/zhipu key field (idx 2) is a textarea — handled separately; codex has no text fields
 		return nil
 	}
 	switch m.presetKeyFieldIdx {
@@ -2576,6 +2683,9 @@ func (m *FirstRunModel) focusedPresetKeyInput() *textinput.Model {
 
 // focusedPresetKeyTextarea returns a pointer to presetKeyInput if it's focused.
 func (m *FirstRunModel) focusedPresetKeyTextarea() *textarea.Model {
+	if m.selectedProvider == "codex" {
+		return nil
+	}
 	if (m.selectedProvider == "minimax" || m.selectedProvider == "zhipu") && m.presetKeyFieldIdx == 2 {
 		return &m.presetKeyInput
 	}
