@@ -139,6 +139,7 @@
   "palette.btw": "旁问器灵",
   "palette.addon": "查看扩展配置（IMAP、Telegram、飞书、微信）",
   "palette.cpr": "复苏 Agent（/cpr all 全部）",
+  "palette.login": "检查和管理凭证",
   "palette.quit": "退出",
   "palette.clear": "清空器灵上下文窗口并重启",
   "palette.refresh": "硬重启 Agent（/refresh all 全部）",
@@ -379,5 +380,13 @@
   "cmd.molt": "立即强制凝蜕——保存上下文后重置对话窗口",
   "cmd.nirvana": "清除一切从头开始——删除 .lingtai/ 及所有器灵数据。不可逆",
   "cmd.export": "导出网络或配方以供分享（/export network 导出完整器灵网络，/export recipe 导出可复用的配方）",
-  "cmd.quit": "退出 lingtai-tui（器灵在后台继续运行，除非先执行 /suspend）"
+  "cmd.login": "查看所有已保存凭证的认证状态，需要时可重新认证",
+  "cmd.quit": "退出 lingtai-tui（器灵在后台继续运行，除非先执行 /suspend）",
+  "login.title": "登录状态",
+  "login.active": "当前",
+  "login.saved_credentials": "已保存的凭证：",
+  "login.reauth": "重新认证",
+  "login.cancel": "取消",
+  "login.enter_key": "输入 %s 的新 API 密钥：",
+  "login.no_credentials": "没有已保存的凭证。使用 /setup 配置 Provider。"
 }

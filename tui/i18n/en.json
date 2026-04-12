@@ -144,6 +144,7 @@
   "palette.btw": "Ask the agent a side question",
   "palette.addon": "View addon configs (IMAP, Telegram, Feishu, WeChat)",
   "palette.cpr": "Revive agent (/cpr all for all)",
+  "palette.login": "Check & manage credentials",
   "palette.quit": "Quit lingtai-tui",
   "palette.clear": "Clear agent context window and restart",
   "palette.refresh": "Hard restart agent (/refresh all for all)",
@@ -379,5 +380,13 @@
   "cmd.molt": "Force the agent to molt immediately — saves context and resets the conversation window",
   "cmd.nirvana": "Wipe everything and start completely fresh — deletes .lingtai/ and all agent data. Irreversible",
   "cmd.export": "Export a network or recipe for sharing (/export network exports the full agent network, /export recipe exports a reusable recipe)",
-  "cmd.quit": "Quit lingtai-tui (agents continue running in background unless suspended first)"
+  "cmd.login": "Show auth status for all saved credentials and re-authenticate if needed",
+  "cmd.quit": "Quit lingtai-tui (agents continue running in background unless suspended first)",
+  "login.title": "Login Status",
+  "login.active": "Active",
+  "login.saved_credentials": "Saved credentials:",
+  "login.reauth": "re-authenticate",
+  "login.cancel": "cancel",
+  "login.enter_key": "Enter new API key for %s:",
+  "login.no_credentials": "No saved credentials. Use /setup to configure a provider."
 }

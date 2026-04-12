@@ -139,6 +139,7 @@
   "palette.btw": "旁问",
   "palette.addon": "查看扩展配置（IMAP、Telegram、飞书、微信）",
   "palette.cpr": "苏灵（/cpr all 诸灵）",
+  "palette.login": "查验凭证",
   "palette.quit": "退",
   "palette.clear": "清识海重启",
   "palette.refresh": "重启器灵（/refresh all 诸灵）",
@@ -379,5 +380,13 @@
   "cmd.molt": "即令转世——存上下文后重置对话之窗",
   "cmd.nirvana": "尽除一切从头再来——删 .lingtai/ 及诸灵之数据。不可逆",
   "cmd.export": "导出相阵或功法以分享（/export network 导出全阵，/export recipe 导出可复用之法）",
-  "cmd.quit": "退 lingtai-tui（器灵续在后台运行，除非先行 /suspend）"
+  "cmd.login": "查已存凭证之状，需时可重登",
+  "cmd.quit": "退 lingtai-tui（器灵续在后台运行，除非先行 /suspend）",
+  "login.title": "登帐",
+  "login.active": "今用",
+  "login.saved_credentials": "已存凭证：",
+  "login.reauth": "重登",
+  "login.cancel": "罢",
+  "login.enter_key": "入 %s 新密钥：",
+  "login.no_credentials": "无凭证。/setup 以设 Provider。"
 }
