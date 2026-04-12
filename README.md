@@ -244,118 +244,104 @@ IMAP addon for email. See [kernel docs](https://github.com/huangzesen/lingtai-ke
 
 Telegram bot addon. See [kernel docs](https://github.com/huangzesen/lingtai-kernel).
 
-## Development
+## Contributing
 
-This repo contains the **Go frontends** (TUI and Portal). The Python kernel lives in [lingtai-kernel](https://github.com/huangzesen/lingtai-kernel).
+Contributions are welcome. Check the [LingTai Roadmap](https://github.com/users/huangzesen/projects/1) for planned features and open tasks.
 
-### Prerequisites
+Lingtai has two repos: this one (Go frontends — TUI and Portal) and [lingtai-kernel](https://github.com/huangzesen/lingtai-kernel) (Python runtime). A full dev setup has both running from source so changes take effect immediately.
 
-- **Go 1.24+** — [install](https://go.dev/dl/)
-- **Python 3.11+** — for running agents (the TUI launches agents as Python subprocesses)
-- **Node.js 18+** — only needed for the portal's web frontend
+### Full dev setup
 
-### Clone and build
+**Prerequisites:** Go 1.24+, Python 3.11+, Node.js 18+ (portal only)
 
 ```bash
+# 1. Clone both repos
 git clone https://github.com/huangzesen/lingtai.git
-cd lingtai
-
-# Build the TUI
-cd tui && make build
-# Binary: tui/bin/lingtai-tui
-
-# Build the portal
-cd ../portal && make build
-# Binary: portal/bin/lingtai-portal
-```
-
-### Dev mode — link your local build
-
-```bash
-# Symlink your local build so `lingtai-tui` on PATH uses your dev binary
-ln -sf $(pwd)/tui/bin/lingtai-tui /usr/local/bin/lingtai-tui
-
-# Now any `make build` in tui/ is immediately available system-wide
-cd tui && make build
-lingtai-tui  # runs your local build
-```
-
-If you installed via Homebrew, unlink it first:
-```bash
-brew unlink lingtai-tui
-```
-
-### Develop the Python kernel alongside
-
-```bash
-# Clone the kernel repo
 git clone https://github.com/huangzesen/lingtai-kernel.git
-cd lingtai-kernel
 
-# Install in editable mode (changes take effect immediately)
+# 2. Install the Python kernel in editable mode
+cd lingtai-kernel
 pip install -e .
+cd ..
+
+# 3. Build the TUI and symlink it onto your PATH
+cd lingtai/tui
+make build
+ln -sf $(pwd)/bin/lingtai-tui /usr/local/bin/lingtai-tui
+cd ../..
+
+# 4. (Optional) Build the portal
+cd lingtai/portal && make build && cd ../..
 ```
 
-Now changes to either repo take effect without reinstalling anything — `make build` for Go, instant for Python.
+If you installed via Homebrew previously: `brew unlink lingtai-tui`
+
+**The dev loop:**
+- Edit Go code → `cd tui && make build` → restart lingtai-tui
+- Edit Python code → changes take effect immediately (editable install)
+- Edit recipes/skills/i18n → `make build` (they're embedded in the Go binary)
 
 ### Project structure
 
 ```
-lingtai/
-├── tui/                    # Terminal UI (Go + Bubble Tea)
-│   ├── main.go             # Entry point, CLI commands
-│   ├── internal/tui/       # Bubble Tea models (mail, palette, firstrun, ...)
-│   ├── internal/preset/    # Recipes, presets, procedures, skills
-│   ├── internal/fs/        # Filesystem operations (mail cache, agent discovery)
-│   ├── internal/secretary/ # Secretary agent assets
-│   ├── i18n/               # Translations (en.json, zh.json, wen.json)
+lingtai/                          # This repo — Go frontends
+├── tui/                          # Terminal UI (Go + Bubble Tea)
+│   ├── main.go                   # Entry point, CLI subcommands
+│   ├── internal/tui/             # Bubble Tea models (mail, palette, firstrun, ...)
+│   ├── internal/preset/          # Recipes, presets, procedures, skills, covenant
+│   ├── internal/fs/              # Filesystem ops (mail cache, agent discovery)
+│   ├── internal/secretary/       # Secretary agent (道童) embedded assets
+│   ├── i18n/                     # Translations (en.json, zh.json, wen.json)
 │   └── Makefile
-├── portal/                 # Web portal (Go + embedded frontend)
-│   ├── web/                # Frontend (npm build → embedded)
+├── portal/                       # Web portal (Go + embedded frontend)
+│   ├── web/                      # Frontend source (npm build → embedded)
 │   └── Makefile
-└── docs/                   # Blog posts, assets
+└── docs/                         # Blog posts, assets
+
+lingtai-kernel/                   # Separate repo — Python runtime
+├── src/lingtai_kernel/           # Minimal kernel (BaseAgent, intrinsics, LLM, mail)
+└── src/lingtai/                  # Batteries layer (capabilities, addons, LLM adapters)
 ```
 
-### i18n — three locales
+### Where to contribute
 
-All user-facing strings are in `tui/i18n/{en,zh,wen}.json`. When adding a new string:
-
-1. Add the key in **all three** files (English, Chinese, Classical Chinese)
-2. Use `i18n.T("key")` for current locale, `i18n.TIn(lang, "key")` for a specific locale
-3. Slash commands need both `palette.*` (short, for palette UI) and `cmd.*` (detailed, for greetings and commands.json)
+| Area | Repo | Language |
+|------|------|----------|
+| New capabilities | [lingtai-kernel](https://github.com/huangzesen/lingtai-kernel) | Python |
+| New addons (messaging bridges) | [lingtai-kernel](https://github.com/huangzesen/lingtai-kernel) | Python |
+| TUI features (slash commands, views) | this repo | Go |
+| Portal features | this repo | Go + TypeScript |
+| Recipes | this repo, `tui/internal/preset/recipe_assets/` | Markdown |
+| Skills | this repo, `tui/internal/preset/skills/` | Markdown |
+| Translations | this repo, `tui/i18n/` | JSON |
+| Documentation | this repo | Markdown |
 
 ### Adding a slash command
 
 1. Add entry to `DefaultCommands()` in `tui/internal/tui/palette.go` with `Name`, `Description`, and `Detail`
-2. Add `palette.*` and `cmd.*` i18n keys in all three locale files
+2. Add `palette.*` (short description) and `cmd.*` (detailed description) i18n keys in **all three** locale files
 3. Handle the command in `handlePaletteCommand()` in `tui/internal/tui/app.go`
-4. The command automatically appears in the greeting `{{commands}}` placeholder and `~/.lingtai-tui/commands.json`
+4. Done — it automatically appears in the `/` palette, greeting `{{commands}}`, and `~/.lingtai-tui/commands.json`
 
-## Contributing
+### i18n — three locales
 
-Contributions are welcome. Here's how to get started:
+All user-facing strings live in `tui/i18n/{en,zh,wen}.json`. Always update all three:
+- **en** — English
+- **zh** — Simplified Chinese (现代汉语)
+- **wen** — Classical Chinese (文言) — concise literary style, uses Lingtai vocabulary (器灵, 相阵, 功法, 凝蜕, 灵台)
+
+### Style
+
+- Standard `gofmt` — no linter config needed
+- Conventional commits: `feat:`, `fix:`, `docs:`
+- Binary name is `lingtai-tui` (never `lingtai` — that's the Python agent CLI)
+
+### Workflow
 
 1. **Fork and clone** the repo
 2. **Create a branch** for your feature or fix
 3. **Build and test** — `cd tui && make build && go vet ./...`
 4. **Open a PR** with a clear description
-
-### Where to contribute
-
-- **New capabilities** — add to [lingtai-kernel](https://github.com/huangzesen/lingtai-kernel) (Python)
-- **TUI features** — slash commands, views, UI improvements (Go, this repo)
-- **Recipes** — new launch recipes in `tui/internal/preset/recipe_assets/`
-- **Skills** — bundled skills in `tui/internal/preset/skills/`
-- **Translations** — improve zh.json or wen.json, or add a new locale
-- **Addons** — new messaging bridges in [lingtai-kernel](https://github.com/huangzesen/lingtai-kernel)
-- **Documentation** — README, blog posts, tutorials
-
-### Style notes
-
-- **Go**: standard `gofmt`, no linter config needed
-- **i18n**: always update all three locales (en, zh, wen). Classical Chinese (wen) should use concise literary style
-- **Commits**: conventional commits preferred (`feat:`, `fix:`, `docs:`)
-- **Binary name**: `lingtai-tui` (never `lingtai` — that's the Python agent CLI)
 
 ## License
 
