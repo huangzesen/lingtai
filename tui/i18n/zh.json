@@ -344,6 +344,7 @@
   "recipe.preview_switch": "切换文件",
   "recipe.local_found": "✓ 检测到 .lingtai-recipe/ — 已自动选择「自定义」",
   "recipe.imported": "已导入",
+  "recipe.agora": "来自市集",
   "addon.readonly_desc": "扩展配置文件位于 .lingtai/.addons/<扩展>/config.json —— 本项目所有 Agent 共享。直接编辑文件后 /refresh。",
   "addon.not_configured": "未配置 —— 让器灵帮你设置（它有对应的 skill）",
   "addon.parse_error": "配置文件存在，但 JSON 格式无效：%s",
@@ -363,12 +364,13 @@
   "cmd.settings": "TUI 偏好设置——主题、邮件页面大小、语言、自动洞察开关",
   "cmd.kanban": "器灵网络看板——一览所有器灵的属性、LLM 配置、能力和上下文用量",
   "cmd.projects": "浏览已注册项目及其器灵网络",
-  "cmd.agora": "浏览已发布的网络（/agora publish 开始发布你自己的网络）",
+  "cmd.agora": "浏览已导出的网络和菜谱（/export network 或 /export recipe 分享你自己的）",
   "cmd.skills": "查看已安装技能——器灵可按需调用的可复用流程",
   "cmd.insights": "立即请求器灵洞察——器灵观察当前任务并产出 2-3 条具体观察",
   "cmd.secretary": "切换主器灵聊天和秘书聊天。秘书负责管理简报和跨项目汇总",
   "cmd.brief": "查看秘书简报文件（档案 + 日志），若秘书在线则触发新一轮简报",
   "cmd.molt": "立即强制凝蜕——保存上下文后重置对话窗口",
   "cmd.nirvana": "清除一切从头开始——删除 .lingtai/ 及所有器灵数据。不可逆",
+  "cmd.export": "导出网络或菜谱以供分享（/export network 导出完整器灵网络，/export recipe 导出可复用的菜谱）",
   "cmd.quit": "退出 lingtai-tui（器灵在后台继续运行，除非先执行 /suspend）"
 }

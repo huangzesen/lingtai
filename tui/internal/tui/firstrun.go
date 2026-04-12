@@ -213,6 +213,7 @@ type FirstRunModel struct {
 	localRecipeDir     string          // non-empty if .lingtai-recipe/ found in project root
 	importedRecipe    *preset.RecipeInfo // non-nil if .lingtai-recipe/ has valid recipe.json
 	importedRecipeDir string             // path to .lingtai-recipe/ (only when importedRecipe != nil)
+	agoraRecipes      []preset.AgoraRecipe // discovered from ~/lingtai-agora/recipes/
 
 	// Recipe viewer (Ctrl+O from recipe picker)
 	recipeViewer *MarkdownViewerModel
@@ -374,6 +375,15 @@ func NewFirstRunModel(baseDir, globalDir string, hasPresets bool, preselectedRec
 		}
 	}
 
+	// Discover agora recipes
+	{
+		lang := "en"
+		if m.pendingAgentOpts.Language != "" {
+			lang = m.pendingAgentOpts.Language
+		}
+		m.agoraRecipes = preset.ScanAgoraRecipes(lang)
+	}
+
 	// Default to imported recipe if detected and no explicit preselection
 	if m.importedRecipe != nil && preselectedRecipe == "" {
 		m.recipeIdx = 0
@@ -416,6 +426,14 @@ func NewSetupModeModel(baseDir, globalDir, orchDir, orchName string) FirstRunMod
 	m.currentCustomDir = state.CustomDir
 	m.preselectedRecipe = state.Recipe
 	m.recipeIdx = m.recipeNameToIdx(state.Recipe)
+	if state.Recipe == preset.RecipeAgora && state.CustomDir != "" {
+		for i, ar := range m.agoraRecipes {
+			if ar.Dir == state.CustomDir {
+				m.recipeIdx = m.recipeNameToIdx(preset.RecipeAgora) + i
+				break
+			}
+		}
+	}
 	if state.Recipe == preset.RecipeCustom && state.CustomDir != "" {
 		m.recipeCustomInput.SetValue(state.CustomDir)
 	}
@@ -1437,6 +1455,10 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				customDir := ""
 				if recipeName == preset.RecipeImported {
 					customDir = m.importedRecipeDir
+				} else if recipeName == preset.RecipeAgora {
+					if ar := m.agoraRecipeAt(m.recipeIdx); ar != nil {
+						customDir = ar.Dir
+					}
 				} else if recipeName == preset.RecipeCustom {
 					customDir = m.recipeCustomInput.Value()
 					if err := preset.ValidateCustomDir(customDir); err != nil {
@@ -2686,10 +2708,12 @@ func (m FirstRunModel) hasImportedRecipe() bool {
 }
 
 func (m FirstRunModel) recipeMaxIdx() int {
+	base := 4 // greeter, adaptive, plain, tutorial, custom (custom is the max)
 	if m.hasImportedRecipe() {
-		return 5
+		base++
 	}
-	return 4
+	base += len(m.agoraRecipes)
+	return base
 }
 
 func (m FirstRunModel) recipeNameToIdx(name string) int {
@@ -2707,8 +2731,10 @@ func (m FirstRunModel) recipeNameToIdx(name string) int {
 		return 2 + offset
 	case preset.RecipeTutorial:
 		return 3 + offset
+	case preset.RecipeAgora:
+		return 4 + offset // first agora recipe
 	case preset.RecipeCustom:
-		return 4 + offset
+		return 4 + offset + len(m.agoraRecipes)
 	default:
 		return offset // greeter (default)
 	}
@@ -2721,18 +2747,37 @@ func (m FirstRunModel) recipeIdxToName(idx int) string {
 		}
 		idx--
 	}
-	switch idx {
-	case 1:
-		return preset.RecipeAdaptive
-	case 2:
-		return preset.RecipePlain
-	case 3:
-		return preset.RecipeTutorial
-	case 4:
-		return preset.RecipeCustom
+	switch {
+	case idx <= 3:
+		switch idx {
+		case 1:
+			return preset.RecipeAdaptive
+		case 2:
+			return preset.RecipePlain
+		case 3:
+			return preset.RecipeTutorial
+		default:
+			return preset.RecipeGreeter
+		}
+	case idx < 4+len(m.agoraRecipes):
+		return preset.RecipeAgora
 	default:
-		return preset.RecipeGreeter
+		return preset.RecipeCustom
 	}
+}
+
+// agoraRecipeAt returns the AgoraRecipe for the given picker index, or nil.
+func (m FirstRunModel) agoraRecipeAt(idx int) *preset.AgoraRecipe {
+	offset := 0
+	if m.hasImportedRecipe() {
+		offset = 1
+	}
+	agoraStart := 4 + offset
+	agoraIdx := idx - agoraStart
+	if agoraIdx < 0 || agoraIdx >= len(m.agoraRecipes) {
+		return nil
+	}
+	return &m.agoraRecipes[agoraIdx]
 }
 
 func recipeChanged(oldRecipe, oldCustomDir, newRecipe, newCustomDir string) bool {
@@ -2742,7 +2787,7 @@ func recipeChanged(oldRecipe, oldCustomDir, newRecipe, newCustomDir string) bool
 	if oldRecipe != newRecipe {
 		return true
 	}
-	if (oldRecipe == preset.RecipeCustom || oldRecipe == preset.RecipeImported) && oldCustomDir != newCustomDir {
+	if (oldRecipe == preset.RecipeCustom || oldRecipe == preset.RecipeImported || oldRecipe == preset.RecipeAgora) && oldCustomDir != newCustomDir {
 		return true
 	}
 	return false
@@ -2844,6 +2889,26 @@ func (m FirstRunModel) viewRecipe() string {
 		leftBlock.WriteString("    " + StyleFaint.Render(desc) + "\n")
 	}
 
+	// Render agora recipes (if any)
+	if len(m.agoraRecipes) > 0 {
+		agoraStyle := lipgloss.NewStyle().Foreground(ColorAgent)
+		leftBlock.WriteString("\n  " + StyleFaint.Render("────") + "\n")
+		leftBlock.WriteString("  " + agoraStyle.Render(i18n.T("recipe.agora")) + "\n")
+		for i, ar := range m.agoraRecipes {
+			arIdx := m.recipeNameToIdx(preset.RecipeAgora) + i
+			cursor := "  "
+			style := lipgloss.NewStyle().Foreground(ColorText)
+			if arIdx == m.recipeIdx {
+				cursor = "> "
+				style = lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
+			}
+			leftBlock.WriteString(cursor + style.Render(ar.Info.Name) + "\n")
+			if ar.Info.Description != "" {
+				leftBlock.WriteString("    " + StyleFaint.Render(ar.Info.Description) + "\n")
+			}
+		}
+	}
+
 	// Render custom entry
 	{
 		customIdx := m.recipeMaxIdx()
@@ -2903,6 +2968,11 @@ func (m FirstRunModel) resolveCurrentRecipeDir() string {
 	switch recipeName {
 	case preset.RecipeImported:
 		return m.importedRecipeDir
+	case preset.RecipeAgora:
+		if ar := m.agoraRecipeAt(m.recipeIdx); ar != nil {
+			return ar.Dir
+		}
+		return ""
 	case preset.RecipeCustom:
 		dir := m.recipeCustomInput.Value()
 		if dir == "" {

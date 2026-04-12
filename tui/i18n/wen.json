@@ -344,6 +344,7 @@
   "recipe.preview_switch": "换文",
   "recipe.local_found": "✓ 得 .lingtai-recipe/ — 已自取「自拟」",
   "recipe.imported": "已导入",
+  "recipe.agora": "自墟中来",
   "addon.readonly_desc": "外法之簿藏于 .lingtai/.addons/<法>/config.json —— 本境诸灵共享。径改其文，而后 /refresh。",
   "addon.not_configured": "未立 —— 请器灵相助（其有术可循）",
   "addon.parse_error": "簿在而 JSON 不工：%s",
@@ -363,12 +364,13 @@
   "cmd.settings": "TUI 偏好——主题、页之大小、言语、自动省察之开关",
   "cmd.kanban": "器灵网络之看板——一览诸灵之性、模型之配、能为与上下文之耗",
   "cmd.projects": "览已籍之事及其器灵网络",
-  "cmd.agora": "览已发之网（/agora publish 以发己之网）",
+  "cmd.agora": "览已出之网与菜谱（/export network 或 /export recipe 以出己之）",
   "cmd.skills": "观已安技艺——器灵可按需施行之可复用流程",
   "cmd.insights": "即请器灵省察——器灵观当前事而出二三具体之得",
   "cmd.secretary": "切主灵聊天与道童聊天。道童掌简报与跨项目之汇总",
   "cmd.brief": "览道童简报之文（档案与日志），道童在线则触新一轮简报",
   "cmd.molt": "即令转世——存上下文后重置对话之窗",
   "cmd.nirvana": "尽除一切从头再来——删 .lingtai/ 及诸灵之数据。不可逆",
+  "cmd.export": "出网或菜谱以分享（/export network 出全网，/export recipe 出可复用之谱）",
   "cmd.quit": "退 lingtai-tui（器灵续在后台运行，除非先行 /suspend）"
 }

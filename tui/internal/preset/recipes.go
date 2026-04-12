@@ -17,7 +17,42 @@ const (
 	RecipeTutorial = "tutorial"
 	RecipeCustom   = "custom"
 	RecipeImported = "imported"
+	RecipeAgora    = "agora" // from ~/lingtai-agora/recipes/
 )
+
+// AgoraRecipe holds a discovered recipe from ~/lingtai-agora/recipes/.
+type AgoraRecipe struct {
+	Info RecipeInfo // from recipe.json
+	Dir  string     // absolute path to the recipe directory
+}
+
+// ScanAgoraRecipes returns all valid recipes found under ~/lingtai-agora/recipes/.
+// Each subdirectory must contain a valid recipe.json with a non-empty name.
+// Returns nil if directory doesn't exist or is empty.
+func ScanAgoraRecipes(lang string) []AgoraRecipe {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	recipesDir := filepath.Join(home, "lingtai-agora", "recipes")
+	entries, err := os.ReadDir(recipesDir)
+	if err != nil {
+		return nil
+	}
+	var recipes []AgoraRecipe
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == "" || e.Name()[0] == '.' {
+			continue
+		}
+		dir := filepath.Join(recipesDir, e.Name())
+		info, err := LoadRecipeInfo(dir, lang)
+		if err != nil {
+			continue // skip dirs without valid recipe.json
+		}
+		recipes = append(recipes, AgoraRecipe{Info: info, Dir: dir})
+	}
+	return recipes
+}
 
 // RecipeInfo holds the metadata from a recipe's recipe.json manifest.
 type RecipeInfo struct {

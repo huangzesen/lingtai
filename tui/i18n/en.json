@@ -349,6 +349,7 @@
   "recipe.preview_switch": "switch file",
   "recipe.local_found": "✓ Found .lingtai-recipe/ — auto-selected Custom",
   "recipe.imported": "Imported",
+  "recipe.agora": "From Agora",
 
   "cmd.btw": "Ask the agent a side question (delivered as an insight inquiry — the agent reflects and responds without interrupting its current work)",
   "cmd.sleep": "Put agent to sleep (/sleep all for all agents). Sleeping agents preserve state and can be woken with /cpr",
@@ -363,12 +364,13 @@
   "cmd.settings": "TUI preferences — theme, mail page size, language, auto-insights toggle",
   "cmd.kanban": "Agent network dashboard — view all agents' properties, LLM config, capabilities, and context usage at a glance",
   "cmd.projects": "Browse registered projects and their agent networks",
-  "cmd.agora": "Browse published networks from the agora marketplace (/agora publish to start publishing your own network)",
+  "cmd.agora": "Browse exported networks and recipes from the agora marketplace (/export network or /export recipe to share your own)",
   "cmd.skills": "View installed skills — reusable procedures the agent can invoke on demand",
   "cmd.insights": "Request an insight from the agent now — the agent observes the current task and produces 2-3 concrete observations",
   "cmd.secretary": "Toggle between main agent chat and secretary chat. The secretary manages briefings and cross-project summaries",
   "cmd.brief": "View secretary briefing files (profile + journal) and trigger a new briefing cycle if the secretary is alive",
   "cmd.molt": "Force the agent to molt immediately — saves context and resets the conversation window",
   "cmd.nirvana": "Wipe everything and start completely fresh — deletes .lingtai/ and all agent data. Irreversible",
+  "cmd.export": "Export a network or recipe for sharing (/export network exports the full agent network, /export recipe exports a reusable recipe)",
   "cmd.quit": "Quit lingtai-tui (agents continue running in background unless suspended first)"
 }

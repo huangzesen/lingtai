@@ -64,6 +64,20 @@ func LinkRecipeSkills(lingtaiDir, globalDir, lang, customDir string) {
 			}
 		}
 	}
+
+	// 4. Agora standalone recipes (~/lingtai-agora/recipes/)
+	if home, err := os.UserHomeDir(); err == nil {
+		agoraRecipesDir := filepath.Join(home, "lingtai-agora", "recipes")
+		if entries, err := os.ReadDir(agoraRecipesDir); err == nil {
+			for _, e := range entries {
+				if !e.IsDir() || e.Name() == "" || e.Name()[0] == '.' {
+					continue
+				}
+				recipeDir := filepath.Join(agoraRecipesDir, e.Name())
+				linkRecipeDir(skillsDir, recipeDir, e.Name(), lang, claimed)
+			}
+		}
+	}
 }
 
 // linkRecipeDir symlinks all skills from a single recipe directory into skillsDir.
