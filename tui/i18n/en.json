@@ -208,6 +208,7 @@
   "codex.open_browser": "open browser",
   "codex.logging_in": "Waiting for browser login...",
   "codex.logged_in": "Logged in as %s",
+  "codex.toggle_model": "toggle model",
   "setup.save": "Save",
   "setup.select_provider": "Select Provider",
   "setup.title": "Configure",

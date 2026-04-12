@@ -203,6 +203,7 @@
   "codex.open_browser": "打开浏览器",
   "codex.logging_in": "等待浏览器登录...",
   "codex.logged_in": "已登录：%s",
+  "codex.toggle_model": "切换模型",
   "setup.save": "保存",
   "setup.select_provider": "选择 Provider",
   "setup.title": "配置",

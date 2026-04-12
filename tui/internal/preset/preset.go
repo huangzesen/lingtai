@@ -173,10 +173,11 @@ func BuiltinPresets() []Preset {
 
 // builtinNames is the set of built-in preset names.
 var builtinNames = map[string]bool{
-	"minimax": true,
-	"zhipu":   true,
-	"codex":   true,
-	"custom":  true,
+	"minimax":     true,
+	"zhipu":       true,
+	"codex":       true,
+	"codex_oauth": true,
+	"custom":      true,
 }
 
 // IsBuiltin returns true if name matches a built-in preset template.

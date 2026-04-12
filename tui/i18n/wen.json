@@ -203,6 +203,7 @@
   "codex.open_browser": "启览器",
   "codex.logging_in": "候览器登帐...",
   "codex.logged_in": "已登帐：%s",
+  "codex.toggle_model": "换模",
   "setup.save": "存",
   "setup.select_provider": "選 Provider",
   "setup.title": "配置",

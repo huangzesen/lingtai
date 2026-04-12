@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net"
 	"net/http"
@@ -103,7 +104,7 @@ func startOAuthFlow() <-chan CodexOAuthDoneMsg {
 				desc := q.Get("error_description")
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 				w.WriteHeader(http.StatusBadRequest)
-				fmt.Fprintf(w, "<html><body><h1>Login failed</h1><p>%s: %s</p></body></html>", oauthErr, desc)
+				fmt.Fprintf(w, "<html><body><h1>Login failed</h1><p>%s: %s</p></body></html>", html.EscapeString(oauthErr), html.EscapeString(desc))
 				errCh <- fmt.Errorf("oauth error: %s: %s", oauthErr, desc)
 				return
 			}

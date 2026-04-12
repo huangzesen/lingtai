@@ -604,8 +604,15 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 			return m, nil
 		}
 		authPath := filepath.Join(m.globalDir, "codex-auth.json")
-		data, _ := json.MarshalIndent(msg.Tokens, "", "  ")
-		os.WriteFile(authPath, data, 0o600)
+		data, err := json.MarshalIndent(msg.Tokens, "", "  ")
+		if err != nil {
+			m.message = fmt.Sprintf("Failed to encode tokens: %v", err)
+			return m, nil
+		}
+		if err := os.WriteFile(authPath, data, 0o600); err != nil {
+			m.message = fmt.Sprintf("Failed to save tokens: %v", err)
+			return m, nil
+		}
 		m.codexEmail = msg.Tokens.Email
 		return m, nil
 
@@ -888,7 +895,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 						authPath := filepath.Join(m.globalDir, "codex-auth.json")
 						if data, err := os.ReadFile(authPath); err == nil {
 							var tokens CodexTokens
-							if json.Unmarshal(data, &tokens) == nil && tokens.Email != "" {
+							if json.Unmarshal(data, &tokens) == nil && tokens.Email != "" && tokens.RefreshToken != "" {
 								m.codexEmail = tokens.Email
 							}
 						}
@@ -1859,12 +1866,12 @@ func (m FirstRunModel) View() string {
 				okStyle := lipgloss.NewStyle().Foreground(ColorActive)
 				b.WriteString("  " + okStyle.Render("✓ "+i18n.TF("codex.logged_in", m.codexEmail)) + "\n\n")
 				b.WriteString(StyleFaint.Render("  [Enter] "+i18n.T("setup.save")+
-					"  [←→] "+i18n.T("firstrun.toggle_region")+
+					"  [←→] "+i18n.T("codex.toggle_model")+
 					"  [Esc] "+i18n.T("setup.back")) + "\n")
 			} else {
 				b.WriteString("  " + i18n.T("codex.press_enter") + "\n\n")
 				b.WriteString(StyleFaint.Render("  [Enter] "+i18n.T("codex.open_browser")+
-					"  [←→] "+i18n.T("firstrun.toggle_region")+
+					"  [←→] "+i18n.T("codex.toggle_model")+
 					"  [Esc] "+i18n.T("setup.back")) + "\n")
 			}
 		} else {
