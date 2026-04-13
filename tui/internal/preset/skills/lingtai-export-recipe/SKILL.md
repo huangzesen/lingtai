@@ -1,7 +1,7 @@
 ---
 name: lingtai-export-recipe
 description: Export a recipe — distill the culture, skills, and behavioral patterns of the current network into a portable recipe that others can use to seed new networks. Use when the human asks you to export, share, or package a recipe.
-version: 2.0.0
+version: 3.0.0
 ---
 
 # lingtai-export-recipe: Exporting a Recipe
@@ -9,6 +9,46 @@ version: 2.0.0
 **Prerequisites:** Read the `lingtai-recipe` skill first — it defines what a recipe is, the directory structure, the five components (greet.md, comment.md, covenant.md, procedures.md, skills/), placeholders, i18n rules, and recipe.json format. This skill assumes you understand all of that.
 
 A recipe is the culture of a network, distilled into a portable seed. Your job is to help the human reflect on their network's culture and package the parts worth sharing.
+
+## What is an exported recipe?
+
+An exported recipe is an **exported network without the network** — same directory structure, same `.lingtai-recipe/` convention, but no `.lingtai/` agents or mailboxes. The recipient clones the repo, opens it with `lingtai-tui`, and the TUI auto-discovers `.lingtai-recipe/` during setup.
+
+```
+~/lingtai-agora/recipes/<name>/        ← the repo root (recipient opens this)
+├── .lingtai-recipe/                   ← TUI auto-discovers this
+│   ├── en/
+│   │   ├── greet.md
+│   │   └── comment.md
+│   ├── zh/                            (optional)
+│   │   ├── greet.md
+│   │   └── comment.md
+│   ├── covenant.md                    (optional)
+│   ├── procedures.md                  (optional)
+│   └── skills/                        (optional)
+│       └── <skill-name>/
+│           └── SKILL.md
+├── recipe.json                        ← metadata (name, description)
+└── README.md                          (optional, for GitHub display)
+```
+
+Compare with an exported network:
+```
+~/lingtai-agora/networks/<name>/       ← also a repo the recipient opens
+├── .lingtai/                          ← full network state
+│   ├── human/
+│   ├── agent-1/
+│   └── ...
+├── .lingtai-recipe/                   ← same convention
+│   ├── en/
+│   │   ├── greet.md
+│   │   └── comment.md
+│   └── ...
+├── .gitignore
+└── (project files)
+```
+
+The `.lingtai-recipe/` convention is shared. The only difference is whether `.lingtai/` exists.
 
 ## How to talk to the human during this skill
 
@@ -84,26 +124,29 @@ If `$HOME/lingtai-agora/recipes/<name>/` already exists, ask before overwriting.
 
 Once you have the human's input, author all files in one pass. You WRITE the content (not copy) — the recipe should be a distillation, not a raw dump of existing files. Refer to the `lingtai-recipe` skill for the exact format and rules of each component.
 
+**All recipe components go inside `.lingtai-recipe/`.** The repo root only holds `recipe.json` (metadata) and optionally a `README.md`.
+
 ### Pre-flight: Create all directories first
 
 ```bash
-RECIPE_DIR="$HOME/lingtai-agora/recipes/<name>"
-mkdir -p "$RECIPE_DIR"
+REPO_DIR="$HOME/lingtai-agora/recipes/<name>"
+RECIPE_DIR="$REPO_DIR/.lingtai-recipe"
+mkdir -p "$RECIPE_DIR/en"
 mkdir -p "$RECIPE_DIR/skills/<skill-1>"
 mkdir -p "$RECIPE_DIR/skills/<skill-2>"
 ```
 
-### 2a. recipe.json
+### 2a. recipe.json (at repo root)
 
-Write `name` and `description` (see `lingtai-recipe` skill for format).
+Write `$REPO_DIR/recipe.json` with `name` and `description` (see `lingtai-recipe` skill for format). This file lives at the repo root, NOT inside `.lingtai-recipe/`.
 
 ### 2b. greet.md — First Contact
 
-Write a greeting from the orchestrator's perspective. Follow the rules and placeholders documented in `lingtai-recipe`. Write fresh recipe-specific content — do NOT copy templates or include `[system]` prefixes.
+Write `$RECIPE_DIR/en/greet.md` (and `$RECIPE_DIR/zh/greet.md` if multi-language). Follow the rules and placeholders documented in `lingtai-recipe`. Write fresh recipe-specific content — do NOT copy templates or include `[system]` prefixes.
 
 ### 2c. comment.md — Behavioral DNA
 
-This is the heart of the recipe. **Draw from the living network** — look at how the orchestrator actually behaves and distill that into portable instructions. See `lingtai-recipe` for the format rules (no placeholders, static text, injected every turn).
+Write `$RECIPE_DIR/en/comment.md`. This is the heart of the recipe. **Draw from the living network** — look at how the orchestrator actually behaves and distill that into portable instructions. See `lingtai-recipe` for the format rules (no placeholders, static text, injected every turn).
 
 **What to distill.** Walk through each of these areas and extract what's worth keeping:
 
@@ -133,15 +176,15 @@ For each skill the human wants to include:
 2. If it's a custom or recipe skill, copy the skill directory:
 
 ```bash
-mkdir -p $HOME/lingtai-agora/recipes/<name>/skills/<skill-name>
-cp -R .lingtai/.skills/custom/<skill-name>/* $HOME/lingtai-agora/recipes/<name>/skills/<skill-name>/
+mkdir -p $RECIPE_DIR/skills/<skill-name>
+cp -R .lingtai/.skills/custom/<skill-name>/* $RECIPE_DIR/skills/<skill-name>/
 ```
 
 3. Verify each skill has a valid `SKILL.md` with proper frontmatter
 
 ### 2e–2f. covenant.md / procedures.md (Optional)
 
-Only create these if the network's principles or procedures fundamentally differ from the system default. Most recipes don't need them. See `lingtai-recipe` for details.
+Write to `$RECIPE_DIR/covenant.md` and/or `$RECIPE_DIR/procedures.md`. Only create these if the network's principles or procedures fundamentally differ from the system default. Most recipes don't need them. See `lingtai-recipe` for details.
 
 ### Post-write verification (MANDATORY)
 
@@ -149,7 +192,12 @@ Only create these if the network's principles or procedures fundamentally differ
 find $HOME/lingtai-agora/recipes/<name>/ -type f | sort
 ```
 
-**Check the output against your intended file list.** If any file is missing, re-create its parent directory and re-write it. **Do not proceed until all files are confirmed on disk.**
+**Check the output against your intended file list.** Confirm that:
+- `recipe.json` is at the repo root
+- All recipe components are inside `.lingtai-recipe/`
+- No recipe files (greet.md, comment.md, etc.) leaked to the repo root
+
+If any file is missing, re-create its parent directory and re-write it. **Do not proceed until all files are confirmed on disk.**
 
 ## Step 3: Review with the Human
 
@@ -157,7 +205,7 @@ Show the human the `find` output and read back each file's content via email. It
 
 ## Step 4: Multi-Language Variants (Optional)
 
-If the human mentions a multi-language audience, create per-language subdirectories for greet.md and comment.md. See `lingtai-recipe` for i18n fallback rules.
+If the human mentions a multi-language audience, create per-language subdirectories inside `.lingtai-recipe/` (e.g., `.lingtai-recipe/zh/greet.md`). See `lingtai-recipe` for i18n fallback rules.
 
 ## Step 5: git init + commit
 
@@ -184,6 +232,8 @@ Check `gh auth status` and follow the three-branch pattern:
 
 **Skills must be self-contained.** Each skill directory should work independently. Check that scripts don't reference absolute paths or project-specific resources.
 
-**The recipe is a seed, not a clone.** It shapes behavior — it does NOT reproduce the network's state, history, or data. That's what `/export network` is for.
+**The recipe is a seed, not a clone.** It shapes behavior — it does NOT reproduce the network's state, history, or data. That's what `/export network` is for. An exported recipe is an exported network without the network — same `.lingtai-recipe/` convention, no `.lingtai/`.
 
 **Intrinsic skills don't need copying.** Skills under `.skills/intrinsic/` are shipped with the TUI and already available in every installation.
+
+**The repo IS the project.** The recipient clones this repo and opens it directly with `lingtai-tui`. The TUI auto-discovers `.lingtai-recipe/` and uses it during setup. Do not instruct the recipient to copy files around — the repo structure is the final structure.
