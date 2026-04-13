@@ -735,6 +735,9 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 			return a, tea.Batch(a.mail.refreshMail, tickEvery(a.mail.pollRate), pulseTick(), a.sendSize())
 		}
 		// Toggle to secretary mail — auto-setup if needed
+		// Prune stale projects from registry so the secretary doesn't
+		// waste cycles on deleted projects.
+		config.LoadAndPrune(a.globalDir)
 		secAgentDir := secretary.AgentDir(a.globalDir)
 		initPath := filepath.Join(secAgentDir, "init.json")
 		if _, err := os.Stat(initPath); err != nil && a.lingtaiCmd != "" {
