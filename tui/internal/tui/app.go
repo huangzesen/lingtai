@@ -34,6 +34,7 @@ const (
 	appViewBriefs
 	appViewAgora
 	appViewLogin
+	appViewLibrary
 )
 
 // App is the root Bubble Tea model. Routes between views via slash commands.
@@ -48,6 +49,7 @@ type App struct {
 	agora           AgoraModel
 	secretaryMail   MailModel
 	briefs          MarkdownViewerModel
+	library         MarkdownViewerModel
 	firstRun        FirstRunModel
 	addon           AddonModel
 	doctor          DoctorModel
@@ -214,6 +216,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.firstRun, cmd = a.firstRun.Update(msg)
 		case appViewLogin:
 			a.login, cmd = a.login.Update(msg)
+		case appViewLibrary:
+			a.library, cmd = a.library.Update(msg)
 		}
 		return a, cmd
 
@@ -437,7 +441,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		case "q":
 			// Only quit if not in a text input context
-			if a.currentView != appViewSetup && a.currentView != appViewFirstRun && a.currentView != appViewMail && a.currentView != appViewProps && a.currentView != appViewAddon && a.currentView != appViewNirvana && a.currentView != appViewSkills && a.currentView != appViewBriefs && a.currentView != appViewProjects && a.currentView != appViewAgora && a.currentView != appViewLogin {
+			if a.currentView != appViewSetup && a.currentView != appViewFirstRun && a.currentView != appViewMail && a.currentView != appViewProps && a.currentView != appViewAddon && a.currentView != appViewNirvana && a.currentView != appViewSkills && a.currentView != appViewBriefs && a.currentView != appViewProjects && a.currentView != appViewAgora && a.currentView != appViewLogin && a.currentView != appViewLibrary {
 				return a, tea.Quit
 			}
 		}
@@ -516,6 +520,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case appViewLogin:
 		var cmd tea.Cmd
 		a.login, cmd = a.login.Update(msg)
+		return a, cmd
+	case appViewLibrary:
+		updated, cmd := a.library.Update(msg)
+		a.library = updated
 		return a, cmd
 	}
 
@@ -785,6 +793,11 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 			fs.WritePrompt(secAgentDir, prompt)
 		}
 		return a, a.sendSize()
+	case "library":
+		a.currentView = appViewLibrary
+		entries := buildLibraryEntries(a.projectDir)
+		a.library = NewMarkdownViewer(entries, i18n.T("palette.library"))
+		return a, a.sendSize()
 	case "agora":
 		a.currentView = appViewAgora
 		a.agora = NewAgoraModel(a.globalDir, a.projectDir)
@@ -1052,6 +1065,8 @@ func (a App) View() tea.View {
 		content = a.agora.View()
 	case appViewLogin:
 		content = a.login.View()
+	case appViewLibrary:
+		content = a.library.View()
 	}
 	v := tea.NewView(content)
 	v.AltScreen = true

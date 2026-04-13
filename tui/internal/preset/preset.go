@@ -296,8 +296,13 @@ func PrinciplePath(globalDir, lang string) string {
 }
 
 // ProceduresPath returns the absolute path to the procedures file for a language.
+// Falls back to English if the requested language file does not exist.
 func ProceduresPath(globalDir, lang string) string {
-	return filepath.Join(globalDir, "procedures", lang, "procedures.md")
+	p := filepath.Join(globalDir, "procedures", lang, "procedures.md")
+	if _, err := os.Stat(p); err == nil {
+		return p
+	}
+	return filepath.Join(globalDir, "procedures", "en", "procedures.md")
 }
 
 // populate mirrors an embedded FS subtree to globalDir, skipping existing files.

@@ -122,12 +122,52 @@ custom/
 | ClawHub (OpenClaw) | `clawhub.ai` |
 | Cursor directory | `cursor.directory` |
 
+### Version-Controlling Your Skills
+
+The `custom/` group should be a **git repository**. This makes your skills durable, shareable, and recoverable — they survive disk loss, can be cloned onto new machines, and provide history of how your skills evolved.
+
+**Initial setup** (do this once when `custom/` first exists):
+
+```bash
+cd <skills-dir>/custom
+git init
+git add -A
+git commit -m "init: seed custom skills"
+```
+
+If a remote is available (e.g. a private GitHub/Gitea repo), add it:
+
+```bash
+git remote add origin <url>
+git push -u origin main
+```
+
+**After creating or updating a skill**, commit and push:
+
+```bash
+cd <skills-dir>/custom
+git add -A
+git commit -m "<what changed>"
+git push  # if remote exists
+```
+
+Make this a habit — every `skills(action='register')` should be followed by a git commit. Treat your skill repo the way a developer treats source code: meaningful commit messages, no untracked drift.
+
+**On a new machine or after a fresh install**, clone your skill repo into the custom group:
+
+```bash
+cd <skills-dir>
+git clone <url> custom
+```
+
+Then `skills(action='register')` to pick up everything.
+
 ### Installing a Skill
 
 Use bash to clone or download into the `custom/` group:
 
 ```bash
-# Clone a skill repo
+# Clone a skill repo as a subfolder inside custom/
 cd <skills-dir>/custom
 git clone https://github.com/someone/useful-skill.git
 

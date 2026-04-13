@@ -444,5 +444,5 @@ func (m ProjectsModel) View() string {
 	footer := strings.Repeat("\u2500", m.width) + "\n" +
 		StyleFaint.Render("  "+i18n.T(footerHintKey)+scrollHint)
 
-	return title + "\n" + m.viewport.View() + "\n" + footer
+	return title + "\n" + PaintViewportBG(m.viewport.View(), m.width) + "\n" + footer
 }

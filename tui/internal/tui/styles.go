@@ -2,7 +2,9 @@ package tui
 
 import (
 	"image/color"
+	"os"
 	"sort"
+	"strings"
 
 	"charm.land/lipgloss/v2"
 )
@@ -260,6 +262,29 @@ func rebuildStyles() {
 	StyleSubtle = lipgloss.NewStyle().Foreground(ColorTextDim)
 	StyleFaint = lipgloss.NewStyle().Foreground(ColorTextFaint)
 	StyleAccent = lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
+}
+
+// inTmux is true when the process is running inside a tmux session.
+// tmux does not propagate terminal-level background colors set via
+// tea.View.BackgroundColor, so we need to paint explicit ANSI
+// background codes on every line of the viewport content.
+var inTmux = os.Getenv("TMUX") != ""
+
+// PaintViewportBG applies explicit background color to each line of
+// viewport content. Only active inside tmux where terminal-level BG
+// doesn't propagate. Outside tmux this is a no-op.
+func PaintViewportBG(content string, width int) string {
+	if !inTmux || !activeTheme.PaintBG {
+		return content
+	}
+	style := lipgloss.NewStyle().
+		Background(ColorBG).
+		Width(width)
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		lines[i] = style.Render(line)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // StateColor returns the color for a given agent state string.

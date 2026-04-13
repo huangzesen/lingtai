@@ -262,5 +262,5 @@ func (m MarkdownViewerModel) View() string {
 	footer := strings.Repeat("\u2500", m.width) + "\n" +
 		StyleFaint.Render("  ↑↓ "+i18n.T("welcome.select_lang")+"  [Esc] "+i18n.T("firstrun.back")+scrollHint)
 
-	return title + "\n" + m.viewport.View() + "\n" + footer
+	return title + "\n" + PaintViewportBG(m.viewport.View(), m.width) + "\n" + footer
 }

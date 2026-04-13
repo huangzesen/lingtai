@@ -1019,5 +1019,5 @@ func (m MailModel) View() string {
 	}
 
 	// Viewport fills the middle
-	return header + "\n" + topBanner + m.viewport.View() + "\n" + bottomBanner + footer
+	return header + "\n" + topBanner + PaintViewportBG(m.viewport.View(), m.width) + "\n" + bottomBanner + footer
 }

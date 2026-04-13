@@ -291,7 +291,7 @@ func (m PropsModel) View() string {
 	footer := strings.Repeat("\u2500", m.width) + "\n" +
 		StyleFaint.Render("  "+i18n.T("hints.props_off")+" "+RuneBullet+" esc "+i18n.T("manage.back")+" "+RuneBullet+" "+i18n.T("hints.props_select")+scrollHint)
 
-	return header + "\n" + m.viewport.View() + "\n" + footer
+	return header + "\n" + PaintViewportBG(m.viewport.View(), m.width) + "\n" + footer
 }
 
 func padToWidth(s string, w int) string {
