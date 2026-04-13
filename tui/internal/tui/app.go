@@ -747,6 +747,14 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 				return a, nil
 			}
 		}
+		// Auto-revive: if the secretary is dead, CPR + send greet prompt
+		if a.lingtaiCmd != "" && !fs.IsAlive(secAgentDir, 3.0) {
+			if _, err := process.LaunchAgent(a.lingtaiCmd, secAgentDir); err != nil {
+				addMsg(i18n.TF("mail.launch_failed", firstLine(err)))
+			} else {
+				fs.WritePrompt(secAgentDir, secretary.GreetContent())
+			}
+		}
 		a.inSecretaryView = true
 		a.currentView = appViewMail
 		if a.secretaryMail.humanDir == "" {
