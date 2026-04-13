@@ -223,6 +223,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.switchToView(msg.View)
 
 	case MarkdownViewerCloseMsg:
+		// If agora is active, forward to AgoraModel (detail → list, not mail)
+		if a.currentView == appViewAgora {
+			updated, cmd := a.agora.Update(msg)
+			a.agora = updated
+			return a, cmd
+		}
 		a.currentView = appViewMail
 		if a.inSecretaryView {
 			return a, tea.Batch(a.secretaryMail.refreshMail, tickEvery(a.secretaryMail.pollRate), pulseTick(), a.sendSize())
