@@ -220,6 +220,8 @@ type FirstRunModel struct {
 	importedRecipe    *preset.RecipeInfo // non-nil if .lingtai-recipe/ has valid recipe.json
 	importedRecipeDir string             // path to .lingtai-recipe/ (only when importedRecipe != nil)
 	agoraRecipes      []preset.AgoraRecipe // discovered from ~/lingtai-agora/recipes/
+	discoveredRecipes   []preset.DiscoveredRecipe // auto-discovered from recipes/<category>/
+	categoryBoundaries  []int                     // index where each category starts in discoveredRecipes
 
 	// Recipe viewer (Ctrl+O from recipe picker)
 	recipeViewer *MarkdownViewerModel
@@ -388,6 +390,18 @@ func NewFirstRunModel(baseDir, globalDir string, hasPresets bool, preselectedRec
 			lang = m.pendingAgentOpts.Language
 		}
 		m.agoraRecipes = preset.ScanAgoraRecipes(lang)
+	}
+
+	// Discover bundled recipes by category
+	{
+		lang := "en"
+		if m.pendingAgentOpts.Language != "" {
+			lang = m.pendingAgentOpts.Language
+		}
+		for _, cat := range preset.RecipeCategories {
+			m.categoryBoundaries = append(m.categoryBoundaries, len(m.discoveredRecipes))
+			m.discoveredRecipes = append(m.discoveredRecipes, preset.ScanCategory(m.globalDir, cat, lang)...)
+		}
 	}
 
 	// Default to imported recipe if detected and no explicit preselection
@@ -2818,12 +2832,12 @@ func (m FirstRunModel) hasImportedRecipe() bool {
 }
 
 func (m FirstRunModel) recipeMaxIdx() int {
-	base := 4 // greeter, adaptive, plain, tutorial, custom (custom is the max)
+	base := len(m.discoveredRecipes)
 	if m.hasImportedRecipe() {
 		base++
 	}
 	base += len(m.agoraRecipes)
-	return base
+	return base // custom is the max
 }
 
 func (m FirstRunModel) recipeNameToIdx(name string) int {
@@ -2834,20 +2848,19 @@ func (m FirstRunModel) recipeNameToIdx(name string) int {
 		}
 		offset = 1
 	}
-	switch name {
-	case preset.RecipeAdaptive:
-		return 1 + offset
-	case preset.RecipePlain:
-		return 2 + offset
-	case preset.RecipeTutorial:
-		return 3 + offset
-	case preset.RecipeAgora:
-		return 4 + offset // first agora recipe
-	case preset.RecipeCustom:
-		return 4 + offset + len(m.agoraRecipes)
-	default:
-		return offset // greeter (default)
+	for i, r := range m.discoveredRecipes {
+		if r.ID == name {
+			return i + offset
+		}
 	}
+	afterDiscovered := len(m.discoveredRecipes) + offset
+	if name == preset.RecipeAgora {
+		return afterDiscovered
+	}
+	if name == preset.RecipeCustom {
+		return afterDiscovered + len(m.agoraRecipes)
+	}
+	return offset // default to first
 }
 
 func (m FirstRunModel) recipeIdxToName(idx int) string {
@@ -2858,18 +2871,9 @@ func (m FirstRunModel) recipeIdxToName(idx int) string {
 		idx--
 	}
 	switch {
-	case idx <= 3:
-		switch idx {
-		case 1:
-			return preset.RecipeAdaptive
-		case 2:
-			return preset.RecipePlain
-		case 3:
-			return preset.RecipeTutorial
-		default:
-			return preset.RecipeGreeter
-		}
-	case idx < 4+len(m.agoraRecipes):
+	case idx < len(m.discoveredRecipes):
+		return m.discoveredRecipes[idx].ID
+	case idx < len(m.discoveredRecipes)+len(m.agoraRecipes):
 		return preset.RecipeAgora
 	default:
 		return preset.RecipeCustom
@@ -2882,7 +2886,7 @@ func (m FirstRunModel) agoraRecipeAt(idx int) *preset.AgoraRecipe {
 	if m.hasImportedRecipe() {
 		offset = 1
 	}
-	agoraStart := 4 + offset
+	agoraStart := len(m.discoveredRecipes) + offset
 	agoraIdx := idx - agoraStart
 	if agoraIdx < 0 || agoraIdx >= len(m.agoraRecipes) {
 		return nil
@@ -2979,25 +2983,43 @@ func (m FirstRunModel) viewRecipe() string {
 		leftBlock.WriteString("\n  " + StyleFaint.Render("────") + "\n")
 	}
 
-	// Render bundled recipes
-	recommendedStyle := lipgloss.NewStyle().Foreground(ColorAgent)
-	leftBlock.WriteString("  " + recommendedStyle.Render(i18n.T("recipe.recommended")) + "\n")
-	for bi, name := range preset.BundledRecipes() {
-		idx := m.recipeNameToIdx(name)
-		// Separator between adaptive (recommended) and the rest
-		if bi == 1 {
-			leftBlock.WriteString("\n  " + StyleFaint.Render(i18n.T("recipe.others")) + "\n")
+	// Render discovered recipes by category
+	for ci, cat := range preset.RecipeCategories {
+		catStart := m.categoryBoundaries[ci]
+		var catEnd int
+		if ci+1 < len(m.categoryBoundaries) {
+			catEnd = m.categoryBoundaries[ci+1]
+		} else {
+			catEnd = len(m.discoveredRecipes)
 		}
-		cursor := "  "
-		style := lipgloss.NewStyle().Foreground(ColorText)
-		if idx == m.recipeIdx {
-			cursor = "> "
-			style = lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
+		if catStart >= catEnd {
+			continue // empty category
 		}
-		label := i18n.T("recipe.name." + name)
-		desc := i18n.T("recipe.desc." + name)
-		leftBlock.WriteString(cursor + style.Render(label) + "\n")
-		leftBlock.WriteString("    " + StyleFaint.Render(desc) + "\n")
+
+		if ci > 0 {
+			leftBlock.WriteString("\n  " + StyleFaint.Render("────") + "\n")
+		}
+		headerStyle := lipgloss.NewStyle().Foreground(ColorAgent)
+		leftBlock.WriteString("  " + headerStyle.Render(i18n.T("recipe.category."+cat)) + "\n")
+
+		for di := catStart; di < catEnd; di++ {
+			r := m.discoveredRecipes[di]
+			offset := 0
+			if m.hasImportedRecipe() {
+				offset = 1
+			}
+			idx := di + offset
+			cursor := "  "
+			style := lipgloss.NewStyle().Foreground(ColorText)
+			if idx == m.recipeIdx {
+				cursor = "> "
+				style = lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
+			}
+			leftBlock.WriteString(cursor + style.Render(r.Info.Name) + "\n")
+			if r.Info.Description != "" {
+				leftBlock.WriteString("    " + StyleFaint.Render(r.Info.Description) + "\n")
+			}
+		}
 	}
 
 	// Render agora recipes (if any)
