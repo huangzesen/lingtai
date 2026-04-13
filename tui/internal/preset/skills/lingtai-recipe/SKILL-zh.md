@@ -143,6 +143,15 @@ version: 1.0.0
 3. 在 TUI 中运行 `/setup`，选择「自定义」配方，输入目录路径
 4. 调度器会重启并使用你的配方
 
+## `.lingtai-recipe/` 惯例
+
+`/export recipe` 和 `/export network` 都会在项目根目录生成 `.lingtai-recipe/` 目录。这是所有共享配方的**统一惯例**：
+
+- **导出配方** = 仓库含 `.lingtai-recipe/` 和根目录 `recipe.json`（无 `.lingtai/`）
+- **导出网络** = 仓库含 `.lingtai-recipe/` 和 `.lingtai/`（完整网络状态）
+
+接收者克隆任一类仓库，用 `lingtai-tui` 打开即可。TUI 自动发现 `.lingtai-recipe/` 并在 `/setup` 中使用，无需手动配置路径。
+
 ## 如何发布配方
 
-运行 `/export network`（或仅导出配方时用 `/export recipe`）时，导出流程包含在项目根目录创建 `.lingtai-recipe/` 启动配方的步骤。该配方随网络一起发布，克隆者会自动使用。
+使用 `/export recipe` 导出纯配方，或 `/export network` 导出完整网络快照。两者都会在输出仓库中创建 `.lingtai-recipe/`。接收者克隆后直接用 `lingtai-tui` 打开——无需手动指定配方路径。
