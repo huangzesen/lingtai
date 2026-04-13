@@ -116,12 +116,12 @@ func (m MarkdownViewerModel) renderBody() string {
 	if leftW > 40 {
 		leftW = 40
 	}
-	rightW := m.width - leftW - 1
+	rightW := m.width - leftW - 2 // -1 separator, -1 left padding
 	if rightW < 20 {
 		rightW = 20
 	}
-	if leftW+1+rightW > m.width && m.width > 1 {
-		rightW = m.width - leftW - 1
+	if leftW+2+rightW > m.width && m.width > 2 {
+		rightW = m.width - leftW - 2
 		if rightW < 0 {
 			rightW = 0
 		}
@@ -154,7 +154,7 @@ func (m MarkdownViewerModel) renderBody() string {
 	var body strings.Builder
 	for i := 0; i < len(leftLines); i++ {
 		l := padToWidth(leftLines[i], leftW)
-		body.WriteString(l + sep + rightLines[i] + "\n")
+		body.WriteString(l + sep + " " + rightLines[i] + "\n")
 	}
 	return strings.TrimRight(body.String(), "\n")
 }

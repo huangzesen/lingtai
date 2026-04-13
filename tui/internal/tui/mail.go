@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/anthropics/lingtai-tui/i18n"
 	"github.com/anthropics/lingtai-tui/internal/fs"
@@ -173,10 +174,15 @@ func NewMailModel(humanDir, humanAddr, baseDir, orchDir, orchName string, pageSi
 		dismissedInsights: make(map[string]bool),
 		sessionCache:      fs.NewSessionCache(humanDir, filepath.Dir(baseDir)),
 	}
-	// Refresh mail cache before rebuild so mail entries are included.
+	// Refresh mail cache before session sync so mail entries are included.
 	m.cache = m.cache.Refresh()
-	// Build session.jsonl fresh from all sources, sorted by timestamp.
-	m.sessionCache.RebuildFromSources(m.cache, humanAddr, orchDir, m.orchDisplayName())
+	// If session.jsonl is fresh (written within 24h), just tail new entries.
+	// Otherwise rebuild from scratch (first launch, migration, long absence).
+	if m.sessionCache.NeedsRebuild(24 * time.Hour) {
+		m.sessionCache.RebuildFromSources(m.cache, humanAddr, orchDir, m.orchDisplayName())
+	} else {
+		m.sessionCache.SyncFromSources(m.cache, humanAddr, orchDir, m.orchDisplayName())
+	}
 	return m
 }
 
@@ -391,6 +397,12 @@ func (m MailModel) Update(msg tea.Msg) (MailModel, tea.Cmd) {
 			m.viewport.SetWidth(msg.Width)
 			m.lastInputLines = -1 // force recalculate
 			m.syncViewportHeight()
+			// Re-render content at new width so text wraps correctly.
+			atBottom := m.viewport.AtBottom()
+			m.viewport.SetContent(m.renderMessages(m.visibleMessages()))
+			if atBottom {
+				m.viewport.GotoBottom()
+			}
 		}
 		return m, nil
 
@@ -791,6 +803,8 @@ func (m MailModel) renderMessages(msgs []ChatMessage) string {
 			} else {
 				wrappedBody = lipgloss.NewStyle().Width(bodyWidth).Render(msg.Body)
 			}
+			// Hard-wrap any lines glamour produced wider than bodyWidth
+			wrappedBody = ansi.Hardwrap(wrappedBody, bodyWidth, true)
 			// Indent continuation lines to align with first line
 			lines := strings.Split(wrappedBody, "\n")
 			b.WriteString("\n" + prefix + lines[0] + "\n")
