@@ -25,27 +25,36 @@ func LinkRecipeSkills(lingtaiDir, globalDir, lang, activeRecipe, customDir strin
 	activeGroups["intrinsic"] = true // managed by PopulateBundledSkills
 	activeGroups["custom"] = true    // agent-created, never touched
 
-	// 1. Active bundled recipe only
+	// 1. Active bundled/example recipe only
 	if activeRecipe != "" {
-		recipeDir := filepath.Join(globalDir, "recipes", activeRecipe)
-		if info, err := os.Stat(recipeDir); err == nil && info.IsDir() {
-			linkRecipeDir(skillsDir, recipeDir, activeRecipe, lang)
-			activeGroups[activeRecipe] = true
+		recipeDir := RecipeDir(globalDir, activeRecipe)
+		if recipeDir != "" {
+			if info, err := os.Stat(recipeDir); err == nil && info.IsDir() {
+				linkRecipeDir(skillsDir, recipeDir, activeRecipe, lang)
+				activeGroups[activeRecipe] = true
+			}
 		}
 	}
 
-	// Clean up group dirs from previously active bundled recipes that are
-	// no longer active. Only remove dirs under .skills/ that correspond to
-	// a bundled recipe name and are not the active one.
+	// Clean up group dirs from previously active recipes that are no longer
+	// active. Scan all category subdirs under recipes/.
 	recipesRoot := filepath.Join(globalDir, "recipes")
-	if entries, err := os.ReadDir(recipesRoot); err == nil {
-		for _, e := range entries {
-			if !e.IsDir() || e.Name() == activeRecipe {
+	if cats, err := os.ReadDir(recipesRoot); err == nil {
+		for _, cat := range cats {
+			if !cat.IsDir() || cat.Name()[0] == '.' {
 				continue
 			}
-			staleGroup := filepath.Join(skillsDir, e.Name())
-			if _, err := os.Stat(staleGroup); err == nil {
-				os.RemoveAll(staleGroup)
+			catDir := filepath.Join(recipesRoot, cat.Name())
+			if entries, err := os.ReadDir(catDir); err == nil {
+				for _, e := range entries {
+					if !e.IsDir() || e.Name() == activeRecipe {
+						continue
+					}
+					staleGroup := filepath.Join(skillsDir, e.Name())
+					if _, err := os.Stat(staleGroup); err == nil {
+						os.RemoveAll(staleGroup)
+					}
+				}
 			}
 		}
 	}
