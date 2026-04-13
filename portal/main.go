@@ -12,7 +12,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/anthropics/lingtai-portal/i18n"
 	"github.com/anthropics/lingtai-portal/internal/api"
 	"github.com/anthropics/lingtai-portal/internal/migrate"
 )
@@ -41,9 +40,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Set language
-	i18n.SetLang(lang)
-
 	// Run migrations
 	if err := migrate.Run(lingtaiDir); err != nil {
 		fmt.Fprintf(os.Stderr, "migration error: %v\n", err)
@@ -55,7 +51,7 @@ func main() {
 	os.MkdirAll(portalDir, 0o755)
 
 	// Start server and background topology recorder
-	srv := api.NewServer(lingtaiDir, WebFS())
+	srv := api.NewServer(lingtaiDir, WebFS(), lang)
 	srv.StartRecording(lingtaiDir)
 	portFile := filepath.Join(portalDir, "port")
 	if err := srv.Start(portFile, port); err != nil {

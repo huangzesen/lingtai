@@ -23,9 +23,9 @@ type Server struct {
 	done       chan struct{}
 }
 
-func NewServer(baseDir string, staticFS fs.FS) *Server {
+func NewServer(baseDir string, staticFS fs.FS, lang string) *Server {
 	mux := http.NewServeMux()
-	mux.Handle("/api/network", NewNetworkHandler(baseDir))
+	mux.Handle("/api/network", NewNetworkHandler(baseDir, lang))
 	mux.Handle("/api/topology", NewTopologyHandler(baseDir))
 	mux.Handle("/api/topology/manifest", NewManifestHandler(baseDir))
 	mux.Handle("/api/topology/chunk", NewChunkHandler(baseDir))
