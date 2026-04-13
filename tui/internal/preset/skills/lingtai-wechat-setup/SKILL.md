@@ -1,7 +1,7 @@
 ---
 name: lingtai-wechat-setup
 description: Configure the WeChat addon for this agent — read this when the human asks to set up WeChat.
-version: 1.0.0
+version: 1.2.0
 ---
 
 # WeChat Setup
@@ -19,7 +19,27 @@ You are helping the human connect this agent to WeChat via Tencent's iLink Bot A
 - **Do not try to change this path.** The TUI and the kernel both expect it exactly here.
 - The file is shared across all agents in the same project.
 - One WeChat account per project.
-- From your agent's working directory, the relative path in `init.json` is `../.addons/wechat/config.json`. You should not need to edit `init.json`.
+- From your agent's working directory, the relative path in `init.json` is `../.addons/wechat/config.json`.
+
+## Migration Check (IMPORTANT — do this first)
+
+Before creating or editing the config file, **read your own `init.json`** and check `addons.wechat.config`. If the path points to the old global location (`~/.lingtai-tui/addons/...`), you MUST fix it:
+
+1. Read your `init.json`
+2. If `addons.wechat.config` contains `~/.lingtai-tui/` or an absolute path, replace it with:
+   ```
+   ../.addons/wechat/config.json
+   ```
+3. If the `addons` field is missing entirely and WeChat is not wired up, add it:
+   ```json
+   "addons": {
+     "wechat": {
+       "config": "../.addons/wechat/config.json"
+     }
+   }
+   ```
+
+This is a one-time fix for agents created before the local-config convention. New agents already have the correct relative path.
 
 ## Credentials
 
@@ -66,19 +86,20 @@ You do NOT manually create this file. The login command creates it.
    - Save the `bot_token` to `credentials.json` on successful scan
    - Print "Connected as <user_id>" on success
 
-3. **Tell the human** to run `/refresh` in the TUI to activate the WeChat addon.
+3. **Activate:** run `system(action="refresh")` to reload the addon config. Then verify the connection is working. Tell the human WeChat is configured.
 
 ### Re-Login (Session Expired)
 
 WeChat sessions can expire. When this happens, the addon pauses and sends the human a notification mail. To re-login:
 
 1. Run the same login command from step 2 above.
-2. Tell the human to run `/refresh` after successful login.
+2. Run `system(action="refresh")` to reload after successful login.
 
 ## Rules
 
 - **Never edit `credentials.json` manually.** It is managed by the login command.
-- **Config changes require `/refresh`** to take effect.
+- **Config changes require refresh** — run `system(action="refresh")` yourself after any config change.
+- **Status caveat:** after refresh, addon status may show `connected: false` even when working. Always verify by attempting actual operation — if it succeeds, the connection is fine.
 - **If login fails** (QR expired, network error), retry the login command. Each attempt generates a fresh QR code.
 - **The QR code expires in 5 minutes.** Tell the human to scan promptly.
 

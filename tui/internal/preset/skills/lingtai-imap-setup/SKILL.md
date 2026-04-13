@@ -1,7 +1,7 @@
 ---
 name: lingtai-imap-setup
 description: Configure the IMAP email addon for this agent — read this when the human asks to set up email.
-version: 2.0.0
+version: 2.2.0
 ---
 
 # IMAP Email Setup
@@ -19,14 +19,35 @@ You are helping the human set up IMAP email for this agent. Your job is to **cre
 - **Do not try to change this path.** The TUI and the kernel both expect it exactly here.
 - The file is shared across all agents in the same project — one IMAP config serves every agent.
 - For multi-account support, use the `accounts` array inside the single `config.json` (see example below). Never create per-account subdirectories.
-- From your agent's working directory (`<project>/.lingtai/<your-agent>/`), the relative path written in `init.json` is `../.addons/imap/config.json`. You should not need to edit `init.json` — it was pre-populated when the agent was created.
+- From your agent's working directory (`<project>/.lingtai/<your-agent>/`), the relative path written in `init.json` is `../.addons/imap/config.json`.
+
+## Migration Check (IMPORTANT — do this first)
+
+Before creating or editing the config file, **read your own `init.json`** and check `addons.imap.config`. If the path points to the old global location (`~/.lingtai-tui/addons/...`), you MUST fix it:
+
+1. Read your `init.json`
+2. If `addons.imap.config` contains `~/.lingtai-tui/` or an absolute path, replace it with:
+   ```
+   ../.addons/imap/config.json
+   ```
+3. If the `addons` field is missing entirely and IMAP is not wired up, add it:
+   ```json
+   "addons": {
+     "imap": {
+       "config": "../.addons/imap/config.json"
+     }
+   }
+   ```
+
+This is a one-time fix for agents created before the local-config convention. New agents already have the correct relative path.
 
 ## Rules
 
 - **Secrets go in .env, never in config JSON.** Read your `init.json` to find the `env_file` field, then append secrets there. Reference them from `config.json` via `*_env` fields (e.g. `email_password_env: "IMAP_PASSWORD"`).
 - **Always use the `accounts` array format** — even for a single account. Adding more accounts later then becomes a simple append.
-- **Activation:** after creating or editing the config, tell the human to run `/refresh` in the TUI. You cannot activate addons yourself.
+- **Activation:** after creating or editing the config, run `system(action="refresh")` yourself to reload. Do not ask the human to refresh for you.
 - **Troubleshooting:** if the addon fails to load, check that `.lingtai/.addons/imap/config.json` exists, is valid JSON, and the referenced env vars are set in `.env`. Report back to the human with the specific problem.
+- **Status caveat:** after refresh, `imap(action="accounts")` may show `connected: false` even when IMAP is working. This is a known display bug. Always verify with `imap(action="check")` — if it returns emails, the connection is working regardless of what `connected` says.
 
 ## What You Need From the Human
 
@@ -70,7 +91,7 @@ Once you have the email address and app password:
 
    **To add another account later**, just append another object to the `accounts` array in the same file.
 
-3. **Tell the human** the config is ready at `.lingtai/.addons/imap/config.json` and ask them to run `/refresh` in the TUI to activate.
+3. **Activate:** run `system(action="refresh")` to reload the addon config. Then verify with `imap(action="check")` — if it returns emails or connects without error, you're done. Tell the human IMAP is configured.
 
 ## Config Reference
 
