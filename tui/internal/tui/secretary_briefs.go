@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/anthropics/lingtai-tui/internal/config"
 	"github.com/anthropics/lingtai-tui/internal/fs"
 )
 
@@ -50,13 +51,24 @@ func buildSecretaryBriefs(globalDir, projectDir string) []MarkdownEntry {
 		})
 	}
 
-	// Other projects' journals
+	// Other projects' journals — only show projects that still exist.
+	// LoadAndPrune is the authoritative check: it reads registry.jsonl,
+	// removes entries whose .lingtai/ is gone, rewrites the file, and
+	// returns surviving paths. We hash each to build a live-hash set.
+	liveHashes := make(map[string]bool)
+	for _, p := range config.LoadAndPrune(globalDir) {
+		liveHashes[fs.ProjectHash(p)] = true
+	}
+
 	projectsDir := filepath.Join(briefBase, "projects")
 	dirEntries, err := os.ReadDir(projectsDir)
 	if err == nil {
 		for _, d := range dirEntries {
 			if !d.IsDir() || d.Name() == thisHash {
 				continue
+			}
+			if !liveHashes[d.Name()] {
+				continue // project no longer registered — skip
 			}
 			journalPath := filepath.Join(projectsDir, d.Name(), "journal.md")
 			if _, err := os.Stat(journalPath); err == nil {
