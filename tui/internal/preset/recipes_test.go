@@ -6,24 +6,98 @@ import (
 	"testing"
 )
 
-func TestBundledRecipes(t *testing.T) {
-	got := BundledRecipes()
-	want := []string{RecipeGreeter, RecipeAdaptive, RecipePlain, RecipeTutorial}
-	if len(got) != len(want) {
-		t.Fatalf("BundledRecipes len = %d, want %d", len(got), len(want))
+func TestRecipeDir(t *testing.T) {
+	globalDir := t.TempDir()
+	if err := Bootstrap(globalDir); err != nil {
+		t.Fatalf("Bootstrap err = %v", err)
 	}
-	for i, name := range want {
-		if got[i] != name {
-			t.Errorf("BundledRecipes()[%d] = %q, want %q", i, got[i], name)
+	got := RecipeDir(globalDir, "greeter")
+	want := filepath.Join(globalDir, "recipes", "recommended", "greeter")
+	if got != want {
+		t.Errorf("RecipeDir(greeter) = %q, want %q", got, want)
+	}
+	got = RecipeDir(globalDir, "tutorial")
+	want = filepath.Join(globalDir, "recipes", "examples", "tutorial")
+	if got != want {
+		t.Errorf("RecipeDir(tutorial) = %q, want %q", got, want)
+	}
+	got = RecipeDir(globalDir, "nonexistent")
+	if got != "" {
+		t.Errorf("RecipeDir(nonexistent) = %q, want empty", got)
+	}
+}
+
+func TestScanCategory(t *testing.T) {
+	globalDir := t.TempDir()
+	if err := Bootstrap(globalDir); err != nil {
+		t.Fatalf("Bootstrap err = %v", err)
+	}
+	recipes := ScanCategory(globalDir, "recommended", "en")
+	if len(recipes) == 0 {
+		t.Fatalf("ScanCategory(recommended) returned no recipes")
+	}
+	found := false
+	for _, r := range recipes {
+		if r.ID == "greeter" {
+			found = true
+			if r.Info.Name == "" {
+				t.Errorf("greeter recipe has empty name")
+			}
+			if r.Dir == "" {
+				t.Errorf("greeter recipe has empty dir")
+			}
+		}
+	}
+	if !found {
+		t.Errorf("ScanCategory(recommended) did not find greeter")
+	}
+}
+
+func TestScanCategory_Intrinsic(t *testing.T) {
+	globalDir := t.TempDir()
+	if err := Bootstrap(globalDir); err != nil {
+		t.Fatalf("Bootstrap err = %v", err)
+	}
+	recipes := ScanCategory(globalDir, "intrinsic", "en")
+	if len(recipes) == 0 {
+		t.Fatalf("ScanCategory(intrinsic) returned no recipes")
+	}
+	ids := make(map[string]bool)
+	for _, r := range recipes {
+		ids[r.ID] = true
+	}
+	for _, want := range []string{"adaptive", "plain"} {
+		if !ids[want] {
+			t.Errorf("ScanCategory(intrinsic) missing %q", want)
 		}
 	}
 }
 
-func TestRecipeDir(t *testing.T) {
-	got := RecipeDir("/home/user/.lingtai-tui", "greeter")
-	want := filepath.Join("/home/user/.lingtai-tui", "recipes", "greeter")
-	if got != want {
-		t.Errorf("RecipeDir = %q, want %q", got, want)
+func TestScanCategory_Examples(t *testing.T) {
+	globalDir := t.TempDir()
+	if err := Bootstrap(globalDir); err != nil {
+		t.Fatalf("Bootstrap err = %v", err)
+	}
+	recipes := ScanCategory(globalDir, "examples", "en")
+	if len(recipes) == 0 {
+		t.Fatalf("ScanCategory(examples) returned no recipes")
+	}
+	found := false
+	for _, r := range recipes {
+		if r.ID == "tutorial" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("ScanCategory(examples) did not find tutorial")
+	}
+}
+
+func TestScanCategory_Empty(t *testing.T) {
+	globalDir := t.TempDir()
+	recipes := ScanCategory(globalDir, "nonexistent", "en")
+	if len(recipes) != 0 {
+		t.Errorf("ScanCategory(nonexistent) = %d recipes, want 0", len(recipes))
 	}
 }
 

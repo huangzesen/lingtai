@@ -5,16 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 )
 
 // Recipe names. A recipe is a named pair of {greet.md, comment.md} applied
 // to the orchestrator at setup time to shape its initial and ongoing
 // disposition. Not to be confused with preset (LLM/capabilities template).
 const (
-	RecipeGreeter  = "greeter"
-	RecipePlain    = "plain"
-	RecipeAdaptive = "adaptive"
-	RecipeTutorial = "tutorial"
 	RecipeCustom   = "custom"
 	RecipeImported = "imported"
 	RecipeAgora    = "agora" // from ~/lingtai-agora/recipes/
@@ -54,6 +51,43 @@ func ScanAgoraRecipes(lang string) []AgoraRecipe {
 	return recipes
 }
 
+// DiscoveredRecipe holds a recipe found by scanning a category directory.
+type DiscoveredRecipe struct {
+	ID   string     // directory name (e.g. "greeter", "tutorial")
+	Info RecipeInfo // from recipe.json
+	Dir  string     // absolute path to the recipe directory
+}
+
+// RecipeCategories defines the display order of built-in recipe categories.
+var RecipeCategories = []string{"recommended", "intrinsic", "examples"}
+
+// ScanCategory returns all valid recipes found under <globalDir>/recipes/<category>/.
+// Each subdirectory must contain a valid recipe.json with a non-empty name.
+// Results are sorted alphabetically by ID (directory name).
+func ScanCategory(globalDir, category, lang string) []DiscoveredRecipe {
+	catDir := filepath.Join(globalDir, "recipes", category)
+	entries, err := os.ReadDir(catDir)
+	if err != nil {
+		return nil
+	}
+	var recipes []DiscoveredRecipe
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == "" || e.Name()[0] == '.' {
+			continue
+		}
+		dir := filepath.Join(catDir, e.Name())
+		info, err := LoadRecipeInfo(dir, lang)
+		if err != nil {
+			continue
+		}
+		recipes = append(recipes, DiscoveredRecipe{ID: e.Name(), Info: info, Dir: dir})
+	}
+	sort.Slice(recipes, func(i, j int) bool {
+		return recipes[i].ID < recipes[j].ID
+	})
+	return recipes
+}
+
 // RecipeInfo holds the metadata from a recipe's recipe.json manifest.
 type RecipeInfo struct {
 	Name        string `json:"name"`
@@ -85,17 +119,25 @@ func LoadRecipeInfo(recipeDir, lang string) (RecipeInfo, error) {
 	return info, nil
 }
 
-// BundledRecipes returns the four built-in recipe names in picker display order.
-// Greeter is first (recommended default). Custom is not included — it is
-// handled separately in the picker because it requires a user-supplied directory.
-func BundledRecipes() []string {
-	return []string{RecipeGreeter, RecipeAdaptive, RecipePlain, RecipeTutorial}
-}
-
-// RecipeDir returns the absolute directory for a bundled recipe under the
-// global config dir: <globalDir>/recipes/<name>/.
+// RecipeDir returns the absolute directory for a discovered recipe by searching
+// all category subdirectories under <globalDir>/recipes/. Returns empty string
+// if the recipe is not found.
 func RecipeDir(globalDir, name string) string {
-	return filepath.Join(globalDir, "recipes", name)
+	recipesRoot := filepath.Join(globalDir, "recipes")
+	entries, err := os.ReadDir(recipesRoot)
+	if err != nil {
+		return ""
+	}
+	for _, cat := range entries {
+		if !cat.IsDir() || cat.Name()[0] == '.' {
+			continue
+		}
+		candidate := filepath.Join(recipesRoot, cat.Name(), name)
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate
+		}
+	}
+	return ""
 }
 
 // ResolveGreetPath returns the absolute path to the greet file for a recipe

@@ -20,7 +20,7 @@ func TestLoadRecipeState_Missing(t *testing.T) {
 func TestSaveAndLoadRecipeState_Bundled(t *testing.T) {
 	lingtaiDir := t.TempDir()
 
-	state := RecipeState{Recipe: RecipeGreeter}
+	state := RecipeState{Recipe: "greeter"}
 	if err := SaveRecipeState(lingtaiDir, state); err != nil {
 		t.Fatalf("SaveRecipeState err = %v", err)
 	}
@@ -29,8 +29,8 @@ func TestSaveAndLoadRecipeState_Bundled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadRecipeState err = %v", err)
 	}
-	if got.Recipe != RecipeGreeter {
-		t.Errorf("Recipe = %q, want %q", got.Recipe, RecipeGreeter)
+	if got.Recipe != "greeter" {
+		t.Errorf("Recipe = %q, want %q", got.Recipe, "greeter")
 	}
 	if got.CustomDir != "" {
 		t.Errorf("CustomDir = %q, want empty", got.CustomDir)
@@ -65,7 +65,7 @@ func TestSaveRecipeState_CreatesTuiAssetDir(t *testing.T) {
 		t.Fatalf("precondition failed: .tui-asset/ should not exist")
 	}
 
-	if err := SaveRecipeState(lingtaiDir, RecipeState{Recipe: RecipePlain}); err != nil {
+	if err := SaveRecipeState(lingtaiDir, RecipeState{Recipe: "plain"}); err != nil {
 		t.Fatalf("SaveRecipeState err = %v", err)
 	}
 
@@ -96,20 +96,22 @@ func TestBootstrap_CreatesRecipeDirs(t *testing.T) {
 	if err := Bootstrap(globalDir); err != nil {
 		t.Fatalf("Bootstrap err = %v", err)
 	}
-	// All four bundled recipes should have directories
-	for _, name := range BundledRecipes() {
-		dir := RecipeDir(globalDir, name)
-		info, err := os.Stat(dir)
-		if err != nil {
-			t.Errorf("recipe dir %s not created: %v", name, err)
-			continue
+	for _, cat := range RecipeCategories {
+		recipes := ScanCategory(globalDir, cat, "en")
+		if len(recipes) == 0 {
+			t.Errorf("ScanCategory(%s) returned no recipes", cat)
 		}
-		if !info.IsDir() {
-			t.Errorf("recipe dir %s is not a directory", name)
+		for _, r := range recipes {
+			if _, err := os.Stat(r.Dir); err != nil {
+				t.Errorf("recipe dir %s not created: %v", r.Dir, err)
+			}
 		}
 	}
-	// Greeter should have a greet.md resolvable in en
-	greet := ResolveGreetPath(RecipeDir(globalDir, RecipeGreeter), "en")
+	greetDir := RecipeDir(globalDir, "greeter")
+	if greetDir == "" {
+		t.Fatalf("RecipeDir(greeter) not found after Bootstrap")
+	}
+	greet := ResolveGreetPath(greetDir, "en")
 	if greet == "" {
 		t.Errorf("greeter/en/greet.md not resolvable after Bootstrap")
 	}
