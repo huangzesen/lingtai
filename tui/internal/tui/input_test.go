@@ -11,94 +11,63 @@ func newTestInput(width int) *InputModel {
 	return &m
 }
 
-func TestCalcHeight_Empty(t *testing.T) {
+func TestLineCount_Empty(t *testing.T) {
 	m := newTestInput(80)
-	if h := m.calcHeight(); h != 1 {
+	if h := m.LineCount(); h != 1 {
 		t.Errorf("empty input: expected height 1, got %d", h)
 	}
 }
 
-func TestCalcHeight_ShortText(t *testing.T) {
+func TestLineCount_ShortText(t *testing.T) {
 	m := newTestInput(80)
 	m.textarea.SetValue("hello world")
-	if h := m.calcHeight(); h != 1 {
+	if h := m.LineCount(); h != 1 {
 		t.Errorf("short text: expected height 1, got %d", h)
 	}
 }
 
-func TestCalcHeight_WrappingText(t *testing.T) {
+func TestLineCount_WrappingText(t *testing.T) {
 	m := newTestInput(40) // textarea width = 40 - 10 = 30
-	// 60 chars of words — should wrap to 2+ lines on a 30-col textarea
+	// 60 chars of words — should soft-wrap to 2+ visual lines on a 30-col textarea
 	m.textarea.SetValue("the quick brown fox jumps over the lazy dog again and again")
-	h := m.calcHeight()
+	h := m.LineCount()
 	if h < 2 {
 		t.Errorf("wrapping text on 30-col textarea: expected height >= 2, got %d", h)
 	}
 }
 
-func TestCalcHeight_ExplicitNewlines(t *testing.T) {
+func TestLineCount_ExplicitNewlines(t *testing.T) {
 	m := newTestInput(80)
 	m.textarea.SetValue("line one\nline two\nline three")
-	if h := m.calcHeight(); h != 3 {
+	if h := m.LineCount(); h != 3 {
 		t.Errorf("3 explicit lines: expected height 3, got %d", h)
 	}
 }
 
-func TestCalcHeight_MaxSix(t *testing.T) {
+func TestLineCount_MaxSix(t *testing.T) {
 	m := newTestInput(80)
 	m.textarea.SetValue("a\nb\nc\nd\ne\nf\ng\nh")
-	if h := m.calcHeight(); h != 6 {
+	if h := m.LineCount(); h != 6 {
 		t.Errorf("8 lines: expected capped height 6, got %d", h)
 	}
 }
 
-func TestCalcHeight_CJK(t *testing.T) {
+func TestLineCount_CJK(t *testing.T) {
 	m := newTestInput(40) // textarea width = 30
 	// 20 CJK chars × 2 visual cols each = 40 visual cols
 	// 40 / 30 = ceil(1.33) = 2 visual lines
 	m.textarea.SetValue(strings.Repeat("\u4f60", 20))
-	h := m.calcHeight()
+	h := m.LineCount()
 	if h != 2 {
 		t.Errorf("CJK wrapping on 30-col textarea: expected height 2, got %d", h)
 	}
 }
 
-func TestVisualLineCount_Basic(t *testing.T) {
-	// Empty string → 1 line
-	if h := visualLineCount("", 30); h != 1 {
-		t.Errorf("empty: expected 1, got %d", h)
-	}
-	// Short line fits in width → 1 line
-	if h := visualLineCount("hello", 30); h != 1 {
-		t.Errorf("short: expected 1, got %d", h)
-	}
-	// Exact fit → 1 line
-	if h := visualLineCount("abcdefghij", 10); h != 1 {
-		t.Errorf("exact fit: expected 1, got %d", h)
-	}
-	// Overflow by 1 → 2 lines
-	if h := visualLineCount("abcdefghijk", 10); h != 2 {
-		t.Errorf("overflow 1: expected 2, got %d", h)
-	}
-	// 20 CJK chars × 2 cols = 40 cols, / 30 → ceil(1.33) = 2
-	if h := visualLineCount(strings.Repeat("\u4f60", 20), 30); h != 2 {
-		t.Errorf("20 CJK on 30-col: expected 2, got %d", h)
-	}
-	// 20 CJK chars × 2 cols = 40 cols, / 20 → ceil(2.0) = 2
-	if h := visualLineCount(strings.Repeat("\u4f60", 20), 20); h != 2 {
-		t.Errorf("20 CJK on 20-col: expected 2, got %d", h)
-	}
-	// 35 CJK chars × 2 cols = 70 cols, / 30 → ceil(2.34) = 3
-	if h := visualLineCount(strings.Repeat("\u4f60", 35), 30); h != 3 {
-		t.Errorf("35 CJK on 30-col: expected 3, got %d", h)
-	}
-}
-
-func TestVisualLineCount_Multiline(t *testing.T) {
-	// Two logical lines: first wraps to 2, second fits → total 3
+func TestLineCount_Multiline(t *testing.T) {
+	// Two logical lines: first wraps to 2 visual lines, second fits → total 3
 	m := newTestInput(40)
 	m.textarea.SetValue(strings.Repeat("\u4f60", 20) + "\nhi")
-	h := m.calcHeight()
+	h := m.LineCount()
 	if h != 3 {
 		t.Errorf("multiline CJK: expected 3, got %d", h)
 	}
@@ -114,5 +83,16 @@ func TestView_HasBottomBorder(t *testing.T) {
 	trimmed := strings.TrimRight(lastLine, "─")
 	if trimmed != "" || len(lastLine) == 0 {
 		t.Errorf("expected bottom border of ─ chars, got last line: %q", lastLine)
+	}
+}
+
+func TestNoHardNewlinesFromWrapping(t *testing.T) {
+	m := newTestInput(40) // textarea width = 30
+	// Long text that would have triggered the old autoWrap
+	text := "the quick brown fox jumps over the lazy dog again and again and again"
+	m.textarea.SetValue(text)
+	// The value should remain unchanged — no inserted newlines
+	if got := m.textarea.Value(); got != text {
+		t.Errorf("textarea value should not have hard newlines from wrapping\ngot:  %q\nwant: %q", got, text)
 	}
 }

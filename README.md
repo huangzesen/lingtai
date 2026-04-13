@@ -259,18 +259,20 @@ Lingtai has two repos: this one (Go frontends — TUI and Portal) and [lingtai-k
 git clone https://github.com/huangzesen/lingtai.git
 git clone https://github.com/huangzesen/lingtai-kernel.git
 
-# 2. Install the Python kernel in editable mode
-cd lingtai-kernel
-pip install -e .
-cd ..
-
-# 3. Build the TUI and symlink it onto your PATH
+# 2. Build the TUI and symlink it onto your PATH
 cd lingtai/tui
 make build
 ln -sf $(pwd)/bin/lingtai-tui /usr/local/bin/lingtai-tui
 cd ../..
 
-# 4. (Optional) Build the portal
+# 3. Launch the TUI once to bootstrap the runtime venv
+lingtai-tui
+# Exit after setup completes (Ctrl+C)
+
+# 4. Install the kernel from source into the TUI's venv
+~/.lingtai-tui/runtime/venv/bin/pip3 install -e ../lingtai-kernel
+
+# 5. (Optional) Build the portal
 cd lingtai/portal && make build && cd ../..
 ```
 
@@ -278,8 +280,10 @@ If you installed via Homebrew previously: `brew unlink lingtai-tui`
 
 **The dev loop:**
 - Edit Go code → `cd tui && make build` → restart lingtai-tui
-- Edit Python code → changes take effect immediately (editable install)
+- Edit Python code → changes take effect immediately (editable install in the TUI venv)
 - Edit recipes/skills/i18n → `make build` (they're embedded in the Go binary)
+
+> **Important:** The TUI runs agents in its own Python venv at `~/.lingtai-tui/runtime/venv/`. Installing the kernel with `pip install -e .` in your system Python does NOT affect running agents. Always install into the TUI's venv as shown in step 4.
 
 ### Project structure
 

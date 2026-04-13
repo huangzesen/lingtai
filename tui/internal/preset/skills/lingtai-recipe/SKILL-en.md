@@ -26,12 +26,13 @@ my-recipe/
     procedures.md         # Optional
   skills/                 # Optional: recipe-shipped skills
     my-skill/
-      en/
-        SKILL.md
-        scripts/          # Optional helper scripts
-        assets/           # Optional assets
-      zh/
-        SKILL.md
+      SKILL.md            # Frontmatter + pointer to lang variants
+      SKILL-en.md         # Full instructions (English)
+      SKILL-zh.md         # Full instructions (Chinese)
+      scripts/            # Optional helper scripts
+      assets/             # Optional assets
+    my-other-skill/
+      SKILL.md            # Single-language skill (no variants needed)
 ```
 
 ## The Five Components
@@ -102,7 +103,7 @@ Overrides the system-wide procedures (`~/.lingtai-tui/procedures/<lang>/procedur
 
 ### 5. `skills/` — Recipe-Shipped Skills
 
-Optional. Skills that travel with the recipe and are automatically symlinked into `.lingtai/.skills/` when the TUI starts.
+Optional. Skills that travel with the recipe and are automatically symlinked into `.lingtai/.skills/<recipe-name>/` as a group folder when the TUI starts.
 
 Each skill follows the standard SKILL.md contract:
 
@@ -116,11 +117,11 @@ version: 1.0.0
 # Skill content here...
 ```
 
-**i18n:** Each skill can have language-specific versions. Resolution: try `<lang>/` first, fall back to root. See fallback rules below.
+**i18n:** For multi-language skills, use `SKILL.md` as a frontmatter-only pointer and provide `SKILL-en.md`, `SKILL-zh.md`, etc. for full instructions. The agent reads `SKILL.md`, sees which lang variants are available, and reads the appropriate one. Single-language skills just put everything in `SKILL.md`.
 
-**Symlink naming:** The TUI creates symlinks in `.lingtai/.skills/` named `<recipe>-<skill>-<lang>` (lang-specific) or `<recipe>-<skill>` (root fallback). This prevents collisions across recipes.
+**Grouping:** Recipe skills appear in `.lingtai/.skills/<recipe-name>/` — the recipe name is the group header in the `/skills` viewer.
 
-**Scripts and assets:** Place them alongside `SKILL.md` in the same language directory. They are self-contained per language.
+**Scripts and assets:** Place them alongside `SKILL.md` in the skill directory. They are self-contained per skill.
 
 ## recipe.json — Recipe Manifest
 

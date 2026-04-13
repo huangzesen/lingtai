@@ -18,6 +18,7 @@ import (
 	"github.com/anthropics/lingtai-tui/internal/migrate"
 	"github.com/anthropics/lingtai-tui/internal/preset"
 	"github.com/anthropics/lingtai-tui/internal/process"
+	"github.com/anthropics/lingtai-tui/internal/secretary"
 	"github.com/anthropics/lingtai-tui/internal/tui"
 )
 
@@ -181,7 +182,7 @@ func main() {
 	}
 
 	// Init project (create human dir)
-	if err := process.InitProject(lingtaiDir); err != nil {
+	if err := process.InitProject(lingtaiDir, globalDir); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
@@ -190,11 +191,10 @@ func main() {
 	if err := config.Register(globalDir, projectDir); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to register project: %v\n", err)
 	}
-	// Bundled (canonical) skills — refreshed every startup so existing
-	// projects pick up new or updated skills after a TUI upgrade. User
-	// custom skills under .lingtai/.skills/ are left untouched; only paths
-	// shipped in the embed FS get overwritten.
-	preset.PopulateBundledSkills(lingtaiDir)
+	// Bundled (canonical) skills — written to globalDir/bundled-skills/
+	// and symlinked into .lingtai/.skills/intrinsic. Refreshed every
+	// startup so projects pick up new or updated skills after a TUI upgrade.
+	preset.PopulateBundledSkills(lingtaiDir, globalDir)
 
 	// First run = no config.json in ~/.lingtai-tui/
 	configPath := filepath.Join(globalDir, "config.json")
@@ -219,7 +219,7 @@ func main() {
 	// LoadRecipeState returns zero-value on error, so customDir is "" and bundled +
 	// agora recipe skills are still linked even if .recipe is corrupt.
 	recipeState, _ := preset.LoadRecipeState(lingtaiDir)
-	preset.LinkRecipeSkills(lingtaiDir, globalDir, tuiCfg.Language, recipeState.CustomDir)
+	preset.LinkRecipeSkills(lingtaiDir, globalDir, tuiCfg.Language, recipeState.Recipe, recipeState.CustomDir)
 	preset.PruneStaleSkillSymlinks(lingtaiDir)
 
 	orchestrators := tui.DetectOrchestrators(lingtaiDir)
@@ -268,6 +268,12 @@ func main() {
 		go fs.UpdateHumanLocation(humanDir)
 	}
 	// If needsFirstRun: welcome page goroutine handles everything
+
+	// Secretary health check — if the secretary has been set up but is not
+	// running, gently ask the user if they want to wake it up.
+	if !needsFirstRun {
+		maybeReviveSecretary(globalDir)
+	}
 
 	// Do NOT auto-relaunch stopped agents on TUI startup. The TUI's job is
 	// to attach to whatever state the agent is in, not to second-guess why
@@ -685,6 +691,34 @@ func showWelcome(globalDir string) {
 	reader.ReadString('\n')
 
 	os.WriteFile(sentinel, []byte(time.Now().Format(time.RFC3339)+"\n"), 0o644)
+}
+
+// maybeReviveSecretary checks whether the secretary agent has been set up
+// but is not currently running. If so, it asks the user whether to wake it.
+func maybeReviveSecretary(globalDir string) {
+	secDir := secretary.AgentDir(globalDir)
+	if _, err := os.Stat(filepath.Join(secDir, ".agent.json")); os.IsNotExist(err) {
+		return // secretary never set up — nothing to do
+	}
+	if fs.IsAlive(secDir, 3.0) {
+		return // already running
+	}
+
+	fmt.Print("Secretary is not running. Wake up? [Y/n] ")
+	reader := bufio.NewReader(os.Stdin)
+	line, _ := reader.ReadString('\n')
+	answer := strings.TrimSpace(strings.ToLower(line))
+	if answer == "n" || answer == "no" {
+		return
+	}
+
+	lingtaiCmd := config.LingtaiCmd(globalDir)
+	if _, err := process.LaunchAgent(lingtaiCmd, secDir); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to wake secretary: %v\n", err)
+		return
+	}
+	fs.WritePrompt(secDir, secretary.GreetContent())
+	fmt.Println("Secretary is waking up.")
 }
 
 func cleanMain() {

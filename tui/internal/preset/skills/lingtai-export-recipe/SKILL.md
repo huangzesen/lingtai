@@ -1,14 +1,14 @@
 ---
 name: lingtai-export-recipe
 description: Export a recipe — distill the culture, skills, and behavioral patterns of the current network into a portable recipe that others can use to seed new networks. Use when the human asks you to export, share, or package a recipe.
-version: 1.0.0
+version: 2.0.0
 ---
 
 # lingtai-export-recipe: Exporting a Recipe
 
-A **recipe** is the culture of a network, distilled into a portable seed. It captures how an orchestrator greets users, what behavioral constraints it follows, what skills it ships, and optionally what covenant and procedures it operates under. When someone applies a recipe, they inherit the network's "DNA" — its style, knowledge, and capabilities — without any project-specific state.
+**Prerequisites:** Read the `lingtai-recipe` skill first — it defines what a recipe is, the directory structure, the five components (greet.md, comment.md, covenant.md, procedures.md, skills/), placeholders, i18n rules, and recipe.json format. This skill assumes you understand all of that.
 
-Your job is to help the human reflect on their network's culture and package the parts worth sharing into a recipe at `~/lingtai-agora/recipes/<name>/`.
+A recipe is the culture of a network, distilled into a portable seed. Your job is to help the human reflect on their network's culture and package the parts worth sharing.
 
 ## How to talk to the human during this skill
 
@@ -16,230 +16,167 @@ Your job is to help the human reflect on their network's culture and package the
 
 This is a multi-round conversation with real latency between turns. The human may not be watching their terminal — they will see your messages reliably only through their inbox. Every question, status update, and confirmation goes through `email(action="send", address="human", ...)`.
 
-## Recipe Structure
+## Critical: Filesystem Rules
 
-A recipe directory contains:
+These rules prevent silent failures. Follow them without exception.
 
-```
-<name>/
-  recipe.json             # Required — name and description
-  greet.md                # Required — first-contact message for new users
-  comment.md              # Required — behavioral DNA (persistent system prompt)
-  covenant.md             # Optional — foundational principles override
-  procedures.md           # Optional — operational norms override
-  en/                     # Optional — language-specific variants
-    greet.md
-    comment.md
-  zh/
-    greet.md
-    comment.md
-  wen/
-    greet.md
-    comment.md
-  skills/                 # Optional — reusable capabilities
-    <skill-name>/
-      SKILL.md
-      scripts/            # Optional helper scripts
-      assets/             # Optional assets
-```
+1. **Resolve `$HOME` first.** The `write` tool does NOT expand `~`. At the start of this skill, run:
+   ```bash
+   echo $HOME
+   ```
+   Use the result (e.g., `/Users/alice`) as the prefix for ALL file paths. Never use `~` in a `write` or `file` tool call.
 
-## Step 0: Reflect on the Network
+2. **Always use absolute paths.** Every `write` call must use a full absolute path. The `write` tool resolves relative paths from your working directory, not from the recipe directory.
 
-Before asking the human anything, examine the living network to understand its culture:
+3. **Always `mkdir -p` before writing.** The `write` tool may silently fail or report false success if the parent directory does not exist.
 
-1. Read the current recipe state:
+4. **Verify after writing.** After writing all files in a step, run `find <recipe-dir> -type f | sort` and confirm the output lists every file you intended to create.
+
+5. **Never trust a write success message at face value.** Always verify with `find` or `ls`.
+
+## Step 0: Resolve Paths + Reflect on the Network
+
+**0a. Resolve the recipe base directory.**
 
 ```bash
-cat .lingtai/.tui-asset/.recipe
+echo $HOME
 ```
 
-2. Examine the current comment.md (behavioral DNA):
+Store the result. All paths use `$HOME/lingtai-agora/recipes/` as the base. **Note: `lingtai-agora`, NOT `.lingtai-agora` — no leading dot.** The agora directory is a user-visible workspace, not a hidden config directory.
 
-```bash
-# Find the current recipe's comment file
-# If recipe is "custom" or "imported", check the custom_dir
-# If bundled, check ~/.lingtai-tui/recipes/<name>/
-```
+**0b. Read the `lingtai-recipe` skill** to refresh your understanding of recipe structure and components.
 
-3. List all installed skills:
+**0c. Reflect on the living network.** Before asking the human anything, examine the network to understand its culture:
 
-```bash
-ls -la .lingtai/.skills/
-```
-
-4. Scan the network structure — agent names, roles, specializations:
-
-```bash
-ls .lingtai/*/
-cat .lingtai/*/.agent.json
-```
-
-5. Skim recent mail to understand tone, delegation patterns, working style:
-
-```bash
-ls .lingtai/*/mailbox/archive/ | head -20
-```
+1. Read the current recipe state: `cat .lingtai/.tui-asset/.recipe`
+2. Examine the current comment.md (behavioral DNA) — find it via the recipe state
+3. List all installed skills: `ls -la .lingtai/.skills/`
+4. Scan the network structure: `ls .lingtai/*/` and `cat .lingtai/*/.agent.json`
+5. Skim recent mail for tone and delegation patterns: `ls .lingtai/*/mailbox/archive/ | head -20`
 
 Build a mental model of: what does this network *do*? How does it *behave*? What *skills* has it grown? What makes it distinctive?
 
-## Step 1: Discuss with the Human
+## Step 1: Collect Metadata from the Human
 
-Send the human an email introducing the export flow and what you've observed:
+Send the human **one** email introducing the export flow and collecting all key decisions upfront. This reduces round-trips.
 
 > "I've looked at your network and here's what I see as its culture:
 >
 > [2-3 sentence summary of the network's identity, style, and capabilities]
 >
-> A recipe distills this into something portable. What parts of this culture do you want to package for others?
+> A recipe distills this into something portable. To get started, I need a few things:
 >
-> Some questions to guide us:
-> - Who is the intended audience for this recipe?
-> - What should the orchestrator say on first contact?
-> - What behavioral constraints should carry over?
-> - Which skills are worth including?"
+> 1. **Recipe name** — something that captures its essence (not the project name — the recipe is about culture, not the project)
+> 2. **One-line description** — what does this recipe give someone?
+> 3. **Audience** — who is this recipe for?
+> 4. **Greeting style** — what tone should the first-contact message have?
+> 5. **Skills to include** — which of the installed skills should ship with the recipe?
+> 6. **Any behavioral constraints** — what should carry over from this network's culture?
+>
+> Here are the installed skills:
+> [list from ls .lingtai/.skills/]
+>
+> Answer as many as you can in one message and I'll draft everything in one pass."
 
-**This is a creative conversation, not a checkbox.** Let the human guide what to include. They know what's essential vs. project-specific.
+If `$HOME/lingtai-agora/recipes/<name>/` already exists, ask before overwriting.
 
-## Step 2: Name the Recipe
+## Step 2: Author the Recipe Files
 
-Ask the human for a name. The name becomes:
-- The directory name under `~/lingtai-agora/recipes/`
-- The `name` field in `recipe.json`
+Once you have the human's input, author all files in one pass. You WRITE the content (not copy) — the recipe should be a distillation, not a raw dump of existing files. Refer to the `lingtai-recipe` skill for the exact format and rules of each component.
 
-> "What should this recipe be called? Pick something that captures its essence — this is what people will see when browsing the agora."
-
-Do not suggest a default based on the project name — the recipe is about culture, not the project.
-
-If `~/lingtai-agora/recipes/<name>/` already exists, ask before overwriting.
-
-## Step 3: Author the Recipe Files
-
-Work through each file with the human. You WRITE the content (not copy) — the recipe should be a distillation, not a raw dump of existing files.
-
-### 3a. recipe.json
+### Pre-flight: Create all directories first
 
 ```bash
-mkdir -p ~/lingtai-agora/recipes/<name>
+RECIPE_DIR="$HOME/lingtai-agora/recipes/<name>"
+mkdir -p "$RECIPE_DIR"
+mkdir -p "$RECIPE_DIR/skills/<skill-1>"
+mkdir -p "$RECIPE_DIR/skills/<skill-2>"
 ```
 
-Write:
+### 2a. recipe.json
 
-```json
-{
-  "name": "<human's chosen name>",
-  "description": "<one-line description agreed with the human>"
-}
-```
+Write `name` and `description` (see `lingtai-recipe` skill for format).
 
-### 3b. greet.md — First Contact
+### 2b. greet.md — First Contact
 
-Write a greeting message from the orchestrator's perspective. This is how the recipe introduces itself to a new user.
+Write a greeting from the orchestrator's perspective. Follow the rules and placeholders documented in `lingtai-recipe`. Write fresh recipe-specific content — do NOT copy templates or include `[system]` prefixes.
 
-**Rules:**
-- Keep it short (5-10 sentences)
-- Be proactive — introduce the network's purpose, don't wait to be asked
-- If the network has multiple agents, remind users to `/cpr all`
-- Available placeholders: `{{time}}`, `{{addr}}`, `{{lang}}`, `{{location}}`, `{{soul_delay}}`
+### 2c. comment.md — Behavioral DNA
 
-Show the draft to the human. Iterate until satisfied.
+This is the heart of the recipe. **Draw from the living network** — look at how the orchestrator actually behaves and distill that into portable instructions. See `lingtai-recipe` for the format rules (no placeholders, static text, injected every turn).
 
-### 3c. comment.md — Behavioral DNA
+**What to distill.** Walk through each of these areas and extract what's worth keeping:
 
-This is the heart of the recipe. It captures:
-- The orchestrator's role and personality
-- How it delegates to other agents
-- What topics or workflows it guides users through
-- Tone and style constraints
-- References to recipe-shipped skills (by name)
+- **Delegation and avatar rules** — how does the orchestrator decide when to spawn avatars vs handle things itself? What avatar blueprints does it use? If there are specific naming conventions, specialization patterns, or spawn-on-demand rules, capture them. Reflect on the avatar rules you've set in this network — if they work well, they belong in comment.md.
+- **Communication norms** — does the network enforce deposit-before-email (write findings to a file before sending a summary)? Are there conventions about email length, format, or frequency between agents?
+- **Workflow patterns** — is there a specific order of operations? Does the orchestrator follow a pipeline (research → draft → review → publish)? Are there quality gates or checkpoints?
+- **Tool usage conventions** — any rules about which tools to prefer, when to use bash vs file tools, when to use web search? Any cost-awareness rules (e.g., avoid redundant API calls)?
+- **Tone and style** — formal vs casual? Terse vs detailed? Does the orchestrator have a persona or voice?
+- **Guardrails** — what does the orchestrator explicitly avoid? Topics it won't engage with? Actions it won't take without human approval?
+- **Skill references** — if the recipe ships skills, how and when should the orchestrator invoke them? What triggers each skill?
+- **Network topology** — how many agents does this network typically grow to? Is there a hierarchy (orchestrator → specialists → workers)? Any rules about network size or structure?
 
-**Draw from the living network** — look at how the orchestrator actually behaves (its current comment, its mail patterns, its delegation style) and distill that into portable instructions.
+**Where to look:**
+- The current `comment.md` — what's already codified
+- The orchestrator's recent mail — how it actually delegates and responds
+- Avatar `.agent.json` blueprints — what specialized agents exist and why
+- The covenant and procedures — any custom overrides already in place
+- The human's feedback patterns — what corrections has the human made repeatedly?
 
-**No placeholders** — this is static text injected every turn. Every token counts.
+**Distillation technique:** For each behavioral norm you observe (e.g., "agents always deposit findings before emailing"), write it as an explicit rule (e.g., "Always write your findings to a file before sending an email summary"). Transform living behavior → explicit rule → readable prose.
 
-Show the draft to the human. Iterate until satisfied.
-
-### 3d. skills/ — Reusable Capabilities (Optional)
-
-If the human wants to include skills, discuss which ones:
-
-```bash
-ls -la .lingtai/.skills/
-```
+### 2d. skills/ — Reusable Capabilities (Optional)
 
 For each skill the human wants to include:
 
-1. Check if it's a bundled skill (shipped with the TUI) — if so, don't copy it; it's already available everywhere
+1. Check if it's an intrinsic skill (in `.skills/intrinsic/`) — if so, don't copy it; it's already available everywhere
 2. If it's a custom or recipe skill, copy the skill directory:
 
 ```bash
-mkdir -p ~/lingtai-agora/recipes/<name>/skills/<skill-name>
-cp -R .lingtai/.skills/<skill-name>/* ~/lingtai-agora/recipes/<name>/skills/<skill-name>/
+mkdir -p $HOME/lingtai-agora/recipes/<name>/skills/<skill-name>
+cp -R .lingtai/.skills/custom/<skill-name>/* $HOME/lingtai-agora/recipes/<name>/skills/<skill-name>/
 ```
 
 3. Verify each skill has a valid `SKILL.md` with proper frontmatter
 
-### 3e. covenant.md — Foundational Principles (Optional)
+### 2e–2f. covenant.md / procedures.md (Optional)
 
-Only create this if the network's principles fundamentally differ from the system default. Ask the human:
+Only create these if the network's principles or procedures fundamentally differ from the system default. Most recipes don't need them. See `lingtai-recipe` for details.
 
-> "Does this recipe need its own covenant, or will the system default work? Most recipes don't need a custom covenant unless the network operates under fundamentally different principles."
+### Post-write verification (MANDATORY)
 
-If yes, draft it with the human. If no, skip — the system default will be used.
+```bash
+find $HOME/lingtai-agora/recipes/<name>/ -type f | sort
+```
 
-### 3f. procedures.md — Operational Norms (Optional)
+**Check the output against your intended file list.** If any file is missing, re-create its parent directory and re-write it. **Do not proceed until all files are confirmed on disk.**
 
-Same as covenant — only if needed:
+## Step 3: Review with the Human
 
-> "Does this recipe need custom procedures? Only if the operational norms differ significantly from the default."
-
-If yes, draft it. If no, skip.
+Show the human the `find` output and read back each file's content via email. Iterate until the human approves.
 
 ## Step 4: Multi-Language Variants (Optional)
 
-If the human mentions a multi-language audience:
+If the human mentions a multi-language audience, create per-language subdirectories for greet.md and comment.md. See `lingtai-recipe` for i18n fallback rules.
 
-> "Would you like to create versions in other languages? The TUI tries `<lang>/greet.md` first, then falls back to the root file. Supported: en, zh, wen."
-
-If yes, create per-language subdirectories and translate the greet.md and comment.md. If no, the root-level files serve all languages.
-
-## Step 5: Review
-
-Show the human the complete recipe structure:
+## Step 5: git init + commit
 
 ```bash
-find ~/lingtai-agora/recipes/<name>/ -type f | sort
-```
-
-Read back each file's content. Ask for final review:
-
-> "Here's the complete recipe. Read through each file and let me know if you want to change anything before I commit."
-
-Iterate until the human approves.
-
-## Step 6: git init + commit
-
-```bash
-cd ~/lingtai-agora/recipes/<name>/
+cd $HOME/lingtai-agora/recipes/<name>/
 git init -b main
 git add .
 git status
 ```
 
-Show the human `git status`. Get confirmation. Then:
+Show `git status` to the human. Get confirmation. Then: `git commit -m "Recipe: <name>"`
 
-```bash
-git commit -m "Recipe: <name>"
-```
+## Step 6: Push to GitHub (Optional)
 
-## Step 7: Push to GitHub (Optional)
+Check `gh auth status` and follow the three-branch pattern:
 
-Check `gh auth status` and follow the same three-branch pattern as the network export:
-
-- **Branch A (gh ready):** Ask if they want to push, confirm repo name and public/private, run `gh repo create <name> --source=. --<public|private> --push`
+- **Branch A (gh ready):** Ask if they want to push, confirm repo name and visibility, run `gh repo create`
 - **Branch B (gh installed but not authenticated):** Guide through `gh auth login`
 - **Branch C (gh not installed):** Offer install instructions
-
-If the human declines GitHub, remind them they can push manually later.
 
 ## Things to Watch Out For
 
@@ -247,8 +184,6 @@ If the human declines GitHub, remind them they can push manually later.
 
 **Skills must be self-contained.** Each skill directory should work independently. Check that scripts don't reference absolute paths or project-specific resources.
 
-**The recipe is a seed, not a clone.** It shapes behavior on first contact and ongoing — it does NOT reproduce the network's state, history, or data. That's what `/export network` is for.
+**The recipe is a seed, not a clone.** It shapes behavior — it does NOT reproduce the network's state, history, or data. That's what `/export network` is for.
 
-**Bundled skills don't need copying.** Skills shipped with the TUI (lingtai-export-network, lingtai-recipe, lingtai-mcp, etc.) are already available in every installation. Only copy custom or recipe-specific skills.
-
-**recipe.json is mandatory.** Without it, the TUI won't recognize the directory as a valid recipe. Always create it with at least a `name` field.
+**Intrinsic skills don't need copying.** Skills under `.skills/intrinsic/` are shipped with the TUI and already available in every installation.

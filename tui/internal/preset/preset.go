@@ -344,24 +344,28 @@ func Bootstrap(globalDir string) error {
 	return EnsureDefault()
 }
 
-// PopulateBundledSkills writes the bundled (canonical) skills into the
-// project's .lingtai/.skills/ directory, overwriting any existing files
-// at the same path. Called on every TUI startup so canonical skills stay
-// in sync with the shipped binary.
+// PopulateBundledSkills writes the bundled (canonical) skills into a
+// global staging directory (globalDir/bundled-skills/) and creates a
+// symlink at .lingtai/.skills/intrinsic → that staging directory.
 //
-// Only paths present in the embedded skills/ tree are touched. Files the
-// user has added under .lingtai/.skills/ that are NOT part of the bundled
-// set are left alone — that is how users add their own custom skills.
-// Edits to canonical skills are not preserved (by design: they are
-// tui-managed and refreshed on each launch).
-func PopulateBundledSkills(lingtaiDir string) {
+// Called on every TUI startup so canonical skills stay in sync with the
+// shipped binary. The staging directory is shared across all projects;
+// per-project symlinks point to it.
+//
+// Also cleans up legacy flat bundled skill directories that older TUI
+// versions wrote directly into .skills/.
+func PopulateBundledSkills(lingtaiDir, globalDir string) {
 	skillsDir := filepath.Join(lingtaiDir, ".skills")
+	os.MkdirAll(skillsDir, 0o755)
+
+	// Write embedded skills to the global staging directory.
+	stagingDir := filepath.Join(globalDir, "bundled-skills")
 	fs.WalkDir(skillsFS, "skills", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}
 		rel, _ := filepath.Rel("skills", path)
-		target := filepath.Join(skillsDir, rel)
+		target := filepath.Join(stagingDir, rel)
 		os.MkdirAll(filepath.Dir(target), 0o755)
 		data, err := skillsFS.ReadFile(path)
 		if err == nil {
@@ -370,22 +374,75 @@ func PopulateBundledSkills(lingtaiDir string) {
 		return nil
 	})
 
-	// Clean up skills removed or renamed between TUI versions.
-	// Only non-symlink directories are removed (symlinks are recipe-managed).
-	removedSkills := []string{
-		"lingtai-agora", // renamed to lingtai-export-network in v0.4.40
+	// Symlink .skills/intrinsic → globalDir/bundled-skills/
+	intrinsicLink := filepath.Join(skillsDir, "intrinsic")
+	if existing, err := os.Readlink(intrinsicLink); err == nil {
+		if existing == stagingDir {
+			// Already correct
+		} else {
+			os.Remove(intrinsicLink)
+			os.Symlink(stagingDir, intrinsicLink)
+		}
+	} else {
+		// Not a symlink — remove whatever is there (could be a legacy dir)
+		os.RemoveAll(intrinsicLink)
+		os.Symlink(stagingDir, intrinsicLink)
 	}
-	for _, name := range removedSkills {
-		p := filepath.Join(skillsDir, name)
+
+	// Clean up legacy flat bundled skill directories written by older TUI
+	// versions directly into .skills/. Only non-symlink directories whose
+	// name matches a bundled skill are removed.
+	bundled := BundledSkillNames()
+	entries, _ := os.ReadDir(skillsDir)
+	for _, e := range entries {
+		if e.Name() == "intrinsic" || e.Name() == "custom" {
+			continue
+		}
+		if e.Name()[0] == '.' {
+			continue
+		}
+		if !bundled[e.Name()] {
+			continue // not a bundled name — leave it alone
+		}
+		p := filepath.Join(skillsDir, e.Name())
 		info, err := os.Lstat(p)
 		if err != nil {
-			continue // doesn't exist — nothing to do
+			continue
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
 			continue // symlink — managed by recipe_skills.go, leave it
 		}
 		os.RemoveAll(p)
 	}
+
+	// Also clean up known stale skills that may have been migrated into custom/.
+	staleSkills := []string{
+		"lingtai-agora", // renamed to lingtai-export-network in v0.4.40
+	}
+	customDir := filepath.Join(skillsDir, "custom")
+	for _, name := range staleSkills {
+		p := filepath.Join(customDir, name)
+		if _, err := os.Stat(p); err == nil {
+			os.RemoveAll(p)
+		}
+	}
+}
+
+// BundledSkillNames returns the set of skill directory names that are shipped
+// with the TUI binary (embedded in skillsFS). Use this to distinguish
+// intrinsic skills from user-created or recipe-imported ones.
+func BundledSkillNames() map[string]bool {
+	names := make(map[string]bool)
+	entries, err := fs.ReadDir(skillsFS, "skills")
+	if err != nil {
+		return names
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			names[e.Name()] = true
+		}
+	}
+	return names
 }
 
 // CovenantPath returns the absolute path to the covenant file for a language.

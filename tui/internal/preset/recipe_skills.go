@@ -6,40 +6,55 @@ import (
 	"path/filepath"
 )
 
-// LinkRecipeSkills creates symlinks in <lingtaiDir>/.skills/ for every skill
-// found in every known recipe directory. Called on every TUI startup after
-// PopulateBundledSkills().
+// LinkRecipeSkills creates grouped symlinks in <lingtaiDir>/.skills/ for
+// skills from the active recipe, custom recipe, and agora recipes.
+// Called on every TUI startup after PopulateBundledSkills().
 //
-// All recipes' skills are linked simultaneously — switching recipes only
-// affects greet.md/comment.md, not skill availability. Bundled recipes are
-// linked first and win on name collisions.
+// Each recipe's skills are placed under .skills/<recipe-name>/ as a group
+// folder. Individual skills within that group are symlinked to the
+// lang-resolved skill directory in the recipe.
 //
-// Symlink naming: <recipe-dirname>-<skill-name>-<lang> (lang-specific) or
-// <recipe-dirname>-<skill-name> (root fallback).
-func LinkRecipeSkills(lingtaiDir, globalDir, lang, customDir string) {
+// Only the active bundled recipe's skills are linked — inactive bundled
+// recipes do not contribute skills. Custom and agora recipes are always linked.
+func LinkRecipeSkills(lingtaiDir, globalDir, lang, activeRecipe, customDir string) {
 	skillsDir := filepath.Join(lingtaiDir, ".skills")
 	os.MkdirAll(skillsDir, 0o755)
 
-	// Track claimed symlink names for collision detection.
-	// Bundled recipes are processed first and win collisions.
-	claimed := make(map[string]string) // symlink name → recipe that claimed it
+	// Track all recipe group dirs we create/update so we can detect stale ones.
+	activeGroups := make(map[string]bool)
+	activeGroups["intrinsic"] = true // managed by PopulateBundledSkills
+	activeGroups["custom"] = true    // agent-created, never touched
 
-	// 1. Bundled recipes
+	// 1. Active bundled recipe only
+	if activeRecipe != "" {
+		recipeDir := filepath.Join(globalDir, "recipes", activeRecipe)
+		if info, err := os.Stat(recipeDir); err == nil && info.IsDir() {
+			linkRecipeDir(skillsDir, recipeDir, activeRecipe, lang)
+			activeGroups[activeRecipe] = true
+		}
+	}
+
+	// Clean up group dirs from previously active bundled recipes that are
+	// no longer active. Only remove dirs under .skills/ that correspond to
+	// a bundled recipe name and are not the active one.
 	recipesRoot := filepath.Join(globalDir, "recipes")
 	if entries, err := os.ReadDir(recipesRoot); err == nil {
 		for _, e := range entries {
-			if !e.IsDir() {
+			if !e.IsDir() || e.Name() == activeRecipe {
 				continue
 			}
-			recipeDir := filepath.Join(recipesRoot, e.Name())
-			linkRecipeDir(skillsDir, recipeDir, e.Name(), lang, claimed)
+			staleGroup := filepath.Join(skillsDir, e.Name())
+			if _, err := os.Stat(staleGroup); err == nil {
+				os.RemoveAll(staleGroup)
+			}
 		}
 	}
 
 	// 2. Custom recipe (if set)
 	if customDir != "" {
 		recipeName := filepath.Base(customDir)
-		linkRecipeDir(skillsDir, customDir, recipeName, lang, claimed)
+		linkRecipeDir(skillsDir, customDir, recipeName, lang)
+		activeGroups[recipeName] = true
 	}
 
 	// 3. Agora networks (try networks/ first, fall back to legacy projects/)
@@ -48,7 +63,6 @@ func LinkRecipeSkills(lingtaiDir, globalDir, lang, customDir string) {
 		agoraRoot := filepath.Join(home, "lingtai-agora", "networks")
 		entries, readErr := os.ReadDir(agoraRoot)
 		if readErr != nil {
-			// Fallback: try legacy projects/ path
 			agoraRoot = filepath.Join(home, "lingtai-agora", "projects")
 			entries, readErr = os.ReadDir(agoraRoot)
 		}
@@ -59,34 +73,44 @@ func LinkRecipeSkills(lingtaiDir, globalDir, lang, customDir string) {
 				}
 				recipeDir := filepath.Join(agoraRoot, e.Name(), ".lingtai-recipe")
 				if info, err := os.Stat(recipeDir); err == nil && info.IsDir() {
-					linkRecipeDir(skillsDir, recipeDir, e.Name(), lang, claimed)
+					linkRecipeDir(skillsDir, recipeDir, e.Name(), lang)
+					activeGroups[e.Name()] = true
 				}
 			}
 		}
 	}
 
-	// 4. Agora standalone recipes (~/lingtai-agora/recipes/)
-	if home, err := os.UserHomeDir(); err == nil {
-		agoraRecipesDir := filepath.Join(home, "lingtai-agora", "recipes")
-		if entries, err := os.ReadDir(agoraRecipesDir); err == nil {
-			for _, e := range entries {
-				if !e.IsDir() || e.Name() == "" || e.Name()[0] == '.' {
-					continue
-				}
-				recipeDir := filepath.Join(agoraRecipesDir, e.Name())
-				linkRecipeDir(skillsDir, recipeDir, e.Name(), lang, claimed)
+	// 4. Clean up stale group dirs that are no longer active.
+	if entries, err := os.ReadDir(skillsDir); err == nil {
+		for _, e := range entries {
+			name := e.Name()
+			if activeGroups[name] || isHidden(name) {
+				continue
+			}
+			p := filepath.Join(skillsDir, name)
+			info, err := os.Lstat(p)
+			if err != nil {
+				continue
+			}
+			if info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+				os.RemoveAll(p)
 			}
 		}
 	}
 }
 
-// linkRecipeDir symlinks all skills from a single recipe directory into skillsDir.
-func linkRecipeDir(skillsDir, recipeDir, recipeName, lang string, claimed map[string]string) {
+// linkRecipeDir creates .skills/<recipeName>/ as a real directory and
+// symlinks each resolved skill into it.
+func linkRecipeDir(skillsDir, recipeDir, recipeName, lang string) {
 	skillsRoot := filepath.Join(recipeDir, "skills")
 	entries, err := os.ReadDir(skillsRoot)
 	if err != nil {
 		return // no skills/ directory — normal for most recipes
 	}
+
+	groupDir := filepath.Join(skillsDir, recipeName)
+	os.MkdirAll(groupDir, 0o755)
+
 	for _, e := range entries {
 		if e.Name() == "" || e.Name()[0] == '.' {
 			continue
@@ -101,68 +125,52 @@ func linkRecipeDir(skillsDir, recipeDir, recipeName, lang string, claimed map[st
 			continue
 		}
 
-		// Compute symlink name. The resolved dir might be a fallback lang
-		// (e.g., zh/ when user asked for wen), so derive the suffix from the
-		// actual resolved path, not the requested lang.
-		base := filepath.Join(recipeDir, "skills", skillName)
-		var linkName string
-		if resolved == base {
-			// Root fallback — no lang suffix
-			linkName = fmt.Sprintf("%s-%s", recipeName, skillName)
-		} else {
-			// Lang-specific — suffix is the directory name under the skill
-			resolvedLang := filepath.Base(resolved)
-			linkName = fmt.Sprintf("%s-%s-%s", recipeName, skillName, resolvedLang)
-		}
-
-		// Collision detection: first writer wins
-		if owner, exists := claimed[linkName]; exists {
-			if owner != recipeName {
-				fmt.Fprintf(os.Stderr, "warning: recipe skill %q from %q collides with %q — skipped\n", linkName, recipeName, owner)
-			}
-			continue
-		}
-		claimed[linkName] = recipeName
-
-		linkPath := filepath.Join(skillsDir, linkName)
+		linkPath := filepath.Join(groupDir, skillName)
 
 		// Check if symlink already exists and points to the correct target
 		if existing, err := os.Readlink(linkPath); err == nil {
 			if existing == resolved {
-				continue // already correct, skip
+				continue // already correct
 			}
-			// Wrong target (e.g., lang changed) — remove and recreate
-			os.Remove(linkPath)
+			os.Remove(linkPath) // wrong target — recreate
 		} else {
-			// Not a symlink — might be a regular dir from PopulateBundledSkills
-			// or a broken state. Remove if it exists.
-			os.Remove(linkPath)
+			// Not a symlink — remove whatever is there
+			os.RemoveAll(linkPath)
 		}
 
 		if err := os.Symlink(resolved, linkPath); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to create recipe skill symlink %q: %v\n", linkName, err)
+			fmt.Fprintf(os.Stderr, "warning: failed to create recipe skill symlink %q: %v\n", linkPath, err)
 		}
 	}
 }
 
 // PruneStaleSkillSymlinks scans <lingtaiDir>/.skills/ and removes any
-// symlinks whose target no longer exists. Non-symlink entries (bundled
-// skills written by PopulateBundledSkills) are never touched.
+// symlinks whose target no longer exists. Works recursively — handles
+// both flat legacy symlinks and grouped symlinks inside recipe folders.
 func PruneStaleSkillSymlinks(lingtaiDir string) {
 	skillsDir := filepath.Join(lingtaiDir, ".skills")
-	entries, err := os.ReadDir(skillsDir)
+	pruneDir(skillsDir)
+}
+
+func pruneDir(dir string) {
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
 	}
 	for _, e := range entries {
-		if e.Type()&os.ModeSymlink == 0 {
-			continue // not a symlink — leave it alone
-		}
-		path := filepath.Join(skillsDir, e.Name())
-		// Check if target exists (os.Stat follows symlinks)
-		if _, err := os.Stat(path); err != nil {
-			// Broken symlink — remove
-			os.Remove(path)
+		path := filepath.Join(dir, e.Name())
+		if e.Type()&os.ModeSymlink != 0 {
+			// Symlink — check if target exists
+			if _, err := os.Stat(path); err != nil {
+				os.Remove(path) // broken symlink
+			}
+		} else if e.IsDir() && e.Name() != "." && !isHidden(e.Name()) {
+			// Real directory — recurse (for group folders)
+			pruneDir(path)
 		}
 	}
+}
+
+func isHidden(name string) bool {
+	return len(name) > 0 && name[0] == '.'
 }

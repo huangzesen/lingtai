@@ -165,6 +165,8 @@ func (m MarkdownViewerModel) renderLeft(maxW int) string {
 	sectionStyle := lipgloss.NewStyle().Foreground(ColorAccent).Bold(true)
 	warnStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#e5c07b"))
 
+	problemsGroup := i18n.T("skills.problems")
+
 	var lines []string
 	lastGroup := ""
 
@@ -174,7 +176,7 @@ func (m MarkdownViewerModel) renderLeft(maxW int) string {
 				lines = append(lines, "")
 			}
 			gs := sectionStyle
-			if e.Group == "Problems" || e.Group == i18n.T("skills.problems") {
+			if e.Group == problemsGroup || e.Group == "Problems" {
 				gs = warnStyle
 			}
 			lines = append(lines, "  "+gs.Render(e.Group))
@@ -184,7 +186,7 @@ func (m MarkdownViewerModel) renderLeft(maxW int) string {
 
 		marker := "  "
 		style := normalStyle
-		if e.Group == "Problems" || e.Group == i18n.T("skills.problems") {
+		if e.Group == problemsGroup || e.Group == "Problems" {
 			style = warnStyle
 		}
 		if i == m.cursor {

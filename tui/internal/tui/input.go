@@ -9,7 +9,6 @@ import (
 	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/rivo/uniseg"
 
 	"github.com/anthropics/lingtai-tui/i18n"
 )
@@ -40,12 +39,16 @@ func NewInputModel(humanDir string) InputModel {
 	ti.Prompt = ""
 	ti.Placeholder = i18n.T("mail.placeholder")
 	ti.CharLimit = 5000
-	// Enter is reserved for sending; Ctrl+J inserts newlines.
-	ti.KeyMap.InsertNewline.SetKeys()
+	// Enter is reserved for sending; shift+enter and ctrl+j insert newlines.
+	ti.KeyMap.InsertNewline.SetKeys("shift+enter", "ctrl+j")
 	ti.SetWidth(80)
-	ti.SetHeight(1)
 	ti.ShowLineNumbers = false
 	ti.SetStyles(themedTextareaStyles())
+
+	// Let the textarea soft-wrap and auto-grow instead of inserting hard newlines.
+	ti.DynamicHeight = true
+	ti.MinHeight = 1
+	ti.MaxHeight = 6
 
 	m := InputModel{
 		textarea:   ti,
@@ -102,33 +105,34 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
 		case "enter":
 			return m, func() tea.Msg { return SendMsg{} }
 		case "up":
-			// Multiline and not on first line: let textarea handle cursor
-			if m.calcHeight() > 1 && m.textarea.Line() > 0 {
+			// Cursor not on first visual line: let textarea handle cursor movement
+			li := m.textarea.LineInfo()
+			if m.textarea.Line() > 0 || li.RowOffset > 0 {
 				break // fall through to textarea
 			}
-			// On first line or single-line: navigate history
+			// On first visual line: navigate history
 			if len(m.history) > 0 && m.historyIdx < len(m.history)-1 {
 				m.historyIdx++
 				m.textarea.SetValue(m.history[len(m.history)-1-m.historyIdx])
 				m.textarea.CursorEnd()
-				m.textarea.SetHeight(m.calcHeight())
 			}
 			return m, nil
 		case "down":
-			// Multiline and not on last line: let textarea handle cursor
-			if m.calcHeight() > 1 && m.textarea.Line() < m.calcHeight()-1 {
+			// Cursor not on last visual line: let textarea handle cursor movement
+			li := m.textarea.LineInfo()
+			lastLogicalLine := m.textarea.Line() >= m.textarea.LineCount()-1
+			lastVisualRow := li.RowOffset >= li.Height-1
+			if !(lastLogicalLine && lastVisualRow) {
 				break // fall through to textarea
 			}
-			// Single-line or empty: navigate history
+			// On last visual line: navigate history
 			if m.historyIdx > 0 {
 				m.historyIdx--
 				m.textarea.SetValue(m.history[len(m.history)-1-m.historyIdx])
 				m.textarea.CursorEnd()
-				m.textarea.SetHeight(m.calcHeight())
 			} else if m.historyIdx == 0 {
 				m.historyIdx = -1
 				m.textarea.SetValue("")
-				m.textarea.SetHeight(1)
 			}
 			return m, nil
 		case "ctrl+e":
@@ -137,11 +141,9 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
 				return OpenEditorMsg{Text: m.textarea.Value()}
 			}
 		}
-		// Forward to textarea for all other keys (including ctrl+j for newline)
+		// Forward to textarea for all other keys (including ctrl+j / shift+enter for newline)
 		var cmd tea.Cmd
 		m.textarea, cmd = m.textarea.Update(msg)
-		m.autoWrap()
-		m.textarea.SetHeight(m.calcHeight())
 
 		// After update, check if slash is first char → activate palette
 		newVal := m.textarea.Value()
@@ -188,103 +190,11 @@ func (m InputModel) View() string {
 	return rendered + pad + hint + "\n" + border
 }
 
-// autoWrap inserts a real newline when the current line exceeds the textarea
-// width. Word-wraps at the last space, or hard-breaks if no space is found.
-func (m *InputModel) autoWrap() {
-	w := m.textarea.Width()
-	if w < 1 {
-		return
-	}
-	val := m.textarea.Value()
-	lines := strings.Split(val, "\n")
-	changed := false
-	for i, line := range lines {
-		if lipgloss.Width(line) <= w {
-			continue
-		}
-		// Find last space that fits within width
-		runes := []rune(line)
-		breakAt := -1
-		widthSoFar := 0
-		for j, r := range runes {
-			widthSoFar = lipgloss.Width(string(runes[:j+1]))
-			if widthSoFar > w {
-				break
-			}
-			if r == ' ' {
-				breakAt = j
-			}
-		}
-		if breakAt > 0 {
-			// Word wrap: break at last space
-			lines[i] = string(runes[:breakAt])
-			rest := string(runes[breakAt+1:]) // skip the space
-			lines = append(lines[:i+1], append([]string{rest}, lines[i+1:]...)...)
-		} else {
-			// Hard break: no space found, break at width boundary
-			breakIdx := 0
-			for j := range runes {
-				if lipgloss.Width(string(runes[:j+1])) > w {
-					breakIdx = j
-					break
-				}
-			}
-			if breakIdx > 0 {
-				lines[i] = string(runes[:breakIdx])
-				lines = append(lines[:i+1], append([]string{string(runes[breakIdx:])}, lines[i+1:]...)...)
-			}
-		}
-		changed = true
-	}
-	if changed {
-		m.textarea.SetValue(strings.Join(lines, "\n"))
-		m.textarea.CursorEnd()
-	}
-}
-
-// visualLineCount returns the number of visual (wrapped) lines for a string
-// in a textarea of the given maxWidth columns, accounting for CJK characters
-// that occupy 2 terminal columns each.
-func visualLineCount(value string, maxWidth int) int {
-	if value == "" || maxWidth <= 0 {
-		return 1
-	}
-	lines := strings.Split(value, "\n")
-	total := 0
-	for _, line := range lines {
-		vw := uniseg.StringWidth(line)
-		if vw == 0 {
-			total++
-			continue
-		}
-		total += (vw + maxWidth - 1) / maxWidth
-	}
-	if total < 1 {
-		return 1
-	}
-	return total
-}
-
-// calcHeight returns the number of display lines, accounting for soft wrapping.
-func (m *InputModel) calcHeight() int {
-	val := m.textarea.Value()
-	if val == "" {
-		return 1
-	}
-	taWidth := m.textarea.Width()
-	if taWidth <= 0 {
-		taWidth = 40
-	}
-	total := visualLineCount(val, taWidth)
-	if total > 6 {
-		total = 6
-	}
-	return total
-}
-
 // LineCount returns the number of display lines in the input.
+// With DynamicHeight enabled, the textarea's Height() reflects the actual
+// visual line count (clamped between MinHeight and MaxHeight).
 func (m *InputModel) LineCount() int {
-	return m.calcHeight()
+	return m.textarea.Height()
 }
 
 func (m InputModel) Value() string {
@@ -316,7 +226,6 @@ func (m *InputModel) Reset() {
 	}
 	m.historyIdx = -1
 	m.textarea.Reset()
-	m.textarea.SetHeight(1)
 	m.showPalette = false
 }
 
@@ -366,4 +275,3 @@ func (m *InputModel) saveHistory() {
 	data, _ := json.Marshal(m.history)
 	os.WriteFile(m.historyPath(), data, 0o644)
 }
-

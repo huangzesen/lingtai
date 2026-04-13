@@ -1,16 +1,36 @@
 ---
 name: lingtai-export-network
-description: Export the current lingtai network for sharing. Copies the network to ~/lingtai-agora/networks/<name>/, scrubs ephemeral runtime state, processes mail with a user-chosen time cutoff, writes a canonical .gitignore, scans for nested git repos and leaked secrets, and initializes a clean git repository ready to push. Use when the human asks you to share, export, package, or back up this network for others.
-version: 1.0.0
+description: Export the current lingtai network for sharing. Copies the network to $HOME/lingtai-agora/networks/<name>/, scrubs ephemeral runtime state, processes mail with a user-chosen time cutoff, writes a canonical .gitignore, scans for nested git repos and leaked secrets, and initializes a clean git repository ready to push. Use when the human asks you to share, export, package, or back up this network for others.
+version: 2.0.0
 ---
 
 # lingtai-export-network: Exporting a Network
+
+**Prerequisites:** Read the `lingtai-recipe` skill first — Step 5 of this skill creates a launch recipe for the exported network, and you need to understand recipe structure, components, and placeholders. Also read `lingtai-export-recipe` if the human wants to export a standalone recipe alongside the network.
 
 You are about to copy the network you live in to an exportable location. **This is literal self-copying** — the snapshot will not contain the moment you made it. Everything up to this conversation turn will be in the exported copy; this turn itself will only exist in the original.
 
 Walk the human through the steps below carefully. Each step is either *mechanical* (run a script, report the result) or *interactive* (discuss a decision with the human before proceeding). Never skip the interactive steps — the whole point of a skill-driven exporting flow is that a human is in the loop for judgment calls.
 
 All scripts live alongside this SKILL.md under `scripts/`. The canonical `.gitignore` template lives at `assets/gitignore.template`. You run the scripts with `python3 <path-to-script> ...`; resolve the absolute path from this skill's location in `.lingtai/.skills/lingtai-export-network/`.
+
+## Critical: Filesystem Rules
+
+These rules prevent silent failures. Follow them without exception.
+
+1. **Resolve `$HOME` first.** The `write` tool does NOT expand `~`. At the start of this skill, run:
+   ```bash
+   echo $HOME
+   ```
+   Use the result (e.g., `/Users/alice`) as the prefix for ALL file paths. Never use `~` in a `write` or `file` tool call.
+
+2. **Always use absolute paths.** Every `write` call must use a full absolute path. The `write` tool resolves relative paths from your working directory, not from the staging directory.
+
+3. **Always `mkdir -p` before writing.** The `write` tool may silently fail or report false success if the parent directory does not exist. Before writing any file, create its parent directory with `bash`.
+
+4. **Verify after writing.** After writing files, run `find <dir> -type f | sort` to confirm all files landed. If any file is missing, re-create its parent directory and re-write it.
+
+5. **Never trust a write success message at face value.** The write tool can report success even when the file was not created (e.g., missing parent directory). Always verify with `find` or `ls`.
 
 ## How to talk to the human during this skill
 
@@ -27,26 +47,36 @@ If any of those happen, stop, switch to email immediately, and catch up by re-se
 
 The one exception: run-time tool output (script results, `git status`, `du -sh`) is fine to narrate in your own working turns, because you are reasoning about it yourself. The rule is specifically about *messages directed at the human*.
 
-## Step 0: Decide the project name
+## Step 0: Resolve paths + decide the project name
+
+**0a. Resolve the staging base directory.**
+
+```bash
+echo $HOME
+```
+
+Store the result. All paths in this skill use `$HOME/lingtai-agora/networks/` as the base. For example, if `$HOME` is `/Users/alice`, the base is `/Users/alice/lingtai-agora/networks/`. **Note: `lingtai-agora`, NOT `.lingtai-agora` — no leading dot.** The agora directory is a user-visible workspace, not a hidden config directory. Never use `~` in tool calls — always use the resolved absolute path.
+
+**0b. Decide the project name.**
 
 Infer a default name from the current project folder's basename (the directory that contains `.lingtai/`). Ask the human:
 
-> "I'm going to copy this network to `~/lingtai-agora/networks/<default>/`. Use that name, or a different one?"
+> "I'm going to copy this network to `$HOME/lingtai-agora/networks/<default>/`. Use that name, or a different one?"
 
-Accept the human's override if given. The final path is `~/lingtai-agora/networks/<name>/`. If that path already exists, ask before proceeding:
+Accept the human's override if given. The final path is `$HOME/lingtai-agora/networks/<name>/`. If that path already exists, ask before proceeding:
 
-> "`~/lingtai-agora/networks/<name>/` already exists. Overwrite it, or pick a different name?"
+> "`$HOME/lingtai-agora/networks/<name>/` already exists. Overwrite it, or pick a different name?"
 
 Never silently overwrite. If overwriting, `rm -rf` the old staging copy first.
 
 ## Step 1: Copy + mechanical scrub
 
-**1a. Copy.** Use `cp -R` (or `rsync -a`) to copy the entire current project folder to `~/lingtai-agora/networks/<name>/`. The source is the directory that contains `.lingtai/` — if you're not sure where that is, the human's current project is your best signal. Confirm with the human if ambiguous.
+**1a. Copy.** Use `cp -R` (or `rsync -a`) to copy the entire current project folder to `$HOME/lingtai-agora/networks/<name>/`. The source is the directory that contains `.lingtai/` — if you're not sure where that is, the human's current project is your best signal. Confirm with the human if ambiguous.
 
 **1b. Scrub ephemeral state.** Run:
 
 ```bash
-python3 scripts/scrub_ephemeral.py ~/lingtai-agora/networks/<name>/
+python3 scripts/scrub_ephemeral.py $HOME/lingtai-agora/networks/<name>/
 ```
 
 This deletes, for every agent:
@@ -74,7 +104,7 @@ Mail gets special handling because it's the most privacy-sensitive content in th
 **2a. Normalize.** Run:
 
 ```bash
-python3 scripts/archive_mail.py ~/lingtai-agora/networks/<name>/
+python3 scripts/archive_mail.py $HOME/lingtai-agora/networks/<name>/
 ```
 
 This wipes `sent/` and `outbox/` (the publisher's outgoing record is not part of the seed), and moves everything in `inbox/` into `archive/`. After this step, every email lives flat in `mailbox/archive/<uuid>/`.
@@ -82,7 +112,7 @@ This wipes `sent/` and `outbox/` (the publisher's outgoing record is not part of
 **2b. Decide the cutoff with the human.** Count archived messages per agent:
 
 ```bash
-find ~/lingtai-agora/networks/<name>/.lingtai/*/mailbox/archive -name message.json | wc -l
+find $HOME/lingtai-agora/networks/<name>/.lingtai/*/mailbox/archive -name message.json | wc -l
 ```
 
 Propose a cutoff based on volume:
@@ -95,13 +125,13 @@ Present the date you propose in `YYYY-MM-DD` form. Let the human override. **Do 
 **2c. Apply the cutoff.** First dry-run:
 
 ```bash
-python3 scripts/filter_archive.py ~/lingtai-agora/networks/<name>/ --before YYYY-MM-DD --dry-run
+python3 scripts/filter_archive.py $HOME/lingtai-agora/networks/<name>/ --before YYYY-MM-DD --dry-run
 ```
 
 Show the human the dry-run totals (how many old messages drop, how many malformed messages drop, how many kept). Get explicit confirmation, then run for real:
 
 ```bash
-python3 scripts/filter_archive.py ~/lingtai-agora/networks/<name>/ --before YYYY-MM-DD
+python3 scripts/filter_archive.py $HOME/lingtai-agora/networks/<name>/ --before YYYY-MM-DD
 ```
 
 The script is re-runnable. If the human wants a different cutoff later, just re-run with the new date — filtering is one-way (you can only drop more, never restore).
@@ -113,7 +143,7 @@ This is the longest interactive step. Work through it patiently with the human.
 **3a. Scan for nested git repositories.** Run:
 
 ```bash
-python3 scripts/scan_nested_repos.py ~/lingtai-agora/networks/<name>/
+python3 scripts/scan_nested_repos.py $HOME/lingtai-agora/networks/<name>/
 ```
 
 For each nested repo found (each one outside `.lingtai/`), discuss with the human:
@@ -146,7 +176,7 @@ Examples of the kind of conversation this step produces:
 > - "`notebooks/` — 3.2 MB, 12 notebooks. Could be valuable context. Keep? [Y/n]"
 > - "`models/` — 4.1 GB. That's a lot. Ignore? [Y/n]"
 
-**3c. Write `.gitignore`.** Read the template at `assets/gitignore.template` (relative to this SKILL.md) and write it to `~/lingtai-agora/networks/<name>/.gitignore`. Then append any additional ignores collected in steps 3a and 3b under a clearly-labeled `# Added during exporting review` section.
+**3c. Write `.gitignore`.** Read the template at `assets/gitignore.template` (relative to this SKILL.md) and write it to `$HOME/lingtai-agora/networks/<name>/.gitignore`. Then append any additional ignores collected in steps 3a and 3b under a clearly-labeled `# Added during exporting review` section.
 
 The canonical template covers: `.lingtai/` runtime state (init.json, logs, locks, etc.), `mailbox/` working state (inbox, outbox, sent, schedules — only `archive/` is versioned), common secret patterns, Python noise, editor/OS junk. Do not remove lines from it — downstream forks rely on this policy being complete.
 
@@ -155,7 +185,7 @@ The canonical template covers: `.lingtai/` runtime state (init.json, logs, locks
 Run:
 
 ```bash
-python3 scripts/privacy_scan.py ~/lingtai-agora/networks/<name>/
+python3 scripts/privacy_scan.py $HOME/lingtai-agora/networks/<name>/
 ```
 
 The script produces two categories of output:
@@ -174,126 +204,51 @@ For hard matches, the human has two options:
 
 A **launch recipe** controls what the orchestrator says and how it behaves when someone clones this network and runs it for the first time. It lives at `.lingtai-recipe/` in the project root — a convention the TUI discovers automatically during setup.
 
-A recipe has two files:
+**Read the `lingtai-recipe` skill** for the full recipe format — directory structure, components (greet.md, comment.md, covenant.md, procedures.md, skills/), placeholders, and i18n rules. Everything documented there applies here. This step focuses on the export-specific workflow.
 
-- **`greet.md`** (required) — the first message the orchestrator sends to the new user. This is about **proactiveness**: setting the tone, introducing the network, offering to guide the user. Think of it as the elevator pitch spoken by the agent itself. **This file is mandatory for exporting** — every exported network must greet its new user.
-
-- **`comment.md`** (optional) — persistent behavioral instructions injected into the orchestrator's system prompt on every turn. This is about **constraints and guidance**: what the orchestrator should do, what topics to cover, what order to follow, what to avoid. This is the detailed playbook — the equivalent of the tutorial system's `tutorial.md`, but tailored to this specific network's purpose.
+**Do not skip this step.** An exported network without a greet is a bad first impression — the recipient sets up the network and gets silence.
 
 ### 5a. Discuss the recipe with the human
 
-Ask:
+> "Every exported network needs a welcome message for new users. I'll draft a `greet.md` and optionally a `comment.md`. What is this network for, and what should a new user experience on their first launch?"
 
-> "Every exported network needs a welcome message for new users. I'll draft a `greet.md` — the first thing your orchestrator will say to someone who clones this network. I can also draft a `comment.md` with detailed behavioral instructions if you'd like. What is this network for, and what should a new user experience on their first launch?"
-
-Discuss what the network is for, who the audience is, and what the orchestrator should do on first contact. Use the existing mail archive, agent names, and `.agent.json` blueprints in the staging copy to understand the network's purpose. Then draft the files.
-
-**Do not skip this step.** An exported network without a greet is a bad first impression — the recipient sets up the network and gets silence. Always create at least `greet.md`.
+Use the existing mail archive, agent names, and `.agent.json` blueprints in the staging copy to understand the network's purpose. Then draft the files.
 
 ### 5b. Draft greet.md
 
-Write the first-contact message. This should:
+Write the first-contact message following the rules in `lingtai-recipe`. Key points for network exports:
 
-- Introduce the network and its purpose in 2–4 sentences
-- Offer to guide the user ("Ready to get started?" / "What would you like to explore first?")
-- **Include a reminder to wake up all agents**: tell the user to type `/cpr all` to start the full network. After rehydration, only the orchestrator is launched — the other agents are ready but sleeping. This line is mandatory.
-- Be warm but not overly long — this is a `.prompt`, the agent speaks it once
+- **Always include `/cpr all`** — after rehydration, only the orchestrator is launched; other agents are sleeping
+- Keep it warm but concise — introduce the network, offer guidance, explain how to start
 
-**Available placeholders** — the TUI substitutes these at setup time with the recipient's own values:
+### 5c. Draft comment.md (optional)
 
-| Placeholder | Replaced with | Example |
-|---|---|---|
-| `{{time}}` | Current date and time (YYYY-MM-DD HH:MM) | `2026-04-09 14:30` |
-| `{{addr}}` | The human's email address in the network | `human` |
-| `{{lang}}` | The language selected during setup | `en`, `zh`, `wen` |
-| `{{location}}` | The human's location (from their .agent.json) | `Los Angeles, California, US` |
-| `{{soul_delay}}` | Seconds between the orchestrator's soul cycles | `120` |
-
-These are optional — use them only where natural. `{{time}}` and `{{lang}}` are the most useful. `{{location}}` may be `unknown` if the recipient hasn't set up location.
-
-**Example:**
-
-```
-Welcome to the OpenClaw Explainer Network! It's {{time}}.
-
-I'm the lead orchestrator of a team of 10 agents that can walk you through the OpenClaw legal dataset — case structure, citation format, judicial opinions, and more.
-
-To wake up the full team, type /cpr all — right now only I'm running. Once everyone is online, let me know what you'd like to explore, or say "start from the beginning" and I'll take you through it step by step.
-```
-
-### 5c. Draft comment.md
-
-Write the behavioral playbook. This is injected into the orchestrator's system prompt persistently (every turn, not just the first message). It should:
-
-- Describe the orchestrator's role in 1–2 sentences
-- List the topics or steps the orchestrator should guide the user through (numbered if sequential, bulleted if unordered)
-- Describe how to interact with other agents in the network (if applicable — e.g., "delegate legal citation questions to the `citation-agent`")
-- Set constraints (what NOT to do, what to avoid, tone guidelines)
-- Be as detailed as needed — this is a system prompt section, not a user-facing message. Longer is fine if the guidance is substantive.
-
-**No placeholder substitution** is performed on `comment.md` — it is read by the kernel as-is. Write it as plain prose.
-
-**Example:**
-
-```
-You are the lead orchestrator of the OpenClaw Explainer Network.
-
-Your job is to guide new users through the OpenClaw legal dataset. Walk them
-through these topics in order, one at a time, confirming understanding before
-moving on:
-
-1. What OpenClaw is — a structured dataset of US court opinions
-2. Case structure — how opinions are organized (parties, docket, citations)
-3. Citation format — Bluebook style, parallel citations
-4. Searching — how to find cases by topic, citation, or party name
-5. Cross-references — how cases cite each other, citation networks
-6. Practical exercises — the user picks a legal question and you walk them
-   through finding and reading the relevant cases
-
-When the user asks about citation details, delegate to `citation-agent` via
-email. When they ask about case search, delegate to `search-agent`.
-
-Always be patient. Explain legal terminology when you use it. If the user
-seems lost, offer to go back a step rather than pushing forward.
-
-Do not generate legal advice. You explain the dataset and how to read it —
-you do not interpret the law.
-```
+Write the behavioral playbook following the rules in `lingtai-recipe`. Draw from the living network's actual behavior — delegation patterns, topic ordering, constraints.
 
 ### 5d. Write the files
 
 ```bash
-mkdir -p ~/lingtai-agora/networks/<name>/.lingtai-recipe
+mkdir -p $HOME/lingtai-agora/networks/<name>/.lingtai-recipe
 ```
 
-Write `greet.md` and `comment.md` to that directory. Show the human both files and ask for review:
+Write `greet.md` and `comment.md` using **absolute paths**. Verify:
 
-> "Here's the launch recipe I've drafted. The greet is what the orchestrator will say first; the comment shapes its ongoing behavior. Want to edit either one?"
+```bash
+find $HOME/lingtai-agora/networks/<name>/.lingtai-recipe/ -type f | sort
+```
 
-If the human wants changes, edit and re-show. Iterate until they're satisfied.
+Show both files to the human and iterate until satisfied.
 
 ### 5e. Multi-language recipes (optional)
 
-If the network is intended for a specific language audience, you can create per-language subdirectories:
-
-```
-.lingtai-recipe/
-  en/
-    greet.md
-    comment.md
-  zh/
-    greet.md
-    comment.md
-```
-
-The TUI tries `<lang>/greet.md` first, then falls back to `greet.md` at the root. For most networks, a single root-level pair is sufficient. Only suggest per-language subdirectories if the human mentions a multi-language audience.
+See `lingtai-recipe` for i18n fallback rules. For most networks, a single root-level pair is sufficient.
 
 ## Step 6: git init + commit
 
 Once steps 1–5 are clean:
 
 ```bash
-cd ~/lingtai-agora/networks/<name>/
+cd $HOME/lingtai-agora/networks/<name>/
 git init -b main
 git add .
 git status
@@ -336,7 +291,7 @@ If **yes**: discuss the repo name and visibility. Default the repo name to `<nam
 Once the human confirms the repo name and visibility, run:
 
 ```bash
-cd ~/lingtai-agora/networks/<name>/
+cd $HOME/lingtai-agora/networks/<name>/
 gh repo create <repo_name> --source=. --<public|private> --push
 ```
 
@@ -344,7 +299,7 @@ The `--push` flag both creates the remote on GitHub and pushes the initial commi
 
 > "Pushed: https://github.com/<user>/<repo_name>
 >
-> You can re-run this skill later to refresh the snapshot — commits to this local repo can be pushed with `git push` from `~/lingtai-agora/networks/<name>/`."
+> You can re-run this skill later to refresh the snapshot — commits to this local repo can be pushed with `git push` from `$HOME/lingtai-agora/networks/<name>/`."
 
 If `gh repo create` fails (name conflict, rate limit, network error), surface the error verbatim and let the human decide how to proceed. Do not retry automatically.
 
@@ -384,4 +339,4 @@ If **no**: stop here. Remind them they can push manually later with `git remote 
 
 **The `.gitignore` policy is load-bearing.** Downstream forks of this network will inherit the `.gitignore`. If you strip lines from the canonical template because "the human doesn't have that file anyway", you set up the next publisher for an accidental leak. Always write the full template.
 
-**Nothing in this skill touches the live project folder.** If you find yourself about to run any destructive command against a path that isn't under `~/lingtai-agora/networks/<name>/`, stop and reconsider.
+**Nothing in this skill touches the live project folder.** If you find yourself about to run any destructive command against a path that isn't under `$HOME/lingtai-agora/networks/<name>/`, stop and reconsider.

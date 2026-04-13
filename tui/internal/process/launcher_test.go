@@ -9,8 +9,9 @@ import (
 func TestInitProject(t *testing.T) {
 	dir := t.TempDir()
 	lingtaiDir := filepath.Join(dir, ".lingtai")
+	globalDir := filepath.Join(dir, "global")
 
-	if err := InitProject(lingtaiDir); err != nil {
+	if err := InitProject(lingtaiDir, globalDir); err != nil {
 		t.Fatalf("init: %v", err)
 	}
 

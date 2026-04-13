@@ -1,7 +1,7 @@
 ---
 name: skills-manual
 description: What skills are, how to write them, where to find them, and when to create one
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Skills Manual
@@ -38,6 +38,43 @@ my-skill/
 ```
 
 SKILL.md should reference supporting files by relative path. Offload dense content to subdirectories — keep SKILL.md focused on the procedure.
+
+### Skill Store Layout
+
+The skill store at `.lingtai/.skills/` is organized into group folders:
+
+```
+.skills/
+  intrinsic/            # Bundled with the TUI — managed automatically
+    lingtai-mcp/
+    lingtai-export-recipe/
+    ...
+  <recipe-name>/        # From recipes — managed by the TUI
+    research-skill/
+    writing-skill/
+    ...
+  custom/               # YOUR skills — create new skills here
+    my-workflow/
+      SKILL.md
+    data-pipeline/
+      SKILL.md
+```
+
+**When creating a new skill, always place it under `.skills/custom/`.** Group folders can nest arbitrarily deep — a folder with `SKILL.md` is a skill; a folder containing only subfolders is a group.
+
+```
+custom/
+  research/             # Group — no SKILL.md, just subfolders
+    arxiv/              # Skill — has SKILL.md
+      SKILL.md
+      scripts/
+    scholar/            # Skill — has SKILL.md
+      SKILL.md
+  my-standalone-skill/  # Skill — has SKILL.md
+    SKILL.md
+```
+
+**Corruption rule:** a folder with no `SKILL.md` that contains loose files (not just subdirectories) is considered corrupted and will be flagged as a problem.
 
 ## When to Create a Skill
 
@@ -87,22 +124,22 @@ SKILL.md should reference supporting files by relative path. Offload dense conte
 
 ### Installing a Skill
 
-Use bash to clone or download into the shared skill store:
+Use bash to clone or download into the `custom/` group:
 
 ```bash
 # Clone a skill repo
-cd <skills-dir>
+cd <skills-dir>/custom
 git clone https://github.com/someone/useful-skill.git
 
 # Or download a single skill folder
-# (copy/extract into <skills-dir>/skill-name/)
+# (copy/extract into <skills-dir>/custom/skill-name/)
 ```
 
 Then call `skills(action='register')` to validate and commit.
 
 To update a skill that's a git repo:
 ```bash
-cd <skills-dir>/skill-name
+cd <skills-dir>/custom/skill-name
 git pull
 ```
 Then `skills(action='register')` again.
