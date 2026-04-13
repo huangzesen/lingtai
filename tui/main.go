@@ -18,7 +18,6 @@ import (
 	"github.com/anthropics/lingtai-tui/internal/migrate"
 	"github.com/anthropics/lingtai-tui/internal/preset"
 	"github.com/anthropics/lingtai-tui/internal/process"
-	"github.com/anthropics/lingtai-tui/internal/secretary"
 	"github.com/anthropics/lingtai-tui/internal/tui"
 )
 
@@ -268,12 +267,6 @@ func main() {
 		go fs.UpdateHumanLocation(humanDir)
 	}
 	// If needsFirstRun: welcome page goroutine handles everything
-
-	// Secretary health check — if the secretary has been set up but is not
-	// running, gently ask the user if they want to wake it up.
-	if !needsFirstRun {
-		maybeReviveSecretary(globalDir)
-	}
 
 	// Do NOT auto-relaunch stopped agents on TUI startup. The TUI's job is
 	// to attach to whatever state the agent is in, not to second-guess why
@@ -691,34 +684,6 @@ func showWelcome(globalDir string) {
 	reader.ReadString('\n')
 
 	os.WriteFile(sentinel, []byte(time.Now().Format(time.RFC3339)+"\n"), 0o644)
-}
-
-// maybeReviveSecretary checks whether the secretary agent has been set up
-// but is not currently running. If so, it asks the user whether to wake it.
-func maybeReviveSecretary(globalDir string) {
-	secDir := secretary.AgentDir(globalDir)
-	if _, err := os.Stat(filepath.Join(secDir, ".agent.json")); os.IsNotExist(err) {
-		return // secretary never set up — nothing to do
-	}
-	if fs.IsAlive(secDir, 3.0) {
-		return // already running
-	}
-
-	fmt.Print("Secretary is not running. Wake up? [Y/n] ")
-	reader := bufio.NewReader(os.Stdin)
-	line, _ := reader.ReadString('\n')
-	answer := strings.TrimSpace(strings.ToLower(line))
-	if answer == "n" || answer == "no" {
-		return
-	}
-
-	lingtaiCmd := config.LingtaiCmd(globalDir)
-	if _, err := process.LaunchAgent(lingtaiCmd, secDir); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to wake secretary: %v\n", err)
-		return
-	}
-	fs.WritePrompt(secDir, secretary.GreetContent())
-	fmt.Println("Secretary is waking up.")
 }
 
 func cleanMain() {
