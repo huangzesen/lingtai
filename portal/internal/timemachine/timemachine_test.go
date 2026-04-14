@@ -1,11 +1,13 @@
 package timemachine
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestInitGit(t *testing.T) {
@@ -122,5 +124,78 @@ func TestLargeFileIgnored(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(lingtaiDir, ".gitignore"))
 	if !strings.Contains(string(data), "big.bin") {
 		t.Error("large file not added to .gitignore")
+	}
+}
+
+func TestSelectKeepers(t *testing.T) {
+	now := time.Now()
+
+	// Generate 200 commits over ~17 hours (one every 5 min)
+	var commits []commitInfo
+	for i := 199; i >= 0; i-- {
+		commits = append(commits, commitInfo{
+			hash: fmt.Sprintf("hash%03d", i),
+			time: now.Add(-time.Duration(i) * 5 * time.Minute),
+		})
+	}
+
+	keepers := selectKeepers(commits, now)
+
+	if len(keepers) > 100 {
+		t.Errorf("expected at most 100 keepers, got %d", len(keepers))
+	}
+
+	// Most recent commits (within 2 hours) should all be kept
+	twoHoursAgo := now.Add(-2 * time.Hour)
+	for _, c := range commits {
+		if c.time.After(twoHoursAgo) {
+			found := false
+			for _, k := range keepers {
+				if k == c.hash {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("recent commit %s (%v ago) should be kept", c.hash, now.Sub(c.time))
+			}
+		}
+	}
+}
+
+func TestSelectKeepersUnderCap(t *testing.T) {
+	now := time.Now()
+
+	// Only 10 commits — all should be kept, no thinning needed
+	var commits []commitInfo
+	for i := 9; i >= 0; i-- {
+		commits = append(commits, commitInfo{
+			hash: fmt.Sprintf("hash%d", i),
+			time: now.Add(-time.Duration(i) * 5 * time.Minute),
+		})
+	}
+
+	keepers := selectKeepers(commits, now)
+
+	if len(keepers) != 10 {
+		t.Errorf("expected 10 keepers (all), got %d", len(keepers))
+	}
+}
+
+func TestRepoSizeBytes(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	dir := t.TempDir()
+	lingtaiDir := filepath.Join(dir, ".lingtai")
+	os.MkdirAll(lingtaiDir, 0o755)
+	initGit(lingtaiDir)
+
+	size, err := repoSizeBytes(lingtaiDir)
+	if err != nil {
+		t.Fatalf("repoSizeBytes failed: %v", err)
+	}
+	if size == 0 {
+		t.Error("expected non-zero repo size")
 	}
 }
