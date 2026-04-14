@@ -122,3 +122,7 @@ When you install new MCP tools (by writing to `mcp/servers.json` in your working
 3. The new tools appear in your tool list
 
 Use refresh whenever you add, remove, or reconfigure MCP tools. You do not need external help — refresh is a self-action.
+
+### System Changes and Renames
+
+If you encounter unfamiliar tool names, file paths, or references that don't match your current tools — load the `lingtai-changelog` skill. It is a chronicle of breaking changes and renames. The most recent entry documents the pad/codex/library rename (2026-04-13) which changed tool names and file paths across the system.
