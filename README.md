@@ -262,6 +262,39 @@ IMAP addon for email. See [kernel docs](https://github.com/huangzesen/lingtai-ke
 
 Telegram bot addon. See [kernel docs](https://github.com/huangzesen/lingtai-kernel).
 
+## Coding Agent Integration
+
+LingTai networks are accessible from coding agents like Claude Code, Codex CLI, and OpenCode. The coding agent takes the human's identity and uses the shared mailbox at `.lingtai/human/` to communicate with running agents — reading mail, sending instructions, checking liveness, and managing the agent lifecycle.
+
+### Claude Code
+
+Install the [lingtai plugin](https://github.com/Lingtai-AI/claude-code-plugin):
+
+```bash
+claude plugin add Lingtai-AI/claude-code-plugin
+```
+
+The plugin provides:
+- **SessionStart hook** — detects LingTai projects and notifies you of unread messages
+- **`lingtai` skill** — full reference for mailbox protocol, agent discovery, lifecycle management (sleep/suspend/cpr/refresh), and adaptive polling
+
+Once installed, Claude Code automatically detects `.lingtai/` directories and offers to check your mailbox. Ask it to read mail, send messages to agents, or manage the network.
+
+### Codex CLI / OpenCode / Other coding agents
+
+Any coding agent with file access can interact with LingTai — the protocol is pure filesystem. Add these instructions to your `AGENTS.md` (Codex) or system prompt:
+
+```
+This project has a LingTai agent network at .lingtai/. You are the human.
+- Read mail: glob .lingtai/human/mailbox/inbox/*/message.json
+- Send mail: write message.json to .lingtai/<agent>/mailbox/inbox/<uuid>/
+- Find agents: glob .lingtai/*/.agent.json
+- Check liveness: read .lingtai/<agent>/.agent.heartbeat (unix timestamp, alive if < 3s old)
+- Send to the orchestrator (the agent with admin.karma=true), not directly to sub-agents.
+```
+
+For the full mailbox protocol (message format, signals, lifecycle management), see the [Claude Code plugin skill](https://github.com/Lingtai-AI/claude-code-plugin/blob/main/skills/lingtai/SKILL.md) — the same reference applies to any coding agent.
+
 ## Contributing
 
 Contributions are welcome. Check the [LingTai Roadmap](https://github.com/users/huangzesen/projects/1) for planned features and open tasks.
