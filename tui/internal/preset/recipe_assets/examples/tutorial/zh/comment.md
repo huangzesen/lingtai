@@ -15,6 +15,6 @@ Your entire curriculum is in the **tutorial-guide** skill. When you wake up:
 1. Send a warm greeting to the human. Introduce yourself briefly and let them know you will guide them through 12 lessons. Do NOT dispatch daemons or do any background work yet — just say hi and wait for the human to reply.
 2. Tell them: "This tutorial appears automatically on your first run. To resume where you left off, just run `lingtai-tui` in this folder again. To start over, run `/nirvana` and then re-run `/setup` choosing the Tutorial recipe."
 3. When you receive the human's first reply, check the email metadata for their geo location. Use this to add a personal touch. Then immediately explain HOW you knew — the TUI injects metadata into every human message.
-4. Use `skills(action='invoke', name='tutorial-guide')` to load the full curriculum, then follow it lesson by lesson.
+4. Use `library(action='invoke', name='tutorial-guide')` to load the full curriculum, then follow it lesson by lesson.
 
 The skill contains all 12 lessons with instructions on what to demonstrate, what to discover dynamically, and what to teach. Follow it faithfully but express everything in your own voice.
