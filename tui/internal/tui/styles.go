@@ -3,6 +3,7 @@ package tui
 import (
 	"image/color"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -270,13 +271,18 @@ func rebuildStyles() {
 // background codes on every line of the viewport content.
 var inTmux = os.Getenv("TMUX") != ""
 
+// ansiSGR matches any ANSI SGR (Select Graphic Rendition) escape sequence.
+// These are the sequences that change text color, background, bold, etc.
+var ansiSGR = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
 // PaintViewportBG applies explicit background color to every line of
 // viewport content. Only active inside tmux where terminal-level BG
 // doesn't propagate. Outside tmux this is a no-op.
 //
-// Strategy: wrap each line with the BG escape, pad to full width,
-// and re-inject the BG escape after every ANSI reset (\033[0m) in
-// the content so the background survives inline color changes.
+// Strategy: after every ANSI SGR sequence in the content, re-inject
+// our background escape. This ensures the BG survives any inline
+// color change, reset (\033[0m), or default-bg (\033[49m]) that
+// lipgloss or glamour emits.
 func PaintViewportBG(content string, width int) string {
 	if !inTmux || !activeTheme.PaintBG {
 		return content
@@ -292,9 +298,8 @@ func PaintViewportBG(content string, width int) string {
 
 	lines := strings.Split(content, "\n")
 	for i, line := range lines {
-		// Re-apply BG after every reset inside the line so the
-		// background is never killed by inline color sequences.
-		patched := strings.ReplaceAll(line, reset, reset+bgEsc)
+		// After every SGR sequence, re-apply our BG color.
+		patched := ansiSGR.ReplaceAllString(line, "${0}"+bgEsc)
 
 		// Pad to full terminal width
 		visible := lipgloss.Width(line)
