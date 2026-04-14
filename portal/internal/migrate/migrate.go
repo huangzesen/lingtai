@@ -8,7 +8,7 @@ import (
 )
 
 // CurrentVersion is the latest migration version compiled into this binary.
-const CurrentVersion = 15
+const CurrentVersion = 16
 
 type metaFile struct {
 	Version int `json:"version"`
@@ -38,6 +38,7 @@ var migrations = []Migration{
 	{Version: 13, Name: "agora-rename", Fn: func(_ string) error { return nil }},
 	{Version: 14, Name: "skills-groups", Fn: func(_ string) error { return nil }},
 	{Version: 15, Name: "timemachine-gitignore", Fn: migrateTimeMachineGitignore},
+	{Version: 16, Name: "rename-pad-codex-library", Fn: func(_ string) error { return nil }},
 }
 
 // Run executes all pending migrations on the given .lingtai/ directory.
