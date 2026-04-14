@@ -111,7 +111,6 @@ func IsRunning(lingtaiDir string) bool {
 	if err != nil {
 		return false
 	}
-	// Signal 0 checks if process exists without killing it
 	return proc.Signal(syscall.Signal(0)) == nil
 }
 

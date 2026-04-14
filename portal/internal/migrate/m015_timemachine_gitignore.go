@@ -9,6 +9,7 @@ const timeMachineGitignore = `# Time Machine — auto-generated
 **/.git/
 *.lock
 *.heartbeat
+*.pid
 .status.json
 *.pyc
 __pycache__/
