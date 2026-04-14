@@ -31,6 +31,23 @@ cd portal && make build
 
 Cross-compilation targets (darwin/linux/windows, amd64/arm64) are available via `make cross-compile` in each directory.
 
+## Releases
+
+**IMPORTANT: Every GitHub release MUST include freshly compiled binaries.** Never upload stale tar.gz files from previous builds. The full release process:
+
+1. Tag and push: `git tag v0.X.Y && git push origin v0.X.Y`
+2. Cross-compile: `cd tui && make cross-compile`
+3. Re-tar the fresh binaries:
+   ```bash
+   cd tui/bin
+   tar czf lingtai-darwin-arm64.tar.gz lingtai-darwin-arm64
+   tar czf lingtai-darwin-x64.tar.gz lingtai-darwin-x64
+   tar czf lingtai-linux-x64.tar.gz lingtai-linux-x64
+   tar czf lingtai-linux-arm64.tar.gz lingtai-linux-arm64
+   ```
+4. Create release with binaries: `gh release create v0.X.Y --title "v0.X.Y" --notes "..." lingtai-darwin-arm64.tar.gz lingtai-darwin-x64.tar.gz lingtai-linux-x64.tar.gz lingtai-linux-arm64.tar.gz`
+5. Update the Homebrew tap (`huangzesen/homebrew-lingtai/lingtai-tui.rb`): bump version, update all sha256 checksums (`shasum -a 256 *.tar.gz`), commit and push.
+
 ## Projects
 
 ### TUI (`tui/`)
