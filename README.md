@@ -106,15 +106,7 @@ LingTai agents live in the filesystem. Any coding agent that can read and write 
 claude plugin add Lingtai-AI/claude-code-plugin
 ```
 
-**Codex CLI / OpenCode / OpenClaw / Hermes** — install the [mailbox skill](https://github.com/Lingtai-AI/lingtai-mailbox-skill):
-
-```bash
-# OpenCode (global)
-git clone https://github.com/Lingtai-AI/lingtai-mailbox-skill.git ~/.config/opencode/skills/lingtai-mailbox-skill
-
-# Codex CLI — append to AGENTS.md
-cat lingtai-mailbox-skill/skills/lingtai-mailbox/SKILL.md >> AGENTS.md
-```
+**Codex CLI / OpenCode / OpenClaw / Hermes** — install the [lingtai-mailbox-skill](https://github.com/Lingtai-AI/lingtai-mailbox-skill).
 
 Once connected, your coding agent shares the human mailbox at `.lingtai/human/` — it can read mail from agents, send instructions, check liveness, and manage the network. The protocol is pure filesystem: no SDK, no API, no dependencies.
 

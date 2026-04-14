@@ -89,15 +89,7 @@ curl -L "https://github.com/huangzesen/lingtai/archive/refs/tags/${VERSION}.tar.
 claude plugin add Lingtai-AI/claude-code-plugin
 ```
 
-**Codex CLI / OpenCode / OpenClaw / Hermes** — 安装 [邮箱技能](https://github.com/Lingtai-AI/lingtai-mailbox-skill)：
-
-```bash
-# OpenCode（全局）
-git clone https://github.com/Lingtai-AI/lingtai-mailbox-skill.git ~/.config/opencode/skills/lingtai-mailbox-skill
-
-# Codex CLI — 追加到 AGENTS.md
-cat lingtai-mailbox-skill/skills/lingtai-mailbox/SKILL.md >> AGENTS.md
-```
+**Codex CLI / OpenCode / OpenClaw / Hermes** — 安装 [lingtai-mailbox-skill](https://github.com/Lingtai-AI/lingtai-mailbox-skill)。
 
 连接后，编程智能体共享 `.lingtai/human/` 邮箱——可以阅读器灵邮件、发送指令、检查存活状态、管理网络。协议完全基于文件系统：无 SDK、无 API、无依赖。
 
