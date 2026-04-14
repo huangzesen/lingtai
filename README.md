@@ -54,7 +54,25 @@ Then run the `brew install` command above.
 </details>
 
 <details>
-<summary><b>Build from source</b> (requires Go 1.24+)</summary>
+<summary><b>Install from source</b> (latest main, no release needed)</summary>
+
+```bash
+curl -sSL https://raw.githubusercontent.com/huangzesen/lingtai/main/install.sh | bash
+```
+
+Clones, builds, and installs `lingtai-tui` (and `lingtai-portal` if npm is available) to your Homebrew prefix. Use this to get unreleased changes across machines without cutting a release. To revert: `brew reinstall lingtai-tui`.
+
+Install a specific branch or tag:
+```bash
+curl -sSL https://raw.githubusercontent.com/huangzesen/lingtai/main/install.sh | bash -s -- --ref v0.4.43
+```
+
+Requires Go 1.24+ and git. Node.js needed for portal only.
+
+</details>
+
+<details>
+<summary><b>Build from source manually</b> (requires Go 1.24+)</summary>
 
 ```bash
 # Replace v0.5.2 with the latest version
