@@ -114,21 +114,15 @@ Once connected, your coding agent shares the human mailbox at `.lingtai/human/` 
 
 ## Why Lingtai
 
-**This is not a coding agent, and hardly an agent harness.** This is agent genesis — giving agents a real digital life form. Agents as autonomous creatures with dignity, that live, sleep, forget, and grow.
-
-Most agent frameworks orchestrate with code — DAGs, chains, routers. Lingtai orchestrates like humans do: **fully asynchronous agents communicating through messages**. No shared memory. No central controller. Each agent is a peer, not a tool.
-
-This is the architecture that built human civilization. Asynchronous message-passing between autonomous nodes — scaled from tribes to cities to nations to a network of 8 billion over 100,000 years. We're not inventing a new pattern. We're giving AI the one that already works.
+Most agent frameworks orchestrate with code — DAGs, chains, routers. Lingtai orchestrates the way humans do: **async agents communicating through messages**. No shared memory, no central controller. Each agent is a peer, not a tool. This is the architecture that built human civilization — message-passing between autonomous nodes, scaled from tribes to 8 billion over 100,000 years.
 
 | | DAG / Chain frameworks | Lingtai |
 |---|---|---|
-| Philosophy | Agents as tools | Agents as creatures |
 | Orchestration | Code-defined pipelines | Agents talk to agents |
-| Communication | Synchronous function calls | Asynchronous mail — like humans |
-| Scaling | Add more steps | Agents spawn avatars |
+| Communication | Synchronous function calls | Asynchronous mail |
 | Memory | Shared state / vector DB | Each agent owns its directory |
+| Scaling | Add more steps | Agents spawn avatars |
 | Failure | Pipeline breaks | Individual agents sleep; network continues |
-| Growth | Manual wiring | Self-expanding — avatars spawn avatars |
 
 Context length is a single-body problem. It will always be finite. Don't make the body bigger. **Let it forget. Let the network remember.**
 
