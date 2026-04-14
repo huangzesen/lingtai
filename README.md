@@ -365,6 +365,10 @@ All user-facing strings live in `tui/i18n/{en,zh,wen}.json`. Always update all t
 3. **Build and test** — `cd tui && make build && go vet ./...`
 4. **Open a PR** with a clear description
 
+## Known issues
+
+- **tmux background rendering** — Inside tmux, the theme background color may not cover the full viewport consistently. Some lines show the terminal's default background bleeding through, especially around styled blocks (code, tool output). Works correctly outside tmux and over plain SSH. Workaround: set your tmux default background to match the theme (`set -g default-terminal "xterm-256color"` and a matching background color in your tmux config).
+
 ## License
 
 MIT — [Zesen Huang](https://github.com/huangzesen), 2025–2026
