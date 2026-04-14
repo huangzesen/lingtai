@@ -9,8 +9,8 @@ import (
 const (
 	snapshotInterval = 5 * time.Minute
 	thinInterval     = 1 * time.Hour
-	maxFileSize      = 10 * 1024 * 1024        // 10MB
-	maxRepoSize      = 2 * 1024 * 1024 * 1024   // 2GB
+	maxFileSize  int64 = 10 * 1024 * 1024       // 10MB
+	maxRepoSize  int64 = 2 * 1024 * 1024 * 1024  // 2GB
 )
 
 // Start launches the time machine background goroutine. It initializes

@@ -60,7 +60,15 @@ func snapshot(lingtaiDir string) (bool, error) {
 func scanLargeFiles(lingtaiDir string, maxBytes int64) {
 	gitignorePath := filepath.Join(lingtaiDir, ".gitignore")
 	existing, _ := os.ReadFile(gitignorePath)
-	existingStr := string(existing)
+
+	// Build set of existing gitignore lines for exact matching
+	ignoredLines := make(map[string]bool)
+	for _, line := range strings.Split(string(existing), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			ignoredLines[line] = true
+		}
+	}
 
 	var toAdd []string
 
@@ -80,7 +88,7 @@ func scanLargeFiles(lingtaiDir string, maxBytes int64) {
 			if err != nil {
 				return nil
 			}
-			if !strings.Contains(existingStr, rel) {
+			if !ignoredLines[rel] {
 				toAdd = append(toAdd, rel)
 			}
 		}

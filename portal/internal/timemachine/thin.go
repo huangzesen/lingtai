@@ -2,6 +2,7 @@ package timemachine
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -37,7 +38,9 @@ func selectKeepers(commits []commitInfo, now time.Time) []string {
 	kept[commits[0].hash] = true
 	kept[commits[len(commits)-1].hash] = true
 
-	for _, c := range commits {
+	// Iterate newest-first to keep the newest commit per window
+	for i := len(commits) - 1; i >= 0; i-- {
+		c := commits[i]
 		age := now.Sub(c.time)
 		var interval time.Duration
 
@@ -57,7 +60,7 @@ func selectKeepers(commits []commitInfo, now time.Time) []string {
 			continue
 		}
 
-		// Quantize to interval window — keep first commit per window
+		// Quantize to interval window — keep newest commit per window
 		window := c.time.Truncate(interval)
 		windowKey := fmt.Sprintf("%d-%s", interval, window.Format(time.RFC3339))
 		if !windows[windowKey] {
@@ -138,7 +141,20 @@ func thinHistory(lingtaiDir string, keepers []string) error {
 		return nil
 	}
 
-	// Create an orphan branch, replay kept commits, replace main
+	// Detect current branch name before rebuilding
+	branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	branchCmd.Dir = lingtaiDir
+	branchOut, err := branchCmd.Output()
+	if err != nil {
+		return fmt.Errorf("detect branch: %w", err)
+	}
+	origBranch := strings.TrimSpace(string(branchOut))
+	if origBranch == "" || origBranch == "HEAD" {
+		origBranch = "main" // fallback
+	}
+
+	// Create an orphan branch, replay kept commits, replace original branch.
+	// On any error, recover by checking out the original branch.
 	if err := git(lingtaiDir, "checkout", "--orphan", "tm-rebuild"); err != nil {
 		return fmt.Errorf("checkout orphan: %w", err)
 	}
@@ -147,37 +163,51 @@ func thinHistory(lingtaiDir string, keepers []string) error {
 	git(lingtaiDir, "rm", "-rf", "--cached", ".")
 
 	// Replay each kept commit
-	for _, hash := range keepers {
-		if err := git(lingtaiDir, "checkout", hash, "--", "."); err != nil {
-			return fmt.Errorf("checkout tree %s: %w", hash, err)
-		}
-		if err := git(lingtaiDir, "add", "-A"); err != nil {
-			return fmt.Errorf("add: %w", err)
-		}
+	replayErr := func() error {
+		for _, hash := range keepers {
+			if err := git(lingtaiDir, "checkout", hash, "--", "."); err != nil {
+				return fmt.Errorf("checkout tree %s: %w", hash, err)
+			}
+			if err := git(lingtaiDir, "add", "-A"); err != nil {
+				return fmt.Errorf("add: %w", err)
+			}
 
-		// Get original commit message
-		cmd := exec.Command("git", "log", "-1", "--format=%s", hash)
-		cmd.Dir = lingtaiDir
-		msgOut, err := cmd.Output()
-		if err != nil {
-			return fmt.Errorf("get message %s: %w", hash, err)
-		}
-		msg := strings.TrimSpace(string(msgOut))
-		if msg == "" {
-			msg = "snapshot"
-		}
+			// Get original commit message and author date
+			cmd := exec.Command("git", "log", "-1", "--format=%s%n%aI", hash)
+			cmd.Dir = lingtaiDir
+			msgOut, err := cmd.Output()
+			if err != nil {
+				return fmt.Errorf("get message %s: %w", hash, err)
+			}
+			lines := strings.SplitN(strings.TrimSpace(string(msgOut)), "\n", 2)
+			msg := lines[0]
+			if msg == "" {
+				msg = "snapshot"
+			}
 
-		if err := git(lingtaiDir, "commit", "--allow-empty", "-m", msg); err != nil {
-			return fmt.Errorf("commit replay %s: %w", hash, err)
+			// Preserve original author date
+			commitCmd := exec.Command("git", "commit", "--allow-empty", "-m", msg)
+			commitCmd.Dir = lingtaiDir
+			if len(lines) > 1 {
+				commitCmd.Env = append(os.Environ(), "GIT_AUTHOR_DATE="+lines[1])
+			}
+			if err := commitCmd.Run(); err != nil {
+				return fmt.Errorf("commit replay %s: %w", hash, err)
+			}
 		}
+		return nil
+	}()
+
+	if replayErr != nil {
+		// Recovery: go back to original branch, delete the failed rebuild
+		git(lingtaiDir, "checkout", origBranch)
+		git(lingtaiDir, "branch", "-D", "tm-rebuild")
+		return replayErr
 	}
 
-	// Replace main with the rebuilt branch
-	git(lingtaiDir, "branch", "-D", "main")
-	git(lingtaiDir, "branch", "-D", "master")
-	if err := git(lingtaiDir, "branch", "-M", "tm-rebuild", "main"); err != nil {
-		git(lingtaiDir, "branch", "-M", "tm-rebuild", "master")
-	}
+	// Replace original branch with the rebuilt one
+	git(lingtaiDir, "branch", "-D", origBranch)
+	git(lingtaiDir, "branch", "-M", "tm-rebuild", origBranch)
 
 	// GC to reclaim space
 	git(lingtaiDir, "gc", "--prune=now")
@@ -211,8 +241,9 @@ func repoSizeBytes(lingtaiDir string) (int64, error) {
 }
 
 // enforceSizeCap aggressively thins if the repo exceeds maxSize bytes.
+// Tries at most 5 rounds to avoid blocking the goroutine for too long.
 func enforceSizeCap(lingtaiDir string, maxSize int64) {
-	for {
+	for round := 0; round < 5; round++ {
 		git(lingtaiDir, "gc", "--aggressive", "--prune=now")
 
 		size, err := repoSizeBytes(lingtaiDir)
