@@ -270,29 +270,182 @@ func rebuildStyles() {
 // background codes on every line of the viewport content.
 var inTmux = os.Getenv("TMUX") != ""
 
-// PaintViewportBG applies explicit background color to every line of
-// viewport content. Only active inside tmux where terminal-level BG
-// doesn't propagate. Outside tmux this is a no-op.
+// PaintViewportBG replaces the default terminal background with our
+// theme BG on every character cell. Only active inside tmux where
+// terminal-level BG doesn't propagate.
 //
-// The content's own ANSI sequences are left completely untouched.
-// We only paint BG-colored spaces into the gap between the end of
-// each line's visible content and the right edge of the terminal.
+// Walks each line through a minimal ANSI SGR state machine. Wherever
+// the background is "default" (after a reset or never explicitly set),
+// our theme BG is injected. Content that sets its own explicit
+// background (e.g. code blocks) is left untouched. Each line is
+// padded to the full terminal width with BG-colored spaces.
 func PaintViewportBG(content string, width int) string {
 	if !inTmux || !activeTheme.PaintBG {
 		return content
 	}
-	padStyle := lipgloss.NewStyle().Background(ColorBG)
+
+	// Extract our BG escape by probing lipgloss.
+	bgStyle := lipgloss.NewStyle().Background(ColorBG)
+	probe := bgStyle.Render(" ")
+	// probe = "<BG-on> <reset>". Strip trailing " \033[0m".
+	const ansiReset = "\033[0m"
+	bgEsc := strings.TrimSuffix(probe, " "+ansiReset)
+	if bgEsc == "" || bgEsc == probe {
+		bgEsc = strings.TrimSuffix(strings.TrimSuffix(probe, ansiReset), " ")
+	}
+	if bgEsc == "" {
+		return content
+	}
 
 	lines := strings.Split(content, "\n")
 	for i, line := range lines {
-		visible := lipgloss.Width(line)
-		if visible < width {
-			// Paint BG-colored spaces for the remaining width
-			pad := padStyle.Render(strings.Repeat(" ", width-visible))
-			lines[i] = line + pad
-		}
+		lines[i] = paintLineBG(line, width, bgEsc)
 	}
 	return strings.Join(lines, "\n")
+}
+
+// paintLineBG processes one line: injects bgEsc wherever BG is
+// "default", leaves explicit BG untouched, pads to full width.
+func paintLineBG(line string, width int, bgEsc string) string {
+	var out strings.Builder
+	out.Grow(len(line) + len(bgEsc)*10 + width)
+
+	bgExplicit := false // true when content has set its own BG
+	visibleW := 0
+	b := []byte(line)
+	n := len(b)
+
+	// Initial state: BG is default → inject ours
+	out.WriteString(bgEsc)
+
+	for j := 0; j < n; {
+		// Detect ESC sequence
+		if b[j] == 0x1b && j+1 < n && b[j+1] == '[' {
+			// Find end of CSI sequence
+			k := j + 2
+			for k < n && !((b[k] >= 0x40 && b[k] <= 0x7E)) {
+				k++
+			}
+			if k < n {
+				k++ // include terminator
+			}
+			seq := b[j:k]
+
+			if seq[len(seq)-1] == 'm' {
+				// SGR sequence — track BG state
+				wasExplicit := bgExplicit
+				bgExplicit = sgrSetsBG(string(seq), bgExplicit)
+
+				out.Write(seq)
+
+				// Transition: explicit → default — re-inject our BG
+				if wasExplicit && !bgExplicit {
+					out.WriteString(bgEsc)
+				}
+			} else {
+				// Non-SGR CSI — pass through
+				out.Write(seq)
+			}
+			j = k
+			continue
+		}
+
+		// Regular byte — possibly multi-byte UTF-8
+		if b[j] >= 0x80 {
+			size := 1
+			ch := rune(b[j])
+			switch {
+			case b[j]&0xE0 == 0xC0 && j+1 < n:
+				ch = rune(b[j]&0x1F)<<6 | rune(b[j+1]&0x3F)
+				size = 2
+			case b[j]&0xF0 == 0xE0 && j+2 < n:
+				ch = rune(b[j]&0x0F)<<12 | rune(b[j+1]&0x3F)<<6 | rune(b[j+2]&0x3F)
+				size = 3
+			case b[j]&0xF8 == 0xF0 && j+3 < n:
+				ch = rune(b[j]&0x07)<<18 | rune(b[j+1]&0x3F)<<12 | rune(b[j+2]&0x3F)<<6 | rune(b[j+3]&0x3F)
+				size = 4
+			}
+			out.Write(b[j : j+size])
+			visibleW += cjkWidth(ch)
+			j += size
+		} else {
+			out.WriteByte(b[j])
+			visibleW++
+			j++
+		}
+	}
+
+	// Pad to full width with our BG
+	if visibleW < width {
+		if bgExplicit {
+			// Content's BG is active — reset it, apply ours
+			out.WriteString("\033[49m")
+			out.WriteString(bgEsc)
+		}
+		for p := 0; p < width-visibleW; p++ {
+			out.WriteByte(' ')
+		}
+	}
+
+	out.WriteString("\033[0m")
+	return out.String()
+}
+
+// sgrSetsBG parses SGR params and returns whether an explicit
+// (non-default) background is active after this sequence.
+func sgrSetsBG(seq string, wasExplicit bool) bool {
+	if len(seq) < 4 {
+		return wasExplicit
+	}
+	inner := seq[2 : len(seq)-1] // between \033[ and m
+	if inner == "" || inner == "0" {
+		return false // full reset
+	}
+	explicit := wasExplicit
+	params := strings.Split(inner, ";")
+	for i := 0; i < len(params); i++ {
+		p := params[i]
+		switch {
+		case p == "0":
+			explicit = false
+		case p == "49":
+			explicit = false
+		case p == "48":
+			explicit = true
+			// Skip sub-params (48;5;N or 48;2;R;G;B)
+			if i+1 < len(params) {
+				if params[i+1] == "5" {
+					i += 2
+				} else if params[i+1] == "2" {
+					i += 4
+				}
+			}
+		default:
+			// 40-47 or 100-107
+			if len(p) == 2 && p[0] == '4' && p[1] >= '0' && p[1] <= '7' {
+				explicit = true
+			}
+			if len(p) == 3 && p[0] == '1' && p[1] == '0' && p[2] >= '0' && p[2] <= '7' {
+				explicit = true
+			}
+		}
+	}
+	return explicit
+}
+
+// cjkWidth returns 2 for CJK/fullwidth characters, 1 otherwise.
+func cjkWidth(r rune) int {
+	if (r >= 0x1100 && r <= 0x115F) ||
+		(r >= 0x2E80 && r <= 0x9FFF) ||
+		(r >= 0xAC00 && r <= 0xD7AF) ||
+		(r >= 0xF900 && r <= 0xFAFF) ||
+		(r >= 0xFE10 && r <= 0xFE6F) ||
+		(r >= 0xFF01 && r <= 0xFF60) ||
+		(r >= 0xFFE0 && r <= 0xFFE6) ||
+		(r >= 0x20000 && r <= 0x2FA1F) {
+		return 2
+	}
+	return 1
 }
 
 // StateColor returns the color for a given agent state string.

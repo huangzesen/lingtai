@@ -29,12 +29,12 @@ const (
 	appViewAddon
 	appViewDoctor
 	appViewNirvana
-	appViewSkills
+	appViewLibrary
 	appViewProjects
 	appViewBriefs
 	appViewAgora
 	appViewLogin
-	appViewLibrary
+	appViewCodex
 	appViewMailbox
 )
 
@@ -45,12 +45,12 @@ type App struct {
 	setup       SetupModel
 	settings    SettingsModel
 	props       PropsModel
-	skills          MarkdownViewerModel
+	library         MarkdownViewerModel
 	projects        ProjectsModel
 	agora           AgoraModel
 	secretaryMail   MailModel
 	briefs          MarkdownViewerModel
-	library         MarkdownViewerModel
+	codex           MarkdownViewerModel
 	mailbox         MarkdownViewerModel
 	firstRun        FirstRunModel
 	addon           AddonModel
@@ -206,8 +206,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.doctor, cmd = a.doctor.Update(msg)
 		case appViewNirvana:
 			a.nirvana, cmd = a.nirvana.Update(msg)
-		case appViewSkills:
-			a.skills, cmd = a.skills.Update(msg)
+		case appViewLibrary:
+			a.library, cmd = a.library.Update(msg)
 		case appViewBriefs:
 			a.briefs, cmd = a.briefs.Update(msg)
 		case appViewProjects:
@@ -218,8 +218,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.firstRun, cmd = a.firstRun.Update(msg)
 		case appViewLogin:
 			a.login, cmd = a.login.Update(msg)
-		case appViewLibrary:
-			a.library, cmd = a.library.Update(msg)
+		case appViewCodex:
+			a.codex, cmd = a.codex.Update(msg)
 		case appViewMailbox:
 			a.mailbox, cmd = a.mailbox.Update(msg)
 		}
@@ -445,7 +445,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		case "q":
 			// Only quit if not in a text input context
-			if a.currentView != appViewSetup && a.currentView != appViewFirstRun && a.currentView != appViewMail && a.currentView != appViewProps && a.currentView != appViewAddon && a.currentView != appViewNirvana && a.currentView != appViewSkills && a.currentView != appViewBriefs && a.currentView != appViewProjects && a.currentView != appViewAgora && a.currentView != appViewLogin && a.currentView != appViewLibrary && a.currentView != appViewMailbox {
+			if a.currentView != appViewSetup && a.currentView != appViewFirstRun && a.currentView != appViewMail && a.currentView != appViewProps && a.currentView != appViewAddon && a.currentView != appViewNirvana && a.currentView != appViewLibrary && a.currentView != appViewBriefs && a.currentView != appViewProjects && a.currentView != appViewAgora && a.currentView != appViewLogin && a.currentView != appViewCodex && a.currentView != appViewMailbox {
 				return a, tea.Quit
 			}
 		}
@@ -505,9 +505,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		updated, cmd := a.nirvana.Update(msg)
 		a.nirvana = updated
 		return a, cmd
-	case appViewSkills:
-		updated, cmd := a.skills.Update(msg)
-		a.skills = updated
+	case appViewLibrary:
+		updated, cmd := a.library.Update(msg)
+		a.library = updated
 		return a, cmd
 	case appViewBriefs:
 		updated, cmd := a.briefs.Update(msg)
@@ -525,9 +525,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		a.login, cmd = a.login.Update(msg)
 		return a, cmd
-	case appViewLibrary:
-		updated, cmd := a.library.Update(msg)
-		a.library = updated
+	case appViewCodex:
+		updated, cmd := a.codex.Update(msg)
+		a.codex = updated
 		return a, cmd
 	case appViewMailbox:
 		updated, cmd := a.mailbox.Update(msg)
@@ -734,14 +734,14 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 			a.props = NewPropsModel(a.projectDir, a.orchDir)
 		}
 		return a, tea.Batch(a.props.Init(), a.sendSize())
-	case "skills":
-		a.currentView = appViewSkills
-		skillsDir := filepath.Join(a.projectDir, ".skills")
+	case "library":
+		a.currentView = appViewLibrary
+		libraryDir := filepath.Join(a.projectDir, ".library")
 		if a.inSecretaryView {
-			skillsDir = filepath.Join(secretary.LingtaiDir(a.globalDir), ".skills")
+			libraryDir = filepath.Join(secretary.LingtaiDir(a.globalDir), ".library")
 		}
-		sk, prob := scanSkills(skillsDir)
-		a.skills = NewMarkdownViewer(buildSkillEntries(skillsDir, a.tuiConfig.Language, sk, prob), i18n.T("skills.title"))
+		sk, prob := scanLibrary(libraryDir)
+		a.library = NewMarkdownViewer(buildLibraryEntries(libraryDir, a.tuiConfig.Language, sk, prob), i18n.T("library.title"))
 		return a, a.sendSize()
 	case "secretary":
 		if a.inSecretaryView {
@@ -801,10 +801,10 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 			fs.WritePrompt(secAgentDir, prompt)
 		}
 		return a, a.sendSize()
-	case "library":
-		a.currentView = appViewLibrary
+	case "codex":
+		a.currentView = appViewCodex
 		entries := buildLibraryEntries(a.projectDir)
-		a.library = NewMarkdownViewer(entries, i18n.T("palette.library"))
+		a.codex = NewMarkdownViewer(entries, i18n.T("palette.codex"))
 		return a, a.sendSize()
 	case "mailbox":
 		a.currentView = appViewMailbox
@@ -1001,14 +1001,14 @@ func (a App) switchToView(viewName string) (tea.Model, tea.Cmd) {
 			a.props = NewPropsModel(a.projectDir, a.orchDir)
 		}
 		return a, tea.Batch(a.props.Init(), a.sendSize())
-	case "skills":
-		a.currentView = appViewSkills
-		skillsDir := filepath.Join(a.projectDir, ".skills")
+	case "library":
+		a.currentView = appViewLibrary
+		libraryDir := filepath.Join(a.projectDir, ".library")
 		if a.inSecretaryView {
-			skillsDir = filepath.Join(secretary.LingtaiDir(a.globalDir), ".skills")
+			libraryDir = filepath.Join(secretary.LingtaiDir(a.globalDir), ".library")
 		}
-		sk, prob := scanSkills(skillsDir)
-		a.skills = NewMarkdownViewer(buildSkillEntries(skillsDir, a.tuiConfig.Language, sk, prob), i18n.T("skills.title"))
+		sk, prob := scanLibrary(libraryDir)
+		a.library = NewMarkdownViewer(buildLibraryEntries(libraryDir, a.tuiConfig.Language, sk, prob), i18n.T("library.title"))
 		return a, a.sendSize()
 	case "secretary":
 		// switchToView always goes to secretary mail (no toggle — toggle is in handlePaletteCommand)
@@ -1068,8 +1068,8 @@ func (a App) View() tea.View {
 		content = a.doctor.View()
 	case appViewNirvana:
 		content = a.nirvana.View()
-	case appViewSkills:
-		content = a.skills.View()
+	case appViewLibrary:
+		content = a.library.View()
 	case appViewBriefs:
 		content = a.briefs.View()
 	case appViewProjects:
@@ -1078,8 +1078,8 @@ func (a App) View() tea.View {
 		content = a.agora.View()
 	case appViewLogin:
 		content = a.login.View()
-	case appViewLibrary:
-		content = a.library.View()
+	case appViewCodex:
+		content = a.codex.View()
 	case appViewMailbox:
 		content = a.mailbox.View()
 	}
