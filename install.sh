@@ -29,13 +29,21 @@ else
   BIN_DIR="/usr/local/bin"
 fi
 
-# Check dependencies
-for cmd in go git; do
-  if ! command -v "$cmd" &>/dev/null; then
-    echo "error: $cmd is required but not found"
+# Check dependencies — install via brew if missing
+if ! command -v git &>/dev/null; then
+  echo "error: git is required but not found"
+  exit 1
+fi
+
+if ! command -v go &>/dev/null; then
+  if command -v brew &>/dev/null; then
+    echo "==> Installing Go via Homebrew ..."
+    brew install go
+  else
+    echo "error: go is required but not found (install with: brew install go)"
     exit 1
   fi
-done
+fi
 
 echo "==> Cloning lingtai ($REF) ..."
 git clone --depth 1 --branch "$REF" "$REPO" "$BUILD_DIR" 2>/dev/null || \
