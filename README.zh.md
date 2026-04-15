@@ -52,6 +52,27 @@ sudo apt install build-essential
 </details>
 
 <details>
+<summary><b>大陆用户：用清华镜像加速 Homebrew 本身</b>（推荐先做这一步）</summary>
+
+如果 `brew install` / `brew update` 卡在拉取 `homebrew-core` 索引或下载 bottle（`ghcr.io`，国内经常不可达），先把 Homebrew 本身的源指向清华 [TUNA 镜像](https://mirrors.tuna.tsinghua.edu.cn/help/homebrew/)，再装本项目：
+
+```bash
+# 当前 shell 生效并写入 ~/.zprofile（macOS 默认 shell）。
+# 用 bash 的用户把 ~/.zprofile 换成 ~/.bash_profile 即可。
+cat >> ~/.zprofile <<'EOF'
+export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
+export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
+EOF
+source ~/.zprofile
+brew update
+```
+
+之后正常 `brew install huangzesen/lingtai/lingtai-tui` 即可。这一步与下面的 Gitee tap 互相独立：清华镜像解决的是 Homebrew 自身（bottle、core 索引）的国内访问问题；Gitee tap 只在 `brew tap` 拉本项目公式失败时才用得上。
+
+</details>
+
+<details>
 <summary><b>大陆用户：用 Gitee 镜像</b>（brew 从 GitHub 拉取失败时）</summary>
 
 如果 `brew install huangzesen/lingtai/lingtai-tui` 卡在 `brew tap` 步骤（GnuTLS / TLS 错误），改用 Gitee 镜像的 tap：

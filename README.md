@@ -74,6 +74,27 @@ The script auto-detects mainland China networks and switches to domestic Go/npm 
 </details>
 
 <details>
+<summary><b>Mainland China: speed up Homebrew itself with the Tsinghua mirror</b> (中国大陆)</summary>
+
+If `brew install` / `brew update` stalls pulling the `homebrew-core` index or downloading bottles (which come from `ghcr.io` and are often unreachable from CN networks), point Homebrew at Tsinghua's [TUNA mirror](https://mirrors.tuna.tsinghua.edu.cn/help/homebrew/) before installing:
+
+```bash
+# Set for this shell and persist in ~/.zprofile (macOS default shell).
+# Bash users: replace ~/.zprofile with ~/.bash_profile.
+cat >> ~/.zprofile <<'EOF'
+export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
+export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
+EOF
+source ~/.zprofile
+brew update
+```
+
+Then run the normal `brew install huangzesen/lingtai/lingtai-tui`. This is independent of the Gitee tap below — the Tsinghua mirror accelerates Homebrew's own infrastructure (bottles, core index), while the Gitee tap only helps when the `brew tap` step for *this project's* formula fails.
+
+</details>
+
+<details>
 <summary><b>Mainland China: use Gitee tap if GitHub is unreliable</b> (中国大陆)</summary>
 
 If `brew install huangzesen/lingtai/lingtai-tui` fails at the `brew tap` step (e.g., `GnuTLS` / TLS errors cloning from GitHub), use the Gitee-mirrored tap instead:

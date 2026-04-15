@@ -52,6 +52,27 @@ sudo apt install build-essential
 </details>
 
 <details>
+<summary><b>境内用户：借清华镜像以速 Homebrew 本身</b>（宜先行此步）</summary>
+
+若 `brew install` / `brew update` 滞于拉 `homebrew-core` 之录或取 bottle（`ghcr.io`，境内多不可达），先引 Homebrew 之源至清华 [TUNA 镜像](https://mirrors.tuna.tsinghua.edu.cn/help/homebrew/)，再装本项：
+
+```bash
+# 当前 shell 即行，且录于 ~/.zprofile（macOS 默认 shell）。
+# 若用 bash，~/.zprofile 易为 ~/.bash_profile。
+cat >> ~/.zprofile <<'EOF'
+export HOMEBREW_API_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/api"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles"
+export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
+EOF
+source ~/.zprofile
+brew update
+```
+
+后如常 `brew install huangzesen/lingtai/lingtai-tui` 可也。此步与下 Gitee tap 不相干涉：清华镜像解 Homebrew 自身（bottle、core 录）之境内取道，Gitee tap 唯 `brew tap` 取本项公式不得时方用。
+
+</details>
+
+<details>
 <summary><b>境内用户：借 Gitee 镜像</b>（brew 自 GitHub 取不得时）</summary>
 
 若 `brew install huangzesen/lingtai/lingtai-tui` 阻于 `brew tap` 一步（GnuTLS / TLS 之误），改用 Gitee 镜像之 tap：
