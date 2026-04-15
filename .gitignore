@@ -59,6 +59,14 @@ lingtai.tar.gz
 # lingtai-tui (separate repo)
 lingtai-tui
 
+# Personal user-facing workspace (symlink to ~/.lingtai-tui) and other
+# sibling project checkouts that users sometimes place alongside this
+# repo. None of these belong in the main repo history.
+.lingtai-tui
+lingtai-agora
+lingtai-claude-code
+lingtai-mailbox-skill
+
 # Runtime data (agent working dirs, configs)
 .lingtai/
 .chat_history.json

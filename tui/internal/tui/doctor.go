@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -580,7 +581,68 @@ func checkKernelHealth(orchDir, globalDir string, lines *[]doctorLine) bool {
 		allOK = false
 	}
 
+	// K7. Orchestrator heartbeat. Uses the canonical 3.0s liveness threshold
+	// from app.go / mail.go / nirvana.go. No remediation suggestion — a stale
+	// heartbeat can mean ASLEEP, SUSPENDED, crashed, or just lagging; the
+	// main view is the authoritative place for state and recovery actions.
+	age, hbErr := readHeartbeatAge(orchDir)
+	switch {
+	case hbErr != nil && os.IsNotExist(hbErr):
+		*lines = append(*lines, doctorLine{
+			Text: i18n.T("doctor.heartbeat_missing"), Warn: true,
+		})
+	case hbErr != nil:
+		*lines = append(*lines, doctorLine{
+			Text: i18n.TF("doctor.heartbeat_unreadable", hbErr.Error()), Warn: true,
+		})
+	case age < 3*time.Second:
+		*lines = append(*lines, doctorLine{
+			Text: i18n.TF("doctor.heartbeat_fresh", formatHeartbeatAge(age)), OK: true,
+		})
+	default:
+		*lines = append(*lines, doctorLine{
+			Text: i18n.TF("doctor.heartbeat_stale", formatHeartbeatAge(age)), Warn: true,
+		})
+	}
+
 	return allOK
+}
+
+// readHeartbeatAge reads the orchestrator's .agent.heartbeat file and returns
+// how long ago it was written. Mirrors fs.IsAlive's parsing but returns the
+// age directly so /doctor can display it. Errors on missing or malformed
+// heartbeat files are returned verbatim; the caller distinguishes IsNotExist
+// from parse failures.
+func readHeartbeatAge(orchDir string) (time.Duration, error) {
+	path := filepath.Join(orchDir, ".agent.heartbeat")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+	ts, err := strconv.ParseFloat(strings.TrimSpace(string(data)), 64)
+	if err != nil {
+		return 0, err
+	}
+	return time.Since(time.Unix(int64(ts), 0)), nil
+}
+
+// formatHeartbeatAge renders a duration in the terse unit-appropriate form
+// humans expect in diagnostic output: sub-second as "just now", single-digit
+// seconds as "Ns ago", minutes as "Nm ago", hours as "Nh ago". Longer than
+// a day just shows "Nd ago".
+func formatHeartbeatAge(d time.Duration) string {
+	switch {
+	case d < time.Second:
+		return i18n.T("doctor.heartbeat_just_now")
+	case d < time.Minute:
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	case d < time.Hour:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
+	}
 }
 
 // probeKernelImport runs `python -c "import lingtai; print(lingtai.__version__)"`
