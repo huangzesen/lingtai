@@ -605,7 +605,7 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 				}
 				if !fs.IsAlive(agent.WorkingDir, 3.0) && a.lingtaiCmd != "" {
 					count++
-					if _, err := process.LaunchAgent(a.lingtaiCmd, agent.WorkingDir); err != nil {
+					if err := reviveDir(a.lingtaiCmd, agent.WorkingDir); err != nil {
 						failures = append(failures, fmt.Sprintf("%s (%s)", filepath.Base(agent.WorkingDir), firstLine(err)))
 					}
 				}
@@ -617,7 +617,7 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 			}
 		} else if targetDir != "" && a.lingtaiCmd != "" {
 			if !fs.IsAlive(targetDir, 3.0) {
-				if _, err := process.LaunchAgent(a.lingtaiCmd, targetDir); err != nil {
+				if err := reviveDir(a.lingtaiCmd, targetDir); err != nil {
 					addMsg(i18n.TF("mail.launch_failed", firstLine(err)))
 				} else {
 					addMsg(i18n.TF("mail.cpr", targetName))
@@ -900,6 +900,15 @@ func (a *App) hardRefresh() error {
 func hardRefreshDir(lingtaiCmd, dir string) error {
 	suspendFile := filepath.Join(dir, ".suspend")
 	os.WriteFile(suspendFile, []byte(""), 0o644)
+	err := reviveDir(lingtaiCmd, dir)
+	os.Remove(suspendFile)
+	return err
+}
+
+// reviveDir waits for .agent.lock to free (force-removing it if the holder
+// is gone), then relaunches the agent. Used by /cpr (dead agent, no prior
+// suspend) and as the tail of hardRefreshDir (after writing .suspend).
+func reviveDir(lingtaiCmd, dir string) error {
 	lockFile := filepath.Join(dir, ".agent.lock")
 	locked := true
 	for i := 0; i < 120; i++ { // 120 × 500ms = 60s max
@@ -913,7 +922,6 @@ func hardRefreshDir(lingtaiCmd, dir string) error {
 		// Process likely died without releasing lock — clean up
 		os.Remove(lockFile)
 	}
-	os.Remove(suspendFile)
 	_, err := process.LaunchAgent(lingtaiCmd, dir)
 	return err
 }
