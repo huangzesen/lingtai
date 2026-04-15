@@ -31,6 +31,8 @@ func migrateRenamePadCodexLibrary(lingtaiDir string) error {
 		return nil
 	}
 
+	didWork := false
+
 	for _, e := range entries {
 		if !e.IsDir() || e.Name()[0] == '.' || e.Name() == "human" {
 			continue
@@ -38,23 +40,28 @@ func migrateRenamePadCodexLibrary(lingtaiDir string) error {
 		agentDir := filepath.Join(lingtaiDir, e.Name())
 
 		// 1. system/memory.md → system/pad.md
-		safeRename(
+		if safeRename(
 			filepath.Join(agentDir, "system", "memory.md"),
 			filepath.Join(agentDir, "system", "pad.md"),
 			"system/memory.md → system/pad.md",
-		)
+		) {
+			didWork = true
+		}
 
 		// 2. system/memory_append.json → system/pad_append.json
-		safeRename(
+		if safeRename(
 			filepath.Join(agentDir, "system", "memory_append.json"),
 			filepath.Join(agentDir, "system", "pad_append.json"),
 			"system/memory_append.json → system/pad_append.json",
-		)
+		) {
+			didWork = true
+		}
 
 		// 3. library/ → codex/
 		oldLibDir := filepath.Join(agentDir, "library")
 		newCodexDir := filepath.Join(agentDir, "codex")
 		if safeRename(oldLibDir, newCodexDir, "library/ → codex/") {
+			didWork = true
 			// Rename library.json → codex.json inside
 			safeRename(
 				filepath.Join(newCodexDir, "library.json"),
@@ -64,24 +71,37 @@ func migrateRenamePadCodexLibrary(lingtaiDir string) error {
 		}
 
 		// 4. .skills/ → .library/ (agent-level, if it exists)
-		safeRename(
+		if safeRename(
 			filepath.Join(agentDir, ".skills"),
 			filepath.Join(agentDir, ".library"),
 			".skills → .library (agent-level)",
-		)
+		) {
+			didWork = true
+		}
 
 		// 5. Rewrite init.json capability keys and config fields
-		rewriteInitJSON(filepath.Join(agentDir, "init.json"))
+		if rewriteInitJSON(filepath.Join(agentDir, "init.json")) {
+			didWork = true
+		}
 	}
 
 	// 6. .lingtai/.skills/ → .lingtai/.library/ (network-level)
-	safeRename(
+	if safeRename(
 		filepath.Join(lingtaiDir, ".skills"),
 		filepath.Join(lingtaiDir, ".library"),
 		".skills → .library (network-level)",
-	)
+	) {
+		didWork = true
+	}
 
-	// Show a prominent warning — agents need a refresh to pick up new tool names
+	// Only show the banner + blocking prompt if we actually migrated
+	// something. Fresh projects (meta.Version == 0 → replays all
+	// migrations including this one) had nothing to rename and shouldn't
+	// see the scary "your agents need a refresh" warning.
+	if !didWork {
+		return nil
+	}
+
 	fmt.Println()
 	fmt.Println("  ╔══════════════════════════════════════════════════════════════╗")
 	fmt.Println("  ║  Migration complete: memory→pad, library→codex, skills→library  ║")
@@ -101,15 +121,16 @@ func migrateRenamePadCodexLibrary(lingtaiDir string) error {
 
 // rewriteInitJSON rewrites capability names and config fields in an
 // agent's init.json. Handles both list and map capability formats.
-func rewriteInitJSON(path string) {
+// Returns true if any changes were written to disk.
+func rewriteInitJSON(path string) bool {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return // no init.json — nothing to do
+		return false // no init.json — nothing to do
 	}
 
 	var init map[string]interface{}
 	if json.Unmarshal(data, &init) != nil {
-		return // corrupt — skip
+		return false // corrupt — skip
 	}
 
 	changed := false
@@ -158,18 +179,19 @@ func rewriteInitJSON(path string) {
 	}
 
 	if !changed {
-		return
+		return false
 	}
 
 	out, err := json.MarshalIndent(init, "", "  ")
 	if err != nil {
-		return
+		return false
 	}
 	if err := os.WriteFile(path, out, 0o644); err != nil {
 		fmt.Printf("  warning: failed to rewrite %s: %v\n", path, err)
-	} else {
-		fmt.Printf("  migrated init.json capability keys\n")
+		return false
 	}
+	fmt.Printf("  migrated init.json capability keys\n")
+	return true
 }
 
 // safeRename renames src → dst if src exists and dst does not.
