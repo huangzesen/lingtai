@@ -164,6 +164,10 @@ type FirstRunModel struct {
 	setupOrchDir  string // current agent dir (setup mode only — overwrites init.json here)
 	setupOrchName string // current agent name (setup mode only — prefills name input)
 	setupLoadedAddonNames []string // addon names loaded from existing init.json (setup mode)
+	// Synthetic preset representing "Keep current preset" in setup mode. Populated by
+	// NewSetupModeModel from the existing agent's init.json. Read via currentPreset()
+	// when m.cursor == -1 so downstream handlers never index m.presets[-1].
+	setupKeepPreset preset.Preset
 	// Rehydration mode (agora cloned network): runs the normal first-run wizard
 	// but prefills the orchestrator name/dir from .agent.json, locks the dir
 	// (can't be edited), and adds stepPropagate at the end to propagate the
@@ -429,6 +433,9 @@ func NewSetupModeModel(baseDir, globalDir, orchDir, orchName string) FirstRunMod
 
 	// Load existing addons from orchestrator's init.json so they are preserved
 	// when the user reaches the capabilities step (enterCapabilities resets addonSelected).
+	// Also synthesize `setupKeepPreset` from the same init.json — when the user picks
+	// "Keep current preset" (cursor == -1) in the preset picker, downstream code reads
+	// this synthetic preset via currentPreset() instead of indexing m.presets[-1].
 	if orchDir != "" {
 		initPath := filepath.Join(orchDir, "init.json")
 		if data, err := os.ReadFile(initPath); err == nil {
@@ -438,6 +445,12 @@ func NewSetupModeModel(baseDir, globalDir, orchDir, orchName string) FirstRunMod
 					for name := range addons {
 						m.setupLoadedAddonNames = append(m.setupLoadedAddonNames, name)
 					}
+				}
+				// init.json IS the manifest for "keep current" semantics.
+				m.setupKeepPreset = preset.Preset{
+					Name:        "keep_current",
+					Description: i18n.T("setup.keep_current_preset"),
+					Manifest:    existing,
 				}
 			}
 		}
@@ -654,7 +667,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 	case capCheckDoneMsg:
 		m.capLoading = false
 		m.capInfos = msg.infos
-		p := m.presets[m.cursor]
+		p := m.currentPreset()
 		provider := m.getPresetProvider(p)
 		// Backfill capabilities not returned by check-caps so they're toggleable.
 		// Skip media capabilities that require provider-specific integrations.
@@ -703,7 +716,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 			m.capInfos[name] = capInfo{}
 		}
 		// Fallback: select all capabilities from the preset
-		p := m.presets[m.cursor]
+		p := m.currentPreset()
 		if capsMap, ok := p.Manifest["capabilities"].(map[string]interface{}); ok {
 			for k := range capsMap {
 				m.capSelected[k] = true
@@ -1326,7 +1339,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					if !ok {
 						return m, nil
 					}
-					provider := m.getPresetProvider(m.presets[m.cursor])
+					provider := m.getPresetProvider(m.currentPreset())
 					if m.isCapAvailable(name, info, provider) {
 						m.capSelected[name] = !m.capSelected[name]
 					}
@@ -1336,7 +1349,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				if !m.capAtKeep && !m.inAddonZone {
 					name := m.capOrder[m.capCursor]
 					info := m.capInfos[name]
-					presetProvider := m.getPresetProvider(m.presets[m.cursor])
+					presetProvider := m.getPresetProvider(m.currentPreset())
 					compat := m.compatibleProviders(info, presetProvider)
 					if len(compat) >= 2 {
 						cur := m.capProviders[name]
@@ -1349,7 +1362,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 					}
 				}
 			case "ctrl+a":
-				provider := m.getPresetProvider(m.presets[m.cursor])
+				provider := m.getPresetProvider(m.currentPreset())
 				allSelected := true
 				for _, name := range m.capOrder {
 					info := m.capInfos[name]
@@ -1368,13 +1381,13 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				if m.capAtKeep {
 					// Skip — keep existing capabilities, jump to agent details
 					m.applyCapSelections()
-					p := m.presets[m.cursor]
+					p := m.currentPreset()
 					m.enterAgentNameDir(p)
 					m.step = stepAgentNameDir
 					return m, textinput.Blink
 				}
 				m.applyCapSelections()
-				p := m.presets[m.cursor]
+				p := m.currentPreset()
 				m.enterAgentNameDir(p)
 				m.step = stepAgentNameDir
 				return m, textinput.Blink
@@ -1488,7 +1501,7 @@ func (m FirstRunModel) Update(msg tea.Msg) (FirstRunModel, tea.Cmd) {
 				}
 				name := m.nameInput.Value()
 				if name == "" {
-					name = m.presets[m.cursor].Name
+					name = m.currentPreset().Name
 				}
 				stamina, err := strconv.ParseFloat(m.staminaInput.Value(), 64)
 				if err != nil || stamina <= 0 {
@@ -2050,7 +2063,7 @@ func (m FirstRunModel) View() string {
 			b.WriteString("  " + lipgloss.NewStyle().Foreground(ColorSuspended).Render(m.capErr) + "\n\n")
 		}
 
-		provider := m.getPresetProvider(m.presets[m.cursor])
+		provider := m.getPresetProvider(m.currentPreset())
 		colSize := (len(m.capOrder) + 1) / 2
 		dimStyle := lipgloss.NewStyle().Foreground(ColorSubtle)
 		cursorStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
@@ -2534,7 +2547,7 @@ func (m FirstRunModel) renderCapsSidePane(paneWidth int) string {
 	if !m.inAddonZone {
 		if info, ok := m.capInfos[name]; ok && len(info.Providers) > 0 {
 			b.WriteString("\n")
-			presetProvider := m.getPresetProvider(m.presets[m.cursor])
+			presetProvider := m.getPresetProvider(m.currentPreset())
 			compatProvs := m.compatibleProviders(info, presetProvider)
 			activeProv := m.capProviders[name]
 
@@ -2626,7 +2639,7 @@ func (m FirstRunModel) compatibleProviders(info capInfo, presetProvider string) 
 // the preset manifest. Called after check-caps completes and capInfos is populated.
 func (m *FirstRunModel) initCapProviders() {
 	m.capProviders = make(map[string]string)
-	p := m.presets[m.cursor]
+	p := m.currentPreset()
 	presetProvider := m.getPresetProvider(p)
 	caps, _ := p.Manifest["capabilities"].(map[string]interface{})
 	for _, name := range m.capOrder {
@@ -2695,6 +2708,41 @@ func (m FirstRunModel) isCapCompatible(info capInfo, provider string) bool {
 	return false
 }
 
+// currentPreset returns the preset the user is working with.
+//
+// Normal case: m.presets[m.cursor]. In setup mode the picker has a virtual
+// "Keep current preset" row at cursor == -1; in that case return the synthetic
+// setupKeepPreset built from the existing agent's init.json. Every call site
+// that previously indexed m.presets[m.cursor] in a path reachable from the
+// skip flow now goes through this helper.
+//
+// Returns a zero-value Preset if cursor is out of range and no keep-current
+// preset is set — defensive, so callers don't panic even if invariants drift.
+func (m FirstRunModel) currentPreset() preset.Preset {
+	if m.cursor == -1 {
+		return m.setupKeepPreset
+	}
+	if m.cursor >= 0 && m.cursor < len(m.presets) {
+		return m.presets[m.cursor]
+	}
+	return preset.Preset{}
+}
+
+// currentPresetPtr returns a pointer to the preset the user is working with,
+// for call sites that need to mutate it (e.g. applyCapSelections writing back
+// the user's capability toggles). In setup mode's keep-current case, returns
+// a pointer to setupKeepPreset so the final init.json save reflects the
+// user's capability edits.
+func (m *FirstRunModel) currentPresetPtr() *preset.Preset {
+	if m.cursor == -1 {
+		return &m.setupKeepPreset
+	}
+	if m.cursor >= 0 && m.cursor < len(m.presets) {
+		return &m.presets[m.cursor]
+	}
+	return nil
+}
+
 // isCapAvailable returns true if a capability can be used with the current
 // preset. Checks three sources: check-caps provider list, local provider,
 // and preset manifest (which may configure a provider not yet in the
@@ -2707,7 +2755,7 @@ func (m FirstRunModel) isCapAvailable(name string, info capInfo, provider string
 		return true
 	}
 	// Preset explicitly configures this capability with the current provider
-	p := m.presets[m.cursor]
+	p := m.currentPreset()
 	if caps, ok := p.Manifest["capabilities"].(map[string]interface{}); ok {
 		if cfg, ok := caps[name].(map[string]interface{}); ok {
 			if prov, _ := cfg["provider"].(string); prov == provider {
@@ -2730,7 +2778,10 @@ func (m FirstRunModel) isCapLocal(info capInfo) bool {
 
 // applyCapSelections writes the user's capability selections back into the preset manifest.
 func (m *FirstRunModel) applyCapSelections() {
-	p := &m.presets[m.cursor]
+	p := m.currentPresetPtr()
+	if p == nil {
+		return
+	}
 	caps, ok := p.Manifest["capabilities"].(map[string]interface{})
 	if !ok {
 		caps = make(map[string]interface{})
@@ -3300,7 +3351,7 @@ func (m FirstRunModel) resolveCurrentRecipeDir() string {
 // performSetupSaveOnly writes init.json with the updated runtime settings
 // but keeps the current recipe and does not rewrite .prompt.
 func (m FirstRunModel) performSetupSaveOnly() (FirstRunModel, tea.Cmd) {
-	p := m.presets[m.cursor]
+	p := m.currentPreset()
 	dirName := filepath.Base(m.setupOrchDir)
 
 	// Resolve prompt file paths from current recipe (so init.json stays consistent)
