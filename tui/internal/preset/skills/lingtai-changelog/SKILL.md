@@ -10,6 +10,42 @@ A living chronicle of system-level changes that affect how you work. When someth
 
 ---
 
+## 2026-04-16 — Addon Secrets Move to Admin's `.secrets/`
+
+### What changed
+
+Addon configs (IMAP, Feishu, Telegram, WeChat) can now live inside the orchestrator agent's own working directory at `.secrets/<addon>.json`, in plaintext JSON without `*_env` indirection. The old project-shared path keeps working — nothing is forced to move.
+
+### New path
+
+| Addon | New path (inside admin's working dir) |
+|-------|----------------------------------------|
+| imap | `.secrets/imap.json` |
+| feishu | `.secrets/feishu.json` |
+| telegram | `.secrets/telegram.json` |
+| wechat | `.secrets/wechat.json` (+ `.secrets/credentials.json` after QR login) |
+
+### Old path (still works, no migration required)
+
+| Addon | Old path (relative to project root) |
+|-------|--------------------------------------|
+| imap | `.lingtai/.addons/imap/config.json` |
+| feishu | `.lingtai/.addons/feishu/config.json` |
+| telegram | `.lingtai/.addons/telegram/config.json` |
+| wechat | `.lingtai/.addons/wechat/config.json` |
+
+### Why
+
+Addons are an admin-only responsibility — avatars must not configure them. Keeping addon secrets inside the orchestrator's own directory makes that ownership explicit, removes the `*_env` / `.env` indirection, and keeps each agent's secrets self-contained.
+
+### What you should do
+
+- **New setups:** use the new path. See `lingtai-imap-setup`, `lingtai-feishu-setup`, `lingtai-telegram-setup`, or `lingtai-wechat-setup` skills for full instructions.
+- **Existing setups:** leave them alone unless the human asks to migrate. Only the `lingtai-imap-setup` skill ships migration instructions; for other addons, the human should migrate manually.
+- **Avatars:** you should never be configuring addons. If an addon tool is missing from your tool list, that is by design — ask your orchestrator.
+
+---
+
 ## 2026-04-13 — The Pad / Codex / Library Rename
 
 ### What changed
