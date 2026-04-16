@@ -290,6 +290,16 @@ IMAP 插件支持邮件收发。配置方式见 [内核文档](https://github.co
 
 Telegram 插件支持 Bot API。配置方式见 [内核文档](https://github.com/huangzesen/lingtai-kernel)。
 
+## 社群
+
+欢迎通过 [GitHub Issues](https://github.com/huangzesen/lingtai/issues) 或 [Discussions](https://github.com/huangzesen/lingtai/discussions) 提问、报 bug、提建议。
+
+**微信交流群**
+
+扫码加作者微信（备注 *lingtai*），拉入测试群。二维码会定期更新，若过期请提 issue。
+
+<img src="docs/assets/wechat.png" alt="微信二维码 — 扫码加入 lingtai 测试群" width="200">
+
 ## 许可
 
 MIT — [Zesen Huang](https://github.com/huangzesen), 2025–2026

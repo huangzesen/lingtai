@@ -416,6 +416,16 @@ All user-facing strings live in `tui/i18n/{en,zh,wen}.json`. Always update all t
 
 - **tmux background rendering** — Inside tmux, the theme background color may not cover the full viewport consistently. Some lines show the terminal's default background bleeding through, especially around styled blocks (code, tool output). Works correctly outside tmux and over plain SSH. Workaround: set your tmux default background to match the theme (`set -g default-terminal "xterm-256color"` and a matching background color in your tmux config).
 
+## Community
+
+Questions, bug reports, and feature requests are welcome via [GitHub Issues](https://github.com/huangzesen/lingtai/issues) or [Discussions](https://github.com/huangzesen/lingtai/discussions).
+
+**中文用户 · 微信交流群**
+
+扫码加作者微信（备注 *lingtai*），拉入测试群。二维码会定期更新，若过期请提 issue。
+
+<img src="docs/assets/wechat.png" alt="WeChat QR — 扫码加入 lingtai 测试群" width="200">
+
 ## License
 
 MIT — [Zesen Huang](https://github.com/huangzesen), 2025–2026

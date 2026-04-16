@@ -261,6 +261,16 @@ CustomAgent(Agent)     — 汝之领域逻辑
 }
 ```
 
+## 同道
+
+诸君若有问、有疑、有议，可于 [GitHub Issues](https://github.com/huangzesen/lingtai/issues) 或 [Discussions](https://github.com/huangzesen/lingtai/discussions) 言之。
+
+**微信同道群**
+
+扫码加作者微信（备注 *lingtai*），引入测试群。此码按时更之，若已过期，烦君提 issue 相告。
+
+<img src="docs/assets/wechat.png" alt="微信二维码 — 扫码加入 lingtai 测试群" width="200">
+
 ## 许可
 
 MIT — [Zesen Huang](https://github.com/huangzesen), 2025–2026
