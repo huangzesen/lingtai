@@ -2,19 +2,15 @@
 name: textbook-distillation
 description: >
   Turn a textbook or long-form source into a self-paced learning track:
-  intake the material, build a chapter map, draft a lesson plan, then
-  generate self-contained HTML lecture notes in a style the human
-  specifies (layout, palette, emphasis), each lesson carrying worked
-  examples, exercises, and checkpoint questions. Read this when the human
-  wants to study a book without a teacher, asks for "lecture notes" /
-  "study notes" / "course" / "syllabus" from a textbook or PDF, wants a
-  customized HTML study guide, or wants a chapter distilled into
-  teachable lessons. Do NOT use to reproduce or redistribute a
-  copyrighted book verbatim, to "summarize so I don't have to buy it,"
-  or for one-off factual lookups (just answer those directly).
+  chapter map, lesson plan, then self-contained HTML lecture notes (styled
+  as the human specifies) with worked examples, exercises, and checkpoint
+  questions. Read this for "lecture notes" / "study notes" / "course" /
+  "syllabus" requests from a textbook or PDF. Do NOT use to reproduce or
+  redistribute a copyrighted book verbatim, to "summarize so I don't have
+  to buy it," or for one-off factual lookups (just answer those directly).
 version: 1.0.0
 tags: [learning, study, textbook, lecture-notes, html, curriculum, self-paced]
-last_changed_at: "2026-07-18T00:00:00Z"
+last_changed_at: "2026-09-05T00:00:00Z"
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 

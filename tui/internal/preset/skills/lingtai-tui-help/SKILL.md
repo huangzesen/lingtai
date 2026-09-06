@@ -2,15 +2,14 @@
 name: lingtai-tui-help
 description: >
   Anything you need to know about LingTai TUI. Read this first for the stable
-  mental model, major-feature map, interface and slash-command help, or the
-  correct source/manual route for a TUI question. It stays thin: exact command
-  prose lives in the localized help assets, precise Go structure lives in
-  `lingtai-tui-anatomy` plus the repository ANATOMY graph, and independent
-  domains such as presets, Portal, tutorials, updates, and addons keep their own
-  top-level skills.
+  mental model, feature map, interface/slash-command help, or the right
+  source/manual route for a TUI question. Exact command prose lives in the
+  localized help assets, Go structure lives in `lingtai-tui-anatomy`, and
+  presets, Portal, tutorials, updates, and addons keep their own top-level
+  skills.
 version: 1.1.0
 tags: [tui, help, routing, lifecycle, slash-commands, reference, lingtai-tui]
-last_changed_at: "2026-07-19T02:41:00-07:00"
+last_changed_at: "2026-09-05T00:00:00Z"
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 

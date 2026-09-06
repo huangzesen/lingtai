@@ -1,11 +1,11 @@
 ---
 name: lingtai-update
 description: >
-  Use when updating, installing, building, or debugging lingtai-tui or
-  lingtai-portal, including /update-tui, install-method detection, Homebrew,
-  source builds, tap inspection, or mainland-China connectivity.
+  Use when installing, updating, building, or debugging lingtai-tui or
+  lingtai-portal — Homebrew, source builds, install-method detection, or
+  mainland-China connectivity.
 version: 1.0.0
-last_changed_at: "2026-07-25T00:00:00Z"
+last_changed_at: "2026-09-05T00:00:00Z"
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 
