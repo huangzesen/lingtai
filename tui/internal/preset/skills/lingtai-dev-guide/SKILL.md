@@ -1,14 +1,14 @@
 ---
 name: lingtai-dev-guide
 description: >
-  Router for contributing to the LingTai project. Use this when you are about
-  to change LingTai code or docs, set up a dev environment, navigate the Go
-  TUI/portal repo or Python kernel, develop MCP addons, troubleshoot a
-  running network, audit security, run a runtime self-check, get a PR
-  review-ready, or steward a new skill. This is for developers and contributors;
-  for end-user lessons, use tutorial-guide.
+  Router for contributing to LingTai. Use when changing code or docs, setting
+  up a dev environment, navigating the TUI/portal repo or Python kernel,
+  developing MCP addons, troubleshooting a running network, auditing
+  security, running a runtime self-check, prepping a PR review, or
+  stewarding a new skill. For developers and contributors; for end-user
+  lessons, use tutorial-guide.
 version: 2.8.0
-last_changed_at: "2026-08-09T00:00:00Z"
+last_changed_at: "2026-09-05T00:00:00Z"
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 

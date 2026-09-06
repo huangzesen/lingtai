@@ -1,25 +1,16 @@
 ---
 name: lingtai-recipe
 description: >
-  Menu manual (not a tool) for everything recipe-related in LingTai. A
-  **recipe** is the named payload that shapes an orchestrator's
-  greeting, ongoing behaviour, and shipped library; every LingTai
-  project uses one (selected at `/setup` time, inherited from a clone,
-  or auto-discovered when a project already has `.recipe/` at its
-  root). Routes to two sub-guides — `reference/recipe-format/SKILL.md`
-  (read first when authoring or customising) and
-  `reference/export-recipe/SKILL.md` (shipping the methodology / culture
-  as a bundle others use to seed *new* networks) — and warns about the
-  three different recipe-shaped artifacts that can co-exist in one
-  project (inner network, outer applied recipe, captured applied
-  snapshot — easy to conflate). Read this skill when the human mentions
-  recipes, wants to author / customise one, or wants to publish a
-  recipe for seeding new networks. Do NOT use for one-off exports of a
-  single agent (that's just `cp -r`), or for in-network behaviour edits to the
-  live system (those go through the kernel's writes to the agent's
-  working directory, not through a recipe round-trip).
+  Menu manual (not a tool) for recipes — the named payload that shapes an
+  orchestrator's greeting, ongoing behaviour, and shipped library; every
+  LingTai project uses one. Routes to `reference/recipe-format/SKILL.md`
+  (authoring/customising) and `reference/export-recipe/SKILL.md`
+  (publishing for new networks), and warns about the three different
+  recipe-shaped artifacts that can co-exist in one project — easy to
+  conflate. Do NOT use for one-off exports of a single agent (that's
+  just `cp -r`), or for in-network behaviour edits to the live system.
 version: 3.2.0
-last_changed_at: "2026-07-18T00:00:00Z"
+last_changed_at: "2026-09-05T00:00:00Z"
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 

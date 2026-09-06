@@ -1,8 +1,8 @@
 ---
 name: lingtai-issue-report
-description: Protocol router for reporting bugs, stale info, missing capabilities, or design issues you spot in any LingTai skill, capability, preset, or system behavior. Enter through this router, then load the one nested reference you need — evidence-checklist (when to report, what evidence to collect, secret hygiene), report-template (the report body/title structure), or filing-flow (human consent, the gh CLI path, and the paste-ready fallback). You always assemble a structured report and ask the human for permission before filing.
+description: Protocol router for reporting bugs, stale info, missing capabilities, or design issues in any LingTai skill, capability, preset, or system behavior. Enter through this router, then load the one nested reference you need — evidence-checklist, report-template, or filing-flow. You always assemble a structured report and ask the human for permission before filing.
 version: 1.4.0
-last_changed_at: "2026-07-18T00:00:00Z"
+last_changed_at: "2026-09-05T00:00:00Z"
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 

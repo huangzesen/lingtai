@@ -1,12 +1,12 @@
 ---
 name: tutorial-guide
 description: >
-  The 12-lesson tutorial curriculum for teaching a human how Lingtai works.
-  Router for orientation, agent runtime, communication, memory/molt,
-  capabilities, operations, addons, and graduation. Invoke this skill when the
-  human is ready to begin or continue the tutorial.
+  The 12-lesson curriculum for teaching a human how LingTai works —
+  orientation, agent runtime, communication, memory/molt, capabilities,
+  operations, addons, and graduation. Invoke this skill when the human is
+  ready to begin or continue the tutorial.
 version: 2.0.1
-last_changed_at: "2026-07-18T00:00:00Z"
+last_changed_at: "2026-09-05T00:00:00Z"
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 

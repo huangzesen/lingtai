@@ -1,16 +1,15 @@
 ---
 name: lingtai-tui-anatomy
 description: >
-  Discoverable source-navigation guide for the LingTai Go monorepo that ships
+  Source-navigation guide for the LingTai Go monorepo that ships
   `lingtai-tui` and `lingtai-portal`. Read this for TUI/Portal structure,
   runtime-boundary evidence, exact Go ownership, or when updating an
-  `ANATOMY.md`. The repository-root `ANATOMY.md` is the normative convention and
-  top of the distributed graph; this skill teaches the route into that graph
-  without duplicating it. Kernel internals remain owned by
-  `lingtai-kernel-anatomy`.
+  `ANATOMY.md`. The repository-root `ANATOMY.md` is normative; this skill
+  routes into that graph without duplicating it. Kernel internals remain
+  owned by `lingtai-kernel-anatomy`.
 version: 0.2.0
 tags: [tui, portal, go, anatomy, source-navigation, reference]
-last_changed_at: "2026-07-19T02:41:00-07:00"
+last_changed_at: "2026-09-05T00:00:00Z"
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 

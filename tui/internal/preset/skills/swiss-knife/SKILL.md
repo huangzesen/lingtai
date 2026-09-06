@@ -1,24 +1,19 @@
 ---
 name: swiss-knife
 description: >
-  Umbrella router for small, focused CLI tools and integrations. Read this
-  when a task might need one of the bundled utility references, then load only
-  the nested reference that matches the need: minimax-cli for MiniMax media/TTS/vision; vision for
-  image understanding (describe/OCR/critique); listen for local audio
-  transcription and music analysis; academic-research for fetching papers,
-  citation networks, and LaTeX writing; dj for journal-inspired music
-  generation; token-usage for token/cost and tool-call/API-call trend reports; html-report for standalone
-  browser deliverables; xiaomi-mimo for Xiaomi MiMo provider discovery;
-  zhipu-coding-plan for Z.AI / BigModel coding-plan capabilities; headless-bot
-  for provisioning fresh LingTai bot projects such as Telegram bots from
-  `lingtai-tui spawn`; find-something-to-do for idle curiosity practice;
-  preset-health for read-only health checks of saved presets (classify expired
-  keys, missing credentials, unreachable endpoints, invalid model/config). This
-  parent is the route map; each nested reference is self-contained under
-  `reference/<name>/SKILL.md`.
+  Umbrella router for small, focused CLI tools: minimax-cli for MiniMax
+  media/TTS/vision; vision for image OCR/critique; listen for local audio
+  transcription and music analysis; academic-research for papers, citation
+  networks, and LaTeX; dj for music generation; token-usage for token/cost
+  and API-call trend reports; html-report for standalone browser
+  deliverables; xiaomi-mimo and zhipu-coding-plan for provider discovery;
+  headless-bot for provisioning fresh LingTai bot projects (e.g. Telegram);
+  find-something-to-do for idle curiosity; preset-health for read-only
+  saved-preset health checks. Each nested reference is self-contained
+  under `reference/<name>/SKILL.md`.
 version: 2.4.0
 tags: [utilities, umbrella, toolkit, nested-skill]
-last_changed_at: "2026-06-23T17:01:03-07:00"
+last_changed_at: "2026-09-05T00:00:00Z"
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 

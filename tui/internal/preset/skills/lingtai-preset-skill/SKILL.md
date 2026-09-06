@@ -1,14 +1,13 @@
 ---
 name: lingtai-preset-skill
 description: >
-  Thin dual-axis router for preset questions: which of the 13 TUI-shipped
-  built-in preset templates (provider axis), and which cross-cutting preset
-  lifecycle mechanic (operation axis) — saving, checking availability,
-  activating/refreshing, endpoint/capability facts, or troubleshooting. Read
-  a child only when it is relevant; this does not describe arbitrary saved
-  presets.
+  Dual-axis router for built-in preset questions: which of the 13
+  TUI-shipped provider templates, and which cross-cutting lifecycle
+  mechanic — saving, checking availability, activating/refreshing,
+  endpoint/capability facts, or troubleshooting. Read a child only when
+  relevant; this does not describe arbitrary saved presets.
 version: 2.1.0
-last_changed_at: "2026-08-09T00:00:00Z"
+last_changed_at: "2026-09-05T00:00:00Z"
 related_files:
   - tui/internal/preset/skills/lingtai-preset-skill/SKILL.md
   - tui/internal/preset/preset.go
