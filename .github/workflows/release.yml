@@ -366,3 +366,63 @@ jobs:
             fi
           done
           gh release edit "$TAG" --repo "$REPO" --draft=false
+
+      - name: Notify lingtai-web download mirror
+        # Only after the release above is actually public -- never before
+        # publication, and never on a run that failed any earlier gate in
+        # this job. This is a download-acceleration mirror, not an alternate
+        # release-publication path: a missing/failed dispatch never edits or
+        # undoes the GitHub release published above. continue-on-error
+        # isolates a dispatch failure (e.g. an expired/under-scoped
+        # LINGTAI_WEB_DISPATCH_TOKEN, or a transient API error) from this
+        # job's overall result: update-homebrew `needs: windows-release` and
+        # would otherwise be skipped by a download-acceleration outage even
+        # though the GitHub release and Homebrew's own prerequisites are
+        # already fully published. Every real publication/upload gate above
+        # stays fail-closed; only this best-effort notification is isolated.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.LINGTAI_WEB_DISPATCH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::LINGTAI_WEB_DISPATCH_TOKEN is not set; skipping the lingtai.ai download-mirror dispatch. This is a documented deployment prerequisite (a token with repository_dispatch write access on huangzesen/lingtai-web), not a release failure -- the GitHub release above already succeeded."
+            exit 0
+          fi
+          python3 - "$TAG" "$zip_name" << 'PY' | gh api repos/huangzesen/lingtai-web/dispatches --method POST --input -
+          import hashlib
+          import json
+          import sys
+          from pathlib import Path
+
+          tag, zip_name = sys.argv[1], sys.argv[2]
+
+          def sha256_of(path: Path) -> str:
+              digest = hashlib.sha256()
+              with path.open("rb") as handle:
+                  for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                      digest.update(chunk)
+              return digest.hexdigest()
+
+          # These are exactly the three assets "Upload Windows release
+          # assets" uploaded and "Publish GitHub release ..." just verified
+          # are attached; sha256 is recomputed fresh from the same
+          # still-on-disk bytes, never trusted from an earlier step's output.
+          assets = []
+          for name in (zip_name, f"{zip_name}.sha256", "lingtai-bundle-manifest.json"):
+              path = Path(name)
+              assets.append({
+                  "name": name,
+                  "sha256": sha256_of(path),
+                  "size": path.stat().st_size,
+              })
+
+          print(json.dumps({
+              "event_type": "release-asset-published",
+              "client_payload": {
+                  "source_repo": "Lingtai-AI/lingtai",
+                  "tag": tag,
+                  "assets": assets,
+              },
+          }))
+          PY

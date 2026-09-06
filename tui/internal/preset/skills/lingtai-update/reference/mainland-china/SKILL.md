@@ -2,7 +2,7 @@
 name: lingtai-update-mainland
 description: Use when building or fetching TUI/portal releases from mainland China.
 version: 1.0.0
-last_changed_at: "2026-07-25T00:00:00Z"
+last_changed_at: "2026-09-06T00:00:00Z"
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 
@@ -23,15 +23,19 @@ export NPM_CONFIG_REGISTRY="https://registry.npmmirror.com"
 
 ## Release provider and the Python dependency index
 
-`install.sh --source auto|github|gitee` (or `LINGTAI_SOURCE`) selects where the
+`install.sh --source auto|github|mirror` (or `LINGTAI_SOURCE`) selects where the
 release archives, the bundle manifest, and the pinned kernel release come from.
-`auto` runs a bounded, fail-open public-IP country lookup and prefers the Gitee
-mirror for mainland China; any detection or reachability failure falls back to
-GitHub for the SAME resolved tag/bundle. Gitee already transports the
-checksum-verified LingTai bundle artifacts, so the remaining reachability gap on
-that route was third-party dependency resolution: those went to `pypi.org`,
-which is not reliably reachable from mainland-China hosts, and a real Aliyun-host
-upgrade failed there.
+`auto` runs a bounded, fail-open public-IP country lookup and prefers the
+lingtai.ai download-acceleration mirror for mainland China; any detection or
+reachability failure falls back to GitHub for the SAME resolved tag/bundle.
+GitHub remains the sole release/version authority either way — the mirror only
+re-serves bytes GitHub already published, never its own "latest". (`--source
+gitee` is retired: the mirror replaces the earlier Gitee route.) The TUNA
+dependency-index default is retained from the earlier Gitee path, where an
+Aliyun-host upgrade failed at third-party dependency resolution through
+`pypi.org`. That historical observation is not a live acceptance result for
+the new lingtai.ai mirror; its production configuration and mainland
+reachability still require verification.
 
 `install.sh` now picks exactly one dependency index
 (`python_dependency_index_url`):
@@ -39,7 +43,7 @@ upgrade failed there.
 | Situation | Index used for third-party dependencies |
 |---|---|
 | non-empty `LINGTAI_PYPI_INDEX_URL` | that value, on either provider |
-| final bundle provider is Gitee | `https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple` |
+| final bundle provider is the mirror | `https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple` |
 | final bundle provider is GitHub | `https://pypi.org/simple` |
 
 "Final" means the provider that actually served the bundle manifest, after any

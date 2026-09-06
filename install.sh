@@ -30,24 +30,43 @@
 # Windows archive in the manifest never fails POSIX validation) but never
 # selects or downloads it — native Windows installs use install.ps1 instead.
 #
-# Source policy (--source auto|github|gitee, or LINGTAI_SOURCE env; default
+# Source policy (--source auto|github|mirror, or LINGTAI_SOURCE env; default
 # auto): auto runs a bounded, fail-open public-IP country lookup and prefers
-# Gitee (huangzesen1997/lingtai + huangzesen1997/lingtai-kernel) for mainland
-# China. Each release publishes a small "bundle manifest" binding one exact
+# the lingtai.ai download-acceleration mirror for mainland China. GitHub
+# remains the sole release/version authority either way — the mirror never
+# lists releases, resolves "latest", or publishes independently; it only
+# re-serves exact bytes GitHub has already published, mirrored by
+# huangzesen/lingtai-web after each publisher's own upload succeeds (see
+# docs/release-mirror/CONTRACT.md there). This replaces the earlier Gitee mirror;
+# --source gitee is explicitly retired (rejected with a pointer to
+# --source mirror), since nothing keeps a separate Gitee release in sync any
+# longer. Each release publishes a small "bundle manifest" binding one exact
 # TUI tag to one exact pinned kernel release/version/artifacts/checksums —
-# see RELEASING.md. A provider fallback (Gitee unreachable, or missing an
-# asset) always re-fetches the SAME resolved tag/bundle from the other
-# provider; it never independently re-resolves "latest" on the fallback. The
-# Python `lingtai` runtime is installed from that pinned kernel release
-# artifact by explicit local file path — never `pip install lingtai` from any
-# package index — with SHA256 verified before install. Those third-party
-# dependencies resolve via exactly ONE package index, chosen by
-# python_dependency_index_url: a non-empty LINGTAI_PYPI_INDEX_URL always wins,
-# otherwise the provider that actually served the final bundle manifest picks a
-# provider-aligned default (Gitee -> Tsinghua TUNA, GitHub -> pypi.org). Only
-# lingtai's own bytes are pinned. If no compatible platform wheel exists for
-# the runtime's interpreter, the pinned sdist is used instead (may require a
-# local build toolchain).
+# see RELEASING.md. A provider fallback (mirror unreachable, or missing an
+# asset for this exact tag) always re-fetches the SAME resolved tag/bundle
+# from GitHub; it never independently re-resolves "latest" on the fallback,
+# and never accepts bytes that fail their checksum. The Python `lingtai`
+# runtime is installed from that pinned kernel release artifact by explicit
+# local file path — never `pip install lingtai` from any package index — with
+# SHA256 verified before install. Those third-party dependencies resolve via
+# exactly ONE package index, chosen by python_dependency_index_url: a
+# non-empty LINGTAI_PYPI_INDEX_URL always wins, otherwise the provider that
+# actually served the final bundle manifest picks a provider-aligned default
+# (mirror -> Tsinghua TUNA, GitHub -> pypi.org). Only lingtai's own bytes are
+# pinned. If no compatible platform wheel exists for the runtime's
+# interpreter, the pinned sdist is used instead (may require a local build
+# toolchain).
+#
+# Known gap, stated honestly: the mirror accelerates the kernel wheels/sdist
+# and (once TUI ships one) a per-platform TUI archive — the actual uploaded
+# release assets a publisher workflow can hook after upload. It does NOT
+# mirror the GitHub-auto-generated source tarball
+# (archive/refs/tags/vX.Y.Z.tar.gz) that build_from_source's tag path falls
+# back to, since that tarball is generated on demand by GitHub itself, not an
+# asset either publisher workflow uploads. On POSIX platforms with no
+# published prebuilt (true for all platforms as of TUI v1.0.8, which ships a
+# Windows-only prebuilt), that source-build fetch remains a plain GitHub
+# fetch regardless of --source.
 #
 # LingTai is NEVER installed by requesting the package name "lingtai" from
 # any index — there is no PyPI fallback. On the default one-command path a
@@ -85,23 +104,13 @@ DESKTOP_BOOTSTRAP_SHA256="6c246f7af6602eeee0d697bcd5c830029939bd786ba3ecbf3cf8c4
 
 # The single package index used ONLY for third-party dependencies of the
 # verified local LingTai artifact — see python_dependency_index_url. Tsinghua
-# TUNA is a cloud-neutral domestic PyPI mirror; it is the Gitee-path default
+# TUNA is a cloud-neutral domestic PyPI mirror; it is the mirror-path default
 # because pypi.org is not reliably reachable from mainland-China hosts, which
 # makes dependency resolution the remaining failure point of an otherwise
-# checksum-verified Gitee install.
+# checksum-verified mirror install.
 PYPI_INDEX_URL_DEFAULT="https://pypi.org/simple"
-PYPI_INDEX_URL_GITEE_DEFAULT="https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
+PYPI_INDEX_URL_MIRROR_DEFAULT="https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
 
-# Gitee mirror: a real repository, but release assets may not exist for every
-# tag yet (see gitee_release_asset_url / gitee_bundle_manifest_url below,
-# which never invent a URL — they only return one after confirming presence
-# via the Gitee API). GITEE_OWNER/GITEE_REPO name the TUI mirror; the kernel
-# mirror repo name is derived per-lookup (see kernel_gitee_api_base).
-GITEE_OWNER="${LINGTAI_GITEE_OWNER:-huangzesen1997}"
-GITEE_REPO="${LINGTAI_GITEE_REPO:-lingtai}"
-GITEE_KERNEL_REPO="${LINGTAI_GITEE_KERNEL_REPO:-lingtai-kernel}"
-GITEE_API_BASE="https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}"
-GITEE_KERNEL_API_BASE="https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_KERNEL_REPO}"
 KERNEL_GH_API_BASE="https://api.github.com/repos/Lingtai-AI/lingtai-kernel"
 BUNDLE_TUI_ARCHIVE_SHA=""
 
@@ -140,8 +149,8 @@ SKIP_PORTAL=0        # --skip-portal: TUI only
 SKIP_VENV=0          # --skip-python (alias: --skip-venv): don't touch the Python runtime venv
 SKIP_DESKTOP=0       # --skip-desktop: don't register the macOS-only lazy Desktop command
 INSTALL_KIND=""      # "release-asset" | "source-build" (recorded in metadata)
-SOURCE_ARG="${LINGTAI_SOURCE:-auto}"  # --source auto|github|gitee (env LINGTAI_SOURCE)
-BUNDLE_PROVIDER=""    # resolved by resolve_source_provider(): "github" | "gitee"
+SOURCE_ARG="${LINGTAI_SOURCE:-auto}"  # --source auto|github|mirror (env LINGTAI_SOURCE)
+BUNDLE_PROVIDER=""    # resolved by resolve_source_provider(): "github" | "mirror"
 BUNDLE_TAG=""         # resolved release tag shared by the TUI archive + bundle manifest
 BUNDLE_MANIFEST_JSON="" # raw bundle manifest body, once fetched
 BUNDLE_REQUIRED=0     # 1 on the default release-asset one-command path (no --ref, no --update):
@@ -213,10 +222,13 @@ Options:
                          reinstalls are unaffected. This installer pins Desktop
                          v0.1.10 and its audited four-file installer-support
                          checksums as one trust set.
-  --source <mode>       auto|github|gitee (default: auto, or $LINGTAI_SOURCE).
-                         auto prefers Gitee for mainland-China public IPs via
-                         a bounded, fail-open country lookup; an explicit
-                         override always wins and skips detection.
+  --source <mode>       auto|github|mirror (default: auto, or $LINGTAI_SOURCE).
+                         auto prefers the lingtai.ai download-acceleration
+                         mirror for mainland-China public IPs via a bounded,
+                         fail-open country lookup; an explicit override always
+                         wins and skips detection. GitHub remains the sole
+                         release/version authority either way.
+                         --source gitee is retired; use --source mirror.
   --update             Update an existing source/user-local install in place;
                          on macOS, register or refresh the lazy Desktop command
   --non-interactive    Never prompt; never install OS packages; fail instead
@@ -596,7 +608,7 @@ release_asset_url() {
   return 1
 }
 
-# --- source policy: country detection + GitHub/Gitee provider selection -----
+# --- source policy: country detection + GitHub/mirror provider selection ---
 
 # json_string_field extracts the first string value of a top-level JSON key
 # from stdin using the same grep/sed idiom as release_asset_url/latest_release_tag
@@ -625,11 +637,13 @@ detect_country_cn() {
   [[ "$cc" == "CN" ]]
 }
 
-# gitee_reachable is a cheap liveness probe for the Gitee API, bounded the
-# same way as the GitHub API calls above.
-gitee_reachable() {
+# mirror_reachable is a cheap liveness probe for the lingtai.ai host, bounded
+# the same way as the GitHub API calls above. This only answers "is the host
+# up" — per-asset availability is a separate question answered by
+# mirror_release_asset_url below, since the mirror has no listing API.
+mirror_reachable() {
   command -v curl &>/dev/null || return 1
-  curl -fsSL --max-time "$MIRROR_TIMEOUT" -o /dev/null "https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}" 2>/dev/null
+  curl -fsSL --max-time "$MIRROR_TIMEOUT" -o /dev/null "$LINGTAI_WEB_BASE/" 2>/dev/null
 }
 
 github_reachable() {
@@ -637,32 +651,32 @@ github_reachable() {
   curl -fsSL --max-time "$MIRROR_TIMEOUT" -o /dev/null "$API_BASE" 2>/dev/null
 }
 
-# resolve_source_provider sets BUNDLE_PROVIDER to "github" or "gitee" per the
+# resolve_source_provider sets BUNDLE_PROVIDER to "github" or "mirror" per the
 # --source policy:
-#   explicit override (github|gitee) -> that provider, no detection, no
+#   explicit override (github|mirror) -> that provider, no detection, no
 #     reachability fallback (an explicit choice is honored even if degraded;
 #     the caller still gets a clear error later if that provider truly has no
-#     usable release).
-#   auto -> bounded country lookup; CN -> prefer gitee, else github; a failed
+#     usable release). --source gitee is explicitly retired; see parse_args.
+#   auto -> bounded country lookup; CN -> prefer mirror, else github; a failed
 #     or ambiguous lookup fails open to github. The preferred provider is then
 #     probed for reachability; if unreachable, falls back to the other
 #     provider for the SAME resolved tag/bundle (never re-resolves "latest").
 resolve_source_provider() {
   case "$SOURCE_ARG" in
     github) BUNDLE_PROVIDER="github"; return 0 ;;
-    gitee)  BUNDLE_PROVIDER="gitee"; return 0 ;;
+    mirror) BUNDLE_PROVIDER="mirror"; return 0 ;;
   esac
 
   local preferred="github"
   if detect_country_cn; then
-    preferred="gitee"
+    preferred="mirror"
   fi
 
-  if [[ "$preferred" == "gitee" ]]; then
-    if gitee_reachable; then
-      BUNDLE_PROVIDER="gitee"
+  if [[ "$preferred" == "mirror" ]]; then
+    if mirror_reachable; then
+      BUNDLE_PROVIDER="mirror"
     else
-      note "Gitee unreachable; using GitHub for this install."
+      note "lingtai.ai mirror unreachable; using GitHub for this install."
       BUNDLE_PROVIDER="github"
     fi
   else
@@ -679,55 +693,34 @@ resolve_source_provider() {
 #      override and falls through, so it can never blank out the index);
 #   2. otherwise the FINAL bundle provider — the one that actually served the
 #      bundle manifest, after any same-tag fallback moved BUNDLE_PROVIDER —
-#      picks the default it can reach: Gitee -> Tsinghua TUNA, GitHub ->
+#      picks the default it can reach: mirror -> Tsinghua TUNA, GitHub ->
 #      official PyPI.
 # Callers pass the result as a single `--index-url <url>` argv pair; there is
 # deliberately no --extra-index-url, so exactly one index is ever consulted.
 python_dependency_index_url() {
   if [[ -n "${LINGTAI_PYPI_INDEX_URL:-}" ]]; then
     printf '%s' "$LINGTAI_PYPI_INDEX_URL"
-  elif [[ "${BUNDLE_PROVIDER:-github}" == "gitee" ]]; then
-    printf '%s' "$PYPI_INDEX_URL_GITEE_DEFAULT"
+  elif [[ "${BUNDLE_PROVIDER:-github}" == "mirror" ]]; then
+    printf '%s' "$PYPI_INDEX_URL_MIRROR_DEFAULT"
   else
     printf '%s' "$PYPI_INDEX_URL_DEFAULT"
   fi
 }
 
-# --- Gitee release API (mirrors the GitHub helpers above) -------------------
+# --- lingtai.ai mirror asset resolution -------------------------------------
 
-# gitee_latest_release_tag queries Gitee's public "latest release" endpoint.
-# Returns nonzero (prints nothing) if Gitee has no releases yet — callers
-# must NOT construct a URL from this failure; see the module header note
-# about never inventing a Gitee release URL.
-gitee_latest_release_tag() {
-  local body tag
+# mirror_release_asset_url echoes the deterministic download URL for a named
+# asset of a source repo/tag on the lingtai.ai mirror, or nothing if that
+# exact URL is not (yet) reachable. Unlike GitHub/the retired Gitee mirror,
+# there is no separate listing API: the mirror route
+# (huangzesen/lingtai-web's docs/release-mirror/CONTRACT.md) is a single exact key
+# in, one exact object out, so "does this exist" is answered by probing that
+# same URL directly — never by inventing or guessing a nearby key.
+mirror_release_asset_url() {
+  local repo_slug="$1" tag="$2" name="$3" url
   command -v curl &>/dev/null || return 1
-  body="$(curl -fsSL --max-time 15 "${GITEE_API_BASE}/releases/latest" 2>/dev/null || true)"
-  [[ -n "$body" ]] || return 1
-  tag="$(printf '%s' "$body" | json_string_field tag_name)"
-  [[ -n "$tag" ]] || return 1
-  printf '%s' "$tag"
-}
-
-# gitee_release_asset_url echoes the browserDownloadUrl for a named attachment
-# on a Gitee release tag, or nothing if the release or the named attachment
-# does not exist. Uses the release-by-tag + attachment listing so a missing
-# asset is detected before any download attempt, exactly like
-# release_asset_url's GitHub equivalent.
-gitee_release_asset_url() {
-  local tag="$1" name="$2" body url
-  command -v curl &>/dev/null || return 1
-  body="$(curl -fsSL --max-time 15 "${GITEE_API_BASE}/releases/tags/$tag" 2>/dev/null || true)"
-  [[ -n "$body" ]] || return 1
-  # attach_files is an array of {name, browserDownloadUrl/browser_download_url,
-  # ...}; scope the
-  # match to the object containing our target name, then pull the URL out of
-  # that same fragment so we don't grab an unrelated asset's URL.
-  local fragment
-  fragment="$(printf '%s' "$body" | grep -o "{[^{}]*\"name\"[[:space:]]*:[[:space:]]*\"$name\"[^{}]*}" | head -1)"
-  [[ -n "$fragment" ]] || return 1
-  url="$(printf '%s' "$fragment" | sed -n -E 's/.*"browserDownloadUrl"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p; s/.*"browser_download_url"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p' | head -1)"
-  [[ -n "$url" && "$url" != "$fragment" ]] || return 1
+  url="$LINGTAI_WEB_BASE/dl/$repo_slug/$tag/$name"
+  curl -fsSL --max-time "$MIRROR_TIMEOUT" --head -o /dev/null "$url" 2>/dev/null || return 1
   printf '%s' "$url"
 }
 
@@ -739,31 +732,26 @@ bundle_manifest_url_for_provider() {
   local provider="$1" tag="$2"
   case "$provider" in
     github) release_asset_url "$tag" "lingtai-bundle-manifest.json" ;;
-    gitee)  gitee_release_asset_url "$tag" "lingtai-bundle-manifest.json" ;;
+    mirror) mirror_release_asset_url "$REPO_SLUG" "$tag" "lingtai-bundle-manifest.json" ;;
     *) return 1 ;;
   esac
 }
 
-# fetch_bundle_manifest resolves BUNDLE_TAG (explicit VERSION, else latest on
-# the CHOSEN provider) and BUNDLE_MANIFEST_JSON for BUNDLE_PROVIDER. If the
-# preferred provider has no manifest for the resolved tag, falls back to the
-# OTHER provider for the SAME tag (never re-resolves "latest" on the second
-# provider — see the module header contract). Returns nonzero if neither
-# provider has a usable manifest for the resolved tag.
+# fetch_bundle_manifest resolves BUNDLE_TAG (explicit VERSION, else latest)
+# and BUNDLE_MANIFEST_JSON for BUNDLE_PROVIDER. Version identity always comes
+# from GitHub: the mirror has no independent "latest" concept (no listing
+# API), so an unresolved tag is always resolved via GitHub's latest-release
+# endpoint regardless of BUNDLE_PROVIDER — the mirror only ever serves bytes
+# for an already-known tag. If the preferred provider has no manifest for the
+# resolved tag, falls back to the OTHER provider for the SAME tag (never
+# re-resolves "latest" on the second provider — see the module header
+# contract). Returns nonzero if neither provider has a usable manifest for
+# the resolved tag.
 fetch_bundle_manifest() {
   local tag="$VERSION" body url
 
   if [[ -z "$tag" ]]; then
-    if [[ "$BUNDLE_PROVIDER" == "gitee" ]]; then
-      tag="$(gitee_latest_release_tag || true)"
-      if [[ -z "$tag" ]]; then
-        note "Gitee has no releases yet; using GitHub to resolve the latest release."
-        BUNDLE_PROVIDER="github"
-        tag="$(latest_release_tag || true)"
-      fi
-    else
-      tag="$(latest_release_tag || true)"
-    fi
+    tag="$(latest_release_tag || true)"
   fi
   [[ -n "$tag" ]] || return 1
 
@@ -776,7 +764,7 @@ fetch_bundle_manifest() {
   url="$(bundle_manifest_url_for_provider "$BUNDLE_PROVIDER" "$tag" || true)"
   if [[ -z "$url" ]]; then
     local other="github"
-    [[ "$BUNDLE_PROVIDER" == "github" ]] && other="gitee"
+    [[ "$BUNDLE_PROVIDER" == "github" ]] && other="mirror"
     note "$BUNDLE_PROVIDER has no bundle manifest for $tag; trying $other for the SAME tag."
     url="$(bundle_manifest_url_for_provider "$other" "$tag" || true)"
     [[ -n "$url" ]] || return 1
@@ -939,11 +927,16 @@ PY
 
 # kernel_pin_url_for_provider returns kernel-release.json from the exact TUI
 # tag; unlike latest-release helpers, it never resolves another tag.
+# kernel-release.json is a repo-committed file at the tag, not a GitHub
+# Releases asset, so the mirror (which only re-serves uploaded release
+# assets) has no copy of it: the "mirror" case always fails, letting the
+# fetch_kernel_pin loop below fall through to GitHub for this rare
+# source-only-release fallback.
 kernel_pin_url_for_provider() {
   local provider="$1" tag="$2"
   case "$provider" in
     github) printf 'https://raw.githubusercontent.com/%s/%s/kernel-release.json' "$REPO_SLUG" "$tag" ;;
-    gitee) printf 'https://gitee.com/%s/%s/raw/%s/kernel-release.json' "$GITEE_OWNER" "$GITEE_REPO" "$tag" ;;
+    mirror) return 1 ;;
     *) return 1 ;;
   esac
 }
@@ -961,7 +954,7 @@ fetch_kernel_pin() {
   KERNEL_PIN_TUI_TAG=""
 
   other="github"
-  [[ "$provider" == "github" ]] && other="gitee"
+  [[ "$provider" == "github" ]] && other="mirror"
   for candidate in "$provider" "$other"; do
     url="$(kernel_pin_url_for_provider "$candidate" "$tui_tag" || true)"
     [[ -n "$url" ]] || continue
@@ -1163,8 +1156,14 @@ parse_args() {
   fi
 
   case "$SOURCE_ARG" in
-    auto|github|gitee) ;;
-    *) echo "error: --source must be one of auto|github|gitee, got: $SOURCE_ARG" >&2; usage >&2; exit 1 ;;
+    auto|github|mirror) ;;
+    gitee)
+      echo "error: --source gitee has been retired; lingtai.ai now provides the China-accelerated mirror." >&2
+      echo "       Use --source mirror or --source auto." >&2
+      usage >&2
+      exit 1
+      ;;
+    *) echo "error: --source must be one of auto|github|mirror, got: $SOURCE_ARG" >&2; usage >&2; exit 1 ;;
   esac
 }
 
@@ -1921,14 +1920,8 @@ kernel_manifest_url_for_provider() {
         return 1
       fi
       ;;
-    gitee)
-      local saved_api="$GITEE_API_BASE"
-      GITEE_API_BASE="$GITEE_KERNEL_API_BASE"
-      local url
-      url="$(gitee_release_asset_url "$tag" "lingtai-kernel-release-manifest.json" || true)"
-      GITEE_API_BASE="$saved_api"
-      [[ -n "$url" ]] || return 1
-      printf '%s' "$url"
+    mirror)
+      mirror_release_asset_url "$KERNEL_REPO_SLUG" "$tag" "lingtai-kernel-release-manifest.json"
       ;;
     *) return 1 ;;
   esac
@@ -2034,7 +2027,7 @@ fetch_kernel_manifest() {
   url="$(kernel_manifest_url_for_provider "$provider" "$kernel_tag" || true)"
   if [[ -z "$url" ]]; then
     other="github"
-    [[ "$provider" == "github" ]] && other="gitee"
+    [[ "$provider" == "github" ]] && other="mirror"
     # Keep fallback diagnostics on stderr; stdout remains reserved for normal
     # installer output while the manifest is returned through explicit state.
     echo "    $provider has no kernel manifest for $kernel_tag; trying $other for the SAME kernel tag." >&2
@@ -2192,40 +2185,28 @@ kernel_artifact_download_url() {
   local provider="$1" tag="$2" name="$3"
   case "$provider" in
     github) printf 'https://github.com/Lingtai-AI/lingtai-kernel/releases/download/%s/%s' "$tag" "$name" ;;
-    gitee)
-      local saved_api="$GITEE_API_BASE" url
-      GITEE_API_BASE="$GITEE_KERNEL_API_BASE"
-      url="$(gitee_release_asset_url "$tag" "$name" || true)"
-      GITEE_API_BASE="$saved_api"
-      [[ -n "$url" ]] || return 1
-      printf '%s' "$url"
-      ;;
+    mirror) printf '%s/dl/%s/%s/%s' "$LINGTAI_WEB_BASE" "$KERNEL_REPO_SLUG" "$tag" "$name" ;;
     *) return 1 ;;
   esac
 }
 
-# resolve_latest_kernel_release queries the kernel provider(s) for the newest
-# published kernel release that carries a release manifest. Populates
-# KERNEL_LATEST_TAG; returns nonzero if unavailable on every provider.
+# resolve_latest_kernel_release queries GitHub for the newest published
+# kernel release that carries a release manifest. Populates
+# KERNEL_LATEST_TAG; returns nonzero if unavailable. Version identity always
+# comes from GitHub: the mirror has no listing API and so can never answer
+# "what is the latest kernel release" — it only re-serves bytes for an
+# already-known tag (see kernel_artifact_download_url above).
 resolve_latest_kernel_release() {
-  local provider="${BUNDLE_PROVIDER:-github}" other body tag has_manifest candidate
+  local body tag has_manifest
   KERNEL_LATEST_TAG=""
-  other="github"
-  [[ "$provider" == "github" ]] && other="gitee"
-  for candidate in "$provider" "$other"; do
-    if [[ "$candidate" == "github" ]]; then
-      body="$(curl -fsSL --max-time 15 "${KERNEL_GH_API_BASE}/releases/latest" 2>/dev/null || true)"
-    else
-      body="$(curl -fsSL --max-time 15 "${GITEE_KERNEL_API_BASE}/releases/latest" 2>/dev/null || true)"
-    fi
-    [[ -n "$body" ]] || continue
-    tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
-    has_manifest="$(printf '%s' "$body" | grep -c 'lingtai-kernel-release-manifest.json' || true)"
-    if [[ -n "$tag" && "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$has_manifest" != "0" ]]; then
-      KERNEL_LATEST_TAG="$tag"
-      return 0
-    fi
-  done
+  body="$(curl -fsSL --max-time 15 "${KERNEL_GH_API_BASE}/releases/latest" 2>/dev/null || true)"
+  [[ -n "$body" ]] || return 1
+  tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+  has_manifest="$(printf '%s' "$body" | grep -c 'lingtai-kernel-release-manifest.json' || true)"
+  if [[ -n "$tag" && "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$has_manifest" != "0" ]]; then
+    KERNEL_LATEST_TAG="$tag"
+    return 0
+  fi
   return 1
 }
 
@@ -2278,7 +2259,7 @@ install_kernel_from_bundle() {
   [[ -n "$kernel_source" ]] || return 1
 
   if ! fetch_kernel_manifest "$kernel_tag" "$py"; then
-    note "Could not fetch the pinned kernel release manifest ($kernel_tag) from GitHub or Gitee."
+    note "Could not fetch the pinned kernel release manifest ($kernel_tag) from GitHub or the lingtai.ai mirror."
     return 1
   fi
   kernel_manifest="$KERNEL_MANIFEST_JSON"
@@ -2303,8 +2284,24 @@ install_kernel_from_bundle() {
   dest="$BUILD_DIR/kernel-artifact/$fname"
   say "Downloading kernel artifact: $fname (from $KERNEL_MANIFEST_PROVIDER, release $kernel_tag) ..."
   if ! curl -fsSL --max-time 300 -o "$dest" "$download_url"; then
-    warn "download failed for $download_url"
-    return 1
+    # Same-tag GitHub fallback on mirror transport unavailability only: the
+    # manifest was already validated (possibly from the mirror), so this
+    # retries the exact same kernel_tag/fname/sha on GitHub — never a
+    # different release, never a re-resolved "latest". No bytes have been
+    # accepted yet (the checksum gate below still runs), so this is a
+    # transport retry, not a downgrade of an already-verified artifact.
+    if [[ "$KERNEL_MANIFEST_PROVIDER" == "mirror" ]]; then
+      note "lingtai.ai mirror transport unavailable for $fname; retrying the SAME release from GitHub."
+      download_url="$(kernel_artifact_download_url "github" "$kernel_tag" "$fname" || true)"
+      if [[ -z "$download_url" ]] || ! curl -fsSL --max-time 300 -o "$dest" "$download_url"; then
+        warn "download failed for $fname on both the mirror and GitHub"
+        return 1
+      fi
+      KERNEL_MANIFEST_PROVIDER="github"
+    else
+      warn "download failed for $download_url"
+      return 1
+    fi
   fi
   if ! verify_sha256 "$dest" "$sha"; then
     echo "error: checksum mismatch for $fname — refusing to install an unverified kernel artifact." >&2
@@ -2470,10 +2467,10 @@ try_release_asset() {
     return 1
   fi
   provider="${BUNDLE_PROVIDER:-github}"
-  if [[ "$provider" == "gitee" ]]; then
-    url="$(gitee_release_asset_url "$tag" "$name" || true)"
+  if [[ "$provider" == "mirror" ]]; then
+    url="$(mirror_release_asset_url "$REPO_SLUG" "$tag" "$name" || true)"
     if [[ -z "$url" ]]; then
-      note "Gitee has no prebuilt asset ($name) for $tag; trying GitHub for the SAME tag."
+      note "lingtai.ai mirror has no prebuilt asset ($name) for $tag; trying GitHub for the SAME tag."
       url="$(release_asset_url "$tag" "$name" || true)"
       provider="github"
     fi
@@ -2481,7 +2478,7 @@ try_release_asset() {
     url="$(release_asset_url "$tag" "$name" || true)"
   fi
   if [[ -z "$url" ]]; then
-    note "Release $tag has no prebuilt asset ($name) on GitHub or Gitee; will build from source."
+    note "Release $tag has no prebuilt asset ($name) on GitHub or the lingtai.ai mirror; will build from source."
     return 1
   fi
 
@@ -2986,8 +2983,8 @@ else
     validate_install_target || exit 1
   fi
   resolve_source_provider
-if [[ "$BUNDLE_PROVIDER" == "gitee" ]]; then
-  say "Source: Gitee (${GITEE_OWNER}/${GITEE_REPO}) — override with --source github or LINGTAI_SOURCE=github."
+if [[ "$BUNDLE_PROVIDER" == "mirror" ]]; then
+  say "Source: lingtai.ai download-acceleration mirror ($LINGTAI_WEB_BASE) — override with --source github or LINGTAI_SOURCE=github."
 fi
 
 # Resolve one bundle (TUI tag + bundle manifest, which pins an exact kernel
@@ -3006,7 +3003,7 @@ if [[ -z "$REF" ]]; then
   if fetch_bundle_manifest; then
     note "Resolved bundle $BUNDLE_TAG via $BUNDLE_PROVIDER (kernel $(bundle_manifest_field kernel_tag))."
   else
-    warn "No bundle manifest available for $([[ -n "$VERSION" ]] && echo "$VERSION" || echo "the latest release") on GitHub or Gitee."
+    warn "No bundle manifest available for $([[ -n "$VERSION" ]] && echo "$VERSION" || echo "the latest release") on GitHub or the lingtai.ai mirror."
     # Source-only TUI releases (no dual bundle manifest) instead commit an
     # exact kernel-release.json pin at the same tag — try that before failing
     # loud. Never re-resolves "latest" a second time; consumes BUNDLE_TAG,
@@ -3055,14 +3052,12 @@ else
       say "Latest release is $TARGET_TAG"
     else
       say "Resolving latest release ..."
-      if [[ "$BUNDLE_PROVIDER" == "gitee" ]]; then
-        TARGET_TAG="$(gitee_latest_release_tag || true)"
-      fi
+      # Version identity always comes from GitHub: the mirror has no listing
+      # API and so cannot answer "latest" (see resolve_latest_kernel_release
+      # for the same rule on the kernel side).
+      TARGET_TAG="$(latest_release_tag || true)"
       if [[ -z "$TARGET_TAG" ]]; then
-        TARGET_TAG="$(latest_release_tag || true)"
-      fi
-      if [[ -z "$TARGET_TAG" ]]; then
-        echo "error: could not determine the latest release tag from GitHub or Gitee." >&2
+        echo "error: could not determine the latest release tag from GitHub." >&2
         echo "       Pass one explicitly: ./install.sh --version vX.Y.Z" >&2
         exit 1
       fi
