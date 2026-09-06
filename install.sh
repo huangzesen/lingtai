@@ -36,7 +36,7 @@
 # remains the sole release/version authority either way — the mirror never
 # lists releases, resolves "latest", or publishes independently; it only
 # re-serves exact bytes GitHub has already published, mirrored by
-# huangzesen/lingtai-web after each publisher's own upload succeeds (see
+# Lingtai-AI/lingtai-web after each publisher's own upload succeeds (see
 # docs/release-mirror/CONTRACT.md there). This replaces the earlier Gitee mirror;
 # --source gitee is explicitly retired (rejected with a pointer to
 # --source mirror), since nothing keeps a separate Gitee release in sync any
@@ -713,7 +713,7 @@ python_dependency_index_url() {
 # asset of a source repo/tag on the lingtai.ai mirror, or nothing if that
 # exact URL is not (yet) reachable. Unlike GitHub/the retired Gitee mirror,
 # there is no separate listing API: the mirror route
-# (huangzesen/lingtai-web's docs/release-mirror/CONTRACT.md) is a single exact key
+# (Lingtai-AI/lingtai-web's docs/release-mirror/CONTRACT.md) is a single exact key
 # in, one exact object out, so "does this exist" is answered by probing that
 # same URL directly — never by inventing or guessing a nearby key.
 mirror_release_asset_url() {

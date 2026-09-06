@@ -103,7 +103,7 @@ source tarball.
 
 Immediately after the release above is published, `windows-release`'s
 "Notify lingtai-web download mirror" step sends one `repository_dispatch`
-(`release-asset-published`) to `huangzesen/lingtai-web` naming this release's
+(`release-asset-published`) to `Lingtai-AI/lingtai-web` naming this release's
 tag and the three uploaded assets (the Windows zip, its `.sha256` sidecar,
 and `lingtai-bundle-manifest.json`) with sha256/size recomputed fresh from
 the still-on-disk bytes. This exists solely so `lingtai.ai` can mirror the
@@ -111,9 +111,9 @@ same bytes for mainland-China download acceleration; GitHub remains the sole
 official release authority, and a missing or failed dispatch never edits,
 retries, or undoes the GitHub release itself. Requires the
 `LINGTAI_WEB_DISPATCH_TOKEN` repository secret (a token with
-`repository_dispatch` write access on `huangzesen/lingtai-web`) as a
+`repository_dispatch` write access on `Lingtai-AI/lingtai-web`) as a
 deployment prerequisite; without it the step prints a `::warning::` and exits
-0, so its absence cannot fail a release. See `huangzesen/lingtai-web`'s
+0, so its absence cannot fail a release. See `Lingtai-AI/lingtai-web`'s
 `docs/release-mirror/CONTRACT.md` for the receiving side's contract.
 
 ### 4. Verify the automated Homebrew tap update
@@ -245,7 +245,7 @@ package-index install. It is POSIX-only; `install.ps1` is unchanged.
 The behavior below applies to the bundle assets published by the tag workflow
 and to compatible bundle releases published separately. After the Windows
 release assets above are uploaded and the release is public, this job's final
-step dispatches a `repository_dispatch` to `huangzesen/lingtai-web` so it can
+step dispatches a `repository_dispatch` to `Lingtai-AI/lingtai-web` so it can
 mirror those same bytes for download acceleration — see the post-publication
 dispatch described above; that mirror never publishes an
 independent release, so it has no "latest" of its own. The legacy Gitee

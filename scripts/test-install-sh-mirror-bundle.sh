@@ -323,7 +323,7 @@ register_response_text() {
 # deterministic (releases/<repo>/<tag>/<asset>); availability is confirmed
 # with a bounded HEAD-style probe of that exact URL rather than a separate
 # listing call, matching the mirror's actual route contract (see
-# huangzesen/lingtai-web's docs/release-mirror/CONTRACT.md: 404 for anything not
+# Lingtai-AI/lingtai-web's docs/release-mirror/CONTRACT.md: 404 for anything not
 # mirrored, never a listing).
 
 (
