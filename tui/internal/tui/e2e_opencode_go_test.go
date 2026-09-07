@@ -142,6 +142,22 @@ func TestE2EOpenCodeGoOptionSurvivesSave(t *testing.T) {
 			if got := asString(m.llmMap()["api_key_env"]); got != "OPENCODE_GO_API_KEY" {
 				t.Fatalf("[%s] working api_key_env = %q, want OPENCODE_GO_API_KEY", provider, got)
 			}
+			if provider == "kimi" {
+				if got := asString(m.llmMap()["model"]); got != "" {
+					t.Fatalf("[kimi] native model carried onto OpenCode Go = %q, want an explicit empty-model edit gate", got)
+				}
+				m.cursor = editorFieldOrderIndex(t, feModel)
+				opened, _ := m.openInline()
+				if opened.mode != emInline {
+					t.Fatalf("[kimi] OpenCode Go model row mode = %v, want emInline", opened.mode)
+				}
+				opened.input.SetValue("kimi-k3")
+				opened, _ = pressKey(t, opened, tea.KeyEnter)
+				if opened.mode != emBrowse {
+					t.Fatalf("[kimi] Enter did not finish the model edit; mode = %v", opened.mode)
+				}
+				m = opened
+			}
 
 			// Tab + Enter: the real save gate.
 			msg := saveViaKeyboard(t, m)
@@ -154,6 +170,11 @@ func TestE2EOpenCodeGoOptionSurvivesSave(t *testing.T) {
 			llm := committedLLM(t, msg.Preset)
 			if got := asString(llm["base_url"]); got != openCodeGoURL {
 				t.Fatalf("[%s] committed base_url = %q, want %q", provider, got, openCodeGoURL)
+			}
+			if provider == "kimi" {
+				if got := asString(llm["model"]); got != "kimi-k3" {
+					t.Fatalf("[kimi] committed OpenCode Go model = %q, want kimi-k3", got)
+				}
 			}
 			if got := asString(llm["api_key_env"]); got != "OPENCODE_GO_API_KEY" {
 				t.Fatalf("[%s] committed api_key_env = %q, want OPENCODE_GO_API_KEY (the option's whole point)", provider, got)

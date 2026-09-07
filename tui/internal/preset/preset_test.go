@@ -676,10 +676,19 @@ func TestBuiltinPresetRequestedDefaultModels(t *testing.T) {
 		preset    Preset
 		wantModel string
 	}{
+		{"minimax", minimaxPreset(), "MiniMax-M2.7"},
 		{"zhipu", zhipuPreset(), "GLM-5.2"},
+		{"mimo", mimoPreset(), "mimo-v2.5"},
 		{"deepseek", deepseekPreset(), "deepseek-v4-pro"},
+		{"gemini", geminiPreset(), "gemini-3.8-flash"},
+		{"kimi", kimiPreset(), "k3"},
+		{"grok", grokPreset(), "grok-4.5"},
+		{"nvidia", nvidiaPreset(), "nvidia/nemotron-3-ultra-550b-a55b"},
+		{"openrouter", openrouterPreset(), "z-ai/glm-5.3"},
 		{"codex", codexPreset(), "gpt-5.6-sol"},
 		{"codex-pool", codexPoolPreset(), "gpt-5.6-sol"},
+		{"claude", claudePreset(), "opus"},
+		{"custom", customPreset(), ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1010,7 +1019,7 @@ func TestMiniMaxPresetCapabilitiesUseApiKeyEnv(t *testing.T) {
 	if !ok {
 		t.Fatalf("manifest.capabilities missing or wrong type: %T", manifest["capabilities"])
 	}
-	for _, name := range []string{"web_search", "vision"} {
+	for _, name := range []string{"web_search"} {
 		capCfg, ok := caps[name].(map[string]interface{})
 		if !ok {
 			t.Fatalf("capability %s missing or wrong type: %T", name, caps[name])
@@ -1021,6 +1030,9 @@ func TestMiniMaxPresetCapabilitiesUseApiKeyEnv(t *testing.T) {
 		if env, _ := capCfg["api_key_env"].(string); env != "MINIMAX_API_KEY" {
 			t.Errorf("%s.api_key_env = %v, want MINIMAX_API_KEY", name, capCfg["api_key_env"])
 		}
+	}
+	if _, ok := caps["vision"]; ok {
+		t.Fatal("minimax native text preset must not expose stock vision")
 	}
 }
 

@@ -122,38 +122,55 @@ func TestPresetEditorProviderModelLineupsPinRequestedDefaults(t *testing.T) {
 	if got := providerModels["zhipu"]; !reflect.DeepEqual(got, wantZhipuModels) {
 		t.Fatalf("zhipu provider models = %#v, want %#v", got, wantZhipuModels)
 	}
-	// Latest two MiniMax generations: M3 and M2.7 (+ its -highspeed variant,
-	// which is not a separate generation).
-	wantMiniMaxModels := []string{"MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.7-highspeed"}
+	// Native CN MiniMax generations: M2.7 and M2.5, with their highspeed
+	// variants. OpenCode Go keeps the protected pre-PR list below.
+	wantMiniMaxModels := []string{"MiniMax-M2.7", "MiniMax-M2.7-highspeed", "MiniMax-M2.5", "MiniMax-M2.5-highspeed"}
 	if got := providerModels["minimax"]; !reflect.DeepEqual(got, wantMiniMaxModels) {
 		t.Fatalf("minimax provider models = %#v, want %#v", got, wantMiniMaxModels)
 	}
-	// MiMo ships the latest TWO generations: v2.5 (+ its text-only -pro
-	// variant) and v2 (-pro, -omni). All four are served by Xiaomi's endpoint
-	// AND by OpenCode Go, so the picker is valid on either base_url row. The
-	// curation rule caps at two generations and does not require trimming to
-	// one, so v2 stays until something newer than v2.5 displaces it.
-	wantMiMoModels := []string{"mimo-v2.5", "mimo-v2.5-pro", "mimo-v2-pro", "mimo-v2-omni"}
+	for _, model := range wantMiniMaxModels {
+		if modelHasVision[model] {
+			t.Fatalf("MiniMax native text model %s must remain text-only", model)
+		}
+	}
+	// Native MiMo curation keeps V2.5 and its text-only Pro variant. The
+	// deprecated V2 entries remain only on the protected OpenCode Go route.
+	wantMiMoModels := []string{"mimo-v2.5", "mimo-v2.5-pro"}
 	if got := providerModels["mimo"]; !reflect.DeepEqual(got, wantMiMoModels) {
 		t.Fatalf("mimo provider models = %#v, want %#v", got, wantMiMoModels)
 	}
 	if got := providerModels["grok"]; !reflect.DeepEqual(got, []string{"grok-4.5"}) {
 		t.Fatalf("grok provider models = %#v, want [grok-4.5]", got)
 	}
-	// kimi must NOT gain a picker: an entry here flips its model row from
-	// free text to picker-only, and one → then overwrites a typed off-list
-	// Moonshot id (kimi-latest, moonshot-v1-*) with entry [0], unrecoverably.
-	if models, ok := providerModels["kimi"]; ok {
-		t.Fatalf("kimi must keep a free-text model row, got picker %#v", models)
+	// Kimi must NOT gain a provider-global picker: only the exact native
+	// Kimi Code route is curated, while OpenCode Go and Custom stay free text
+	// so a typed off-list gateway or proxy id remains editable.
+	if models := providerModels["kimi"]; models != nil {
+		t.Fatalf("kimi must keep no provider-global model row, got %#v", models)
 	}
 	wantClaudeModels := []string{"opus", "fable", "sonnet", "haiku"}
 	if got := providerModels["claude-code"]; !reflect.DeepEqual(got, wantClaudeModels) {
 		t.Fatalf("claude-code provider models = %#v, want %#v", got, wantClaudeModels)
 	}
+	wantNVIDIAModels := []string{
+		"nvidia/nemotron-3-ultra-550b-a55b",
+		"nvidia/nemotron-3-super-120b-a12b",
+		"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+		"deepseek-ai/deepseek-v4-pro-0813",
+		"deepseek-ai/deepseek-v4-flash-0731",
+		"moonshotai/kimi-k3",
+		"minimaxai/minimax-m3",
+		"mistralai/mistral-nemotron",
+		"openai/gpt-oss-20b",
+		"nvidia/llama-3.1-nemotron-ultra-253b-v1",
+	}
+	if got := providerModels["nvidia"]; !reflect.DeepEqual(got, wantNVIDIAModels) {
+		t.Fatalf("nvidia provider models = %#v, want %#v", got, wantNVIDIAModels)
+	}
 	if !modelHasVision["mimo-v2.5"] {
 		t.Fatal("MiMo picker must keep native vision for mimo-v2.5")
 	}
-	for _, model := range []string{"mimo-v2.5-pro", "mimo-v2-pro", "mimo-v2-omni"} {
+	for _, model := range []string{"mimo-v2.5-pro"} {
 		if modelHasVision[model] {
 			t.Fatalf("MiMo %s has no verified image route; it must stay text-only (a name is not evidence)", model)
 		}
@@ -167,11 +184,11 @@ func TestPresetEditorProviderModelLineupsPinRequestedDefaults(t *testing.T) {
 		t.Fatal("grok-4.5 has no verified image-input route on OpenCode Go; it must stay text-only")
 	}
 
-	// Latest two GPT-5.x generations: 5.6 (three named routes of one
-	// generation) and 5.5. codex-pool changes account selection, not the
-	// catalog, so the two lists stay identical.
+	// GPT-6 Astra is documented but account/client rollout is not proven, so
+	// Sol remains the default-first entry. The named GPT-5.6 routes are one
+	// generation's variants; codex-pool changes account selection only.
 	wantCodexModels := []string{
-		"gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5",
+		"gpt-5.6-sol", "gpt-6-astra", "gpt-5.6-terra", "gpt-5.6-luna",
 	}
 	for _, provider := range []string{"codex", "codex-pool"} {
 		models := providerModels[provider]
@@ -181,18 +198,236 @@ func TestPresetEditorProviderModelLineupsPinRequestedDefaults(t *testing.T) {
 	}
 	for _, model := range wantCodexModels {
 		if !modelHasVision[model] {
-			t.Fatalf("%s should be treated as vision-capable like the rest of the GPT-5.x Codex lineup", model)
+			t.Fatalf("%s should be treated as vision-capable like the documented Codex lineup", model)
 		}
 	}
 }
 
-// TestModelHasVisionDeclaresEveryShippedModel is the F8 contract: a shipped
-// model that is absent from modelHasVision reads as text-only through Go's
-// zero value, which is an omission rather than a declaration. `mimo-v2-omni`
-// was the case that made this matter — a name that suggests multimodality
-// with nothing in the map pushing back. Every id the picker can reach must
-// have an explicit entry, and the map must not accumulate entries for models
-// the two-generation curation rule has retired.
+func TestPresetEditorModelCatalogsAreExactByRoute(t *testing.T) {
+	tests := []struct {
+		name     string
+		provider string
+		label    string
+		want     []string
+		freeText bool
+	}{
+		{
+			name:     "minimax native CN",
+			provider: "minimax",
+			label:    "CN",
+			want:     []string{"MiniMax-M2.7", "MiniMax-M2.7-highspeed", "MiniMax-M2.5", "MiniMax-M2.5-highspeed"},
+		},
+		{
+			name:     "minimax OpenCode Go protected list",
+			provider: "minimax",
+			label:    "OpenCode Go",
+			want:     []string{"MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.7-highspeed"},
+		},
+		{
+			name:     "minimax INTL remains free text",
+			provider: "minimax",
+			label:    "INTL",
+			freeText: true,
+		},
+		{
+			name:     "mimo native",
+			provider: "mimo",
+			label:    "MiMo",
+			want:     []string{"mimo-v2.5", "mimo-v2.5-pro"},
+		},
+		{
+			name:     "mimo OpenCode Go protected list",
+			provider: "mimo",
+			label:    "OpenCode Go",
+			want:     []string{"mimo-v2.5", "mimo-v2.5-pro", "mimo-v2-pro", "mimo-v2-omni"},
+		},
+		{
+			name:     "mimo Custom remains free text",
+			provider: "mimo",
+			label:    "Custom",
+			freeText: true,
+		},
+		{
+			name:     "kimi native",
+			provider: "kimi",
+			label:    "Kimi Code",
+			want:     []string{"k3", "k3-256k", "kimi-for-coding", "kimi-for-coding-highspeed"},
+		},
+		{
+			name:     "kimi OpenCode Go remains free text",
+			provider: "kimi",
+			label:    "OpenCode Go",
+			freeText: true,
+		},
+		{
+			name:     "kimi Custom remains free text",
+			provider: "kimi",
+			label:    "Custom",
+			freeText: true,
+		},
+		{
+			name:     "zhipu protected mixed catalog",
+			provider: "zhipu",
+			label:    "OpenCode Go",
+			want:     []string{"GLM-5.2", "GLM-5.1", "glm-5.2", "glm-5.1"},
+		},
+		{
+			name:     "custom remains free text",
+			provider: "custom",
+			freeText: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			baseURL := ""
+			if tc.label != "" {
+				for _, region := range preset.ProviderRegionURLs[tc.provider] {
+					if region.Label == tc.label {
+						baseURL = region.URL
+						break
+					}
+				}
+			}
+			if tc.label != "" && tc.label != "Custom" && baseURL == "" {
+				t.Fatalf("%s route %q has no URL", tc.provider, tc.label)
+			}
+			got := modelOptions(tc.provider, baseURL)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("modelOptions(%q, %q) = %#v, want %#v", tc.provider, baseURL, got, tc.want)
+			}
+
+			p := builtinPresetForEditorTest(t, tc.provider)
+			m := NewPresetEditorModelWithBuiltinFlag(p, "en", nil, "", false)
+			m.llmMap()["base_url"] = baseURL
+			model := "typed-route-model"
+			if len(tc.want) > 0 {
+				model = tc.want[0]
+			}
+			m.llmMap()["model"] = model
+			m.cursor = editorFieldOrderIndex(t, feModel)
+			if gotPicker := m.isCyclable(feModel); gotPicker != !tc.freeText {
+				t.Fatalf("isCyclable(feModel) = %v, freeText=%v", gotPicker, tc.freeText)
+			}
+			if strip := m.modelRadioStrip(false, lipgloss.NewStyle()); (strip == "") != tc.freeText {
+				t.Fatalf("modelRadioStrip() empty = %v, freeText=%v; strip=%q", strip == "", tc.freeText, strip)
+			}
+			opened, _ := m.openInline()
+			if tc.freeText {
+				if opened.mode != emInline {
+					t.Fatalf("free-text route Enter mode = %v, want emInline", opened.mode)
+				}
+				opened.applyInline("edited-route-model")
+				if got := asString(opened.llmMap()["model"]); got != "edited-route-model" {
+					t.Fatalf("free-text route model = %q, want edited-route-model", got)
+				}
+			} else if opened.mode != emBrowse {
+				t.Fatalf("picker route Enter mode = %v, want emBrowse", opened.mode)
+			} else if got := asString(opened.llmMap()["model"]); got != tc.want[1] {
+				t.Fatalf("picker route model after Enter = %q, want %q", got, tc.want[1])
+			}
+		})
+	}
+}
+
+func TestPresetEditorRegionChangePreservesModelText(t *testing.T) {
+	tests := []struct {
+		provider string
+		steps    int
+	}{
+		{provider: "minimax", steps: 2}, // CN -> INTL -> OpenCode Go
+		{provider: "mimo", steps: 1},    // native -> OpenCode Go
+		{provider: "kimi", steps: 1},    // native -> OpenCode Go
+	}
+	for _, tc := range tests {
+		t.Run(tc.provider, func(t *testing.T) {
+			regions := preset.ProviderRegionURLs[tc.provider]
+			if len(regions) < 2 || regions[0].URL == "" || regions[1].URL == "" {
+				t.Fatalf("%s route table lacks two non-empty regions: %#v", tc.provider, regions)
+			}
+			m := NewPresetEditorModelWithBuiltinFlag(builtinPresetForEditorTest(t, tc.provider), "en", nil, "", false)
+			m.llmMap()["base_url"] = regions[0].URL
+			m.llmMap()["model"] = "user-typed-model"
+			m.cursor = editorFieldOrderIndex(t, feBaseURL)
+			for i := 0; i < tc.steps; i++ {
+				m.cycleFocused(+1)
+			}
+			if got := asString(m.llmMap()["model"]); got != "user-typed-model" {
+				t.Fatalf("model after %s region change = %q, want preserved user text", tc.provider, got)
+			}
+		})
+	}
+}
+
+func TestPresetEditorRegionChangeReconcilesKnownRouteModels(t *testing.T) {
+	tests := []struct {
+		name       string
+		provider   string
+		startIndex int
+		direction  int
+		steps      int
+		model      string
+		wantModel  string
+		wantIndex  int
+	}{
+		{
+			name:       "MiniMax native-only model falls back to protected Go default",
+			provider:   "minimax",
+			startIndex: 0,
+			direction:  +1,
+			steps:      2,
+			model:      "MiniMax-M2.5",
+			wantModel:  "MiniMax-M3",
+			wantIndex:  2,
+		},
+		{
+			name:       "MiMo retired Go model falls back to native default",
+			provider:   "mimo",
+			startIndex: 1,
+			direction:  -1,
+			steps:      1,
+			model:      "mimo-v2-omni",
+			wantModel:  "mimo-v2.5",
+			wantIndex:  0,
+		},
+		{
+			name:       "Kimi native id is cleared on free-text Go route",
+			provider:   "kimi",
+			startIndex: 0,
+			direction:  +1,
+			steps:      1,
+			model:      "k3",
+			wantModel:  "",
+			wantIndex:  1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			regions := preset.ProviderRegionURLs[tc.provider]
+			m := NewPresetEditorModelWithBuiltinFlag(builtinPresetForEditorTest(t, tc.provider), "en", nil, "", false)
+			m.llmMap()["base_url"] = regions[tc.startIndex].URL
+			m.llmMap()["model"] = tc.model
+			m.cursor = editorFieldOrderIndex(t, feBaseURL)
+			for i := 0; i < tc.steps; i++ {
+				m.cycleFocused(tc.direction)
+			}
+			if got := asString(m.llmMap()["base_url"]); got != regions[tc.wantIndex].URL {
+				t.Fatalf("base_url = %q, want %q", got, regions[tc.wantIndex].URL)
+			}
+			if got := asString(m.llmMap()["model"]); got != tc.wantModel {
+				t.Fatalf("model = %q, want %q", got, tc.wantModel)
+			}
+		})
+	}
+}
+
+// TestModelHasVisionDeclaresEveryShippedModel is the F8 contract for the
+// native/default catalog: a shipped model that is absent from modelHasVision
+// reads as text-only through Go's zero value, which is an omission rather than
+// a declaration. Route-only gateway overrides intentionally have no global
+// modality entries. The map must not accumulate entries for models the
+// two-generation curation rule has retired.
 func TestModelHasVisionDeclaresEveryShippedModel(t *testing.T) {
 	shipped := map[string]bool{}
 	for provider, models := range providerModels {
@@ -201,8 +436,8 @@ func TestModelHasVisionDeclaresEveryShippedModel(t *testing.T) {
 		if strings.HasPrefix(provider, "claude") {
 			continue
 		}
-		// The NVIDIA catalog is an open free-text gateway list, not a curated
-		// per-model vision inventory.
+		// NVIDIA's bounded route-served snapshot does not assert a curated
+		// per-model vision inventory, so this completeness gate does not apply.
 		if provider == "nvidia" {
 			continue
 		}
@@ -640,6 +875,7 @@ func TestModelSwitchNeverTouchesCapabilities(t *testing.T) {
 	// Cycling the model field (feModel + cycleFocused) must not touch
 	// capabilities either, in either direction.
 	m.llmMap()["provider"] = "mimo"
+	m.llmMap()["base_url"] = preset.ProviderRegionURLs["mimo"][0].URL
 	m.llmMap()["model"] = "mimo-v2.5-pro"
 	m.cycleFocused(+1) // mimo-v2.5-pro -> mimo-v2.5 (vision-capable)
 	assertCapsUnchanged(t, "cycleFocused to vision-capable model", m, before)

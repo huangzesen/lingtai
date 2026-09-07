@@ -630,7 +630,7 @@ var ProviderRegionURLs = map[string][]RegionURL{
 	},
 	// OpenCode Go serves the Kimi K-series (kimi-k3, kimi-k2.7-code, ...)
 	// under lowercase model ids; the native Kimi Code endpoint serves the
-	// subscription model `kimi-for-coding`. Kimi had free-text base_url
+	// current subscription model `k3`. Kimi had free-text base_url
 	// before it gained this table, so it carries the Custom sentinel too —
 	// a region table without one removes the only in-editor path to a
 	// corporate proxy or relay.
@@ -1252,10 +1252,10 @@ func minimaxPreset() Preset {
 	}
 	return Preset{
 		Name:        "minimax",
-		Description: PresetDescription{Summary: "MiniMax M3 — full multimodal capabilities"},
+		Description: PresetDescription{Summary: "MiniMax M2.7 — Anthropic-compatible text and tool use"},
 		Manifest: map[string]interface{}{
 			"llm": map[string]interface{}{
-				"provider": "minimax", "model": "MiniMax-M3",
+				"provider": "minimax", "model": "MiniMax-M2.7",
 				"api_key": nil, "api_key_env": "MINIMAX_API_KEY",
 				"base_url": ProviderRegionURLs["minimax"][0].URL,
 			},
@@ -1265,7 +1265,6 @@ func minimaxPreset() Preset {
 			// belong here. See lingtai-kernel capabilities.CORE_DEFAULTS.
 			"capabilities": map[string]interface{}{
 				"web_search": mm,
-				"vision":     mm,
 				"skills":     skillsDefault(),
 			},
 		},
@@ -1330,7 +1329,7 @@ func deepseekPreset() Preset {
 }
 
 func geminiPreset() Preset {
-	// Gemini 3 Flash (Google) — multimodal model with native vision,
+	// Gemini 3.8 Flash (Google) — multimodal model with native vision,
 	// tool calling, and streaming. Uses Google's own Gemini adapter in
 	// the kernel (not OpenAI-compat), so no base_url or api_compat.
 	gm := map[string]interface{}{
@@ -1339,10 +1338,10 @@ func geminiPreset() Preset {
 	}
 	return Preset{
 		Name:        "gemini",
-		Description: PresetDescription{Summary: "Gemini 3 Flash — Google's multimodal model, tool calls, vision", Tier: "3"},
+		Description: PresetDescription{Summary: "Gemini 3.8 Flash — Google's multimodal model, tool calls, vision", Tier: "3"},
 		Manifest: map[string]interface{}{
 			"llm": map[string]interface{}{
-				"provider": "gemini", "model": "gemini-3-flash-preview",
+				"provider": "gemini", "model": "gemini-3.8-flash",
 				"api_key": nil, "api_key_env": "GEMINI_API_KEY",
 			},
 			// Gemini is multimodal/vision-capable — image inputs are
@@ -1360,7 +1359,7 @@ func geminiPreset() Preset {
 
 func kimiPreset() Preset {
 	// Kimi Code (Moonshot 月之暗面) — OpenAI-compatible coding API.
-	// Subscription-based (no per-token billing); model `kimi-for-coding`.
+	// Subscription-based (no per-token billing); current model `k3`.
 	// Tool calling supported. The kernel auto-sets User-Agent
 	// "LingTai-Agent/1.0" for the `kimi` provider per Kimi's ToS — UA
 	// spoofing risks account suspension. The model family has multimodal
@@ -1369,7 +1368,7 @@ func kimiPreset() Preset {
 	return openAICompatNoVisionPreset(
 		"kimi",
 		"Kimi Code (Moonshot) — OpenAI-compatible, subscription-based, tool calling",
-		"kimi-for-coding", "KIMI_CODE_API_KEY", ProviderRegionURLs["kimi"][0].URL, "3")
+		"k3", "KIMI_CODE_API_KEY", ProviderRegionURLs["kimi"][0].URL, "3")
 }
 
 func grokPreset() Preset {
@@ -1398,10 +1397,9 @@ func nvidiaPreset() Preset {
 	// NVIDIA NIM / NVIDIA API Catalog (build.nvidia.com) — an
 	// OpenAI-compatible /chat/completions gateway hosting a large catalog
 	// of open-weight models (Llama, Qwen, Kimi, GPT-OSS, Nemotron, ...) at
-	// no per-token cost on the free developer tier. Default model is
-	// Llama 3.3 70B Instruct; users clone this preset to switch to any
-	// other catalog ID (e.g. qwen/qwen3-coder-480b-a35b-instruct,
-	// moonshotai/kimi-k2-thinking, openai/gpt-oss-120b). Provider is the
+	// no per-token cost on the free developer tier. Default model is the
+	// bounded stable agent snapshot's Nemotron 3 Ultra route; users clone this
+	// preset to switch among the curated IDs in the TUI picker. Provider is the
 	// generic "nvidia" string routed through the kernel's OpenAI-compatible
 	// client via api_compat=openai + the explicit base_url. Text-only — no
 	// media generation; use `listen` for audio, `mcp-manual` for media.
@@ -1411,17 +1409,17 @@ func nvidiaPreset() Preset {
 	// with HTTP 400. See lingtai-kernel llm/_register.py.
 	return openAICompatNoVisionPreset(
 		"nvidia",
-		"NVIDIA NIM — free OpenAI-compatible catalog (Llama, Qwen, Kimi, GPT-OSS, ...), tool calls",
-		"meta/llama-3.3-70b-instruct", "NVIDIA_API_KEY", "https://integrate.api.nvidia.com/v1", "")
+		"NVIDIA NIM — bounded route-served stable agent snapshot, tool calls",
+		"nvidia/nemotron-3-ultra-550b-a55b", "NVIDIA_API_KEY", "https://integrate.api.nvidia.com/v1", "")
 }
 
 func openrouterPreset() Preset {
 	return Preset{
 		Name:        "openrouter",
-		Description: PresetDescription{Summary: "OpenRouter — gateway to DeepSeek, GLM, Qwen, MiniMax, Kimi, Claude, ..."},
+		Description: PresetDescription{Summary: "OpenRouter — GLM 5.3 gateway route (interactive, non-batch)"},
 		Manifest: map[string]interface{}{
 			"llm": map[string]interface{}{
-				"provider": "openrouter", "model": "z-ai/glm-5.1",
+				"provider": "openrouter", "model": "z-ai/glm-5.3",
 				"api_key": nil, "api_key_env": "OPENROUTER_API_KEY",
 				"base_url": nil,
 			},
@@ -1443,11 +1441,12 @@ func codexPreset() Preset {
 		Description: PresetDescription{Summary: "ChatGPT account — vision + web search + tools"},
 		Manifest: map[string]interface{}{
 			"llm": map[string]interface{}{
-				// Use gpt-5.6-sol as the default after successful live testing.
-				// The other named GPT-5.6 routes remain selectable for accounts
-				// where they are enabled. The complete curated model list lives
-				// in preset_editor.go's providerModels; the bare gpt-5.6 alias
-				// is intentionally omitted.
+				// Keep gpt-5.6-sol as the default: gpt-6-astra is documented and
+				// picker-visible, but exact authenticated OAuth-route availability
+				// is not positive evidence for silently promoting it. The named
+				// GPT-5.6 routes remain selectable where enabled. The complete
+				// curated list lives in preset_editor.go; the bare gpt-5.6 alias is
+				// intentionally omitted.
 				"provider": "codex", "model": "gpt-5.6-sol",
 				"api_key": nil, "api_key_env": "",
 				"base_url": "https://chatgpt.com/backend-api/codex",
@@ -1480,9 +1479,10 @@ func codexPoolPreset() Preset {
 		Description: PresetDescription{Summary: "ChatGPT account pool — load-balances across your Codex accounts"},
 		Manifest: map[string]interface{}{
 			"llm": map[string]interface{}{
-				// Same gpt-5.6-sol default and endpoint as the single-account
-				// codex preset; only the provider differs so the kernel routes
-				// through the pool. base_url stays the official Codex endpoint —
+				// Same gpt-5.6-sol default (Astra remains availability-gated) and
+				// endpoint as the single-account codex preset; only the provider
+				// differs so the kernel routes through the pool. base_url stays the
+				// official Codex endpoint —
 				// the pool selects among token files, not endpoints.
 				"provider": "codex-pool", "model": "gpt-5.6-sol",
 				"api_key": nil, "api_key_env": "",
@@ -1512,7 +1512,7 @@ func claudePreset() Preset {
 				// is judged by detecting an existing `claude` CLI login (see
 				// AuthState.ClaudeCodeAuthConfigured). Default model is the CLI
 				// alias "opus"; the editor also offers "fable", whose full ID
-				// is `claude-fable-5` in current Claude Code.
+				// is `claude-fable-5-1` in current Claude Code.
 				"provider": "claude-code", "model": "opus",
 				"api_key": nil, "api_key_env": "",
 			},

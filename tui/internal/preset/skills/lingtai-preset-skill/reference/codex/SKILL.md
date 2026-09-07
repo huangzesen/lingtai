@@ -41,9 +41,12 @@ base_url suffix, empty api_key_env, OAuth identity, and explicit xhigh default.
 Follow the Codex-specific checklist in tui/internal/tui/SKILL.md and the
 latest-two-generation rule in tui/CONTRACT.md.
 
-The current picker is gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, and gpt-5.5;
-older gpt-5.4, gpt-5.4-mini, gpt-5.3-codex, and gpt-5.2 are not offered.
-Saved presets are not rewritten. To inspect live OAuth quota, complete the
+The picker is gpt-5.6-sol, gpt-6-astra, gpt-5.6-terra, and gpt-5.6-luna;
+gpt-5.5 and older gpt-5.4, gpt-5.4-mini, gpt-5.3-codex, and gpt-5.2 are not
+offered. The constructor/default remains gpt-5.6-sol: public Astra
+documentation is positive, but exact authenticated OAuth-route availability
+is not, so the editor does not silently promote Astra. Saved presets are not
+rewritten. To inspect live OAuth quota, complete the
 app-server initialize handshake, send account/rateLimits/read with
 structurally `null` params, and optionally observe account/rateLimits/updated;
 read usedPercent, windowDurationMins, and resetsAt without exposing secrets.
@@ -55,7 +58,8 @@ lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|app
 [--output-dir PATH]. Review the JSON plan, use dry-run/check before apply, and
 apply only to a new explicit output directory. revision.go validates hashes,
 route bindings, and evidence and preserves unowned bytes. This amendment does
-not change the current codex values.
+update the picker and vision metadata while keeping the constructor/default at
+gpt-5.6-sol behind the exact-route availability gate.
 
 Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 

@@ -17,8 +17,9 @@ maintenance: "If you find stale or incorrect information here, use the lingtai-i
 
 Use this child for the named built-in gemini preset. geminiPreset in
 tui/internal/preset/preset.go:1332 uses Google's native gemini adapter,
-gemini-3-flash-preview, GEMINI_API_KEY, web_search, skills, and a native
-vision capability. It has no base_url or OpenAI-compatibility override.
+the stable gemini-3.8-flash default, GEMINI_API_KEY, web_search, skills, and a
+native vision capability. gemini-3-flash-preview was the previous preview
+default. It has no base_url or OpenAI-compatibility override.
 
 Native inline image input is distinct from the explicit LingTai `vision`
 capability; both use the shipped Gemini provider rather than a fallback.
@@ -51,8 +52,9 @@ Prepare an evidence-bound manifest and explicit input, then run
 lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|apply
 [--output-dir PATH]. Review the JSON plan, use dry-run/check before apply, and
 apply only to a new explicit output directory. revision.go validates hashes,
-route bindings, and evidence and preserves unowned bytes. This amendment does
-not change the current gemini values.
+route bindings, and evidence and preserves unowned bytes. This amendment
+revises the constructor default to gemini-3.8-flash; the model remains free
+text and is intentionally absent from providerModels and modelHasVision.
 
 Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 

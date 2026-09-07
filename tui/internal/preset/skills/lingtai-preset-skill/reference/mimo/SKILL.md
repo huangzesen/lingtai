@@ -31,11 +31,12 @@ Do not infer vision from a name such as omni; verify image input on the exact
 model and route. Custom is user-supplied and has no provider-wide latest
 answer.
 
-The picker carries the latest two generations: mimo-v2.5 and its text-only
-mimo-v2.5-pro sibling, plus mimo-v2-pro and mimo-v2-omni. Only mimo-v2.5 has
-verified LingTai-side vision; modelHasVision records the other three false.
-All four are served by Xiaomi and OpenCode Go, but the wired vision service is
-scoped to Xiaomi's own endpoint. No official MiMo vision MCP is established.
+The native MiMo picker carries mimo-v2.5 and text-only mimo-v2.5-pro. The
+deprecated mimo-v2-pro and mimo-v2-omni entries are removed from native
+curation only. Native mimo-v2.5 retains the reviewed LingTai-side vision
+capability; no Go modality is inferred. OpenCode Go keeps its exact pre-PR
+picker — mimo-v2.5, mimo-v2.5-pro, mimo-v2-pro, and mimo-v2-omni — and prior
+behavior. No official MiMo vision MCP is established.
 
 ## TUI surfaces to revise
 
@@ -58,7 +59,8 @@ lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|app
 [--output-dir PATH]. Review the JSON plan and diagnostics, use dry-run/check
 before apply, and apply only to a new explicit output directory. revision.go
 validates hashes, route bindings, and evidence and preserves unowned bytes. This
-amendment does not change the current mimo values.
+amendment narrows native curation while preserving the OpenCode Go list and
+endpoint, credential, and capability behavior.
 
 Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 

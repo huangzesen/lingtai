@@ -52,7 +52,8 @@ lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|app
 [--output-dir PATH]. Review the JSON plan, use dry-run/check before apply, and
 apply only to a new explicit output directory. revision.go validates hashes,
 route bindings, and evidence and preserves unowned bytes. This amendment does
-not change the current grok values.
+record the evidence-bound no-op: Grok remains OpenCode Go-only at grok-4.5,
+with no product refresh to an unverified Go model or vision route.
 
 Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 

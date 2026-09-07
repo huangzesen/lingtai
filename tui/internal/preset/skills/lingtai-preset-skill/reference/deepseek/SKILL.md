@@ -32,7 +32,9 @@ there; do not use the native list as proof for Go. Preserve the route-specific
 credential and model spelling.
 
 The picker currently carries deepseek-v4-pro and deepseek-v4-flash, both
-modelHasVision false. OpenCode Go is scoped to DeepSeek IDs for this provider;
+modelHasVision false. The experimental deepseek-v4-flash-vision-exp entry is
+not part of the stock picker or vision contract. OpenCode Go is scoped to
+DeepSeek IDs for this provider;
 other Go models belong in Custom. The native API row and Go row select
 DEEPSEEK_API_KEY and OPENCODE_GO_API_KEY respectively; an edited native
 built-in receives a numbered DEEPSEEK_1_API_KEY-style slot.
@@ -53,7 +55,8 @@ lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|app
 [--output-dir PATH]. Review the JSON plan, use dry-run/check before apply, and
 apply only to a new explicit output directory. revision.go validates hashes,
 route bindings, and evidence and preserves unowned bytes. This amendment does
-not change the current deepseek values.
+not change the current deepseek values; it records the experimental vision
+exclusion.
 
 Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 

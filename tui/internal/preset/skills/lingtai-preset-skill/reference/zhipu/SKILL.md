@@ -46,9 +46,12 @@ ProviderDefaultEnv in preset.go. Recheck the constructor's intentionally
 absent vision key and the model-row/base_url behavior; follow
 tui/internal/tui/SKILL.md and tui/CONTRACT.md.
 
-The picker carries uppercase GLM-5.2/GLM-5.1 for native rows and lowercase
-glm-5.2/glm-5.1 for OpenCode Go. The constructor's absent vision key is
-intentional: the shipped GLM coding models are text-only.
+The picker retains uppercase GLM-5.2/GLM-5.1 and lowercase glm-5.2/glm-5.1
+in one mixed list. This is an evidence-backed no-op: the reviewed sources do
+not pin a native Coding Plan GLM-5.3 ID or casing strongly enough to split the
+native and Go routes safely, so no native GLM-5.3 entry is invented. The
+constructor's absent vision key is intentional: the shipped GLM coding models
+are text-only.
 
 ## Reviewed deterministic revision
 
@@ -57,7 +60,8 @@ lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|app
 [--output-dir PATH]. Review the JSON plan, use dry-run/check before apply, and
 apply only to a new explicit output directory. revision.go validates hashes,
 route bindings, and evidence and preserves unowned JSON bytes. This amendment
-does not change the current zhipu values.
+records the native-picker no-op and preserves the current constructor, Go
+behavior, endpoint, credential, and capability values.
 
 Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 

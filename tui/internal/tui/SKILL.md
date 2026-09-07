@@ -1,10 +1,17 @@
 # SKILL.md — Preset model lists & provider integration
 
-Bookkeeping notes for keeping `providerModels`, `modelHasVision`, and friends in `preset_editor.go` aligned with each provider's real-world catalog. Read this **before** editing those maps so you don't bork an agent network with a typo or a retired model.
+Bookkeeping notes for keeping `providerModels`, route-specific model lookup,
+`modelHasVision`, and friends in `preset_editor.go` aligned with each
+provider's real-world catalog. Read this **before** editing those maps so you
+don't bork an agent network with a typo or a retired model.
 
 ## What this file is for
 
-Each LLM provider in `providerModels` (preset_editor.go:108) feeds a model picker on the preset editor's model row. When a user clones a template and cycles ←/→ on the model row, the candidates come straight from this map. The map is the source of truth.
+`providerModels` (preset_editor.go:108) is the canonical native/default-route
+catalog. Every model picker, display, and free-text decision calls
+`modelOptions(provider, base_url)`: exact route overrides keep a proven native
+catalog separate from a protected gateway catalog, while an uncurated route
+remains free text. The lookup is the source of truth for editor behavior.
 
 Drift here causes one of two failures:
 
@@ -17,14 +24,18 @@ The second failure mode is what this file exists to prevent.
 
 | Provider | Canonical list | Cadence | Notes |
 |---|---|---|---|
-| `minimax` | https://platform.minimaxi.com/document/Models | Quarterly | M-series, current = M3 |
-| `zhipu` | https://docs.bigmodel.cn/cn/guide/models | Quarterly | GLM-5.x family; OpenCode Go takes the same ids lowercased |
-| `mimo` | https://www.xiaomi-ai.com/cn/models | Quarterly | Xiaomi MiMo |
+| `minimax` | https://platform.minimaxi.com/document/Models | Quarterly | Native CN M-series, current = M2.7; Go keeps its protected pre-PR list |
+| `zhipu` | https://docs.bigmodel.cn/cn/guide/models | Quarterly | GLM-5.x family; mixed case list retained until exact native/Go evidence is pinned |
+| `mimo` | https://www.xiaomi-ai.com/cn/models | Quarterly | Native V2.5 curation; Go keeps its protected pre-PR list |
 | `deepseek` | https://api-docs.deepseek.com/quick_start/pricing | Quarterly | DS-V4 family |
 | `grok` | https://opencode.ai/docs/go/ | Monthly | reached only through OpenCode Go; no native xAI route is shipped |
 | `codex` | https://developers.openai.com/codex/models | Monthly | ChatGPT-OAuth only — not the standard OpenAI API list |
 
-`kimi` is deliberately absent from `providerModels`: its model row stays free text so a typed Moonshot id survives a `→`. Its OpenCode Go ids are documented in `internal/preset/skills/lingtai-preset-skill/reference/kimi/SKILL.md` instead.
+`kimi` is deliberately absent from provider-global `providerModels`: the exact
+Kimi Code route has a native override picker for `k3`, `k3-256k`,
+`kimi-for-coding`, and `kimi-for-coding-highspeed`, while OpenCode Go and Custom
+remain free text so typed gateway ids survive a `→`. Its route boundaries are
+documented in `internal/preset/skills/lingtai-preset-skill/reference/kimi/SKILL.md`.
 
 For codex specifically, **do not** consult `https://platform.openai.com/docs/models`. That's the standard API model list, which includes models the codex backend (`chatgpt.com/backend-api/codex/responses`) doesn't accept (e.g. `gpt-5.5-pro` exists in the standard API but 4xx's on the codex endpoint).
 
@@ -32,29 +43,44 @@ For codex specifically, **do not** consult `https://platform.openai.com/docs/mod
 
 **Rule 0 — latest two generations only.** `tui/CONTRACT.md` ("Model list curation") caps every family at its latest two generations. Adding a new generation is the same change that removes the third-newest. Variants inside a generation (`-highspeed`, `-pro`, `-mini`, the `gpt-5.6-sol/-terra/-luna` routes, a lowercase respelling for another endpoint) are not generations and all stay. Read that section before touching the maps; the checklist below decides inclusion *within* the two generations the rule allows.
 
+The native/default catalog is not automatically valid for every route. Keep a
+route override only when the exact endpoint is evidenced; an unlisted route
+must remain free text. The MiniMax and MiMo OpenCode Go overrides are locked
+pre-PR compatibility lists. On a route change, reconcile only values already
+known to a curated route: keep a value accepted by the destination, otherwise
+use its first preserved picker option. Never overwrite arbitrary off-list text.
+Kimi Go has no picker, so a known native Kimi id is cleared and must be replaced
+through the existing free-text model edit before save. Route-only IDs do not
+gain a global `modelHasVision` claim.
+
 For each candidate model, decide inclusion against this checklist:
 
 1. **Is it served on our endpoint?** Codex uses `/backend-api/codex/responses`. If a model is listed in OpenAI's general API docs but not in the Codex docs page above, **exclude it**. Same logic for any other provider where we use a non-standard endpoint.
 2. **Is it stable, not preview/research?** Skip "Research Preview" / "Beta" tiers — they get yanked without notice and our list rots. Example: `gpt-5.3-codex-spark` is currently a Research Preview, so it's omitted.
 3. **Is its vision capability documented?** Visit the model's page, find the "Modalities" / "Input" section, record `true`/`false` in `modelHasVision`. Don't guess — `gpt-5.3-codex` accepts images, which surprised us.
-4. **Will it 401 on a free tier?** Some models (`gpt-5.5` for codex) require ChatGPT Plus or higher. We still list them — the user discovers their tier on first use rather than the picker hiding the option. But mention any subscription gate in the comment next to the entry.
+4. **Will it 401 on a free tier or rollout gate?** `gpt-6-astra` is
+   documented, but exact authenticated Codex OAuth availability is not proven
+   for every account. Keep it picker-visible with metadata, retain
+   `gpt-5.6-sol` as the default-first/native default, and mention the gate
+   beside the entry. Do not silently promote it.
 
 ## Why some models you might expect are missing
 
 - **`gpt-5.5-pro`** — exists in OpenAI's standard API at `/api/docs/models/gpt-5.5-pro` ($30/$180 per 1M tokens), is available in ChatGPT for Pro/Business/Enterprise, but **is not listed under Codex models**. Adding it would cause 4xx on the codex endpoint. Excluded.
 - **`gpt-5.3-codex-spark`** — Research Preview as of 2026-05. Excluded until promoted to GA.
-- **`o3-pro` / `o4-mini` / older o-series** — none are in the Codex CLI catalog. Codex serves the GPT-5.x line only.
+- **`o3-pro` / `o4-mini` / older o-series** — none are in the Codex CLI catalog. Codex serves the documented GPT-6/GPT-5.6 line here.
 
 ## When you add a new model
 
 ```go
 // In providerModels:
-"codex": {"gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5", ...}, // default first
+"codex": {"gpt-5.6-sol", "gpt-6-astra", "gpt-5.6-terra", "gpt-5.6-luna"}, // default first; Astra availability-gated
 
 // In modelHasVision:
 "gpt-5.6-sol":   true, // keep named routes aligned with the verified GPT-5.6 family
 "gpt-5.6-terra": true,
 "gpt-5.6-luna":  true,
+"gpt-6-astra":   true, // docs metadata only; exact OAuth availability is not implied
 ```
 
 Order matters in `providerModels` only for the picker UX — left-to-right is the cycle order with ←/→. Putting the desired default first keeps fresh templates and the picker aligned. The `templates/codex.json` (built from `preset.go:codexPreset()`) should also have its `llm.model` bumped when you change that default. Existing saved presets keep whatever model they already declared — that's a feature, not a bug.
