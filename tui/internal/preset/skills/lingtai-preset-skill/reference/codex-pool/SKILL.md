@@ -35,7 +35,8 @@ account.
 
 Start at codexPoolPreset in tui/internal/preset/preset.go. Keep
 providerModels["codex-pool"] exactly aligned with providerModels["codex"],
-including matching modelHasVision entries and the Codex four-level
+including gpt-5.6-sol, gpt-6-astra, gpt-5.6-terra, and gpt-5.6-luna in that
+default-first order, with matching modelHasVision entries and the Codex four-level
 codexThinkingOptions in tui/internal/tui/preset_editor.go. Recheck the
 constructor's vision, /codex endpoint, OAuth-only fields, and the pool store
 only when pool selection or file behavior is part of the change. Follow
@@ -71,7 +72,8 @@ lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|app
 [--output-dir PATH]. Review the JSON plan, use dry-run/check before apply, and
 apply only to a new explicit output directory. revision.go validates hashes,
 route bindings, and evidence and preserves unowned bytes. This amendment does
-not change the current codex-pool values or pool data.
+update the picker and vision metadata while keeping the constructor/default at
+gpt-5.6-sol behind the exact-route availability gate; pool data is unchanged.
 
 Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 

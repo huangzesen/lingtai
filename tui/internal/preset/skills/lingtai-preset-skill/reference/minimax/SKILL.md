@@ -16,9 +16,10 @@ maintenance: "If you find stale or incorrect information here, use the lingtai-i
 # minimax preset revision
 
 Use this child for the named built-in minimax preset. Its current constructor
-is minimaxPreset in tui/internal/preset/preset.go:1248: it ships MiniMax-M3,
-MINIMAX_API_KEY, the CN Anthropic-compatible default, and native vision. The
-regional rows are ProviderRegionURLs["minimax"]: CN, INTL, and OpenCode Go.
+is minimaxPreset in tui/internal/preset/preset.go:1248: it ships MiniMax-M2.7,
+MINIMAX_API_KEY, the CN Anthropic-compatible default, and text/tool
+capabilities. The regional rows are ProviderRegionURLs["minimax"]: CN, INTL,
+and OpenCode Go.
 
 ## Template-specific settings
 
@@ -45,9 +46,12 @@ capability rendering only if the constructor's vision wiring changes. Follow
 the curation and retired-model rules in tui/internal/tui/SKILL.md and
 tui/CONTRACT.md.
 
-The current picker is MiniMax-M3 plus MiniMax-M2.7 and its -highspeed variant;
-the corresponding modelHasVision entries are true. M3 accepts image/video
-blocks natively on the selected endpoint. Retired M2.5/M2.1/M2 IDs remain
+The native CN picker is MiniMax-M2.7, MiniMax-M2.7-highspeed, MiniMax-M2.5,
+and MiniMax-M2.5-highspeed, all explicitly text-only for the reviewed
+Anthropic-compatible route. INTL remains free text because native parity is
+not proven. OpenCode Go keeps its exact pre-PR picker — MiniMax-M3,
+MiniMax-M2.7, and MiniMax-M2.7-highspeed — and its prior behavior; native
+modality metadata is not copied into that gateway route. Retired IDs remain
 valid only when already pinned in a saved preset.
 
 ## Reviewed deterministic revision
@@ -57,8 +61,9 @@ lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|app
 [--output-dir PATH]. Review the JSON plan and diagnostics, run dry-run/check
 before apply, and apply only to a new explicit output directory. The adapter
 reads only those paths; revision.go validates hashes, route bindings, and
-evidence and preserves unowned JSON bytes. This amendment does not change the
-current minimax values.
+evidence and preserves unowned JSON bytes. This amendment revises native CN
+curation while preserving the OpenCode Go route and all endpoint/credential
+semantics.
 
 Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 

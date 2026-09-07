@@ -90,11 +90,10 @@ const (
 	emExitPrompt                    // three-way exit on Esc: save / discard / cancel
 )
 
-// providerModels maps a provider name to the canonical model lineup the
-// editor cycles through with ←/→ on the model row. Providers absent from
-// this map fall back to free-text inline edit on Enter — this lets
-// openrouter/custom/codex users type any model id, while built-in
-// providers with a known catalog get a guided picker.
+// providerModels maps a provider name to the canonical native/default-route
+// model lineup the editor cycles through with ←/→ on the model row. Exact
+// route catalogs that differ from this default live in routeModelOverrides
+// below; providers and routes without a matching catalog remain free text.
 //
 // Keep this in sync with each provider's official model list. When a
 // new flagship ships, add it (and remove deprecated entries — agents
@@ -107,12 +106,12 @@ const (
 // separate generations and all stay. See tui/internal/tui/SKILL.md for the
 // per-provider source list and the rest of the inclusion checklist.
 var providerModels = map[string][]string{
-	// MiniMax: official supported LLM model IDs (API Overview), newest first.
-	// Latest two generations: M3 (flagship/default) and M2.7 with its
-	// -highspeed variant. M2.5/M2.1/M2 are retired from the picker.
+	// MiniMax native CN: the latest two documented native text generations,
+	// newest first. OpenCode Go keeps its pre-PR catalog in the exact route
+	// override below; INTL remains free text until parity is proven.
 	"minimax": {
-		"MiniMax-M3",
 		"MiniMax-M2.7", "MiniMax-M2.7-highspeed",
+		"MiniMax-M2.5", "MiniMax-M2.5-highspeed",
 	},
 	// Zhipu — two mutually exclusive id sets in one cycle, because the model
 	// row is not coupled to the selected base_url row (known debt):
@@ -128,21 +127,13 @@ var providerModels = map[string][]string{
 		// OpenCode Go
 		"glm-5.2", "glm-5.1",
 	},
-	// kimi deliberately has NO entry. Adding one would flip the model row from
-	// free text to picker-only (see openInline's feModel case), and cycleString
-	// lands an off-list value on entry [0] — one → would silently overwrite a
-	// saved `kimi-latest` / `moonshot-v1-*` / `kimi-k3` id with no undo. The
-	// Moonshot catalog is far wider than any list we can verify, so kimi keeps
-	// the free-text row it had before it gained a region table. The OpenCode Go
-	// ids to type are documented in reference/kimi/SKILL.md.
+	// Kimi has no provider-global entry: its exact native Coding Plan route
+	// gets a picker from routeModelOverrides, while OpenCode Go and Custom stay
+	// free text so their distinct spellings and user values remain editable.
 	//
-	// MiMo: the latest TWO generations, per the curation rule — v2.5 (with
-	// its text-only -pro variant) and v2 (-pro, -omni). All four are served by
-	// Xiaomi's endpoint AND by OpenCode Go, so the picker is valid on either
-	// base_url row. The rule caps at two generations; it is not a floor, so v2
-	// stays until a generation newer than v2.5 ships and displaces it. The
-	// retired V2 Flash ids and anything older are not shipped.
-	"mimo":     {"mimo-v2.5", "mimo-v2.5-pro", "mimo-v2-pro", "mimo-v2-omni"},
+	// MiMo native: V2.5 and its text-only Pro variant. Deprecated V2 entries
+	// are retained only in the protected pre-PR OpenCode Go override below.
+	"mimo":     {"mimo-v2.5", "mimo-v2.5-pro"},
 	"deepseek": {"deepseek-v4-pro", "deepseek-v4-flash"},
 	// Grok (xAI) via OpenCode Go — the Go /models list serves grok-4.5 and
 	// nothing older that we have verified.
@@ -169,26 +160,100 @@ var providerModels = map[string][]string{
 	// enables them. See SKILL.md next to this file for the canonical source list
 	// and why each model is included or excluded (e.g. pro-only variants can 4xx).
 	//
-	// Latest two generations of the GPT-5.x ladder: 5.6 (its three named
-	// routes are variants of one generation, not three generations) and 5.5.
-	// gpt-5.4 / gpt-5.4-mini / gpt-5.3-codex / gpt-5.2 are older generations
-	// and are no longer offered; a saved preset pinned to one keeps working —
-	// we never rewrite saved/ (see SKILL.md, "When you remove a retired model").
-	"codex": {"gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"},
+	// GPT-6 Astra is documented but not proven available on every authenticated
+	// OAuth route, so keep the proven gpt-5.6-sol default first. The named
+	// GPT-5.6 routes are variants of one generation; gpt-5.5 is retired from
+	// this latest-two curation. Saved presets are never rewritten.
+	"codex": {"gpt-5.6-sol", "gpt-6-astra", "gpt-5.6-terra", "gpt-5.6-luna"},
 	// codex-pool serves the same ChatGPT-OAuth models as codex — it only
 	// changes which token file each request routes through (the pool), not the
 	// model catalog. Keep the two lists identical.
-	"codex-pool": {"gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"},
+	"codex-pool": {"gpt-5.6-sol", "gpt-6-astra", "gpt-5.6-terra", "gpt-5.6-luna"},
 	// Claude Code uses CLI aliases, not dated API IDs — `opus`/`fable`/
 	// `sonnet`/`haiku` name concurrent tiers of one generation, so the
 	// two-generation rule has nothing to trim here. Current Claude Code
-	// resolves fable to claude-fable-5. Keep the old provider spellings only
+	// resolves fable to claude-fable-5-1. Keep the old provider spellings only
 	// so user-saved presets remain editable after the built-in moves to
 	// canonical provider "claude-code".
 	"claude-code":      {"opus", "fable", "sonnet", "haiku"},
 	"claude_code":      {"opus", "fable", "sonnet", "haiku"},
 	"claude-agent-sdk": {"opus", "fable", "sonnet", "haiku"},
 	"claude_agent_sdk": {"opus", "fable", "sonnet", "haiku"},
+}
+
+// routeModelOverrides contains the few exact route catalogs needed to keep
+// native curation separate from the protected OpenCode Go behavior. A
+// provider with an override returns no catalog for an unlisted route, which
+// deliberately leaves that route free text.
+var routeModelOverrides = map[string]map[string][]string{
+	"minimax": {
+		preset.ProviderRegionURLs["minimax"][0].URL: {"MiniMax-M2.7", "MiniMax-M2.7-highspeed", "MiniMax-M2.5", "MiniMax-M2.5-highspeed"},
+		preset.ProviderRegionURLs["minimax"][2].URL: {"MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.7-highspeed"},
+	},
+	"mimo": {
+		preset.ProviderRegionURLs["mimo"][0].URL: {"mimo-v2.5", "mimo-v2.5-pro"},
+		preset.ProviderRegionURLs["mimo"][1].URL: {"mimo-v2.5", "mimo-v2.5-pro", "mimo-v2-pro", "mimo-v2-omni"},
+	},
+	"kimi": {
+		preset.ProviderRegionURLs["kimi"][0].URL: {"k3", "k3-256k", "kimi-for-coding", "kimi-for-coding-highspeed"},
+	},
+}
+
+// modelOptions is the single catalog lookup used by every model picker
+// surface. Providers without route overrides use their canonical map; a
+// provider with overrides returns only the exact route entry.
+func modelOptions(provider, baseURL string) []string {
+	if routes, ok := routeModelOverrides[provider]; ok {
+		return routes[baseURL]
+	}
+	return providerModels[provider]
+}
+
+// reconcileModelForRoute keeps a known curated model valid when the user moves
+// between exact routes without overwriting arbitrary free text. A protected Go
+// picker receives its existing first entry when a model curated only for a
+// different route cannot run there. Kimi's Go route deliberately remains free
+// text, so a known native Kimi id is cleared and the existing non-empty-model
+// save validation requires the user to enter an explicit Go id.
+func reconcileModelForRoute(provider, baseURL, model string) string {
+	contains := func(models []string, candidate string) bool {
+		for _, option := range models {
+			if option == candidate {
+				return true
+			}
+		}
+		return false
+	}
+
+	destination := modelOptions(provider, baseURL)
+	if contains(destination, model) {
+		return model
+	}
+	routes, ok := routeModelOverrides[provider]
+	if !ok {
+		return model
+	}
+	known := false
+	for _, models := range routes {
+		if contains(models, model) {
+			known = true
+			break
+		}
+	}
+	if !known {
+		return model
+	}
+	if len(destination) > 0 {
+		return destination[0]
+	}
+	if provider == "kimi" {
+		for _, region := range preset.ProviderRegionURLs[provider] {
+			if region.Label == "OpenCode Go" && region.URL == baseURL {
+				return ""
+			}
+		}
+	}
+	return model
 }
 
 var codexServiceTierOptions = []string{"normal", "fast"}
@@ -218,18 +283,21 @@ const presetEditorFieldLabelWidth = 18
 // per-model vision support is still a real fact worth asserting against
 // regressions in providerModels/the model catalog above.
 //
-// One entry per id in providerModels — a shipped model with no entry here
-// reads as text-only via Go's zero value, which is an omission, not a
-// declaration. Ids retired by the two-generation curation rule are removed
+// One entry per id in providerModels — a shipped native/default-route model
+// with no entry here reads as text-only via Go's zero value, which is an
+// omission, not a declaration. Route-only overrides intentionally do not add
+// global capability claims: OpenCode Go modality is not inferred from native
+// route metadata. Ids retired by the two-generation curation rule are removed
 // from both maps together (tui/internal/tui/SKILL.md, "When you remove a
 // retired model").
 var modelHasVision = map[string]bool{
-	// MiniMax: keyed to the official supported LLM model IDs. Both shipped
-	// generations are multimodal — M3 (current flagship) and the M2.7
-	// variants, which prior code treated as image-capable.
-	"MiniMax-M3":             true,
-	"MiniMax-M2.7":           true,
-	"MiniMax-M2.7-highspeed": true,
+	// MiniMax native CN's reviewed Anthropic text route rejects image/document
+	// input, so the curated native IDs are explicitly text-only. The protected
+	// OpenCode Go IDs have no inherited native modality claim.
+	"MiniMax-M2.7":           false,
+	"MiniMax-M2.7-highspeed": false,
+	"MiniMax-M2.5":           false,
+	"MiniMax-M2.5-highspeed": false,
 	// Zhipu coding-plan LLMs are text-only, in both the uppercase native
 	// spelling and the lowercase OpenCode Go spelling of the same model.
 	// Vision uses the separate GLM-4.6V model through the optional,
@@ -238,17 +306,11 @@ var modelHasVision = map[string]bool{
 	"GLM-5.1": false,
 	"glm-5.2": false,
 	"glm-5.1": false,
-	// MiMo: only the default has a verified image route. The -pro siblings are
-	// text-only, and mimo-v2-omni is a declared false rather than an
-	// omission — "omni" in a model name is not evidence of a wired vision
-	// route, and the previous generation's image mapping was never pinned
-	// here. All four are served on Xiaomi's endpoint and on OpenCode Go, and
-	// the Go route re-verifies none of them — the LingTai-side vision wiring
-	// in mimoPreset() is scoped to mimo-v2.5 on Xiaomi's own endpoint.
+	// MiMo: only native mimo-v2.5 has verified LingTai-side vision. The
+	// native Pro sibling is text-only; the protected Go list is not granted
+	// any additional modality claim.
 	"mimo-v2.5":     true,
 	"mimo-v2.5-pro": false,
-	"mimo-v2-pro":   false,
-	"mimo-v2-omni":  false,
 	// DeepSeek: text-only across the board.
 	"deepseek-v4-pro":   false,
 	"deepseek-v4-flash": false,
@@ -256,9 +318,11 @@ var modelHasVision = map[string]bool{
 	// is unverified, so this is a declared false, not an unknown. A model
 	// name is never evidence of a wired vision route.
 	"grok-4.5": false,
-	// Codex (ChatGPT OAuth): the whole shipped GPT-5.x lineup accepts images.
-	// Verify on each model's docs page when adding new entries; see SKILL.md.
-	"gpt-5.5":       true,
+	// Codex (ChatGPT OAuth): official model documentation records image input
+	// for the named routes, but this metadata does not assert account-specific
+	// OAuth availability. Astra therefore remains picker-only until that gate
+	// is satisfied for a given account.
+	"gpt-6-astra":   true,
 	"gpt-5.6-sol":   true,
 	"gpt-5.6-terra": true,
 	"gpt-5.6-luna":  true,
@@ -675,12 +739,9 @@ func (m *PresetEditorModel) openInline() (PresetEditorModel, tea.Cmd) {
 		m.input.Focus()
 		m.mode = emInline
 	case feModel:
-		// Built-in providers with a known model lineup get the picker
-		// (Enter cycles, like for feProvider/feAPICompat). Free-text
-		// providers (custom, openrouter, codex) fall through to inline
-		// edit so the user can type any model id.
 		provider := asString(m.llmMap()["provider"])
-		if _, hasPicker := providerModels[provider]; hasPicker {
+		baseURL := asString(m.llmMap()["base_url"])
+		if models := modelOptions(provider, baseURL); len(models) > 0 {
 			m.cycleFocused(+1)
 		} else {
 			m.input.SetValue(m.fieldString(f))
@@ -1120,9 +1181,13 @@ func (m *PresetEditorModel) cycleFocused(dir int) {
 		normalizeThinking(m.working.Manifest)
 		// Reset model to the new provider's first canonical entry when the
 		// current model isn't valid for the new provider. Without this, a
-		// minimax→zhipu switch leaves "MiniMax-M3" in model
+		// minimax→zhipu switch leaves "MiniMax-M2.7" in model
 		// and validation passes silently while the kernel later 4xxs.
-		if models, ok := providerModels[newProvider]; ok && len(models) > 0 {
+		baseURL := ""
+		if regions, ok := preset.ProviderRegionURLs[newProvider]; ok && len(regions) > 0 {
+			baseURL = regions[0].URL
+		}
+		if models := modelOptions(newProvider, baseURL); len(models) > 0 {
 			currentModel := asString(m.llmMap()["model"])
 			modelStillValid := false
 			for _, mdl := range models {
@@ -1175,11 +1240,9 @@ func (m *PresetEditorModel) cycleFocused(dir int) {
 		}
 		m.regionEnvBeforeAdopt = ""
 	case feModel:
-		// If the current provider has a known model lineup, cycle through
-		// it. Otherwise no-op — Enter on free-text providers (custom,
-		// openrouter, codex) opens inline edit instead via openInline.
 		provider := asString(m.llmMap()["provider"])
-		if models, ok := providerModels[provider]; ok && len(models) > 0 {
+		baseURL := asString(m.llmMap()["base_url"])
+		if models := modelOptions(provider, baseURL); len(models) > 0 {
 			next := cycleString(models, m.fieldString(f), dir)
 			m.llmMap()["model"] = next
 		}
@@ -1219,6 +1282,8 @@ func (m *PresetEditorModel) cycleFocused(dir int) {
 				m.llmMap()["base_url"] = ""
 				break
 			}
+			currentModel := asString(m.llmMap()["model"])
+			m.llmMap()["model"] = reconcileModelForRoute(provider, next.URL, currentModel)
 			m.llmMap()["base_url"] = next.URL
 			// Region options can carry an implied credential env-var (e.g.
 			// DeepSeek API -> DEEPSEEK_API_KEY, OpenCode Go ->
@@ -1790,13 +1855,14 @@ func (m PresetEditorModel) capabilitiesGuidanceRow(width int) string {
 }
 
 // modelRadioStrip renders the model field as a horizontal radio strip
-// (● selected ○ unselected) when the current provider has a known
-// model lineup in providerModels. Returns "" when there's no picker —
-// caller falls back to the standard single-value render.
+// (● selected ○ unselected) when the current provider+route has a known
+// model lineup. Returns "" when there's no picker — caller falls back to the
+// standard single-value render.
 func (m PresetEditorModel) modelRadioStrip(focused bool, valStyle lipgloss.Style) string {
 	provider := asString(m.llmMap()["provider"])
-	models, ok := providerModels[provider]
-	if !ok || len(models) == 0 {
+	baseURL := asString(m.llmMap()["base_url"])
+	models := modelOptions(provider, baseURL)
+	if len(models) == 0 {
 		return ""
 	}
 	current := asString(m.llmMap()["model"])
@@ -1947,9 +2013,8 @@ func (m PresetEditorModel) responsesTransportRadioStrip(focused bool, valStyle l
 }
 
 // isCyclable reports whether a field accepts ←/→ to step through enum
-// values. The model row is conditional — only when the current provider
-// has a known model lineup. Free-text providers leave the model row as
-// inline-edit-only and we shouldn't suggest cycling.
+// values. The model row is conditional on the current provider+route having
+// a known model lineup; uncurated routes remain inline-edit-only.
 func (m PresetEditorModel) isCyclable(f editorField) bool {
 	switch f {
 	case feProvider, feAPICompat, feTier:
@@ -1968,8 +2033,8 @@ func (m PresetEditorModel) isCyclable(f editorField) bool {
 		return m.isCodexProvider() && len(m.codexAccountRefs()) > 1
 	case feModel:
 		provider := asString(m.llmMap()["provider"])
-		_, hasPicker := providerModels[provider]
-		return hasPicker
+		baseURL := asString(m.llmMap()["base_url"])
+		return len(modelOptions(provider, baseURL)) > 0
 	case feBaseURL:
 		provider := asString(m.llmMap()["provider"])
 		_, hasRegions := preset.ProviderRegionURLs[provider]

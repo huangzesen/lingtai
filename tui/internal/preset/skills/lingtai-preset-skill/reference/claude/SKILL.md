@@ -30,7 +30,7 @@ installed claude CLI's documented model-selection/help surface to see aliases
 that the local CLI serves, and verify an alias with its normal print-mode
 selection. Do not replace an alias with a dated API ID or inspect credential
 contents. CLI alias support and API model availability are distinct facts.
-The current Claude Code mapping is fable to claude-fable-5; the TUI still
+The current Claude Code mapping is fable to claude-fable-5-1; the TUI still
 stores the alias, not that full API identifier. Underlying CLI image support
 does not establish forwarding through LingTai's CLI adapter.
 
