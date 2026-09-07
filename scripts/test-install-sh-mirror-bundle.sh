@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
-# Focused tests for the Gitee-aware bundle installer additions to install.sh:
-# --source override validation, country detection (success/failure/fail-open),
-# Gitee response parsing, same-tag/same-bundle fallback, the third-party
-# dependency index that the final bundle provider selects (asserted on the real
-# install command's argv), checksum mismatch fail-loud, bundle/kernel manifest
-# schema handling, and kernel wheel selection. Kept as a separate file from
-# scripts/test-install-sh.sh (which predates this feature) rather than growing
-# that file further.
+# Focused tests for the mirror-aware (lingtai.ai download acceleration) bundle
+# installer additions to install.sh: --source override validation (including
+# the explicit retirement of --source gitee), country detection
+# (success/failure/fail-open), mirror response parsing, same-tag/same-bundle
+# fallback to GitHub, the third-party dependency index that the final bundle
+# provider selects (asserted on the real install command's argv), checksum
+# mismatch fail-loud, bundle/kernel manifest schema handling, and kernel wheel
+# selection. Kept as a separate file from scripts/test-install-sh.sh (which
+# predates this feature) rather than growing that file further.
+#
+# Renamed from test-install-sh-gitee-bundle.sh when the CN-mirror provider
+# replaced Gitee as install.sh's download-acceleration source (GitHub remains
+# the sole release/version authority either way). The strict bundle-manifest
+# parser tests below still exercise the immutable `providers: {github, gitee}`
+# manifest schema on purpose: that JSON shape is already published on every
+# past TUI release and is validated-but-unconsumed (install.sh never reads
+# GITEE_OWNER/GITEE_REPO from it), so changing it would break parsing of
+# already-published manifests for no operational benefit. Only the ACTIVE
+# --source selection/download logic is renamed to "mirror" here.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,7 +28,7 @@ source "$ROOT_DIR/install.sh"
 unset LINGTAI_INSTALL_SH_SOURCE_ONLY
 
 fail() {
-  echo "test-install-sh-gitee-bundle: $*" >&2
+  echo "test-install-sh-mirror-bundle: $*" >&2
   exit 1
 }
 
@@ -28,7 +39,7 @@ assert_eq() {
   fi
 }
 
-tmp="$(mktemp -d "${TMPDIR:-/tmp}/lingtai-inst-gitee-test.XXXXXX")"
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/lingtai-inst-mirror-test.XXXXXX")"
 
 # --- --source flag validation -------------------------------------------------
 
@@ -40,13 +51,20 @@ tmp="$(mktemp -d "${TMPDIR:-/tmp}/lingtai-inst-gitee-test.XXXXXX")"
 
 (
   SOURCE_ARG="auto"
-  parse_args --source gitee
-  assert_eq "gitee" "$SOURCE_ARG" "--source gitee is accepted"
+  parse_args --source mirror
+  assert_eq "mirror" "$SOURCE_ARG" "--source mirror is accepted"
 )
 
 if (SOURCE_ARG="auto"; parse_args --source bogus) >/dev/null 2>&1; then
   fail "--source bogus should be rejected (parse_args should exit non-zero)"
 fi
+
+retirement_out="$( (SOURCE_ARG="auto"; parse_args --source gitee) 2>&1 )" && \
+  fail "--source gitee must be explicitly retired (rejected), got: $retirement_out"
+echo "$retirement_out" | grep -qi "retired" ||
+  fail "--source gitee rejection should explain the retirement, got: $retirement_out"
+echo "$retirement_out" | grep -q -- "--source mirror" ||
+  fail "--source gitee rejection should point at --source mirror as the replacement, got: $retirement_out"
 
 # --- json_string_field --------------------------------------------------------
 
@@ -247,48 +265,46 @@ register_response_text() {
 )
 
 (
-  SOURCE_ARG="gitee"
+  SOURCE_ARG="mirror"
   BUNDLE_PROVIDER=""
   resolve_source_provider
-  assert_eq "gitee" "$BUNDLE_PROVIDER" "explicit --source gitee bypasses detection"
+  assert_eq "mirror" "$BUNDLE_PROVIDER" "explicit --source mirror bypasses detection"
 )
 
 (
-  # auto + CN + gitee reachable -> gitee
+  # auto + CN + mirror reachable -> mirror
   fakebin="$tmp/resolve-fakebin-cn-reachable"
   setup_fake_curl "$fakebin"
   register_response_text "https://ipapi.co/country/" "CN"
-  register_response_text "https://gitee.com/api/v5/repos/huangzesen1997/lingtai" "{}"
+  register_response_text "https://lingtai.ai/" "<!doctype html>"
   export PATH="$fakebin:/usr/bin:/bin"
   COUNTRY_DETECT_URL_1="https://ipapi.co/country/"
   COUNTRY_DETECT_URL_2="https://ifconfig.co/country-iso"
-  GITEE_OWNER="huangzesen1997"
-  GITEE_REPO="lingtai"
+  LINGTAI_WEB_BASE="https://lingtai.ai"
   SOURCE_ARG="auto"
   BUNDLE_PROVIDER=""
   resolve_source_provider
-  assert_eq "gitee" "$BUNDLE_PROVIDER" "auto + CN + Gitee reachable resolves to gitee"
+  assert_eq "mirror" "$BUNDLE_PROVIDER" "auto + CN + mirror reachable resolves to mirror"
 )
 
 (
-  # auto + CN but gitee UNREACHABLE -> falls open to github
+  # auto + CN but mirror UNREACHABLE -> falls open to github
   fakebin="$tmp/resolve-fakebin-cn-unreachable"
   setup_fake_curl "$fakebin"
   register_response_text "https://ipapi.co/country/" "CN"
-  register_response_text "https://gitee.com/api/v5/repos/huangzesen1997/lingtai" "" 22
+  register_response_text "https://lingtai.ai/" "" 22
   export PATH="$fakebin:/usr/bin:/bin"
   COUNTRY_DETECT_URL_1="https://ipapi.co/country/"
   COUNTRY_DETECT_URL_2="https://ifconfig.co/country-iso"
-  GITEE_OWNER="huangzesen1997"
-  GITEE_REPO="lingtai"
+  LINGTAI_WEB_BASE="https://lingtai.ai"
   SOURCE_ARG="auto"
   BUNDLE_PROVIDER=""
   resolve_source_provider
-  assert_eq "github" "$BUNDLE_PROVIDER" "auto + CN + Gitee unreachable falls back to github"
+  assert_eq "github" "$BUNDLE_PROVIDER" "auto + CN + mirror unreachable falls back to github"
 )
 
 (
-  # auto + non-CN -> github, no Gitee probe needed
+  # auto + non-CN -> github, no mirror probe needed
   fakebin="$tmp/resolve-fakebin-us"
   setup_fake_curl "$fakebin"
   register_response_text "https://ipapi.co/country/" "US"
@@ -301,56 +317,41 @@ register_response_text() {
   assert_eq "github" "$BUNDLE_PROVIDER" "auto + non-CN resolves to github"
 )
 
-# --- gitee_latest_release_tag / gitee_release_asset_url ----------------------
+# --- mirror_release_asset_url -------------------------------------------------
+#
+# Unlike Gitee's API-listing lookup, the lingtai.ai mirror's URLs are fully
+# deterministic (releases/<repo>/<tag>/<asset>); availability is confirmed
+# with a bounded HEAD-style probe of that exact URL rather than a separate
+# listing call, matching the mirror's actual route contract (see
+# Lingtai-AI/lingtai-web's docs/release-mirror/CONTRACT.md: 404 for anything not
+# mirrored, never a listing).
 
 (
-  fakebin="$tmp/gitee-latest-fakebin"
+  fakebin="$tmp/mirror-asset-fakebin"
   setup_fake_curl "$fakebin"
-  register_response_text "https://gitee.com/api/v5/repos/huangzesen1997/lingtai/releases/latest" \
-    '{"tag_name":"v0.11.0","name":"v0.11.0"}'
+  register_response_text "https://lingtai.ai/dl/Lingtai-AI/lingtai/v0.11.0/lingtai-v0.11.0-darwin-arm64.tar.gz" \
+    "fixture-tarball-bytes"
   export PATH="$fakebin:/usr/bin:/bin"
-  GITEE_API_BASE="https://gitee.com/api/v5/repos/huangzesen1997/lingtai"
-  assert_eq "v0.11.0" "$(gitee_latest_release_tag)" "gitee_latest_release_tag parses tag_name"
-)
-
-(
-  # Empty release list (documented current reality) -> nonzero, no output.
-  fakebin="$tmp/gitee-empty-fakebin"
-  setup_fake_curl "$fakebin"
-  register_response_text "https://gitee.com/api/v5/repos/huangzesen1997/lingtai/releases/latest" "" 22
-  export PATH="$fakebin:/usr/bin:/bin"
-  GITEE_API_BASE="https://gitee.com/api/v5/repos/huangzesen1997/lingtai"
-  if out="$(gitee_latest_release_tag)"; then
-    fail "gitee_latest_release_tag should fail when Gitee has no releases, got '$out'"
-  fi
-)
-
-(
-  fakebin="$tmp/gitee-asset-fakebin"
-  setup_fake_curl "$fakebin"
-  register_response_text "https://gitee.com/api/v5/repos/huangzesen1997/lingtai/releases/tags/v0.11.0" \
-    '{"id":1,"tag_name":"v0.11.0","attach_files":[{"name":"lingtai-v0.11.0-darwin-arm64.tar.gz","browser_download_url":"https://gitee.com/huangzesen1997/lingtai/releases/download/v0.11.0/lingtai-v0.11.0-darwin-arm64.tar.gz"},{"name":"lingtai-bundle-manifest.json","browser_download_url":"https://gitee.com/huangzesen1997/lingtai/releases/download/v0.11.0/lingtai-bundle-manifest.json"}]}'
-  export PATH="$fakebin:/usr/bin:/bin"
-  GITEE_API_BASE="https://gitee.com/api/v5/repos/huangzesen1997/lingtai"
+  LINGTAI_WEB_BASE="https://lingtai.ai"
   assert_eq \
-    "https://gitee.com/huangzesen1997/lingtai/releases/download/v0.11.0/lingtai-v0.11.0-darwin-arm64.tar.gz" \
-    "$(gitee_release_asset_url v0.11.0 lingtai-v0.11.0-darwin-arm64.tar.gz)" \
-    "gitee_release_asset_url resolves the matching attachment's URL, not an unrelated one"
-  if out="$(gitee_release_asset_url v0.11.0 does-not-exist.tar.gz)"; then
-    fail "gitee_release_asset_url should fail for a missing attachment name, got '$out'"
+    "https://lingtai.ai/dl/Lingtai-AI/lingtai/v0.11.0/lingtai-v0.11.0-darwin-arm64.tar.gz" \
+    "$(mirror_release_asset_url "Lingtai-AI/lingtai" v0.11.0 lingtai-v0.11.0-darwin-arm64.tar.gz)" \
+    "mirror_release_asset_url returns the deterministic URL once it is confirmed reachable"
+  if out="$(mirror_release_asset_url "Lingtai-AI/lingtai" v0.11.0 does-not-exist.tar.gz)"; then
+    fail "mirror_release_asset_url should fail for an asset the mirror does not have, got '$out'"
   fi
 )
 
 # --- fetch_bundle_manifest: same-tag fallback, never re-resolves latest -----
 
 (
-  # Preferred provider (gitee) has NO manifest for the resolved tag; GitHub
-  # has it for the SAME tag. Must fall back without re-querying "latest".
+  # Preferred provider (mirror) has NO manifest for the resolved tag (not yet
+  # synced). GitHub has it for the SAME tag. Must fall back without
+  # re-querying "latest".
   fakebin="$tmp/bundle-fallback-fakebin"
   setup_fake_curl "$fakebin"
-  # Gitee: release exists but lacks the bundle-manifest attachment.
-  register_response_text "https://gitee.com/api/v5/repos/huangzesen1997/lingtai/releases/tags/v0.11.0" \
-    '{"id":1,"tag_name":"v0.11.0","attach_files":[]}'
+  # Mirror: this exact tag/asset has not been mirrored yet -> curl fails.
+  register_response_text "https://lingtai.ai/dl/Lingtai-AI/lingtai/v0.11.0/lingtai-bundle-manifest.json" "" 22
   # GitHub: has the manifest for the SAME tag v0.11.0.
   register_response_text "https://api.github.com/repos/Lingtai-AI/lingtai/releases/tags/v0.11.0" \
     '{"tag_name":"v0.11.0","assets":[{"name":"lingtai-bundle-manifest.json"}]}'
@@ -360,11 +361,11 @@ register_response_text() {
     "https://github.com/Lingtai-AI/lingtai/releases/download/v0.11.0/lingtai-bundle-manifest.json" \
     "$fallback_manifest"
   export PATH="$fakebin:/usr/bin:/bin"
-  GITEE_API_BASE="https://gitee.com/api/v5/repos/huangzesen1997/lingtai"
+  LINGTAI_WEB_BASE="https://lingtai.ai"
   API_BASE="https://api.github.com/repos/Lingtai-AI/lingtai"
   DOWNLOAD_BASE="https://github.com/Lingtai-AI/lingtai/releases/download"
 
-  BUNDLE_PROVIDER="gitee"
+  BUNDLE_PROVIDER="mirror"
   VERSION="v0.11.0"
   BUNDLE_TAG=""
   BUNDLE_MANIFEST_JSON=""
@@ -378,13 +379,13 @@ register_response_text() {
   # Neither provider has a manifest for the explicit tag -> nonzero, no crash.
   fakebin="$tmp/bundle-neither-fakebin"
   setup_fake_curl "$fakebin"
-  register_response_text "https://gitee.com/api/v5/repos/huangzesen1997/lingtai/releases/tags/v9.9.9" "" 22
+  register_response_text "https://lingtai.ai/dl/Lingtai-AI/lingtai/v9.9.9/lingtai-bundle-manifest.json" "" 22
   register_response_text "https://api.github.com/repos/Lingtai-AI/lingtai/releases/tags/v9.9.9" "" 22
   export PATH="$fakebin:/usr/bin:/bin"
-  GITEE_API_BASE="https://gitee.com/api/v5/repos/huangzesen1997/lingtai"
+  LINGTAI_WEB_BASE="https://lingtai.ai"
   API_BASE="https://api.github.com/repos/Lingtai-AI/lingtai"
 
-  BUNDLE_PROVIDER="gitee"
+  BUNDLE_PROVIDER="mirror"
   VERSION="v9.9.9"
   BUNDLE_TAG=""
   BUNDLE_MANIFEST_JSON=""
@@ -396,18 +397,18 @@ register_response_text() {
 # --- kernel manifest handoff survives provider selection in the same shell ---
 
 (
-  BUNDLE_PROVIDER="gitee"
+  BUNDLE_PROVIDER="mirror"
   KERNEL_MANIFEST_PROVIDER=""
   KERNEL_MANIFEST_JSON=""
   kernel_manifest_url_for_provider() {
-    [[ "$1" == "gitee" ]] && printf 'https://example.invalid/%s/manifest.json' "$2"
+    [[ "$1" == "mirror" ]] && printf 'https://example.invalid/%s/manifest.json' "$2"
   }
   curl() {
     printf '%s' '{"schema":"lingtai.kernel.release/v1","kernel_version":"0.16.4","kernel_tag":"v0.16.4","commit":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","generated_at":"2026-07-15T00:00:00Z","sdist_fallback":"lingtai-0.16.4.tar.gz","artifacts":[{"filename":"lingtai-0.16.4.tar.gz","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","kind":"sdist","python_tag":null,"abi_tag":null,"platform_tag":null}]}'
   }
 
   fetch_kernel_manifest v0.16.4 || fail "fetch_kernel_manifest should populate explicit state"
-  assert_eq "gitee" "$KERNEL_MANIFEST_PROVIDER" "kernel manifest provider survives fetch"
+  assert_eq "mirror" "$KERNEL_MANIFEST_PROVIDER" "kernel manifest provider survives fetch"
   [[ "$KERNEL_MANIFEST_JSON" == *'"kernel_version":"0.16.4"'* ]] ||
     fail "kernel manifest JSON survives fetch"
 )
@@ -627,20 +628,17 @@ STUB_UV
   rm -rf "${FAKE_CURL_DIR:?}" && mkdir -p "$FAKE_CURL_DIR"
 
   local kernel_tags_gh="https://api.github.com/repos/Lingtai-AI/lingtai-kernel/releases/tags/v0.16.4"
-  local kernel_tags_gitee="https://gitee.com/api/v5/repos/huangzesen1997/lingtai-kernel/releases/tags/v0.16.4"
   local gh_dl="https://github.com/Lingtai-AI/lingtai-kernel/releases/download/v0.16.4"
-  local gitee_dl="https://gitee.com/huangzesen1997/lingtai-kernel/releases/download/v0.16.4"
+  local mirror_dl="https://lingtai.ai/dl/Lingtai-AI/lingtai-kernel/v0.16.4"
 
-  if [[ "$kernel_provider" == "gitee" ]]; then
-    register_response_text "$kernel_tags_gitee" \
-      "$(printf '{"id":1,"tag_name":"v0.16.4","attach_files":[{"name":"lingtai-kernel-release-manifest.json","browser_download_url":"%s/lingtai-kernel-release-manifest.json"},{"name":"%s","browser_download_url":"%s/%s"}]}' \
-        "$gitee_dl" "$KERNEL_ARTIFACT_NAME" "$gitee_dl" "$KERNEL_ARTIFACT_NAME")"
-    register_response_text "$gitee_dl/lingtai-kernel-release-manifest.json" "$kernel_manifest"
-    register_response "$gitee_dl/$KERNEL_ARTIFACT_NAME" "$wheel_body"
+  if [[ "$kernel_provider" == "mirror" ]]; then
+    register_response_text "$mirror_dl/lingtai-kernel-release-manifest.json" "$kernel_manifest"
+    register_response "$mirror_dl/$KERNEL_ARTIFACT_NAME" "$wheel_body"
   else
-    # Gitee is probed first whenever the bundle came from Gitee; make it miss so
-    # the KERNEL manifest provider can differ from the FINAL BUNDLE provider.
-    register_response_text "$kernel_tags_gitee" "" 22
+    # The mirror is probed first whenever the bundle came from the mirror;
+    # make it miss so the KERNEL manifest provider can differ from the FINAL
+    # BUNDLE provider.
+    register_response_text "$mirror_dl/lingtai-kernel-release-manifest.json" "" 22
     register_response_text "$kernel_tags_gh" \
       '{"tag_name":"v0.16.4","assets":[{"name":"lingtai-kernel-release-manifest.json"}]}'
     register_response_text "$gh_dl/lingtai-kernel-release-manifest.json" "$kernel_manifest"
@@ -648,11 +646,7 @@ STUB_UV
   fi
 
   export PATH="$fakebin:/usr/bin:/bin"
-  GITEE_OWNER="huangzesen1997"
-  GITEE_REPO="lingtai"
-  GITEE_KERNEL_REPO="lingtai-kernel"
-  GITEE_API_BASE="https://gitee.com/api/v5/repos/huangzesen1997/lingtai"
-  GITEE_KERNEL_API_BASE="https://gitee.com/api/v5/repos/huangzesen1997/lingtai-kernel"
+  LINGTAI_WEB_BASE="https://lingtai.ai"
   KERNEL_GH_API_BASE="https://api.github.com/repos/Lingtai-AI/lingtai-kernel"
 
   BUNDLE_PROVIDER="$bundle_provider"
@@ -687,43 +681,44 @@ assert_single_local_artifact_install() {
 }
 
 (
-  # FINAL provider gitee + no override -> Tsinghua TUNA. This is the
+  # FINAL provider mirror + no override -> Tsinghua TUNA. This is the
   # availability defect: official PyPI is not reliably reachable from the
-  # mainland-China environments Gitee exists to serve.
+  # mainland-China environments the mirror exists to serve.
   unset LINGTAI_PYPI_INDEX_URL
-  case_dir="$tmp/argv-gitee-uv"
-  log="$(capture_bundle_install_argv "$case_dir" uv gitee gitee)" ||
-    fail "install_kernel_from_bundle should succeed on the gitee/uv command path"
+  case_dir="$tmp/argv-mirror-uv"
+  log="$(capture_bundle_install_argv "$case_dir" uv mirror mirror)" ||
+    fail "install_kernel_from_bundle should succeed on the mirror/uv command path"
   assert_eq "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple" \
     "$(argv_value_after "$log" "--index-url")" \
-    "gitee bundle provider resolves third-party dependencies via Tsinghua TUNA (uv)"
-  assert_single_local_artifact_install "$log" "gitee/uv"
+    "mirror bundle provider resolves third-party dependencies via Tsinghua TUNA (uv)"
+  assert_single_local_artifact_install "$log" "mirror/uv"
 )
 
 (
   # Same contract on the pip path (no uv available).
   unset LINGTAI_PYPI_INDEX_URL
-  case_dir="$tmp/argv-gitee-pip"
-  log="$(capture_bundle_install_argv "$case_dir" pip gitee gitee)" ||
-    fail "install_kernel_from_bundle should succeed on the gitee/pip command path"
+  case_dir="$tmp/argv-mirror-pip"
+  log="$(capture_bundle_install_argv "$case_dir" pip mirror mirror)" ||
+    fail "install_kernel_from_bundle should succeed on the mirror/pip command path"
   assert_eq "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple" \
     "$(argv_value_after "$log" "--index-url")" \
-    "gitee bundle provider resolves third-party dependencies via Tsinghua TUNA (pip)"
-  assert_single_local_artifact_install "$log" "gitee/pip"
+    "mirror bundle provider resolves third-party dependencies via Tsinghua TUNA (pip)"
+  assert_single_local_artifact_install "$log" "mirror/pip"
 )
 
 (
   # The FINAL BUNDLE provider decides — not whichever provider happened to serve
-  # the kernel manifest. Here the bundle came from Gitee but the kernel manifest
-  # fell back to GitHub for the SAME kernel tag; the index must stay TUNA.
+  # the kernel manifest. Here the bundle came from the mirror but the kernel
+  # manifest fell back to GitHub for the SAME kernel tag; the index must stay
+  # TUNA.
   unset LINGTAI_PYPI_INDEX_URL
-  case_dir="$tmp/argv-gitee-bundle-github-kernel"
-  log="$(capture_bundle_install_argv "$case_dir" uv gitee github)" ||
+  case_dir="$tmp/argv-mirror-bundle-github-kernel"
+  log="$(capture_bundle_install_argv "$case_dir" uv mirror github)" ||
     fail "install_kernel_from_bundle should succeed when the kernel manifest falls back to GitHub"
   assert_eq "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple" \
     "$(argv_value_after "$log" "--index-url")" \
-    "a same-kernel-tag GitHub manifest fallback does not move the index off the Gitee bundle provider"
-  assert_single_local_artifact_install "$log" "gitee-bundle/github-kernel"
+    "a same-kernel-tag GitHub manifest fallback does not move the index off the mirror bundle provider"
+  assert_single_local_artifact_install "$log" "mirror-bundle/github-kernel"
 )
 
 (
@@ -740,12 +735,12 @@ assert_single_local_artifact_install() {
 (
   # An explicit non-empty override always wins, on either provider.
   export LINGTAI_PYPI_INDEX_URL="https://packages.example.invalid/simple"
-  case_dir="$tmp/argv-override-gitee"
-  log="$(capture_bundle_install_argv "$case_dir" uv gitee gitee)" ||
+  case_dir="$tmp/argv-override-mirror"
+  log="$(capture_bundle_install_argv "$case_dir" uv mirror mirror)" ||
     fail "install_kernel_from_bundle should succeed with an explicit index override"
   assert_eq "https://packages.example.invalid/simple" "$(argv_value_after "$log" "--index-url")" \
-    "explicit non-empty LINGTAI_PYPI_INDEX_URL overrides the Gitee default"
-  assert_single_local_artifact_install "$log" "override/gitee"
+    "explicit non-empty LINGTAI_PYPI_INDEX_URL overrides the mirror default"
+  assert_single_local_artifact_install "$log" "override/mirror"
 )
 
 (
@@ -761,13 +756,13 @@ assert_single_local_artifact_install() {
 (
   # An EMPTY override is not an override: it must not blank out the index.
   export LINGTAI_PYPI_INDEX_URL=""
-  case_dir="$tmp/argv-empty-override-gitee"
-  log="$(capture_bundle_install_argv "$case_dir" uv gitee gitee)" ||
+  case_dir="$tmp/argv-empty-override-mirror"
+  log="$(capture_bundle_install_argv "$case_dir" uv mirror mirror)" ||
     fail "install_kernel_from_bundle should succeed with an empty index override"
   assert_eq "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple" \
     "$(argv_value_after "$log" "--index-url")" \
-    "an empty LINGTAI_PYPI_INDEX_URL falls through to the Gitee provider default"
-  assert_single_local_artifact_install "$log" "empty-override/gitee"
+    "an empty LINGTAI_PYPI_INDEX_URL falls through to the mirror provider default"
+  assert_single_local_artifact_install "$log" "empty-override/mirror"
 )
 
 # --- ensure_runtime_venv: fail-loud gate (Blocker 1 repair) -----------------
@@ -788,7 +783,7 @@ assert_single_local_artifact_install() {
   BUNDLE_PROVIDER="github"
   # This case owns only the fail-loud gate. Keep the decoupled latest-kernel
   # resolver offline and deterministically unavailable instead of consulting
-  # the real GitHub/Gitee routes from an installer test.
+  # the real GitHub/mirror routes from an installer test.
   resolve_latest_kernel_release() { return 1; }
   if out="$(ensure_runtime_venv "$tmp/bin" 2>&1)"; then
     rc=0
@@ -864,4 +859,4 @@ $matches"
   fi
 )
 
-echo "install.sh Gitee bundle installer tests passed"
+echo "install.sh mirror bundle installer tests passed"

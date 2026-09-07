@@ -101,6 +101,21 @@ Binary assets are attached by the workflow. If the workflow could not run, the
 release still installs — `install.sh` falls back to building from the release
 source tarball.
 
+Immediately after the release above is published, `windows-release`'s
+"Notify lingtai-web download mirror" step sends one `repository_dispatch`
+(`release-asset-published`) to `Lingtai-AI/lingtai-web` naming this release's
+tag and the three uploaded assets (the Windows zip, its `.sha256` sidecar,
+and `lingtai-bundle-manifest.json`) with sha256/size recomputed fresh from
+the still-on-disk bytes. This exists solely so `lingtai.ai` can mirror the
+same bytes for mainland-China download acceleration; GitHub remains the sole
+official release authority, and a missing or failed dispatch never edits,
+retries, or undoes the GitHub release itself. Requires the
+`LINGTAI_WEB_DISPATCH_TOKEN` repository secret (a token with
+`repository_dispatch` write access on `Lingtai-AI/lingtai-web`) as a
+deployment prerequisite; without it the step prints a `::warning::` and exits
+0, so its absence cannot fail a release. See `Lingtai-AI/lingtai-web`'s
+`docs/release-mirror/CONTRACT.md` for the receiving side's contract.
+
 ### 4. Verify the automated Homebrew tap update
 
 Check the `Release` workflow run for the tag and confirm it pushed a formula
@@ -209,7 +224,7 @@ cd ../portal && make build
 
 Requires Go toolchain and Node.js (for portal web frontend).
 
-### Source selection (GitHub vs Gitee) and the Python runtime
+### Source selection (GitHub vs the lingtai.ai mirror) and the Python runtime
 
 The POSIX installer has one explicit non-release mode:
 
@@ -228,17 +243,24 @@ failed main checkout or kernel install never falls back to a stable release or
 package-index install. It is POSIX-only; `install.ps1` is unchanged.
 
 The behavior below applies to the bundle assets published by the tag workflow
-and to compatible bundle releases published separately. Gitee synchronization
-and bundle publication remain explicit maintainer tools; the tag workflow does
-not invoke them.
+and to compatible bundle releases published separately. After the Windows
+release assets above are uploaded and the release is public, this job's final
+step dispatches a `repository_dispatch` to `Lingtai-AI/lingtai-web` so it can
+mirror those same bytes for download acceleration — see the post-publication
+dispatch described above; that mirror never publishes an
+independent release, so it has no "latest" of its own. The legacy Gitee
+synchronization/publish maintainer tools remain unrelated to this path; the
+tag workflow does not invoke them (see "Gitee publication" above).
 
-`install.sh --source auto|github|gitee` (or `LINGTAI_SOURCE` env var) controls
-where the TUI/portal archives, the bundle manifest, and the pinned kernel
-release come from. `auto` (the default) runs a bounded, fail-open public-IP
-country lookup and prefers Gitee for mainland-China installs; any lookup or
-provider-reachability failure falls back to GitHub. A fallback always re-fetches
-the SAME resolved tag/bundle from the other provider — it never independently
-resolves "latest" a second time, so a TUI archive from one release can never be
+`install.sh --source auto|github|mirror` (or `LINGTAI_SOURCE` env var; `gitee`
+is retired) controls where the TUI/portal archives, the bundle manifest, and
+the pinned kernel release come from. `auto` (the default) runs a bounded,
+fail-open public-IP country lookup and prefers the lingtai.ai mirror for
+mainland-China installs; any lookup or provider-reachability failure falls
+back to GitHub. A fallback always re-fetches the SAME resolved tag/bundle from
+the other provider — it never independently resolves "latest" a second time
+(the mirror has no listing/"latest" capability of its own; version identity
+always comes from GitHub), so a TUI archive from one release can never be
 paired with a kernel artifact from a different one.
 
 The Python `lingtai` runtime installs from the bundle's pinned kernel release
@@ -250,14 +272,15 @@ before install. A package index is used only to resolve `lingtai`'s
 third-party dependencies once the local artifact is being installed, and
 `install.sh` consults exactly one: a non-empty `LINGTAI_PYPI_INDEX_URL` always
 wins, otherwise the provider that actually served the bundle manifest (after
-any same-tag fallback) picks a default it can reach — Gitee →
+any same-tag fallback) picks a default it can reach — the mirror →
 `https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple`, GitHub →
 `https://pypi.org/simple`. There is no `--extra-index-url`.
 
 That default exists because `pypi.org` is not reliably reachable from
-mainland-China hosts: Gitee already transports the checksum-verified bundle
-artifacts, but sending their third-party dependencies to `pypi.org` left the
-install failing at dependency resolution (observed on a real Aliyun host).
+mainland-China hosts: on the earlier Gitee path, sending third-party
+dependencies to `pypi.org` left an Aliyun-host install failing at dependency
+resolution. The new mirror retains that index default; this historical
+observation is not production/mainland acceptance of lingtai.ai downloads.
 Tsinghua TUNA is a cloud-neutral domestic default, not a reachability
 guarantee; `LINGTAI_PYPI_INDEX_URL` is the explicit escape hatch. This applies
 to the POSIX verified-bundle path only — `install.ps1` and `--latest` are

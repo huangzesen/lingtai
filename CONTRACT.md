@@ -374,7 +374,7 @@ Concretely:
 | `--bin-dir <dir>` / `--prefix <dir>` | `-BinDir` | synced |
 | `--skip-python` / `--skip-venv` | `-SkipVenv` | synced |
 | `--skip-portal` (TUI-only) | `-SkipPortal` | synced (this PR) |
-| `--source auto\|github\|gitee` | `-Source` | synced |
+| `--source auto\|github\|mirror` (`gitee` retired) | `-Source` | **drift** — `install.ps1` still implements the retired `auto\|github\|gitee` shape (`Resolve-SourceProvider`, `$GiteeOwner`/`$GiteeApiBase`, etc.); this PR is explicitly scoped to `install.sh` only per its authorizing task and does not touch `install.ps1`. Follow-up PR required to either retire `-Source gitee`/add `-Source mirror` there too, or record a platform-N/A justification if Windows keeps a different provider story. |
 | `--ref <ref>` / `--from-source` | `-Ref` / `-FromSource` | synced |
 | `--update` (in-place) | `-Update` | synced |
 | `--non-interactive` | `-NonInteractive` | synced |

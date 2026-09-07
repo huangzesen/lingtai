@@ -5,7 +5,7 @@ description: >
   lingtai-portal — Homebrew, source builds, install-method detection, or
   mainland-China connectivity.
 version: 1.0.0
-last_changed_at: "2026-09-05T00:00:00Z"
+last_changed_at: "2026-09-06T00:00:00Z"
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 
@@ -41,7 +41,7 @@ then return here for the TUI or portal binary boundary.
   description: Supported formula use and safe exploration of the Lingtai Homebrew tap and build logic.
 - name: lingtai-update-mainland
   location: reference/mainland-china/SKILL.md
-  description: Mainland-China routing for Go, npm, GitHub, and Gitee, plus the provider-selected dependency index, without mirror guarantees.
+  description: Mainland-China routing for Go, npm, GitHub, and the lingtai.ai mirror, plus the provider-selected dependency index, without mirror guarantees.
 ```
 
 ## Routing table

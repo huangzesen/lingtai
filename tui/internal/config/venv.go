@@ -767,7 +767,7 @@ type tuiInstallMetadata struct {
 	KernelSource   string `json:"kernel_source,omitempty"`    // "" | "pypi" | "bundle" | "main"
 	KernelBundleID string `json:"kernel_bundle_id,omitempty"` // e.g. "tui-v0.11.0" — the TUI bundle manifest's bundle_id
 	KernelVersion  string `json:"kernel_version,omitempty"`   // the pinned kernel version installed from the bundle
-	KernelProvider string `json:"kernel_provider,omitempty"`  // "github" | "gitee" — which provider served the bundle
+	KernelProvider string `json:"kernel_provider,omitempty"`  // "github" | "mirror" — which provider served the bundle
 	SourceMode     string `json:"source_mode,omitempty"`      // e.g. "latest-main"
 	TuiCommit      string `json:"tui_commit,omitempty"`
 	KernelCommit   string `json:"kernel_commit,omitempty"`
@@ -1537,7 +1537,7 @@ func UpgradePythonRuntime(globalDir string, force bool, opts *UpgradeRuntimeOpti
 		return result
 	}
 
-	// Bundle-provenance gate: install.sh's Gitee/GitHub bundle path installs
+	// Bundle-provenance gate: install.sh's mirror/GitHub bundle path installs
 	// the Python `lingtai` runtime from a pinned, checksum-verified release
 	// artifact by explicit local file path — LingTai is NEVER installed by
 	// requesting the package name "lingtai" from any index; there is no PyPI
