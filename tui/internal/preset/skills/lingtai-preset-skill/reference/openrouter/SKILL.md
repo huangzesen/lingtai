@@ -17,7 +17,7 @@ maintenance: "If you find stale or incorrect information here, use the lingtai-i
 
 Use this child for the named built-in openrouter preset. openrouterPreset in
 tui/internal/preset/preset.go:1418 ships gateway provider openrouter, model
-z-ai/glm-5.1, provider-resolved base_url, OPENROUTER_API_KEY, web_search,
+z-ai/glm-5.3, provider-resolved base_url, OPENROUTER_API_KEY, web_search,
 and skills; the stock manifest has no vision capability.
 
 The stock template is text-only. A saved preset that explicitly adds
@@ -51,8 +51,10 @@ Prepare an evidence-bound manifest and explicit input, then run
 lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|apply
 [--output-dir PATH]. Review the JSON plan, use dry-run/check before apply, and
 apply only to a new explicit output directory. revision.go validates hashes,
-route bindings, and evidence and preserves unowned bytes. This amendment does
-not change the current openrouter values.
+route bindings, and evidence and preserves unowned bytes. This amendment
+revises the constructor default to z-ai/glm-5.3. GLM 5.3, 5.3 Flash, and 5.2
+remain documented choices only; batch variants are excluded from interactive
+use and no universal picker is introduced.
 
 Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 

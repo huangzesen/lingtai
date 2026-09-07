@@ -150,6 +150,21 @@ func TestPresetEditorProviderModelLineupsPinRequestedDefaults(t *testing.T) {
 	if got := providerModels["claude-code"]; !reflect.DeepEqual(got, wantClaudeModels) {
 		t.Fatalf("claude-code provider models = %#v, want %#v", got, wantClaudeModels)
 	}
+	wantNVIDIAModels := []string{
+		"nvidia/nemotron-3-ultra-550b-a55b",
+		"nvidia/nemotron-3-super-120b-a12b",
+		"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+		"deepseek-ai/deepseek-v4-pro-0813",
+		"deepseek-ai/deepseek-v4-flash-0731",
+		"moonshotai/kimi-k3",
+		"minimaxai/minimax-m3",
+		"mistralai/mistral-nemotron",
+		"openai/gpt-oss-20b",
+		"nvidia/llama-3.1-nemotron-ultra-253b-v1",
+	}
+	if got := providerModels["nvidia"]; !reflect.DeepEqual(got, wantNVIDIAModels) {
+		t.Fatalf("nvidia provider models = %#v, want %#v", got, wantNVIDIAModels)
+	}
 	if !modelHasVision["mimo-v2.5"] {
 		t.Fatal("MiMo picker must keep native vision for mimo-v2.5")
 	}
@@ -201,8 +216,8 @@ func TestModelHasVisionDeclaresEveryShippedModel(t *testing.T) {
 		if strings.HasPrefix(provider, "claude") {
 			continue
 		}
-		// The NVIDIA catalog is an open free-text gateway list, not a curated
-		// per-model vision inventory.
+		// NVIDIA's bounded route-served snapshot does not assert a curated
+		// per-model vision inventory, so this completeness gate does not apply.
 		if provider == "nvidia" {
 			continue
 		}

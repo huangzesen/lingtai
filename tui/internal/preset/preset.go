@@ -1330,7 +1330,7 @@ func deepseekPreset() Preset {
 }
 
 func geminiPreset() Preset {
-	// Gemini 3 Flash (Google) — multimodal model with native vision,
+	// Gemini 3.8 Flash (Google) — multimodal model with native vision,
 	// tool calling, and streaming. Uses Google's own Gemini adapter in
 	// the kernel (not OpenAI-compat), so no base_url or api_compat.
 	gm := map[string]interface{}{
@@ -1339,10 +1339,10 @@ func geminiPreset() Preset {
 	}
 	return Preset{
 		Name:        "gemini",
-		Description: PresetDescription{Summary: "Gemini 3 Flash — Google's multimodal model, tool calls, vision", Tier: "3"},
+		Description: PresetDescription{Summary: "Gemini 3.8 Flash — Google's multimodal model, tool calls, vision", Tier: "3"},
 		Manifest: map[string]interface{}{
 			"llm": map[string]interface{}{
-				"provider": "gemini", "model": "gemini-3-flash-preview",
+				"provider": "gemini", "model": "gemini-3.8-flash",
 				"api_key": nil, "api_key_env": "GEMINI_API_KEY",
 			},
 			// Gemini is multimodal/vision-capable — image inputs are
@@ -1398,10 +1398,9 @@ func nvidiaPreset() Preset {
 	// NVIDIA NIM / NVIDIA API Catalog (build.nvidia.com) — an
 	// OpenAI-compatible /chat/completions gateway hosting a large catalog
 	// of open-weight models (Llama, Qwen, Kimi, GPT-OSS, Nemotron, ...) at
-	// no per-token cost on the free developer tier. Default model is
-	// Llama 3.3 70B Instruct; users clone this preset to switch to any
-	// other catalog ID (e.g. qwen/qwen3-coder-480b-a35b-instruct,
-	// moonshotai/kimi-k2-thinking, openai/gpt-oss-120b). Provider is the
+	// no per-token cost on the free developer tier. Default model is the
+	// bounded stable agent snapshot's Nemotron 3 Ultra route; users clone this
+	// preset to switch among the curated IDs in the TUI picker. Provider is the
 	// generic "nvidia" string routed through the kernel's OpenAI-compatible
 	// client via api_compat=openai + the explicit base_url. Text-only — no
 	// media generation; use `listen` for audio, `mcp-manual` for media.
@@ -1411,17 +1410,17 @@ func nvidiaPreset() Preset {
 	// with HTTP 400. See lingtai-kernel llm/_register.py.
 	return openAICompatNoVisionPreset(
 		"nvidia",
-		"NVIDIA NIM — free OpenAI-compatible catalog (Llama, Qwen, Kimi, GPT-OSS, ...), tool calls",
-		"meta/llama-3.3-70b-instruct", "NVIDIA_API_KEY", "https://integrate.api.nvidia.com/v1", "")
+		"NVIDIA NIM — bounded route-served stable agent snapshot, tool calls",
+		"nvidia/nemotron-3-ultra-550b-a55b", "NVIDIA_API_KEY", "https://integrate.api.nvidia.com/v1", "")
 }
 
 func openrouterPreset() Preset {
 	return Preset{
 		Name:        "openrouter",
-		Description: PresetDescription{Summary: "OpenRouter — gateway to DeepSeek, GLM, Qwen, MiniMax, Kimi, Claude, ..."},
+		Description: PresetDescription{Summary: "OpenRouter — GLM 5.3 gateway route (interactive, non-batch)"},
 		Manifest: map[string]interface{}{
 			"llm": map[string]interface{}{
-				"provider": "openrouter", "model": "z-ai/glm-5.1",
+				"provider": "openrouter", "model": "z-ai/glm-5.3",
 				"api_key": nil, "api_key_env": "OPENROUTER_API_KEY",
 				"base_url": nil,
 			},

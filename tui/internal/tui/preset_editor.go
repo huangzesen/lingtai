@@ -147,21 +147,21 @@ var providerModels = map[string][]string{
 	// Grok (xAI) via OpenCode Go — the Go /models list serves grok-4.5 and
 	// nothing older that we have verified.
 	"grok": {"grok-4.5"},
-	// NVIDIA NIM catalog IDs (build.nvidia.com) served on the free tier.
-	// Default flagship first; the rest are popular open-weight options.
-	// Users can also free-text any other catalog ID on this row.
-	// Already compliant with the two-generation rule: the only family with
-	// more than one entry is meta/llama (3.3 and 3.1, the two shipped
-	// generations); every other vendor contributes a single current id.
+	// NVIDIA uses a bounded snapshot of stable model IDs verified as served by
+	// the configured route. It is not a universal NVIDIA generation ladder;
+	// keep the default flagship first and update the snapshot only from fresh
+	// route evidence.
 	"nvidia": {
-		"meta/llama-3.3-70b-instruct",
-		"meta/llama-3.1-70b-instruct",
-		"qwen/qwen3-coder-480b-a35b-instruct",
-		"moonshotai/kimi-k2-thinking",
-		"openai/gpt-oss-120b",
-		"nvidia/llama-3.1-nemotron-ultra-253b-v1",
+		"nvidia/nemotron-3-ultra-550b-a55b",
+		"nvidia/nemotron-3-super-120b-a12b",
+		"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+		"deepseek-ai/deepseek-v4-pro-0813",
+		"deepseek-ai/deepseek-v4-flash-0731",
+		"moonshotai/kimi-k3",
+		"minimaxai/minimax-m3",
 		"mistralai/mistral-nemotron",
-		"microsoft/phi-4-mini-instruct",
+		"openai/gpt-oss-20b",
+		"nvidia/llama-3.1-nemotron-ultra-253b-v1",
 	},
 	// Codex: ChatGPT-OAuth-only models served by chatgpt.com/backend-api/codex.
 	// Keep gpt-5.6-sol first to match the TUI default; the other named GPT-5.6

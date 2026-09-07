@@ -678,6 +678,9 @@ func TestBuiltinPresetRequestedDefaultModels(t *testing.T) {
 	}{
 		{"zhipu", zhipuPreset(), "GLM-5.2"},
 		{"deepseek", deepseekPreset(), "deepseek-v4-pro"},
+		{"gemini", geminiPreset(), "gemini-3.8-flash"},
+		{"nvidia", nvidiaPreset(), "nvidia/nemotron-3-ultra-550b-a55b"},
+		{"openrouter", openrouterPreset(), "z-ai/glm-5.3"},
 		{"codex", codexPreset(), "gpt-5.6-sol"},
 		{"codex-pool", codexPoolPreset(), "gpt-5.6-sol"},
 	}
