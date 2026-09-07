@@ -1,60 +1,64 @@
 ---
 name: preset-skill-deepseek
-description: Official-source-led manual for the TUI `deepseek` template.
-version: 2.1.4
-last_changed_at: "2026-08-09T00:00:00Z"
+description: "Use when revising the built-in deepseek TUI preset."
+version: 3.0.0
+last_changed_at: "2026-09-07T00:00:00Z"
+related_files:
+  - tui/internal/preset/preset.go
+  - tui/internal/tui/preset_editor.go
+  - tui/internal/tui/SKILL.md
+  - tui/CONTRACT.md
+  - tui/internal/preset/revision.go
+  - tui/internal/headless/preset_revision.go
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 
-# `deepseek`
+# deepseek preset revision
 
-`deepseekPreset()` in `tui/internal/preset/preset.go` uses the
-shared OpenAI-compatible text shape: provider `deepseek`, default model
-`deepseek-v4-pro`, `https://api.deepseek.com`, and `DEEPSEEK_API_KEY`.
-The shipped manifest has no `vision` capability, so this manual records no
-direct image route and no DeepSeek plan-level vision MCP.
+Use this child for the named built-in deepseek preset. deepseekPreset in
+tui/internal/preset/preset.go:1321 uses provider deepseek, model
+deepseek-v4-pro, https://api.deepseek.com, DEEPSEEK_API_KEY, OpenAI
+compatibility, web_search, and skills. It has no built-in vision capability.
+The editor also offers DeepSeek API, OpenCode Go, and Custom base_url rows.
 
 ## Template-specific settings
 
-Read the official [DeepSeek API introduction](https://api-docs.deepseek.com/)
-when checking current models, protocol, or limits. For an image request,
-report that this preset's shipped wiring is text-only and let the agent
-discover an explicitly chosen skill if one exists; do not guess credentials,
-switch providers, or auto-load/invoke an MCP. Verify the
-provider/model/endpoint/env-var fields in TUI source after a template change.
+Read the official [DeepSeek models and pricing](https://api-docs.deepseek.com/quick_start/pricing)
+and [models API](https://api-docs.deepseek.com/api/list-models). For the native
+route, authenticated GET https://api.deepseek.com/models is the served-list
+check. OpenCode Go is a separate gateway: query its authenticated
+GET https://opencode.ai/zen/go/v1/models and keep only DeepSeek IDs served
+there; do not use the native list as proof for Go. Preserve the route-specific
+credential and model spelling.
 
-The deepseek preset's `base_url` offers three options in the TUI preset
-editor (`ProviderRegionURLs["deepseek"]`):
+The picker currently carries deepseek-v4-pro and deepseek-v4-flash, both
+modelHasVision false. OpenCode Go is scoped to DeepSeek IDs for this provider;
+other Go models belong in Custom. The native API row and Go row select
+DEEPSEEK_API_KEY and OPENCODE_GO_API_KEY respectively; an edited native
+built-in receives a numbered DEEPSEEK_1_API_KEY-style slot.
 
-- **DeepSeek API** — `https://api.deepseek.com`, `DEEPSEEK_API_KEY`
-  (the template default).
-- **OpenCode Go** — `https://opencode.ai/zen/go/v1`, `OPENCODE_GO_API_KEY`.
-  This option is scoped to **DeepSeek models served through the OpenCode Go
-  subscription**: the preset keeps `provider: deepseek` and the model row
-  stays on the DeepSeek lineup (`deepseek-v4-pro` / `deepseek-v4-flash`,
-  both served by `/zen/go/v1`). The `zhipu`, `minimax`, `mimo`, `kimi`, and
-  `grok` presets carry their own **OpenCode Go** `base_url` row (same URL,
-  same `OPENCODE_GO_API_KEY` slot) — route GLM, MiniMax, MiMo, Kimi, and
-  Grok through those, not through this one. For the remaining Go models
-  (gpt-5.6-luna, qwen, ...) create a **Custom** preset instead, where
-  the model row is free-text and `wire_api` stays selectable. See the
-  official [OpenCode Go docs](https://opencode.ai/docs/go/). China-hosted
-  `deepseek-v4-flash` requires opting in at the OpenCode workspace page
-  before first use.
-- **Custom** — free-typed endpoint. The editor leaves `api_key_env` alone on
-  this row, and a saved edited built-in gets `stampAutoEnvVar`'s numbered
-  slot. To change the slot name itself, edit the preset JSON.
+## TUI surfaces to revise
 
-Selecting the DeepSeek API or OpenCode Go option also switches `api_key_env`
-to the matching slot in the editor. Saving an **edited built-in** keeps that
-slot only for OpenCode Go, whose credential is a shared cross-provider account
-(the same `OPENCODE_GO_API_KEY` the `zhipu` and `minimax` presets use). On the
-DeepSeek API row the saved preset gets its own numbered slot instead —
-`DEEPSEEK_1_API_KEY`, `DEEPSEEK_2_API_KEY`, ... — because `DEEPSEEK_API_KEY` is
-the template's shared slot, and keeping it would let a second deepseek preset
-overwrite the first one's key.
+Start at deepseekPreset in tui/internal/preset/preset.go. Revise
+providerModels["deepseek"] and its modelHasVision entries in
+tui/internal/tui/preset_editor.go for picker or vision changes. Revise
+ProviderRegionURLs and ProviderDefaultEnv for base_url/env behavior; the
+constructor remains text-only unless a reviewed native vision route is wired.
+Follow tui/internal/tui/SKILL.md and tui/CONTRACT.md.
+
+## Reviewed deterministic revision
+
+Prepare an evidence-bound manifest and explicit input, then run
+lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|apply
+[--output-dir PATH]. Review the JSON plan, use dry-run/check before apply, and
+apply only to a new explicit output directory. revision.go validates hashes,
+route bindings, and evidence and preserves unowned bytes. This amendment does
+not change the current deepseek values.
+
+Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 
 ## Operations
 
-For base URL/API-compat/model/capability declaration shape versus
-credentials, see `reference/operations/endpoint-capabilities/SKILL.md`.
+For save, endpoint/capability, availability, activation/refresh, or
+troubleshooting, use the five shared operation children under
+`reference/operations/`; this child owns DeepSeek preset facts.

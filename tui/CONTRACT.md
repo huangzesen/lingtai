@@ -18,7 +18,20 @@ related_files:
   - tui/internal/preset/revision_test.go
   - tui/internal/headless/preset_revision.go
   - tui/internal/headless/preset_revision_test.go
-  - tui/internal/preset/skills/lingtai-preset-skill/reference/operations/revision-pipeline/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/minimax/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/zhipu/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/mimo/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/deepseek/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/gemini/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/kimi/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/grok/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/nvidia/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/openrouter/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/codex/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/codex-pool/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/claude/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/custom/SKILL.md
   - tui/main.go
   - tui/main_preset_revision_test.go
   - tui/internal/config/global_test.go
@@ -194,6 +207,18 @@ binding of the real input provider to provider-specific route facts; arbitrary
 markers do not bind a route. Capability changes name their exact model records,
 promotions require supported facts for those records, and a same-plan
 retirement cannot remove a referenced model.
+
+Named built-in preset revision guidance is one direct child per
+`BuiltinPresets()` name under
+`tui/internal/preset/skills/lingtai-preset-skill/reference/<name>/SKILL.md`.
+Those 13 children own provider-specific authoritative model lookup, gateway
+versus CLI/OAuth/catalog distinctions, exact TUI surfaces, and the reviewed
+revision procedure. The operation axis remains the five shared children:
+saved-presets, endpoint-capabilities, availability-save-gate,
+activation-session-refresh, and troubleshooting-migration. The deterministic
+production CLI adapter and pure engine remain shared at
+`tui/internal/headless/preset_revision.go` and
+`tui/internal/preset/revision.go`; they are not a sixth operation child.
 
 Requested and observed Responses service-tier vocabularies are distinct;
 ordinary `service_tier` paths are request-side, and service-tier and reasoning

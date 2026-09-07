@@ -1,61 +1,70 @@
 ---
 name: preset-skill-minimax
-description: Official-source-led manual for the TUI `minimax` template.
-version: 2.2.0
-last_changed_at: "2026-08-09T00:00:00Z"
+description: "Use when revising the built-in minimax TUI preset."
+version: 3.0.0
+last_changed_at: "2026-09-07T00:00:00Z"
+related_files:
+  - tui/internal/preset/preset.go
+  - tui/internal/tui/preset_editor.go
+  - tui/internal/tui/SKILL.md
+  - tui/CONTRACT.md
+  - tui/internal/preset/revision.go
+  - tui/internal/headless/preset_revision.go
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 
-# `minimax`
+# minimax preset revision
 
-`minimaxPreset()` in `tui/internal/preset/preset.go` ships provider
-`minimax`, exact model `MiniMax-M3`, and `MINIMAX_API_KEY` at the
-Anthropic-compatible regional endpoint `https://api.minimaxi.com/anthropic`
-(CN default) or `https://api.minimax.io/anthropic` (INTL). Its manifest
-explicitly wires `vision`.
-
-The TUI preset editor's `base_url` row offers three options
-(`ProviderRegionURLs["minimax"]`):
-
-- **CN** — `https://api.minimaxi.com/anthropic` (the template default).
-- **INTL** — `https://api.minimax.io/anthropic`.
-- **OpenCode Go** — `https://opencode.ai/zen/go/v1`. This is the only row
-  that implies a credential: selecting it sets `api_key_env` to
-  `OPENCODE_GO_API_KEY` (the shared OpenCode Go account) and saving keeps
-  that slot instead of minting a region-suffixed one.
-
-CN and INTL imply no `api_key_env`, so cycling between them preserves
-whatever slot the host stamped (`MINIMAX_CN_1_API_KEY`,
-`MINIMAX_INTL_1_API_KEY`). Cycling *off* OpenCode Go restores the slot that
-was in place before it was selected, so the choice is reversible.
+Use this child for the named built-in minimax preset. Its current constructor
+is minimaxPreset in tui/internal/preset/preset.go:1248: it ships MiniMax-M3,
+MINIMAX_API_KEY, the CN Anthropic-compatible default, and native vision. The
+regional rows are ProviderRegionURLs["minimax"]: CN, INTL, and OpenCode Go.
 
 ## Template-specific settings
 
-The model picker ships the latest two M-series generations only —
-`MiniMax-M3` and `MiniMax-M2.7` with its `-highspeed` variant. Per the TUI's
-model-curation rule (`tui/CONTRACT.md`) the older `MiniMax-M2.5` /
-`MiniMax-M2.1` / `MiniMax-M2` ids are no longer selectable; a saved preset
-already pinned to one keeps working, the TUI just will not offer it again.
+Read the official [MiniMax Models catalog](https://platform.minimaxi.com/document/Models)
+and its [API overview](https://platform.minimaxi.com/docs/api-reference/api-overview).
+For served IDs, call the selected official Anthropic route's authenticated
+GET /anthropic/v1/models; use the catalog/API docs for modality and plan facts.
+OpenCode Go is a gateway, so separately query its authenticated
+GET https://opencode.ai/zen/go/v1/models and do not copy a MiniMax catalog into
+the Go row. Preserve exact case and distinguish the Go credential from the
+regional slots. Check the official Token Plan MCP guide only for its separate
+manual image tool; it does not make the TUI vision capability change.
+The official MiniMax-Coding-Plan-MCP repository ships the
+minimax-coding-plan-mcp package and understand_image tool for a Token Plan
+seat or purchased Credits; it is manual-only and not auto-wired here.
 
-MiniMax-M3 natively accepts image/video content blocks on that same
-endpoint; this native path does not depend on an MCP or a separate plan.
-Both shipped generations are recorded as image-capable in `modelHasVision`.
+## TUI surfaces to revise
 
-MiniMax also publishes the separate optional
-[MiniMax-Coding-Plan-MCP](https://github.com/MiniMax-AI/MiniMax-Coding-Plan-MCP),
-package `minimax-coding-plan-mcp`, whose `understand_image` tool is available
-through manual install/client registration. The setup guide requires a Token
-Plan seat or purchased Credits, and the MCP is not auto-wired into this TUI
-preset. Keep this tool path distinct from native M3 vision. The similarly named
-community `tomlee2013/minimax-mcp-vision` project is not official.
+Start at minimaxPreset in tui/internal/preset/preset.go. For a model change,
+revise providerModels["minimax"] and the matching modelHasVision entries in
+tui/internal/tui/preset_editor.go; for endpoint or credential changes, revise
+ProviderRegionURLs and ProviderDefaultEnv in preset.go. Confirm the fixed
+capability rendering only if the constructor's vision wiring changes. Follow
+the curation and retired-model rules in tui/internal/tui/SKILL.md and
+tui/CONTRACT.md.
 
-Read the official [Anthropic-compatible API documentation](https://platform.minimax.io/docs/api-reference/text-chat-anthropic)
-and [Token Plan MCP guide](https://platform.minimax.io/docs/guides/token-plan-mcp-guide)
-for current details. Do not silently switch providers or auto-load/invoke an
-MCP when the native route fails. Verify the manifest in TUI source after
-template changes.
+The current picker is MiniMax-M3 plus MiniMax-M2.7 and its -highspeed variant;
+the corresponding modelHasVision entries are true. M3 accepts image/video
+blocks natively on the selected endpoint. Retired M2.5/M2.1/M2 IDs remain
+valid only when already pinned in a saved preset.
+
+## Reviewed deterministic revision
+
+Prepare an evidence-bound manifest and explicit input, then run
+lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|apply
+[--output-dir PATH]. Review the JSON plan and diagnostics, run dry-run/check
+before apply, and apply only to a new explicit output directory. The adapter
+reads only those paths; revision.go validates hashes, route bindings, and
+evidence and preserves unowned JSON bytes. This amendment does not change the
+current minimax values.
+
+Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 
 ## Operations
 
-For base URL/API-compat/model/capability declaration shape versus
-credentials, see `reference/operations/endpoint-capabilities/SKILL.md`.
+For save, endpoint/capability, availability, activation/refresh, or
+troubleshooting, use the five shared operation children under
+`reference/operations/`; this child owns MiniMax route, model, and vision
+facts.

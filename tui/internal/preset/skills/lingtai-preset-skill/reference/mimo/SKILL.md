@@ -1,71 +1,69 @@
 ---
 name: preset-skill-mimo
-description: Official-source-led manual for the TUI `mimo` template.
-version: 2.2.0
-last_changed_at: "2026-08-09T00:00:00Z"
+description: "Use when revising the built-in mimo TUI preset."
+version: 3.0.0
+last_changed_at: "2026-09-07T00:00:00Z"
+related_files:
+  - tui/internal/preset/preset.go
+  - tui/internal/tui/preset_editor.go
+  - tui/internal/tui/SKILL.md
+  - tui/CONTRACT.md
+  - tui/internal/preset/revision.go
+  - tui/internal/headless/preset_revision.go
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 
-# `mimo`
+# mimo preset revision
 
-`mimoPreset()` in `tui/internal/preset/preset.go` ships Xiaomi MiMo
-model `mimo-v2.5` at `https://api.xiaomimimo.com/v1` with OpenAI
-compatibility and `XIAOMI_API_KEY`. The manifest explicitly wires native
-vision to that exact default model.
-
-The TUI preset editor's `base_url` row offers three options
-(`ProviderRegionURLs["mimo"]`):
-
-- **MiMo** — `https://api.xiaomimimo.com/v1` (the template default).
-- **OpenCode Go** — `https://opencode.ai/zen/go/v1`. This is the only row
-  that implies a credential: selecting it sets `api_key_env` to
-  `OPENCODE_GO_API_KEY` (the shared OpenCode Go account) and saving keeps
-  that slot instead of minting a numbered one.
-- **Custom** — free-typed endpoint (a proxy, relay, or self-hosted gateway).
-  Selecting it clears `base_url` so Enter opens an inline edit. Custom
-  implies no `api_key_env`, and the editor deliberately leaves the current
-  slot alone on this row — your endpoint keeps whatever credential it
-  actually uses. If you arrived here from the OpenCode Go row the preset is
-  still pointing at `OPENCODE_GO_API_KEY`; change it in the preset JSON if
-  your endpoint takes a different key. A saved edited built-in gets
-  `stampAutoEnvVar`'s numbered slot instead, because an empty `base_url` is
-  not a row-declared cross-provider account.
-
-MiMo implies no `api_key_env`, so saving an edited built-in on that row
-yields a host-stamped numbered slot rather than overwriting the provider
-default. **The slot is `MIMO_1_API_KEY`, not `XIAOMI_1_API_KEY`**:
-`AutoEnvVarName` (`preset.go`) builds the prefix by uppercasing the PROVIDER
-name (`mimo`), never from `ProviderDefaultEnv`. The `XIAOMI_` prefix appears
-only on `ProviderDefaultEnv["mimo"] = "XIAOMI_API_KEY"`, which is the
-template's shared slot — precisely the thing a numbered slot exists to
-replace. Cycling *off* OpenCode Go restores the slot that was in place before
-it was selected, so the choice is reversible.
+Use this child for the named built-in mimo preset. mimoPreset in
+tui/internal/preset/preset.go:1294 ships mimo-v2.5, XIAOMI_API_KEY, the
+OpenAI-compatible Xiaomi endpoint, and vision scoped to that model. Its
+regional rows are MiMo, OpenCode Go, and Custom.
 
 ## Template-specific settings
 
-The model picker ships the latest two generations, per the TUI's
-model-curation rule (`tui/CONTRACT.md`): `mimo-v2.5` with its text-only
-sibling `mimo-v2.5-pro`, and the previous generation `mimo-v2-pro` /
-`mimo-v2-omni`. The retired V2 Flash ids and anything older are not
-selectable. All four shipped ids are served by Xiaomi's own endpoint *and* by
-OpenCode Go, so the picker is valid on either `base_url` row — MiMo ids are
-lowercase on both, and there is no uppercase form to avoid.
+Read Xiaomi's official [MiMo developer introduction](https://platform.xiaomimimo.com/llms.txt)
+and [OpenAI-compatible API documentation](https://platform.xiaomimimo.com/docs/zh-CN/api/chat/openai-api).
+Use the official catalog and, when supported by the selected endpoint, its
+authenticated GET /models response for served IDs. OpenCode Go is a gateway:
+query its authenticated GET https://opencode.ai/zen/go/v1/models separately.
+Do not infer vision from a name such as omni; verify image input on the exact
+model and route. Custom is user-supplied and has no provider-wide latest
+answer.
 
-LingTai-side vision is wired to `mimo-v2.5` on Xiaomi's own endpoint only.
-Switching to any other picker id, or to the OpenCode Go row, does not
-re-verify that path. `modelHasVision` records `mimo-v2.5-pro`, `mimo-v2-pro`,
-and `mimo-v2-omni` as explicit `false` rather than leaving them undeclared —
-including `-omni`, whose name is not evidence of a wired image route.
+The picker carries the latest two generations: mimo-v2.5 and its text-only
+mimo-v2.5-pro sibling, plus mimo-v2-pro and mimo-v2-omni. Only mimo-v2.5 has
+verified LingTai-side vision; modelHasVision records the other three false.
+All four are served by Xiaomi and OpenCode Go, but the wired vision service is
+scoped to Xiaomi's own endpoint. No official MiMo vision MCP is established.
 
-Read the official [MiMo developer introduction](https://platform.xiaomimimo.com/llms.txt)
-and [OpenAI-compatible API page](https://platform.xiaomimimo.com/docs/zh-CN/api/chat/openai-api)
-on demand for current models, regions, and image-input rules. No official MiMo
-vision MCP is established by the reviewed evidence. A direct-call failure
-remains a direct-call failure; do not switch providers or auto-load/invoke an
-MCP. Recheck `preset.go` and the preset editor for LingTai-owned model,
-endpoint, env-var, and capability wiring.
+## TUI surfaces to revise
+
+Start at mimoPreset in tui/internal/preset/preset.go. Revise
+providerModels["mimo"] and the matching modelHasVision entries in
+tui/internal/tui/preset_editor.go. Revise ProviderRegionURLs and
+ProviderDefaultEnv only for endpoint/credential behavior, and confirm the
+constructor's vision provider remains scoped to the intended model and route.
+Follow the latest-two-generation rule in tui/internal/tui/SKILL.md and
+tui/CONTRACT.md.
+
+When an edited built-in is stamped a numbered key slot, the prefix is the
+provider name: MIMO_1_API_KEY, not the ProviderDefaultEnv slot
+XIAOMI_API_KEY. Keep this distinction when revising endpoint behavior.
+
+## Reviewed deterministic revision
+
+Prepare an evidence-bound manifest and explicit input, then run
+lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|apply
+[--output-dir PATH]. Review the JSON plan and diagnostics, use dry-run/check
+before apply, and apply only to a new explicit output directory. revision.go
+validates hashes, route bindings, and evidence and preserves unowned bytes. This
+amendment does not change the current mimo values.
+
+Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 
 ## Operations
 
-For base URL/API-compat/model/capability declaration shape versus
-credentials, see `reference/operations/endpoint-capabilities/SKILL.md`.
+For save, endpoint/capability, availability, activation/refresh, or
+troubleshooting, use the five shared operation children under
+`reference/operations/`; this child owns MiMo route, model, and vision facts.
