@@ -3,17 +3,21 @@ name: lingtai-preset-skill
 description: >
   Dual-axis router for built-in preset questions: which of the 13
   TUI-shipped provider templates, and which cross-cutting lifecycle
-  mechanic — saving, checking availability, activating/refreshing,
+  mechanic — saving, checking availability, activating/refreshing, revising,
   endpoint/capability facts, or troubleshooting. Read a child only when
   relevant; this does not describe arbitrary saved presets.
-version: 2.1.0
-last_changed_at: "2026-09-05T00:00:00Z"
+version: 2.2.0
+last_changed_at: "2026-09-06T00:00:00Z"
 related_files:
   - tui/internal/preset/skills/lingtai-preset-skill/SKILL.md
   - tui/internal/preset/preset.go
   - tui/internal/preset/ANATOMY.md
   - tui/internal/preset/preset_skill_router_test.go
   - tui/internal/preset/skill_metadata_test.go
+  - tui/internal/preset/revision.go
+  - tui/internal/preset/revision_test.go
+  - tui/internal/headless/preset_revision.go
+  - tui/internal/headless/preset_revision_test.go
   - tui/internal/preset/skills/lingtai-preset-skill/reference/minimax/SKILL.md
   - tui/internal/preset/skills/lingtai-preset-skill/reference/zhipu/SKILL.md
   - tui/internal/preset/skills/lingtai-preset-skill/reference/mimo/SKILL.md
@@ -32,6 +36,7 @@ related_files:
   - tui/internal/preset/skills/lingtai-preset-skill/reference/operations/availability-save-gate/SKILL.md
   - tui/internal/preset/skills/lingtai-preset-skill/reference/operations/activation-session-refresh/SKILL.md
   - tui/internal/preset/skills/lingtai-preset-skill/reference/operations/troubleshooting-migration/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/operations/revision-pipeline/SKILL.md
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 
@@ -47,7 +52,7 @@ Preset questions split along two independent axes:
   endpoint, credential env-var, official links). One child per
   `BuiltinPresets()` name under `reference/<provider>/SKILL.md`.
 - **Operation axis** — "what happens when I save / check / activate / refresh
-  / troubleshoot a preset, regardless of provider?" One child per mechanic
+  / revise / troubleshoot a preset, regardless of provider?" One child per mechanic
   under `reference/operations/<operation>/SKILL.md`.
 
 A concrete question usually composes both: read the operation child for the
@@ -104,7 +109,7 @@ lifecycle mechanics and never encode provider-specific facts.
 | `claude` | `reference/claude/SKILL.md` | local Claude Code login |
 | `custom` | `reference/custom/SKILL.md` | user-supplied compatible endpoint |
 
-## Operation catalog (5 nested children)
+## Operation catalog (6 nested children)
 
 ```yaml
 - name: preset-skill-op-saved-presets
@@ -117,6 +122,8 @@ lifecycle mechanics and never encode provider-specific facts.
   location: reference/operations/activation-session-refresh/SKILL.md
 - name: preset-skill-op-troubleshooting-migration
   location: reference/operations/troubleshooting-migration/SKILL.md
+- name: preset-skill-op-revision-pipeline
+  location: reference/operations/revision-pipeline/SKILL.md
 ```
 
 | Question shape | Child manual |
@@ -126,6 +133,7 @@ lifecycle mechanics and never encode provider-specific facts.
 | Does Save make a live provider call, and where does real availability diagnosis live? | `reference/operations/availability-save-gate/SKILL.md` |
 | How does a saved preset become the running default, and what does `/refresh` actually switch? | `reference/operations/activation-session-refresh/SKILL.md` |
 | Something looks broken/stale — bounded triage before routing to a deeper runtime/update/migration skill | `reference/operations/troubleshooting-migration/SKILL.md` |
+| How do I revise an explicitly supplied preset document deterministically, or record an exact named target as unsupported/no-op? | `reference/operations/revision-pipeline/SKILL.md` |
 
 ## Boundaries and maintenance
 
@@ -146,3 +154,14 @@ new cross-cutting mechanic is added, add a `reference/operations/<name>/SKILL.md
 child and both operation-catalog entries instead of folding it into a
 provider page. The focused router test keeps the source list, embedded
 children, parent metadata, and extracted paths in bijection for both axes.
+
+## Named preset updates compose two children
+
+An update to a named built-in preset reads its provider child for volatile,
+provider-specific facts and the `revision-pipeline` child for the shared
+deterministic mechanism. PR1 ships only that mechanism: it does not revise
+current templates, saved presets, picker entries, or a current model catalog.
+Provider pages remain the source of provider identity and route facts; the
+revision child does not duplicate them. When the exact named target cannot be
+represented by the supplied schema, the shared manifest records an explicit
+`unsupported` or `no-op` state and reason rather than inventing model data.

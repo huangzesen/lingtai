@@ -45,7 +45,7 @@ func maintenanceValue(frontmatter string) (string, bool) {
 	return value, true
 }
 
-// wantOperations is the exact 5-item operation-axis inventory required by
+// wantOperations is the exact 6-item operation-axis inventory required by
 // the #691 preset-skill dual-axis router shape. Unlike the provider axis
 // (sourced from BuiltinPresets()), there is no runtime source list for
 // operations, so this literal is the single source of truth the tests below
@@ -56,6 +56,7 @@ var wantOperations = map[string]bool{
 	"availability-save-gate":     true,
 	"activation-session-refresh": true,
 	"troubleshooting-migration":  true,
+	"revision-pipeline":          true,
 }
 
 // TestPresetSkillRouter_BuiltinBijection keeps the source preset list, the
@@ -196,7 +197,7 @@ func TestPresetSkillRouter_BuiltinBijection(t *testing.T) {
 	}
 }
 
-// TestPresetSkillRouter_OperationBijection keeps the fixed 5-item operation
+// TestPresetSkillRouter_OperationBijection keeps the fixed 6-item operation
 // inventory, the parent's operation catalog, the embedded
 // reference/operations/ tree, and the extracted utility tree aligned —
 // mirroring TestPresetSkillRouter_BuiltinBijection but for the operation
@@ -556,20 +557,21 @@ func TestPresetSkillRouter_QuotaContract(t *testing.T) {
 	}
 }
 
-// TestPresetSkillRouter_FiveOperationTaxonomyUnchanged pins the exact
+// TestPresetSkillRouter_OperationTaxonomyPreservesExisting pins the exact
 // operation-axis inventory so a future correction cannot silently add or
 // rename an operation instead of extending an existing one — the
 // CORRECTION-372K fix, for example, was required to land entirely inside
 // the existing endpoint-capabilities child.
-func TestPresetSkillRouter_FiveOperationTaxonomyUnchanged(t *testing.T) {
+func TestPresetSkillRouter_OperationTaxonomyPreservesExisting(t *testing.T) {
 	want := map[string]bool{
+		"revision-pipeline":          true,
 		"saved-presets":              true,
 		"endpoint-capabilities":      true,
 		"availability-save-gate":     true,
 		"activation-session-refresh": true,
 		"troubleshooting-migration":  true,
 	}
-	assertSameNames(t, "five-operation taxonomy", want, wantOperations)
+	assertSameNames(t, "operation taxonomy", want, wantOperations)
 }
 
 func assertSameNames(t *testing.T, label string, want, got map[string]bool) {
