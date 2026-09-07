@@ -281,12 +281,18 @@ jobs:
         with:
           node-version: '22.12.0'
 
+      - name: Set reproducible build metadata
+        run: |
+          set -euo pipefail
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+
       - name: Build lingtai-tui.exe (windows/amd64)
         working-directory: tui
         run: |
           set -euo pipefail
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
-            -ldflags "-X main.version=$TAG" \
+            -trimpath -buildvcs=false \
+            -ldflags "-buildid= -X main.version=$TAG" \
             -o "$GITHUB_WORKSPACE/dist/lingtai-tui.exe" .
 
       - name: Build lingtai-portal.exe (windows/amd64)
@@ -296,29 +302,66 @@ jobs:
           npm --prefix web ci
           npm --prefix web run build
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
-            -ldflags "-X main.version=$TAG" \
+            -trimpath -buildvcs=false \
+            -ldflags "-buildid= -X main.version=$TAG" \
             -o "$GITHUB_WORKSPACE/dist/lingtai-portal.exe" .
 
-      - name: Package Windows archive
+      - name: Build lingtai-tui (darwin/arm64)
+        working-directory: tui
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/dist/macos-arm64"
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
+            -trimpath -buildvcs=false \
+            -ldflags "-buildid= -X main.version=$TAG" \
+            -o "$GITHUB_WORKSPACE/dist/macos-arm64/lingtai-tui" .
+
+      - name: Build lingtai-portal (darwin/arm64)
+        working-directory: portal
+        run: |
+          set -euo pipefail
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
+            -trimpath -buildvcs=false \
+            -ldflags "-buildid= -X main.version=$TAG" \
+            -o "$GITHUB_WORKSPACE/dist/macos-arm64/lingtai-portal" .
+
+      - name: Package Windows and macOS arm64 archives
         run: |
           set -euo pipefail
           test -f dist/lingtai-tui.exe
           test -f dist/lingtai-portal.exe
+          test -f dist/macos-arm64/lingtai-tui
+          test -f dist/macos-arm64/lingtai-portal
 
           zip_name="lingtai-${TAG}-windows-amd64.zip"
+          tar_name="lingtai-${TAG}-darwin-arm64.tar.gz"
+          python3 - "$SOURCE_DATE_EPOCH" \
+            dist/lingtai-tui.exe dist/lingtai-portal.exe \
+            dist/macos-arm64/lingtai-tui dist/macos-arm64/lingtai-portal <<'PY'
+          import os, sys
+          timestamp = int(sys.argv[1])
+          for path in sys.argv[2:]:
+              os.utime(path, (timestamp, timestamp))
+          PY
           ( cd dist && zip -X "../$zip_name" lingtai-tui.exe lingtai-portal.exe )
+          ( cd dist/macos-arm64 && tar --sort=name --mtime="@${SOURCE_DATE_EPOCH}" \
+              --owner=0 --group=0 --numeric-owner --format=ustar \
+              -cf - lingtai-portal lingtai-tui | gzip -n > "../../$tar_name" )
           sha256sum "$zip_name" > "$zip_name.sha256"
+          sha256sum "$tar_name" > "$tar_name.sha256"
           echo "zip_name=$zip_name" >> "$GITHUB_ENV"
+          echo "tar_name=$tar_name" >> "$GITHUB_ENV"
 
       - name: Generate bundle manifest
         run: |
           set -euo pipefail
           commit="$(git rev-parse HEAD)"
-          archive_sha="$(cut -d' ' -f1 "$zip_name.sha256")"
+          zip_sha="$(cut -d' ' -f1 "$zip_name.sha256")"
+          tar_sha="$(cut -d' ' -f1 "$tar_name.sha256")"
           generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          python3 - "$TAG" "$commit" "$generated_at" "$kernel_tag" "$kernel_version" "$zip_name" "$archive_sha" << 'PY'
+          python3 - "$TAG" "$commit" "$generated_at" "$kernel_tag" "$kernel_version" "$zip_name" "$zip_sha" "$tar_name" "$tar_sha" << 'PY'
           import json, sys
-          tag, commit, generated_at, kernel_tag, kernel_version, zip_name, archive_sha = sys.argv[1:]
+          tag, commit, generated_at, kernel_tag, kernel_version, zip_name, zip_sha, tar_name, tar_sha = sys.argv[1:]
           manifest = {
               "schema": "lingtai.tui.bundle/v1",
               "bundle_id": tag,
@@ -329,7 +372,8 @@ jobs:
               "kernel_version": kernel_version,
               "kernel_manifest_filename": "lingtai-kernel-release-manifest.json",
               "archives": [
-                  {"filename": zip_name, "sha256": archive_sha},
+                  {"filename": zip_name, "sha256": zip_sha},
+                  {"filename": tar_name, "sha256": tar_sha},
               ],
               "providers": {
                   "github": {"repo": "Lingtai-AI/lingtai"},
@@ -341,15 +385,16 @@ jobs:
               f.write("\n")
           PY
 
-      - name: Upload Windows release assets
+      - name: Upload Windows and macOS arm64 release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           gh release upload "$TAG" --repo "$REPO" --clobber \
-            "$zip_name" "$zip_name.sha256" lingtai-bundle-manifest.json
+            "$zip_name" "$zip_name.sha256" \
+            "$tar_name" "$tar_name.sha256" lingtai-bundle-manifest.json
 
-      - name: Publish GitHub release after Windows assets verified and uploaded
+      - name: Publish GitHub release after all platform assets verified and uploaded
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -359,9 +404,9 @@ jobs:
           # manifest/upload gate in this job has passed. Any earlier failure
           # leaves the draft unpublished (never a partially public release).
           names="$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name')"
-          for asset in "$zip_name" "$zip_name.sha256" lingtai-bundle-manifest.json; do
+          for asset in "$zip_name" "$zip_name.sha256" "$tar_name" "$tar_name.sha256" lingtai-bundle-manifest.json; do
             if ! grep -qx "$asset" <<< "$names"; then
-              echo "::error::release $TAG is missing required Windows asset $asset" >&2
+              echo "::error::release $TAG is missing required platform asset $asset" >&2
               exit 1
             fi
           done

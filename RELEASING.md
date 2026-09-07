@@ -34,15 +34,18 @@ Pushing a `v*` tag triggers the root GitHub Actions workflow at
   other non-exact `v*` tags still create a GitHub source release, but are not
   published to Homebrew.
 - **`windows-release`** (`needs: source-release`) — builds both
-  `lingtai-tui.exe` and `lingtai-portal.exe` for `windows/amd64`; the portal web
-  build is mandatory. It packages the dual-binary
-  `lingtai-<tag>-windows-amd64.zip` plus its `.sha256` sidecar, generates
+  `lingtai-tui.exe` and `lingtai-portal.exe` for `windows/amd64`, plus
+  `lingtai-tui` and `lingtai-portal` for `darwin/arm64`; the portal web build is
+  mandatory. It packages the dual-binary
+  `lingtai-<tag>-windows-amd64.zip` and
+  `lingtai-<tag>-darwin-arm64.tar.gz`, each with a `.sha256` sidecar, generates
   `lingtai-bundle-manifest.json` (schema `lingtai.tui.bundle/v1`) binding the tag's
-  exact commit to the archive digest and to [`kernel-release.json`](kernel-release.json)'s
-  pinned kernel tag, and uploads all three to the release. It **fails closed**
-  before building anything unless `kernel-release.json`'s pinned kernel release
-  already exists and publishes a `cp311`/`cp312`/`cp313` `win_amd64` wheel with a
-  verified digest — it never resolves "latest kernel."
+  exact commit to both archive digests and to [`kernel-release.json`](kernel-release.json)'s
+  pinned kernel tag, and uploads all five assets to the release. The archive
+  metadata is normalized from the tagged commit for reproducible packaging. It
+  **fails closed** before building anything unless `kernel-release.json`'s pinned
+  kernel release already exists and publishes a `cp311`/`cp312`/`cp313` `win_amd64`
+  wheel with a verified digest — it never resolves "latest kernel."
 
 ### Kernel compatibility metadata
 
@@ -90,8 +93,8 @@ for its Windows PowerShell 5.1 / PowerShell 7 CI coverage.
 ### 3. Create the GitHub release
 
 The `source-release` job creates the GitHub release, and `windows-release` adds
-the dual-binary ZIP, checksum sidecar, and bundle manifest. To create a release
-manually (or to add richer notes), run:
+the Windows ZIP, macOS arm64 tarball, their checksum sidecars, and the bundle
+manifest. To create a release manually (or to add richer notes), run:
 
 ```bash
 gh release create v0.X.Y --title "v0.X.Y" --notes "release notes here..."
