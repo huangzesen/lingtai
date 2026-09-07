@@ -1,69 +1,70 @@
 ---
 name: preset-skill-custom
-description: Official-source-led manual for the TUI `custom` template.
-version: 2.1.0
-last_changed_at: "2026-08-01T00:00:00Z"
+description: "Use when revising the built-in custom TUI preset."
+version: 3.0.0
+last_changed_at: "2026-09-07T00:00:00Z"
+related_files:
+  - tui/internal/preset/preset.go
+  - tui/internal/tui/preset_editor.go
+  - tui/internal/tui/SKILL.md
+  - tui/CONTRACT.md
+  - tui/internal/preset/revision.go
+  - tui/internal/headless/preset_revision.go
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 
-# `custom`
+# custom preset revision
 
-`customPreset()` in `tui/internal/preset/preset.go` is a
-user-supplied OpenAI-compatible template: model is empty until configured,
-the key slot is `LLM_API_KEY`, and the endpoint is user-supplied. Its
-`vision` capability inherits the configured LLM endpoint.
+Use this child for the named built-in custom preset. customPreset in
+tui/internal/preset/preset.go:1532 is an OpenAI-compatible user-supplied
+template: empty model, LLM_API_KEY, user-supplied base_url, web_search,
+skills, and vision inherited from the configured endpoint. It has no universal
+latest model and no provider-wide model or vision promise.
 
 ## Template-specific settings
 
-Whether images work is therefore unknown until the actual provider, model,
-protocol, and endpoint are identified. The vision tool still tries the current
-OpenAI-compatible endpoint, model, and credential by default instead of treating
-that uncertainty as setup-time manual-only.
+There is no universal official catalog for custom. Read the configured
+endpoint provider's official model and capability documentation, then query
+that endpoint's authenticated GET <base_url>/models when it implements the
+OpenAI list operation. If it does not, use its own official catalog or CLI
+surface and record the exact served ID, route, protocol, and capability
+evidence. The OpenAI, Anthropic, and Gemini API references are protocol
+references only; none identifies an unspecified endpoint.
 
-Read the configured endpoint’s official documentation on demand. Useful
-protocol references are the [OpenAI Chat API](https://platform.openai.com/docs/api-reference/chat),
-[Anthropic Messages API](https://docs.anthropic.com/en/api/messages), or
-[Gemini API](https://ai.google.dev/gemini-api/docs), as applicable; none is a
-claim about an unspecified endpoint. No plan-level vision MCP can be asserted.
+## TUI surfaces to revise
 
-If direct vision fails, report the endpoint-specific limitation and let the
-agent choose an explicit skill. Do not guess credentials, switch providers, or
-auto-load/invoke an MCP. Verify all inherited fields in TUI source and inspect
-the saved manifest for the user’s actual configuration.
+Start at customPreset in tui/internal/preset/preset.go. Custom has no
+providerModels or modelHasVision picker binding: model and base_url are free
+text. For capability/transport behavior, inspect isCustomOpenAI,
+isCustomOpenAIResponses, customResponsesThinkingOptions,
+responsesTransportOptions, and mandatoryCapRow in
+tui/internal/tui/preset_editor.go. Revise the constructor's inherited vision
+declaration only when the configured contract changes; do not turn an
+arbitrary relay into a universal native route.
 
-## Responses transport
+## Responses details
 
-For `provider: "custom"` with `api_compat: "openai"`, selecting the explicit
-`wire_api: "responses"` path reveals a separate Responses transport choice:
+For custom plus api_compat openai, wire_api responses exposes HTTP (omitted
+default) or WebSocket (responses_transport websocket), and the reasoning
+selector uses default omission or none/minimal/low/medium/high/xhigh. The
+editor removes stale transport/thinking fields outside that exact scope; a
+WebSocket rejection does not silently fall back to HTTP.
 
-- `http` is the default and is omitted from the saved manifest.
-- `websocket` writes `responses_transport: "websocket"` and opts into
-  Responses WebSocket v2.
+## Reviewed deterministic revision
 
-The selector appears only in that exact scope. Changing provider,
-`api_compat`, or `wire_api` removes a stale `responses_transport` value before
-save. Selecting WebSocket does not claim that an arbitrary compatible endpoint
-supports it: a matching Kernel version performs the actual handshake and
-reports that the configured upstream does not support or rejected Responses
-WebSocket v2. It does not silently fall back to HTTP; choose `http` explicitly
-when the upstream lacks WebSocket support.
+Prepare an evidence-bound manifest and explicit input, then run
+lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|apply
+[--output-dir PATH]. Review the JSON plan, use dry-run/check before apply, and
+apply only to a new explicit output directory. revision.go validates hashes,
+route bindings, and evidence and preserves unowned bytes. This amendment does
+not change the current custom values.
 
-## Responses reasoning effort
-
-For `provider: "custom"` with `api_compat: "openai"`, selecting the explicit
-`wire_api: "responses"` path reveals a reasoning-effort choice:
-
-- `default` removes `thinking` from the saved manifest and preserves the
-  Kernel's existing custom-provider default of `high`.
-- `none`, `minimal`, `low`, `medium`, `high`, and `xhigh` write the selected
-  value to `thinking`.
-
-The selector appears only in that exact scope. Changing provider,
-`api_compat`, or `wire_api` removes a stale custom Responses `thinking` value
-before save. The Codex provider keeps its existing effort choices and its
-existing `xhigh` default.
+Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 
 ## Operations
 
-For base URL/API-compat/model/capability declaration shape versus
-credentials, see `reference/operations/endpoint-capabilities/SKILL.md`.
+For save, endpoint/capability, availability, activation/refresh, or
+troubleshooting, use the five shared operation children under
+`reference/operations/`; this child owns Custom's endpoint-derived facts, so
+inspect the actual saved manifest for user-owned provider, model, endpoint,
+credential, and capability facts.

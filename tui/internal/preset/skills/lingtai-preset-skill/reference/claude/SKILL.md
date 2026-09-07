@@ -1,38 +1,61 @@
 ---
 name: preset-skill-claude
-description: Official-source-led manual for the TUI `claude` template.
-version: 2.1.0
-last_changed_at: "2026-07-21T00:00:00-07:00"
+description: "Use when revising the built-in claude TUI preset."
+version: 3.0.0
+last_changed_at: "2026-09-07T00:00:00Z"
+related_files:
+  - tui/internal/preset/preset.go
+  - tui/internal/tui/preset_editor.go
+  - tui/internal/tui/SKILL.md
+  - tui/CONTRACT.md
+  - tui/internal/preset/revision.go
+  - tui/internal/headless/preset_revision.go
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 
-# `claude`
+# claude preset revision
 
-`claudePreset()` in `tui/internal/preset/preset.go` uses canonical
-provider `claude-code`, displayed in the TUI as print-mode backend `claude-p`.
-It reuses the current Claude Code OAuth login and shows the account email
-reported by `claude auth status --json`; the TUI never reads or stores Claude
-credentials. The default model is `opus`, and the editor also offers `fable`
-(the current Claude Code CLI maps it to full model id `claude-fable-5`),
-`sonnet`, and `haiku`.
-
-The shipped manifest intentionally has no API-key env-var, base URL, web-search
-override, or LingTai `vision` capability.
+Use this child for the named built-in claude preset. claudePreset in
+tui/internal/preset/preset.go:1501 uses canonical provider claude-code and
+the local Claude Code CLI's OAuth login, with model alias opus and no API-key
+env, base_url, web_search override, or LingTai vision capability. The editor
+also offers fable, sonnet, and haiku aliases.
 
 ## Template-specific settings
 
-The underlying Claude models and interactive Claude Code may accept images, but
-that does not establish image forwarding through LingTai's CLI adapter. No
-separate Claude plan-level vision MCP was established by the reviewed evidence.
+Read the official [Claude Code workflows](https://code.claude.com/docs/en/common-workflows)
+and [Claude vision guide](https://platform.claude.com/docs/en/build-with-claude/vision).
+This preset uses CLI/OAuth aliases, not an Anthropic API model catalog: use the
+installed claude CLI's documented model-selection/help surface to see aliases
+that the local CLI serves, and verify an alias with its normal print-mode
+selection. Do not replace an alias with a dated API ID or inspect credential
+contents. CLI alias support and API model availability are distinct facts.
+The current Claude Code mapping is fable to claude-fable-5; the TUI still
+stores the alias, not that full API identifier. Underlying CLI image support
+does not establish forwarding through LingTai's CLI adapter.
 
-Read the official [Claude vision guide](https://platform.claude.com/docs/en/build-with-claude/vision)
-and [Claude Code common workflows](https://code.claude.com/docs/en/common-workflows)
-when current CLI capabilities matter. If the local CLI route cannot handle an
-image, report that limitation; do not invent an HTTP endpoint, guess auth, or
-auto-load/invoke an MCP. Recheck TUI source for the aliases and conservative
-capability wiring.
+## TUI surfaces to revise
+
+Start at claudePreset in tui/internal/preset/preset.go. Revise the
+claude-code entries in providerModels in tui/internal/tui/preset_editor.go
+when CLI aliases change. There is intentionally no modelHasVision entry and
+no constructor vision capability; inspect only the model alias picker and
+fixed capability rendering if that contract changes. Follow the CLI-alias
+exemption in tui/CONTRACT.md.
+
+## Reviewed deterministic revision
+
+Prepare an evidence-bound manifest and explicit input, then run
+lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|apply
+[--output-dir PATH]. Review the JSON plan, use dry-run/check before apply, and
+apply only to a new explicit output directory. revision.go validates hashes,
+route bindings, and evidence and preserves unowned bytes. This amendment does
+not change the current claude values.
+
+Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 
 ## Operations
 
-For base URL/API-compat/model/capability declaration shape versus credentials,
-see `reference/operations/endpoint-capabilities/SKILL.md`.
+For save, endpoint/capability, availability, activation/refresh, or
+troubleshooting, use the five shared operation children under
+`reference/operations/`; this child owns Claude CLI alias facts.

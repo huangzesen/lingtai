@@ -1,53 +1,68 @@
 ---
 name: preset-skill-codex
-description: Official-source-led manual for the TUI `codex` template.
-version: 2.2.0
-last_changed_at: "2026-08-09T00:00:00Z"
+description: "Use when revising the built-in codex TUI preset."
+version: 3.0.0
+last_changed_at: "2026-09-07T00:00:00Z"
+related_files:
+  - tui/internal/preset/preset.go
+  - tui/internal/tui/preset_editor.go
+  - tui/internal/tui/SKILL.md
+  - tui/CONTRACT.md
+  - tui/internal/preset/revision.go
+  - tui/internal/headless/preset_revision.go
 maintenance: "If you find stale or incorrect information here, use the lingtai-issue-report skill to assemble evidence and obtain per-issue human consent before filing an issue. Never include secrets, credentials, tokens, or private paths."
 ---
 
-# `codex`
+# codex preset revision
 
-`codexPreset()` in `tui/internal/preset/preset.go` uses provider
-`codex`, model `gpt-5.6-sol`, the Codex endpoint
-`https://chatgpt.com/backend-api/codex`, and ChatGPT OAuth rather than an API
-key env-var. The manifest exposes provider-native `vision` and web search.
+Use this child for the named built-in codex preset. codexPreset in
+tui/internal/preset/preset.go:1439 ships provider codex, gpt-5.6-sol,
+https://chatgpt.com/backend-api/codex, ChatGPT OAuth with an empty
+api_key_env, thinking xhigh, web_search, and provider-native vision. It is
+not the standard OpenAI API preset.
 
 ## Template-specific settings
 
-The editor's model row ships the latest two GPT-5.x generations only:
-`gpt-5.6-sol` (the default), `gpt-5.6-terra`, `gpt-5.6-luna` — three named
-routes of the one 5.6 generation — and `gpt-5.5`. Per the TUI's
-model-curation rule (`tui/CONTRACT.md`) the older `gpt-5.4`, `gpt-5.4-mini`,
-`gpt-5.3-codex`, and `gpt-5.2` ids are no longer offered. A saved preset
-already pinned to one of them keeps working — the TUI never rewrites
-`presets/saved/` — it simply is not reachable from the picker any more.
-
-Exact image support can depend on the current model/account; verify it rather
-than treating this manual as a promise.
-
 Read the official [Codex authentication](https://developers.openai.com/codex/auth)
-and [Codex models](https://developers.openai.com/codex/models) pages on demand.
-No separate Codex vision MCP is established. If the native route fails,
-report the failure and use this manual for discovery; do not fall back to a
-generic OpenAI key, switch providers, or auto-load/invoke an MCP. Recheck the
-TUI preset source for model and capability changes. Never inspect, print, or
-reproduce OAuth token contents.
+and [Codex models](https://developers.openai.com/codex/models) pages. For actual
+served acceptance, compare that Codex-specific catalog with a fresh
+ChatGPT-OAuth request/live selection against the Codex route; never use the
+standard OpenAI model list to populate this picker. Keep account rollout and
+subscription gates as evidence, and verify image input for each exact model.
+Never inspect or print OAuth token contents.
+
+## TUI surfaces to revise
+
+Start at codexPreset in tui/internal/preset/preset.go. Revise
+providerModels["codex"], matching modelHasVision entries, codexThinkingOptions,
+and the model/capability rows in tui/internal/tui/preset_editor.go when the
+Codex catalog, vision, or reasoning choices change. Preserve the /codex
+base_url suffix, empty api_key_env, OAuth identity, and explicit xhigh default.
+Follow the Codex-specific checklist in tui/internal/tui/SKILL.md and the
+latest-two-generation rule in tui/CONTRACT.md.
+
+The current picker is gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, and gpt-5.5;
+older gpt-5.4, gpt-5.4-mini, gpt-5.3-codex, and gpt-5.2 are not offered.
+Saved presets are not rewritten. To inspect live OAuth quota, complete the
+app-server initialize handshake, send account/rateLimits/read with
+structurally `null` params, and optionally observe account/rateLimits/updated;
+read usedPercent, windowDurationMins, and resetsAt without exposing secrets.
+
+## Reviewed deterministic revision
+
+Prepare an evidence-bound manifest and explicit input, then run
+lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|apply
+[--output-dir PATH]. Review the JSON plan, use dry-run/check before apply, and
+apply only to a new explicit output directory. revision.go validates hashes,
+route bindings, and evidence and preserves unowned bytes. This amendment does
+not change the current codex values.
+
+Maintenance: If the relevant TUI preset/page is revised, check whether this sub-skill also needs revision and, if so, include it in the same PR.
 
 ## Operations
 
-For base URL/API-compat/model/capability declaration shape versus
-credentials, see `reference/operations/endpoint-capabilities/SKILL.md`. See
-also `reference/codex-pool/SKILL.md` for the pooled multi-account variant.
-
-To check live OAuth quota/rate-limit state for this account, query the
-app-server directly: complete `initialize`, then send the
-`account/rateLimits/read` request (its params are structurally `null` — no
-request body), and read the `GetAccountRateLimitsResponse`
-(`usedPercent`/`windowDurationMins`/`resetsAt` per window, plan/credits
-fields). Optionally also watch the sparse `account/rateLimits/updated`
-notification as a rolling supplement, never a substitute for the read.
-Full field-by-field routing, the official-272K-vs-measured-372K distinction,
-and secret-safety rules live in
-`reference/operations/endpoint-capabilities/SKILL.md` — do not restate or
-re-derive that evidence here.
+For save, endpoint/capability, availability, activation/refresh, or
+troubleshooting, use the five shared operation children under
+`reference/operations/`; for live OAuth quota/rate limits, use
+`reference/operations/endpoint-capabilities/SKILL.md` and never expose auth
+paths or tokens. This child owns Codex preset facts.

@@ -89,6 +89,12 @@ func main() {
 			return
 		}
 		if arg == "presets" {
+			// Revision is an explicit, read-only-by-default path. Keep it
+			// before presetsMain so it cannot resolve global state or call
+			// preset.Bootstrap before the manifest/input adapter runs.
+			if len(os.Args) > 2 && os.Args[2] == "revise" {
+				os.Exit(headless.RunPresetRevision(os.Args[3:], os.Stdout, os.Stderr))
+			}
 			presetsMain()
 			return
 		}
@@ -652,6 +658,7 @@ func printHelp() {
 	fmt.Println("       lingtai-tui clean [--force]")
 	fmt.Println("       lingtai-tui bootstrap")
 	fmt.Println("       lingtai-tui presets [--saved-only] [--templates-only]")
+	fmt.Println("       lingtai-tui presets revise --manifest PATH --input PATH --mode dry-run|check|apply [--output-dir PATH]")
 	fmt.Println("       lingtai-tui spawn <dir> --preset <name> [--agent-name <name>] [--language <code>]")
 	fmt.Println("       lingtai-tui self-update")
 	fmt.Println("       lingtai-tui doctor")
@@ -667,6 +674,7 @@ func printHelp() {
 	fmt.Println("               Refuses to delete while agents are still alive; --force overrides.")
 	fmt.Println("  bootstrap       Re-extract embedded skills to ~/.lingtai-tui/utilities/")
 	fmt.Println("  presets      List available presets as JSON (for agent consumption)")
+	fmt.Println("  presets revise  Plan/check/apply an explicit deterministic preset revision")
 	fmt.Println("  spawn        Create a new project and launch an agent headlessly (JSON output)")
 	fmt.Println("  self-update  Run the TUI binary updater for the detected install method")
 	fmt.Println("  doctor       Force-check + update TUI/kernel/venv. Use when the TUI cannot start.")

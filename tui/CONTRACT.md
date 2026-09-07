@@ -14,7 +14,26 @@ related_files:
   - tui/internal/tui/preset_editor.go
   - tui/internal/tui/SKILL.md
   - tui/internal/preset/preset.go
+  - tui/internal/preset/revision.go
+  - tui/internal/preset/revision_test.go
+  - tui/internal/headless/preset_revision.go
+  - tui/internal/headless/preset_revision_test.go
+  - tui/internal/preset/skills/lingtai-preset-skill/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/minimax/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/zhipu/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/mimo/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/deepseek/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/gemini/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/kimi/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/grok/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/nvidia/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/openrouter/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/codex/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/codex-pool/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/claude/SKILL.md
+  - tui/internal/preset/skills/lingtai-preset-skill/reference/custom/SKILL.md
   - tui/main.go
+  - tui/main_preset_revision_test.go
   - tui/internal/config/global_test.go
   - docs/tui-agent-alignment.md
 maintenance: |
@@ -167,6 +186,52 @@ keeps working, the picker just stops offering it.
 Per-provider source lists, the rest of the inclusion checklist (served on our
 endpoint, GA not preview, documented vision, subscription gates), and the
 removal procedure live in `tui/internal/tui/SKILL.md`.
+
+## Explicit preset revision contract
+
+`lingtai-tui presets revise` is a separate headless operation. It consumes only
+the explicit manifest and input paths, and dispatches before preset bootstrap
+or any global/provider/runtime access. The manifest pins both the input bytes
+and the exact expected post-image SHA-256. A pinned input is planned and
+verified against that post-image; a different input is accepted as already
+materialized only when its exact bytes match the declared post-image and its
+name, provider, and represented route bindings still validate.
+
+Targets use the typed `revise`, `unsupported`, or `no-op` state. Non-revision
+targets require a deterministic reason, declare no model data or changes, and
+report an explicit unchanged result. Two evidenced generations and explicit
+retirements are required only for revision targets whose owned changes concern
+a model or model list. A revision route is established either by exact direct
+input bindings for API, transport, and scope, or by a typed `provider_child`
+binding of the real input provider to provider-specific route facts; arbitrary
+markers do not bind a route. Capability changes name their exact model records,
+promotions require supported facts for those records, and a same-plan
+retirement cannot remove a referenced model.
+
+Named built-in preset revision guidance is one direct child per
+`BuiltinPresets()` name under
+`tui/internal/preset/skills/lingtai-preset-skill/reference/<name>/SKILL.md`.
+Those 13 children own provider-specific authoritative model lookup, gateway
+versus CLI/OAuth/catalog distinctions, exact TUI surfaces, and the reviewed
+revision procedure. The operation axis remains the five shared children:
+saved-presets, endpoint-capabilities, availability-save-gate,
+activation-session-refresh, and troubleshooting-migration. The deterministic
+production CLI adapter and pure engine remain shared at
+`tui/internal/headless/preset_revision.go` and
+`tui/internal/preset/revision.go`; they are not a sixth operation child.
+
+Requested and observed Responses service-tier vocabularies are distinct;
+ordinary `service_tier` paths are request-side, and service-tier and reasoning
+replacements must be strings. Codex/Codex-pool keep their four-level reasoning
+vocabulary. Owned and change JSON-pointer paths are disjoint by ancestry before
+dry-run/check/apply can emit a plan; apply repeats the overlap check as defense
+in depth. The splice engine unconditionally preserves unowned JSON bytes and
+retains the existing 0/1/2/3/4 exit mapping.
+
+Apply stages a document or bundle and refuses an output path that exists when
+inspected, then attempts one rename. The no-replace guarantee is not
+synchronized against a concurrent creator between inspection and publication,
+so that race can have platform-dependent behavior.
 
 ## Doctor checks (TUI-can't-start diagnostic set)
 
