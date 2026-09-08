@@ -60,6 +60,7 @@ related_files:
   - discussions/codex-credential-redesign-patch.md
   - discussions/covenant-distillation-and-per-agent-profile.md
   - discussions/firstrun-step2-builtin-default-patch.md
+  - discussions/gatekeeper-capability-design.md
   - discussions/intrinsics-strict-schema-scan.md
   - discussions/lingtai-preset-swap-silent-revert-patch.md
   - discussions/lingtai-vision-capability-fallback-patch.md

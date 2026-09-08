@@ -100,6 +100,8 @@ related_files:
   - tui/internal/tui/goal_test.go
   - tui/internal/tui/help_test.go
   - tui/internal/tui/home_telemetry.go
+  - tui/internal/tui/home_async_stats.go
+  - tui/internal/tui/home_async_stats_test.go
   - tui/internal/tui/home_telemetry_agent_record_test.go
   - tui/internal/tui/home_telemetry_async_test.go
   - tui/internal/tui/home_telemetry_display_test.go
