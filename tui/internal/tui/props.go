@@ -31,7 +31,6 @@ type PropsModel struct {
 	// Manual snapshot: selected agent status plus bounded network/picker data.
 	selectedDir    string         // working dir of the shown agent (defaults to orchDir)
 	selectedStatus fs.AgentStatus // cached .status.json for selected agent
-	agentDirs      []string       // all discovered agent dirs (for picker)
 	agentNodes     []fs.AgentNode // discovered agents (for picker display)
 	network        fs.Network
 	// requestGeneration is issued only on the Bubble Tea update loop. It
@@ -110,7 +109,6 @@ type propsLoadMsg struct {
 	generation     uint64
 	network        fs.Network
 	selectedStatus fs.AgentStatus
-	agentDirs      []string
 	agentNodes     []fs.AgentNode
 
 	selectedRaw        map[string]any
@@ -152,12 +150,6 @@ func (m PropsModel) loadSnapshot() tea.Msg {
 	net, _ := fs.BuildNetworkWithOptions(m.baseDir, fs.KanbanNetworkOptions(&msg.readStats))
 	msg.network = net
 	msg.agentNodes = net.Nodes
-	for _, node := range net.Nodes {
-		if node.WorkingDir != "" {
-			msg.agentDirs = append(msg.agentDirs, node.WorkingDir)
-		}
-	}
-
 	agentRaw := map[string]any{}
 	initRaw := map[string]any{}
 	if m.selectedDir != "" {
@@ -348,7 +340,6 @@ func (m *PropsModel) applySnapshot(msg propsLoadMsg) {
 	m.network = msg.network
 	m.mailStatsAvailable = false
 	m.selectedStatus = msg.selectedStatus
-	m.agentDirs = msg.agentDirs
 	m.agentNodes = msg.agentNodes
 	m.selectedRaw = msg.selectedRaw
 	m.selectedLLM = msg.selectedLLM

@@ -120,18 +120,6 @@ func TestRenderMainCallRowsInsertsMoltSeparatorLabel(t *testing.T) {
 	}
 }
 
-func TestRebuildSeparatorIndexesUsesCodexEpochResetRow(t *testing.T) {
-	entries := []fs.LedgerEntry{
-		{TS: ts(3000), CodexWSDeltaReason: "ok"},
-		{TS: ts(2000), CodexWSDeltaReason: "epoch_reset"},
-		{TS: ts(1000), CodexWSDeltaReason: "ok"},
-	}
-	got := rebuildSeparatorIndexes(entries, nil)
-	if len(got) != 1 || !got[1] {
-		t.Fatalf("expected separator after epoch_reset row index 1, got %v", got)
-	}
-}
-
 func TestRenderMainCallRowsInsertsSeparatorFromEpochReset(t *testing.T) {
 	m := PropsModel{
 		detailRecent: []fs.LedgerEntry{
@@ -154,64 +142,65 @@ func TestRenderMainCallRowsInsertsSeparatorFromEpochReset(t *testing.T) {
 	}
 }
 
-func TestRebuildSeparatorIndexesBetweenCalls(t *testing.T) {
+func TestLedgerSeparatorLabelKeysBetweenCalls(t *testing.T) {
 	entries := []fs.LedgerEntry{
 		{TS: ts(3000)}, // index 0 (newest)
 		{TS: ts(2000)}, // index 1
 		{TS: ts(1000)}, // index 2 (oldest)
 	}
-	// A rebuild at 2500 sits between row 0 (3000) and row 1 (2000).
-	rebuilds := []time.Time{time.Unix(2500, 0).UTC()}
+	// A molt at 2500 sits between row 0 (3000) and row 1 (2000).
+	moltTimes := []time.Time{time.Unix(2500, 0).UTC()}
 
-	got := rebuildSeparatorIndexes(entries, rebuilds)
-	if len(got) != 1 || !got[0] {
-		t.Fatalf("expected separator after index 0, got %v", got)
+	got := ledgerSeparatorLabelKeys(entries, moltTimes, nil)
+	if len(got) != 1 || len(got[0]) != 1 || got[0][0] != ledgerSeparatorMoltLabel {
+		t.Fatalf("expected molt separator after index 0, got %v", got)
 	}
 }
 
-func TestRebuildSeparatorIndexesMultiple(t *testing.T) {
+func TestLedgerSeparatorLabelKeysMultiple(t *testing.T) {
 	entries := []fs.LedgerEntry{
 		{TS: ts(4000)},
 		{TS: ts(3000)},
 		{TS: ts(2000)},
 		{TS: ts(1000)},
 	}
-	rebuilds := []time.Time{
+	moltTimes := []time.Time{
 		time.Unix(3500, 0).UTC(), // between idx 0 and 1
 		time.Unix(1500, 0).UTC(), // between idx 2 and 3
 	}
-	got := rebuildSeparatorIndexes(entries, rebuilds)
-	if !got[0] || !got[2] {
+	got := ledgerSeparatorLabelKeys(entries, moltTimes, nil)
+	if len(got[0]) != 1 || got[0][0] != ledgerSeparatorMoltLabel ||
+		len(got[2]) != 1 || got[2][0] != ledgerSeparatorMoltLabel {
 		t.Fatalf("expected separators after index 0 and 2, got %v", got)
 	}
-	if got[1] || got[3] {
+	if len(got[1]) != 0 || len(got[3]) != 0 {
 		t.Fatalf("unexpected separators at 1 or 3: %v", got)
 	}
 }
 
-func TestRebuildSeparatorIndexesNoneWhenOutOfRange(t *testing.T) {
+func TestLedgerSeparatorLabelKeysNoneWhenOutOfRange(t *testing.T) {
 	entries := []fs.LedgerEntry{
 		{TS: ts(3000)},
 		{TS: ts(2000)},
 	}
-	// Rebuilds older than all rows or newer than all rows produce no
+	// Molts older than all rows or newer than all rows produce no
 	// in-list separator (best effort: no marker).
-	rebuilds := []time.Time{
+	moltTimes := []time.Time{
 		time.Unix(500, 0).UTC(),  // older than oldest
 		time.Unix(9000, 0).UTC(), // newer than newest
 	}
-	got := rebuildSeparatorIndexes(entries, rebuilds)
+	got := ledgerSeparatorLabelKeys(entries, moltTimes, nil)
 	if len(got) != 0 {
 		t.Fatalf("expected no separators, got %v", got)
 	}
 }
 
-func TestRebuildSeparatorIndexesEmptyInputs(t *testing.T) {
-	if got := rebuildSeparatorIndexes(nil, []time.Time{time.Unix(1, 0)}); len(got) != 0 {
+func TestLedgerSeparatorLabelKeysEmptyInputs(t *testing.T) {
+	if got := ledgerSeparatorLabelKeys(nil, []time.Time{time.Unix(1, 0)}, nil); len(got) != 0 {
 		t.Fatalf("expected none for no entries, got %v", got)
 	}
 	entries := []fs.LedgerEntry{{TS: ts(1000)}}
-	if got := rebuildSeparatorIndexes(entries, nil); len(got) != 0 {
+	if got := ledgerSeparatorLabelKeys(entries, nil, nil); len(got) != 0 {
 		t.Fatalf("expected none for no rebuilds, got %v", got)
 	}
 }
@@ -257,15 +246,15 @@ func TestRenderMainCallRowsNoSeparatorWithoutRebuild(t *testing.T) {
 	}
 }
 
-func TestRebuildSeparatorIndexesSkipsMalformedTS(t *testing.T) {
+func TestLedgerSeparatorLabelKeysSkipsMalformedTS(t *testing.T) {
 	entries := []fs.LedgerEntry{
 		{TS: "not-a-time"},
 		{TS: ts(2000)},
 		{TS: ts(1000)},
 	}
-	rebuilds := []time.Time{time.Unix(1500, 0).UTC()} // between idx 1 and 2
-	got := rebuildSeparatorIndexes(entries, rebuilds)
-	if len(got) != 1 || !got[1] {
-		t.Fatalf("expected separator after index 1 only, got %v", got)
+	moltTimes := []time.Time{time.Unix(1500, 0).UTC()} // between idx 1 and 2
+	got := ledgerSeparatorLabelKeys(entries, moltTimes, nil)
+	if len(got) != 1 || len(got[1]) != 1 || got[1][0] != ledgerSeparatorMoltLabel {
+		t.Fatalf("expected molt separator after index 1 only, got %v", got)
 	}
 }
