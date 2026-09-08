@@ -299,22 +299,43 @@ func (c MailCache) Refresh() MailCache {
 }
 
 // RefreshRecent is the bounded refresh used to paint the page. It lists the
-// mailbox directories, keeps only the newest `limit` mailbox ids, and reads
-// message.json only for those — so the cost of a refresh is O(limit) bodies
-// plus one directory listing per folder, never one read per message ever sent.
+// mailbox directories, chooses a candidate set of at most 2*limit mailbox ids
+// from the listings alone, and reads message.json only for candidates it has
+// not already loaded — so the cost of a refresh is O(limit) bodies plus one
+// directory listing per folder, never one read per message ever sent.
 //
-// Selecting the window by mailbox id is exact rather than approximate: every
-// producer (TUI, portal, kernel) names a mailbox leaf with the sortable UTC
-// stamp `YYYYMMDDTHHMMSS-xxxx`, so lexical order over directory names is
-// chronological order without opening a single body.
+// Candidates are chosen per id shape, because a real mailbox is not uniform:
+//
+//   - Canonical ids (`YYYYMMDDTHHMMSS-xxxx`, see parseCanonicalMailboxID) sort
+//     chronologically by name, so the newest `limit` of them are picked by
+//     lexical order at no cost beyond the listing.
+//   - Legacy ids (`hb-*`, hash-style names from older producers) carry no
+//     order in their name. They are windowed by directory mtime instead, which
+//     costs one lstat per legacy leaf per refresh but still no body read. The
+//     mtime is a proxy: a copied or restored mailbox may have flattened it, in
+//     which case the legacy window is arbitrary but still bounded.
+//   - Dot-prefixed entries (kernel `.<id>.staging` and local
+//     `.<name>.tmp-<hex>` leaves) are not messages and are skipped by name, so
+//     they never consume a candidate slot.
+//
+// Keeping the two windows separate is what protects current mail: a legacy
+// name such as `hb-…` sorts after `2026…` lexically, and a mailbox holding
+// more than `limit` of them would otherwise crowd every canonical id out of a
+// single lexical window before any body was read. Each shape can contribute at
+// most `limit` entries to the newest `limit` overall, so the union of the two
+// per-shape windows always contains the true newest `limit`, provided each
+// proxy (name for canonical, mtime for legacy) orders its own shape correctly.
+// The final trim below is by ReceivedAt, so the proxies only decide which
+// bodies are worth opening, never the displayed order.
 //
 // Retention matches Refresh: an already-loaded message is reused rather than
 // re-read, and is kept even if its folder no longer lists it. What differs is
-// the bound — anything older than the newest `limit` ids is dropped, so the
-// returned cache holds at most `limit` entries. The cap is therefore observable
-// in the snapshot itself, not applied at render time over a fully loaded set.
-// A limit <= 0 falls back to the unbounded Refresh. As with Refresh, the
-// receiver is not mutated, so this is safe to call from a goroutine.
+// the bound — anything older than the newest `limit` entries is dropped, so
+// the returned cache holds at most `limit` entries. The cap is therefore
+// observable in the snapshot itself, not applied at render time over a fully
+// loaded set. A limit <= 0 falls back to the unbounded Refresh. As with
+// Refresh, the receiver is not mutated, so this is safe to call from a
+// goroutine.
 func (c MailCache) RefreshRecent(limit int) MailCache {
 	if limit <= 0 {
 		return c.Refresh()
@@ -348,37 +369,84 @@ func (c MailCache) RefreshRecent(limit int) MailCache {
 	}
 	folderFor := make(map[string]string)
 	delivered := make(map[string]bool)
-	var onDisk []string
+	var canonical, legacy []mailboxCandidate
 	for _, source := range sources {
-		for _, id := range mailboxIDsIn(source.folder) {
-			if _, known := folderFor[id]; !known {
-				folderFor[id] = source.folder
-				onDisk = append(onDisk, id)
+		entries, err := os.ReadDir(source.folder)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if !isMailboxLeafEntry(entry) {
+				continue
 			}
+			id := entry.Name()
 			if source.delivered {
 				delivered[id] = true
 			}
+			if _, known := folderFor[id]; known {
+				continue
+			}
+			if stamp, ok := parseCanonicalMailboxID(id); ok {
+				folderFor[id] = source.folder
+				canonical = append(canonical, mailboxCandidate{id: id, at: stamp})
+				continue
+			}
+			// Legacy shape: the only chronology available without opening the
+			// body is the leaf's mtime, one lstat per legacy leaf. A leaf that
+			// vanished between the listing and the stat is simply not a
+			// candidate this tick.
+			info, err := entry.Info()
+			if err != nil {
+				continue
+			}
+			folderFor[id] = source.folder
+			legacy = append(legacy, mailboxCandidate{id: id, at: info.ModTime()})
 		}
 	}
 
-	// Narrow the on-disk candidates to the newest window BEFORE any body is
-	// read: this is what keeps a refresh independent of total mailbox size, and
-	// it is why a steady-state tick only reads what actually arrived.
-	sort.Strings(onDisk)
-	if len(onDisk) > limit {
-		onDisk = onDisk[len(onDisk)-limit:]
+	// Narrow the on-disk candidates to the newest window of each shape BEFORE
+	// any body is read: this is what keeps a refresh independent of total
+	// mailbox size. Canonical ids are ordered by name (exact); legacy ids by
+	// mtime. Retained ids stay in the pool so the window slides over the same
+	// population every tick; they are skipped at read time below.
+	sort.Slice(canonical, func(i, j int) bool { return canonical[i].id < canonical[j].id })
+	if len(canonical) > limit {
+		canonical = canonical[len(canonical)-limit:]
 	}
+	sort.Slice(legacy, func(i, j int) bool {
+		if !legacy[i].at.Equal(legacy[j].at) {
+			return legacy[i].at.Before(legacy[j].at)
+		}
+		return legacy[i].id < legacy[j].id
+	})
+	if len(legacy) > limit {
+		legacy = legacy[len(legacy)-limit:]
+	}
+	candidates := make([]mailboxCandidate, 0, len(canonical)+len(legacy))
+	candidates = append(candidates, canonical...)
+	candidates = append(candidates, legacy...)
 
-	messages := make([]MailMessage, 0, len(retained)+len(onDisk))
-	for _, id := range onDisk {
-		if _, loaded := retained[id]; loaded {
+	// The two per-shape windows together hold up to 2*limit ids while the
+	// snapshot keeps only `limit`, so without a further gate the ids trimmed
+	// last tick would be re-read every tick. Once the retained window is full,
+	// a candidate whose proxy instant is safely older than the oldest retained
+	// message cannot enter the final window, so its body is not worth opening.
+	// This is what makes a steady-state tick read only what actually arrived.
+	cutoff, hasCutoff := retainedWindowCutoff(retained, limit)
+
+	messages := make([]MailMessage, 0, len(retained)+len(candidates))
+	for _, candidate := range candidates {
+		if _, loaded := retained[candidate.id]; loaded {
 			continue
 		}
-		msg, ok := readMailboxMessage(folderFor[id], id)
+		if hasCutoff && candidate.at.Before(cutoff) {
+			continue
+		}
+		msg, ok := readMailboxMessage(folderFor[candidate.id], candidate.id)
 		if !ok {
 			continue
 		}
-		msg.Delivered = delivered[id]
+		msg.Delivered = delivered[candidate.id]
 		messages = append(messages, msg)
 	}
 	for id, msg := range retained {
@@ -420,9 +488,86 @@ func mailCacheKey(msg MailMessage) string {
 	return msg.ID
 }
 
-// mailboxIDsIn lists the mailbox-id directory names in folder. It reads only
+// mailboxCandidate is a listed mailbox leaf paired with the instant its
+// listing implies without opening the body: the parsed name stamp for a
+// canonical id, the leaf mtime for a legacy id. The instant only decides which
+// bodies are worth reading; display order always comes from ReceivedAt.
+type mailboxCandidate struct {
+	id string
+	at time.Time
+}
+
+// canonicalMailboxStampLayout is the fixed-width UTC prefix of a canonical
+// mailbox id (`YYYYMMDDTHHMMSS`), the part that makes lexical order
+// chronological.
+const canonicalMailboxStampLayout = "20060102T150405"
+
+// parseCanonicalMailboxID reports whether id has the `YYYYMMDDTHHMMSS-xxxx`
+// shape that newMailboxID and its kernel/portal mirrors produce today — a
+// fixed-width UTC stamp, a dash, then a suffix — and returns the stamp. Only
+// ids of this shape sort chronologically by name. Older producers named
+// leaves differently (`hb-*`, hash-style ids), and those names carry no order
+// at all, so a reader must never assume a mailbox is uniformly canonical.
+func parseCanonicalMailboxID(id string) (time.Time, bool) {
+	const stampLen = len(canonicalMailboxStampLayout)
+	if len(id) <= stampLen+1 || id[stampLen] != '-' {
+		return time.Time{}, false
+	}
+	stamp, err := time.Parse(canonicalMailboxStampLayout, id[:stampLen])
+	if err != nil {
+		return time.Time{}, false
+	}
+	return stamp, true
+}
+
+// retainedWindowCutoff returns the instant below which a candidate's proxy
+// instant proves it cannot enter the bounded window, given the messages
+// already retained. There is no cutoff while the retained window is not yet
+// full: every candidate may still fit. Once it is full, nothing older than
+// the oldest retained message can displace a retained entry, so the oldest
+// retained ReceivedAt is the bar. One second of slack absorbs the proxies'
+// imprecision: a canonical stamp is truncated to the second and so trails
+// ReceivedAt by up to a second, and an mtime is taken a few milliseconds
+// either side of it. A retained entry whose ReceivedAt does not parse
+// disables the cutoff rather than guessing.
+func retainedWindowCutoff(retained map[string]MailMessage, limit int) (time.Time, bool) {
+	if len(retained) < limit {
+		return time.Time{}, false
+	}
+	var oldest time.Time
+	for _, msg := range retained {
+		at, err := time.Parse(time.RFC3339Nano, msg.ReceivedAt)
+		if err != nil {
+			return time.Time{}, false
+		}
+		if oldest.IsZero() || at.Before(oldest) {
+			oldest = at
+		}
+	}
+	return oldest.Add(-time.Second), true
+}
+
+// isMailboxLeafName reports whether a directory entry name can be a published
+// mailbox leaf. Producers stage a leaf under a dot-prefixed scratch name (the
+// kernel's `.<id>.staging` directories, this package's own
+// `.<name>.tmp-<hex>` temps)
+// and publish it by rename, so a dot-prefixed entry is either in flight or
+// abandoned and is never a message. Deciding by name keeps the check free:
+// no stat, no open.
+func isMailboxLeafName(name string) bool {
+	return name != "" && !strings.HasPrefix(name, ".")
+}
+
+// isMailboxLeafEntry is isMailboxLeafName over a directory listing entry: a
+// mailbox leaf is a directory whose name is not a staging name.
+func isMailboxLeafEntry(entry os.DirEntry) bool {
+	return entry.IsDir() && isMailboxLeafName(entry.Name())
+}
+
+// mailboxIDsIn lists the mailbox-leaf directory names in folder. It reads only
 // the directory entry list and never opens a message body, so it stays cheap on
-// mailboxes holding tens of thousands of messages.
+// mailboxes holding tens of thousands of messages. Staging entries are
+// excluded by name (see isMailboxLeafName).
 func mailboxIDsIn(folder string) []string {
 	entries, err := os.ReadDir(folder)
 	if err != nil {
@@ -430,7 +575,7 @@ func mailboxIDsIn(folder string) []string {
 	}
 	ids := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !isMailboxLeafEntry(entry) {
 			continue
 		}
 		ids = append(ids, entry.Name())
@@ -438,16 +583,19 @@ func mailboxIDsIn(folder string) []string {
 	return ids
 }
 
-// RecentMailboxIDs returns at most the newest `limit` mailbox-leaf ids in
-// folder, chosen from the directory listing alone — no message body is opened,
-// so the caller decides what to read while still paying only one ReadDir.
+// RecentMailboxIDs returns at most the lexically newest `limit` mailbox-leaf
+// ids in folder, chosen from the directory listing alone — no message body is
+// opened, so the caller decides what to read while still paying only one
+// ReadDir. Dot-prefixed staging entries (for example `.<id>.staging`) are
+// never returned.
 //
-// It is the shared primitive for readers outside this package that need the
-// same window RefreshRecent applies internally: every producer names a mailbox
-// leaf with the sortable UTC stamp `YYYYMMDDTHHMMSS-xxxx`, so lexical order
-// over directory names is chronological order. A limit <= 0 returns every id.
-// The result is sorted oldest-first, matching the order a mailbox is displayed
-// in.
+// It is the listing primitive for readers outside this package (the /mailbox
+// page). Lexical order is chronological only for canonical
+// `YYYYMMDDTHHMMSS-xxxx` ids; a folder that also holds legacy ids (`hb-*`,
+// hash-style) is windowed by name shape, not by age, and callers that need
+// legacy-aware selection should follow RefreshRecent's per-shape approach.
+// A limit <= 0 returns every id. The result is sorted oldest-first, matching
+// the order a mailbox is displayed in.
 func RecentMailboxIDs(folder string, limit int) []string {
 	ids := mailboxIDsIn(folder)
 	sort.Strings(ids)
@@ -457,10 +605,15 @@ func RecentMailboxIDs(folder string, limit int) []string {
 	return ids
 }
 
+// readMailboxFile is the body read behind readMailboxMessage. It is a variable
+// so tests can count how many bodies a refresh opens, which is the observable
+// half of the bounded-refresh promise.
+var readMailboxFile = os.ReadFile
+
 // readMailboxMessage reads and decodes one mailbox leaf's message.json.
 // A missing or malformed body reports false and is skipped by every caller.
 func readMailboxMessage(folder, id string) (MailMessage, bool) {
-	data, err := os.ReadFile(filepath.Join(folder, id, "message.json"))
+	data, err := readMailboxFile(filepath.Join(folder, id, "message.json"))
 	if err != nil {
 		return MailMessage{}, false
 	}
@@ -498,7 +651,7 @@ func (c *MailCache) scanFolder(folder string, delivered bool) {
 		return
 	}
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !isMailboxLeafEntry(entry) {
 			continue
 		}
 		name := entry.Name()
@@ -530,7 +683,7 @@ func readMailFolder(folder string) ([]MailMessage, error) {
 	}
 	var messages []MailMessage
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !isMailboxLeafEntry(entry) {
 			continue
 		}
 		msg, ok := readMailboxMessage(folder, entry.Name())
