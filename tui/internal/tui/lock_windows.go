@@ -31,3 +31,13 @@ func tryLock(path string) bool {
 	_ = windows.UnlockFileEx(windows.Handle(f.Fd()), 0, ^uint32(0), ^uint32(0), &overlapped)
 	return true
 }
+
+func removeAgentLockIfOwned(path string) bool {
+	if !tryLock(path) {
+		return false
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return false
+	}
+	return true
+}

@@ -1276,10 +1276,9 @@ func hardRefreshDir(lingtaiCmd, dir string) error {
 	if process.IsAgentRunning(dir) {
 		_ = process.TerminateAgentProcesses(dir)
 	}
-	// Clear lingering handshake files. waitForLockClear may have force-removed
-	// .agent.lock; the others (.refresh/.refresh.taken/.suspend) get removed
-	// here so the new interpreter doesn't immediately observe a stale signal.
-	os.Remove(filepath.Join(dir, ".agent.lock"))
+	// Clear lingering handshake files. .agent.lock is removed only after taking
+	// ownership of the current lock inode; the others are one-shot markers.
+	removeAgentLockIfOwned(filepath.Join(dir, ".agent.lock"))
 	os.Remove(filepath.Join(dir, ".refresh"))
 	os.Remove(filepath.Join(dir, ".refresh.taken"))
 	os.Remove(suspendFile)
@@ -1296,20 +1295,25 @@ func hardRefreshDir(lingtaiCmd, dir string) error {
 	return waitForLaunchHeartbeat(cmd, dir, 10*time.Second)
 }
 
-// waitForLockClear polls for .agent.lock to free (force-removing it after
-// 60s if the holder is gone). Used by hardRefreshDir between suspend and
-// relaunch so we don't stomp a still-running agent's init.json.
+// waitForLockClear polls for .agent.lock to free. If the deadline expires, it
+// only removes a lock file whose current inode can be locked by this process.
+// Used by hardRefreshDir between suspend and relaunch so we don't stomp a
+// still-running agent's init.json.
 func waitForLockClear(dir string) {
 	lockFile := filepath.Join(dir, ".agent.lock")
-	for i := 0; i < 120; i++ { // 120 × 500ms = 60s max
+	for i := 0; i < lockWaitAttempts; i++ {
 		if tryLock(lockFile) {
 			return
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(lockWaitInterval)
 	}
-	// Process likely died without releasing lock — clean up
-	os.Remove(lockFile)
+	removeAgentLockIfOwned(lockFile)
 }
+
+var (
+	lockWaitAttempts = 120
+	lockWaitInterval = 500 * time.Millisecond
+)
 
 // resetActivePresetToDefault rewrites manifest.preset.active to match
 // manifest.preset.default in the agent's init.json. Best-effort: any error
@@ -1721,7 +1725,7 @@ func hardRefreshDirWithPreset(lingtaiCmd, dir, presetPath string) error {
 	if process.IsAgentRunning(dir) {
 		_ = process.TerminateAgentProcesses(dir)
 	}
-	os.Remove(filepath.Join(dir, ".agent.lock"))
+	removeAgentLockIfOwned(filepath.Join(dir, ".agent.lock"))
 	os.Remove(filepath.Join(dir, ".refresh"))
 	os.Remove(filepath.Join(dir, ".refresh.taken"))
 	os.Remove(suspendFile)
@@ -1737,22 +1741,22 @@ func hardRefreshDirWithPreset(lingtaiCmd, dir, presetPath string) error {
 	return waitForLaunchHeartbeat(cmd, dir, 10*time.Second)
 }
 
-// reviveDir waits for .agent.lock to free (force-removing it if the holder
-// is gone), then relaunches the agent. Used by /cpr (dead agent, no prior
-// suspend) and as the tail of hardRefreshDir (after writing .suspend).
+// reviveDir waits for .agent.lock to free, then relaunches the agent. Timeout
+// cleanup only removes a lock inode this process can first lock itself. Used
+// by /cpr (dead agent, no prior suspend) and as the tail of hardRefreshDir
+// (after writing .suspend).
 func reviveDir(lingtaiCmd, dir string) error {
 	lockFile := filepath.Join(dir, ".agent.lock")
 	locked := true
-	for i := 0; i < 120; i++ { // 120 × 500ms = 60s max
+	for i := 0; i < lockWaitAttempts; i++ {
 		if tryLock(lockFile) {
 			locked = false
 			break
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(lockWaitInterval)
 	}
 	if locked {
-		// Process likely died without releasing lock — clean up
-		os.Remove(lockFile)
+		removeAgentLockIfOwned(lockFile)
 	}
 	cmd, err := process.LaunchAgent(lingtaiCmd, dir)
 	if err != nil {
