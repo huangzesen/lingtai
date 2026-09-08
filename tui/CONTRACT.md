@@ -132,6 +132,21 @@ appears as the degraded state below.
    presence (R3.1), `.env` API keys (R2), `.secrets` for declared addons
    (R1), runtime/version (R1).
 
+## Preset editor service tier
+
+The preset editor exposes the same service-tier row for every provider in the
+13-name `BuiltinPresets()` catalog, including Codex Pool, API-key providers,
+CLI-backed Claude, and Custom. Its vocabulary is exactly `normal | fast` and
+the row is always visible, cyclable, and cursor-reachable; the TUI does not
+probe provider support or reject either choice. Lower layers may ignore an
+unsupported tier.
+
+Missing or `normal` `manifest.llm.service_tier` displays as `normal` and is
+omitted from the committed manifest. Selecting `fast` commits the string
+`"fast"` for every provider. Unknown legacy values display as `normal`; they
+retain the existing non-Codex preservation behavior unless the user cycles the
+row, while Codex continues to normalize unknown values to omission.
+
 ## Model list curation
 
 The model ids the TUI offers are a contract with the user: everything the

@@ -256,7 +256,9 @@ func reconcileModelForRoute(provider, baseURL, model string) string {
 	return model
 }
 
-var codexServiceTierOptions = []string{"normal", "fast"}
+// serviceTierOptions is shared by every provider row. The TUI intentionally
+// does not decide whether the lower layer supports either tier.
+var serviceTierOptions = []string{"normal", "fast"}
 
 var codexThinkingOptions = []string{"low", "medium", "high", "xhigh"}
 
@@ -750,9 +752,7 @@ func (m *PresetEditorModel) openInline() (PresetEditorModel, tea.Cmd) {
 			m.mode = emInline
 		}
 	case feServiceTier:
-		if m.isCodexProvider() {
-			m.cycleFocused(+1)
-		}
+		m.cycleFocused(+1)
 	case feThinking:
 		if m.hasThinking() {
 			m.cycleFocused(+1)
@@ -970,7 +970,7 @@ func (m PresetEditorModel) codexCLIImportAvailable() bool {
 	_, ok := readCodexCLIAuthFile(codexCLIAuthPath())
 	return ok
 }
-func (m PresetEditorModel) codexServiceTier() string {
+func (m PresetEditorModel) serviceTier() string {
 	llm, _ := m.working.Manifest["llm"].(map[string]interface{})
 	if asString(llm["service_tier"]) == "fast" {
 		return "fast"
@@ -978,9 +978,9 @@ func (m PresetEditorModel) codexServiceTier() string {
 	return "normal"
 }
 
-func (m *PresetEditorModel) setCodexServiceTier(tier string) {
+func (m *PresetEditorModel) setServiceTier(tier string) {
 	llm := m.llmMap()
-	if preset.ClassifyCredentialFamily(asString(llm["provider"])) != preset.CredentialFamilyCodexSingle || tier != "fast" {
+	if tier != "fast" {
 		delete(llm, "service_tier")
 		return
 	}
@@ -1060,13 +1060,20 @@ func (m *PresetEditorModel) setThinking(effort string) {
 
 func normalizeServiceTier(manifest map[string]interface{}) {
 	llm, _ := manifest["llm"].(map[string]interface{})
-	if llm == nil || preset.ClassifyCredentialFamily(asString(llm["provider"])) != preset.CredentialFamilyCodexSingle {
+	if llm == nil {
 		return
 	}
-	if asString(llm["service_tier"]) == "fast" {
+	tier := asString(llm["service_tier"])
+	if tier == "fast" {
 		return
 	}
-	delete(llm, "service_tier")
+	// Normal is the editor's omission sentinel for every provider. Preserve
+	// other legacy values on non-Codex manifests unless the user cycles the
+	// row, retaining the pre-existing non-Codex save compatibility; Codex's
+	// existing normalization continues to discard unknown values.
+	if tier == "normal" || preset.ClassifyCredentialFamily(asString(llm["provider"])) == preset.CredentialFamilyCodexSingle {
+		delete(llm, "service_tier")
+	}
 }
 
 func normalizeThinking(manifest map[string]interface{}) {
@@ -1347,9 +1354,7 @@ func (m *PresetEditorModel) cycleFocused(dir int) {
 			delete(m.llmMap(), "responses_transport")
 		}
 	case feServiceTier:
-		if m.isCodexProvider() {
-			m.setCodexServiceTier(cycleString(codexServiceTierOptions, m.codexServiceTier(), dir))
-		}
+		m.setServiceTier(cycleString(serviceTierOptions, m.serviceTier(), dir))
 	case feThinking:
 		if m.hasThinking() {
 			m.setThinking(cycleString(m.thinkingOptions(), m.thinkingValue(), dir))
@@ -1556,7 +1561,7 @@ func (m PresetEditorModel) fieldString(f editorField) string {
 		s, _ := llm["model"].(string)
 		return s
 	case feServiceTier:
-		return m.codexServiceTier()
+		return m.serviceTier()
 	case feThinking:
 		return m.thinkingValue()
 	case feAPICompat:
@@ -1737,7 +1742,7 @@ func (m PresetEditorModel) formRows(width int) []presetEditorRow {
 	rows = append(rows, row(feProvider, m.row(feProvider, lbl("provider"), asString(llm["provider"]), width-4)))
 	rows = append(rows, row(feModel, m.row(feModel, lbl("model"), asString(llm["model"]), width-4)))
 	if m.fieldVisible(feServiceTier) {
-		rows = append(rows, row(feServiceTier, m.row(feServiceTier, lbl("service_tier"), m.codexServiceTier(), width-4)))
+		rows = append(rows, row(feServiceTier, m.row(feServiceTier, lbl("service_tier"), m.serviceTier(), width-4)))
 	}
 	if m.fieldVisible(feThinking) {
 		rows = append(rows, row(feThinking, m.row(feThinking, lbl("thinking"), m.thinkingValue(), width-4)))
@@ -1883,13 +1888,10 @@ func (m PresetEditorModel) modelRadioStrip(focused bool, valStyle lipgloss.Style
 }
 
 func (m PresetEditorModel) serviceTierRadioStrip(focused bool, valStyle lipgloss.Style) string {
-	if !m.isCodexProvider() {
-		return ""
-	}
-	current := m.codexServiceTier()
+	current := m.serviceTier()
 	subtle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
-	parts := make([]string, 0, len(codexServiceTierOptions))
-	for _, tier := range codexServiceTierOptions {
+	parts := make([]string, 0, len(serviceTierOptions))
+	for _, tier := range serviceTierOptions {
 		if tier == current {
 			if focused {
 				parts = append(parts, valStyle.Render("● "+tier))
@@ -2020,7 +2022,7 @@ func (m PresetEditorModel) isCyclable(f editorField) bool {
 	case feProvider, feAPICompat, feTier:
 		return true
 	case feServiceTier:
-		return m.isCodexProvider()
+		return true
 	case feThinking:
 		return m.hasThinking()
 	case feWireAPI:
@@ -2150,7 +2152,7 @@ func (m *PresetEditorModel) ensureFocusedVisible() {
 func (m PresetEditorModel) fieldVisible(f editorField) bool {
 	switch f {
 	case feServiceTier:
-		return m.isCodexProvider()
+		return true
 	case feThinking:
 		return m.hasThinking()
 	case feWireAPI:
