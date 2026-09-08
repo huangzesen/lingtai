@@ -20,7 +20,9 @@
   // Override only for testing or if Tencent changes the endpoint.
   "base_url": "https://ilinkai.weixin.qq.com",
 
-  // CDN base URL for media uploads and downloads.
+  // Default CDN base URL for media downloads and safe health probes.
+  // Outbound media upload uses the dynamic pre-signed upload_full_url returned
+  // by iLink, so changing this field is not a guaranteed upload fix.
   "cdn_base_url": "https://novac2c.cdn.weixin.qq.com/c2c",
 
   // Seconds between long-poll retries.

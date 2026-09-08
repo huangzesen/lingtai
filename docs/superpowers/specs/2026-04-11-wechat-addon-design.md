@@ -43,7 +43,7 @@ All authenticated requests carry:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `base_url` | string | `https://ilinkai.weixin.qq.com` | iLink API base URL |
-| `cdn_base_url` | string | `https://novac2c.cdn.weixin.qq.com/c2c` | CDN base URL for media |
+| `cdn_base_url` | string | `https://novac2c.cdn.weixin.qq.com/c2c` | Default CDN base URL for media download/probe flows. Outbound uploads must use the dynamic pre-signed `upload_full_url` returned by iLink; changing this field is not a guaranteed upload recovery path. |
 | `poll_interval` | float | `1.0` | Seconds between long-poll retries |
 | `allowed_users` | string[] | `[]` | WeChat user IDs to accept messages from. Empty = accept all. |
 
@@ -135,6 +135,37 @@ wechat/
 - `decode_voice(silk_path: str, out_path: str)` — decodes Silk audio to WAV using `pilk`.
 - `upload_media(file_path: str, base_url: str, token: str, to_user_id: str) → CDNMedia` — gets upload URL, uploads to CDN, returns media reference.
 - File type detection by extension for correct `UploadMediaType`.
+
+### Outbound media diagnostics
+
+The upload path has two network stages with different failure meanings:
+
+1. iLink API request for a pre-signed upload destination.
+2. CDN upload to the returned `upload_full_url`.
+
+Implementations should return stage-aware, structured failures instead of a
+flattened exception string. Suggested codes:
+
+| Code | Stage | Meaning |
+|------|-------|---------|
+| `get_upload_url_failed` | iLink | Could not obtain a pre-signed upload URL. |
+| `cdn_tls_handshake_failed` | CDN upload | TLS handshake failed while connecting to the upload host. |
+| `cdn_upload_http_failed` | CDN upload | The upload host returned a non-success HTTP response. |
+| `cdn_response_metadata_missing` | CDN upload | Upload succeeded but required media metadata was absent. |
+| `send_media_reference_failed` | iLink send | Upload finished, but sending the media reference failed. |
+
+Safe diagnostics may include Python, OpenSSL, httpx/httpcore versions, failure
+stage, exception class, and the public hostname of the target URL. They must not
+include bot tokens, bearer headers, pre-signed query strings, WeChat user IDs,
+message text, local absolute paths, or file contents. When text-plus-media
+sends are supported, a delivered text item plus failed media upload should
+surface as a partial result so callers do not retry blindly.
+
+`cdn_base_url` is a configured default/probe value; the actual outbound upload
+destination is the dynamic iLink-returned `upload_full_url`. A health check may
+probe the default CDN hostname, but it must not claim that the same hostname was
+used for every media upload unless the recorded sanitized upload host confirms
+it.
 
 **`bridge.py`**
 - `incoming_to_mail(msg: WeixinMessage, media_dir: str) → Mail` — converts iLink message to LingTai internal mail.
