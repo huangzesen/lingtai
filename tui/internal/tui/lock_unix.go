@@ -22,3 +22,42 @@ func tryLock(path string) bool {
 	syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
 	return true
 }
+
+// removeAgentLockIfOwned removes path only when this process can prove that no
+// live descriptor holds the lock on its current inode: it takes a non-blocking
+// exclusive flock on the inode currently at path, and only when that succeeds
+// (the previous holder is gone) re-checks that the pathname still resolves to
+// the same inode (os.SameFile) before unlinking. If a newcomer has already
+// replaced the pathname with a fresh inode, no unlink happens, so a live
+// workdir lease can never be detached from its pathname by timeout cleanup.
+// Returns true when the path no longer needs removal.
+func removeAgentLockIfOwned(path string) bool {
+	f, err := os.OpenFile(path, os.O_RDWR, 0o644)
+	if os.IsNotExist(err) {
+		return true
+	}
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return false // still held by another live descriptor
+	}
+	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+
+	fdInfo, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	pathInfo, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return true // already gone
+	}
+	if err != nil || !os.SameFile(fdInfo, pathInfo) {
+		return false // pathname now names a different inode; leave it alone
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return false
+	}
+	return true
+}

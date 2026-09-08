@@ -31,3 +31,18 @@ func tryLock(path string) bool {
 	_ = windows.UnlockFileEx(windows.Handle(f.Fd()), 0, ^uint32(0), ^uint32(0), &overlapped)
 	return true
 }
+
+// removeAgentLockIfOwned removes path only when no other process holds the
+// lock. Windows open/delete sharing makes the POSIX unlink-inode race a
+// non-issue here, and a live holder's open handle normally blocks deletion
+// anyway; tryLock probes with the same LockFileEx the agent's holder competes
+// on. Returns true when the path no longer needs removal.
+func removeAgentLockIfOwned(path string) bool {
+	if !tryLock(path) {
+		return false
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return false
+	}
+	return true
+}
