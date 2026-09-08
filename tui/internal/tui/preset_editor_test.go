@@ -1128,36 +1128,116 @@ func TestPresetEditorProviderSwitchClearsThinking(t *testing.T) {
 	}
 }
 
-func TestPresetEditorServiceTierHiddenForNonCodexAndPreserved(t *testing.T) {
-	// gemini has no api_compat and is outside the thinking scope, so the field
-	// layout matches the classic non-codex editor (thinking row hidden).
-	m := NewPresetEditorModelWithBuiltinFlag(testLevelThinkingPreset("gemini", "", nil), "en", nil, "", false)
-	m, _ = m.Update(tea.WindowSizeMsg{Width: 140, Height: 80})
-	view := m.View()
-
-	if m.fieldVisible(feServiceTier) {
-		t.Fatalf("service tier row should be hidden for non-codex provider")
+func TestPresetEditorServiceTierAvailableForEveryBuiltin(t *testing.T) {
+	wantNames := []string{
+		"minimax", "zhipu", "mimo", "deepseek", "gemini", "kimi", "grok",
+		"nvidia", "openrouter", "codex", "codex-pool", "claude", "custom",
 	}
-	if strings.Contains(view, "service_tier") {
-		t.Fatalf("non-codex editor should not render service_tier row; view:\n%s", view)
+	gotNames := make([]string, 0, len(preset.BuiltinPresets()))
+	for _, p := range preset.BuiltinPresets() {
+		gotNames = append(gotNames, p.Name)
 	}
-
-	m.cursor = editorFieldOrderIndex(t, feModel)
-	m.moveCursor(+1)
-	if editorFieldOrder[m.cursor] == feServiceTier {
-		t.Fatalf("cursor landed on hidden service tier field for non-codex preset")
-	}
-	if editorFieldOrder[m.cursor] != feAPICompat {
-		t.Fatalf("cursor after model = %v, want feAPICompat", editorFieldOrder[m.cursor])
+	if !reflect.DeepEqual(gotNames, wantNames) {
+		t.Fatalf("BuiltinPresets() names = %#v, want %#v", gotNames, wantNames)
 	}
 
-	llm := m.working.Manifest["llm"].(map[string]interface{})
-	llm["service_tier"] = "provider-specific"
-	_, cmd := m.commit()
-	commit := cmd().(PresetEditorCommitMsg)
-	committedLLM := commit.Preset.Manifest["llm"].(map[string]interface{})
-	if got, _ := committedLLM["service_tier"].(string); got != "provider-specific" {
-		t.Fatalf("non-codex commit should preserve llm.service_tier; got %#v", committedLLM["service_tier"])
+	for _, name := range wantNames {
+		t.Run(name, func(t *testing.T) {
+			m := NewPresetEditorModelWithBuiltinFlag(builtinPresetForEditorTest(t, name), "en", nil, "", false)
+			// The custom template intentionally starts with an empty model; give
+			// this editor behavior test a valid user value before commit.
+			if asString(m.llmMap()["model"]) == "" {
+				m.llmMap()["model"] = "test-model"
+			}
+			m, _ = m.Update(tea.WindowSizeMsg{Width: 140, Height: 80})
+			view := m.View()
+
+			if !m.fieldVisible(feServiceTier) {
+				t.Fatalf("service tier row should be visible for %s", name)
+			}
+			if !m.isCyclable(feServiceTier) {
+				t.Fatalf("service tier row should be cyclable for %s", name)
+			}
+			if !strings.Contains(view, i18n.T("preset_editor.field_service_tier")) {
+				t.Fatalf("view missing service tier label for %s; view:\n%s", name, view)
+			}
+			for _, option := range serviceTierOptions {
+				if !strings.Contains(view, option) {
+					t.Fatalf("view missing service tier option %q for %s; view:\n%s", option, name, view)
+				}
+			}
+
+			// The cursor must be able to reach the shared row directly after the
+			// model row, including free-text and CLI-backed built-ins.
+			m.cursor = editorFieldOrderIndex(t, feModel)
+			m.moveCursor(+1)
+			if editorFieldOrder[m.cursor] != feServiceTier {
+				t.Fatalf("cursor after model = %v for %s, want feServiceTier", editorFieldOrder[m.cursor], name)
+			}
+			if got := m.fieldString(feServiceTier); got != "normal" {
+				t.Fatalf("missing service tier displays %q for %s, want normal", got, name)
+			}
+
+			m.llmMap()["service_tier"] = "normal"
+			_, cmd := m.commit()
+			if cmd == nil {
+				t.Fatalf("explicit normal commit returned nil command for %s", name)
+			}
+			committed := cmd().(PresetEditorCommitMsg).Preset.Manifest["llm"].(map[string]interface{})
+			if _, ok := committed["service_tier"]; ok {
+				t.Fatalf("explicit normal commit should omit service_tier for %s: %#v", name, committed["service_tier"])
+			}
+
+			m.cycleFocused(+1)
+			if got := m.llmMap()["service_tier"]; got != "fast" {
+				t.Fatalf("normal -> fast stored %#v for %s, want string fast", got, name)
+			}
+			_, cmd = m.commit()
+			if cmd == nil {
+				t.Fatalf("fast commit returned nil command for %s", name)
+			}
+			committed = cmd().(PresetEditorCommitMsg).Preset.Manifest["llm"].(map[string]interface{})
+			if got := committed["service_tier"]; got != "fast" {
+				t.Fatalf("fast commit stored %#v for %s, want string fast", got, name)
+			}
+
+			m.cycleFocused(+1)
+			if got := m.fieldString(feServiceTier); got != "normal" {
+				t.Fatalf("fast -> normal displays %q for %s, want normal", got, name)
+			}
+			if _, ok := m.llmMap()["service_tier"]; ok {
+				t.Fatalf("fast -> normal kept service_tier for %s: %#v", name, m.llmMap()["service_tier"])
+			}
+			_, cmd = m.commit()
+			if cmd == nil {
+				t.Fatalf("normal commit returned nil command for %s", name)
+			}
+			committed = cmd().(PresetEditorCommitMsg).Preset.Manifest["llm"].(map[string]interface{})
+			if _, ok := committed["service_tier"]; ok {
+				t.Fatalf("normal commit should omit service_tier for %s: %#v", name, committed["service_tier"])
+			}
+
+			// Unknown legacy/provider-specific values are displayed as normal. Keep
+			// the old non-Codex preservation behavior until the user cycles the row;
+			// Codex retains its existing normalization to omission.
+			m.llmMap()["service_tier"] = "provider-specific"
+			if got := m.fieldString(feServiceTier); got != "normal" {
+				t.Fatalf("unknown service tier displays %q for %s, want normal", got, name)
+			}
+			_, cmd = m.commit()
+			if cmd == nil {
+				t.Fatalf("unknown service tier commit returned nil command for %s", name)
+			}
+			committed = cmd().(PresetEditorCommitMsg).Preset.Manifest["llm"].(map[string]interface{})
+			_, saved := committed["service_tier"]
+			if name == "codex" {
+				if saved {
+					t.Fatalf("unknown Codex service tier should be omitted: %#v", committed["service_tier"])
+				}
+			} else if !saved || committed["service_tier"] != "provider-specific" {
+				t.Fatalf("unknown non-Codex service tier should be preserved for %s: %#v", name, committed["service_tier"])
+			}
+		})
 	}
 }
 
@@ -2173,12 +2253,12 @@ func TestPresetEditorCredentialFamilyGates(t *testing.T) {
 	}{
 		{"codex", true, true, true},
 		{"codex_oauth", true, true, true},
-		{"codex-pool", false, true, false},
-		{"codex_pool", false, true, false},
-		{"claude-code", false, false, false},
-		{"claude_code", false, false, false},
-		{"claude-agent-sdk", false, false, false},
-		{"claude_agent_sdk", false, false, false},
+		{"codex-pool", false, true, true},
+		{"codex_pool", false, true, true},
+		{"claude-code", false, false, true},
+		{"claude_code", false, false, true},
+		{"claude-agent-sdk", false, false, true},
+		{"claude_agent_sdk", false, false, true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.provider, func(t *testing.T) {
@@ -2192,7 +2272,7 @@ func TestPresetEditorCredentialFamilyGates(t *testing.T) {
 			if got := m.hasCodexThinking(); got != tc.thinking {
 				t.Fatalf("hasCodexThinking() = %v, want %v", got, tc.thinking)
 			}
-			m.setCodexServiceTier("fast")
+			m.setServiceTier("fast")
 			workingLLM := m.llmMap()
 			_, hasTier := workingLLM["service_tier"]
 			if hasTier != tc.serviceTierKey {

@@ -20,6 +20,19 @@ Drift here causes one of two failures:
 
 The second failure mode is what this file exists to prevent.
 
+## Shared service-tier editor behavior
+
+`serviceTierOptions` (`preset_editor.go`) is the one `normal | fast` vocabulary
+used by the preset editor for every provider, including Codex Pool, API-key,
+CLI-backed, and Custom built-ins. The row is always visible and cyclable. A
+missing or `normal` value displays as `normal` and omits
+`manifest.llm.service_tier` on commit; `fast` persists as the string `"fast"`.
+The TUI deliberately performs no provider support check or filtering here — a
+lower layer may ignore an unsupported tier. This is independent of the
+provider model catalogs and does not change model, reasoning, credential, or
+endpoint behavior. Unknown legacy values display as `normal`; non-Codex values
+retain the existing preservation behavior unless the user cycles the row.
+
 ## Authoritative sources per provider
 
 | Provider | Canonical list | Cadence | Notes |
