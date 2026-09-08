@@ -2,7 +2,6 @@ package tui
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -1046,18 +1045,6 @@ func (a App) handlePaletteCommand(command, args string) (tea.Model, tea.Cmd) {
 			a.currentView = appViewUpdateTUI
 			a.updateTUI = NewUpdateTUIModel(a.globalDir)
 			return a, tea.Batch(a.updateTUI.Init(), a.sendSize())
-		}
-		return a, nil
-	case "viz":
-		url, err := a.portalURL()
-		switch {
-		case err == nil:
-			openBrowser(url)
-		case errors.Is(err, errPortalNotFound):
-			addMsg("lingtai-portal not found on PATH. Run: brew link --overwrite lingtai-tui")
-		default:
-			// Start failure or readiness timeout: the error carries the log path.
-			addMsg(err.Error())
 		}
 		return a, nil
 	case "mcp":
@@ -2158,93 +2145,6 @@ func (a App) View() tea.View {
 		}
 	}
 	return v
-}
-
-// Portal startup tuning. Overridable in tests to keep the readiness poll fast.
-var (
-	portalReadyTimeout = 3 * time.Second
-	portalReadyPoll    = 200 * time.Millisecond
-)
-
-// errPortalNotFound signals lingtai-portal is not on PATH; portalStartError
-// wraps an exec.Start failure; portalTimeoutError signals the portal started
-// but never became ready. The caller distinguishes these to show an accurate
-// message.
-var errPortalNotFound = errors.New("lingtai-portal not found on PATH")
-
-type portalStartError struct {
-	err     error
-	logPath string
-}
-
-func (e *portalStartError) Error() string {
-	return "failed to start lingtai-portal: " + e.err.Error() + "; see " + e.logPath
-}
-func (e *portalStartError) Unwrap() error { return e.err }
-
-type portalTimeoutError struct{ logPath string }
-
-func (e *portalTimeoutError) Error() string {
-	return "lingtai-portal did not become ready in time; see " + e.logPath
-}
-
-// portalURL kills any existing portal and spawns a fresh one, returning its URL
-// once the portal writes .portal/port. Ownership of the child is retained until
-// readiness succeeds: on timeout or failure the child is killed and reaped so a
-// slow portal is never left detached (issue #489). Only after a URL is ready is
-// the process released, so a healthy portal survives TUI exit.
-func (a *App) portalURL() (string, error) {
-	portalRoot := filepath.Join(a.projectDir, ".portal")
-	portFile := filepath.Join(portalRoot, "port")
-	logPath := filepath.Join(portalRoot, "portal.log")
-
-	// Kill existing portal so we always get a fresh instance with the latest binary
-	exec.Command("pkill", "-f", "lingtai-portal.*--dir.*"+filepath.Dir(a.projectDir)).Run()
-	os.Remove(portFile)
-	time.Sleep(300 * time.Millisecond)
-
-	// Spawn fresh portal
-	portalCmd, _ := exec.LookPath("lingtai-portal")
-	if portalCmd == "" {
-		return "", errPortalNotFound
-	}
-
-	// Route portal output to a local log so startup failures are inspectable.
-	os.MkdirAll(portalRoot, 0o755)
-	logFile, logErr := os.Create(logPath)
-
-	cmd := exec.Command(portalCmd, "--dir", filepath.Dir(a.projectDir))
-	if logErr == nil {
-		cmd.Stdout = logFile
-		cmd.Stderr = logFile
-	}
-	if err := cmd.Start(); err != nil {
-		if logFile != nil {
-			logFile.Close()
-		}
-		return "", &portalStartError{err: err, logPath: logPath}
-	}
-	// Our copy of the log fd is no longer needed; the child holds its own.
-	if logFile != nil {
-		logFile.Close()
-	}
-
-	// Wait for the port file to appear, holding the process handle so we can
-	// reap it on failure instead of leaking a detached portal.
-	deadline := time.Now().Add(portalReadyTimeout)
-	for time.Now().Before(deadline) {
-		time.Sleep(portalReadyPoll)
-		if data, err := os.ReadFile(portFile); err == nil {
-			// Ready: release so the portal survives TUI exit.
-			cmd.Process.Release()
-			return "http://localhost:" + strings.TrimSpace(string(data)), nil
-		}
-	}
-
-	// Timed out: kill and reap the child we started.
-	cmd.Process.Kill()
-	cmd.Wait()
-	return "", &portalTimeoutError{logPath: logPath}
 }
 
 func isWSL() bool {

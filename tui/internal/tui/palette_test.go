@@ -52,7 +52,7 @@ func TestSlashPaletteFitsFrameAndScrollsSelection(t *testing.T) {
 				model, _ = app.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 				app = model.(App)
 			}
-			if marked := ansi.Strip(app.View().Content); !strings.Contains(marked, "> /export") {
+			if marked := ansi.Strip(app.View().Content); !strings.Contains(marked, "> /skills") {
 				t.Errorf("selected command is not visibly marked after scrolling:\n%s", marked)
 			}
 
@@ -65,8 +65,8 @@ func TestSlashPaletteFitsFrameAndScrollsSelection(t *testing.T) {
 			if !ok {
 				t.Fatalf("Enter emitted %T, want PaletteSelectMsg", cmd())
 			}
-			if selected.Command != "export" || selected.Args != "" {
-				t.Fatalf("Enter selected %#v, want command export with no args", selected)
+			if selected.Command != "skills" || selected.Args != "" {
+				t.Fatalf("Enter selected %#v, want command skills with no args", selected)
 			}
 		})
 	}

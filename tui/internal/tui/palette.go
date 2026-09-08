@@ -112,7 +112,6 @@ func DefaultCommands() []Command {
 		{Name: "doctor", Description: "palette.doctor", Detail: "cmd.doctor"},
 		{Name: "update", Description: "palette.update", Detail: "cmd.update"},
 		{Name: "update-tui", Description: "palette.update_tui", Detail: "cmd.update_tui"},
-		{Name: "viz", Description: "palette.viz", Detail: "cmd.viz"},
 		{Name: "mcp", Description: "palette.mcp", Detail: "cmd.mcp"},
 		{Name: "setup", Description: "palette.setup", Detail: "cmd.setup"},
 		{Name: "settings", Description: "palette.settings", Detail: "cmd.settings"},
