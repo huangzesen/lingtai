@@ -14,6 +14,25 @@ import (
 	"github.com/anthropics/lingtai-tui/internal/processscan"
 )
 
+const (
+	purgeTermGrace      = 2 * time.Second
+	purgeVerifyDeadline = 2 * time.Second
+	purgeVerifyInterval = 100 * time.Millisecond
+)
+
+var unixSignalProcess = func(pid int, sig syscall.Signal) error {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return err
+	}
+	return proc.Signal(sig)
+}
+
+type purgeResult struct {
+	purged int
+	failed int
+}
+
 func purgeMain() {
 	// Optional dir filter from os.Args[2]
 	var filterDir string
@@ -57,24 +76,52 @@ func purgeMain() {
 		return
 	}
 
-	// SIGTERM first
+	result := purgeUnixProcesses(procs, purgeTermGrace)
+	if result.failed > 0 {
+		fmt.Printf("Purged %d process(es). Failed %d process(es).\n", result.purged, result.failed)
+		return
+	}
+	fmt.Printf("Purged %d process(es).\n", result.purged)
+}
+
+func purgeUnixProcesses(procs []purgeProc, termGrace time.Duration) purgeResult {
 	for _, p := range procs {
-		if proc, err := os.FindProcess(p.pid); err == nil {
-			proc.Signal(syscall.SIGTERM)
+		_ = unixSignalProcess(p.pid, syscall.SIGTERM)
+	}
+	time.Sleep(termGrace)
+
+	var result purgeResult
+	for _, p := range procs {
+		if !unixProcessAlive(p.pid) {
+			result.purged++
+			continue
+		}
+		if err := unixSignalProcess(p.pid, syscall.SIGKILL); err != nil {
+			result.failed++
+			continue
+		}
+		if waitForUnixProcessExit(p.pid, purgeVerifyDeadline, purgeVerifyInterval) {
+			result.purged++
+		} else {
+			result.failed++
 		}
 	}
-	time.Sleep(2 * time.Second)
+	return result
+}
 
-	// SIGKILL survivors
-	killed := 0
-	for _, p := range procs {
-		if proc, err := os.FindProcess(p.pid); err == nil {
-			if proc.Signal(syscall.Signal(0)) == nil {
-				proc.Signal(syscall.SIGKILL)
-			}
+func unixProcessAlive(pid int) bool {
+	return unixSignalProcess(pid, syscall.Signal(0)) == nil
+}
+
+func waitForUnixProcessExit(pid int, deadline, interval time.Duration) bool {
+	end := time.Now().Add(deadline)
+	for {
+		if !unixProcessAlive(pid) {
+			return true
 		}
-		killed++
+		if !time.Now().Before(end) {
+			return false
+		}
+		time.Sleep(interval)
 	}
-
-	fmt.Printf("Purged %d process(es).\n", killed)
 }
